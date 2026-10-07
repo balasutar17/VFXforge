@@ -1,0 +1,57 @@
+{
+  "format": "vfxforge.effect",
+  "formatVersion": 1,
+  "id": "e-0000000000000001",
+  "name": "From the future",
+  "space": "3d",
+  "seed": 7,
+  "duration": 2.0,
+  "loop": "once",
+  "frameRate": 24.0,
+  "assets": [
+    {
+      "id": "a-0000000000000002",
+      "kind": "texture",
+      "path": "textures/smoke.png",
+      "hash": "",
+      "flipbook": {"columns": 8, "rows": 8}
+    }
+  ],
+  "layers": [
+    {
+      "id": "l-0000000000000003",
+      "name": "Smoke",
+      "enabled": true,
+      "start": 0.0,
+      "duration": 2.0,
+      "controls": [],
+      "modules": [
+        {
+          "id": "m-0000000000000004",
+          "type": "motion",
+          "gravity": [0.0, 1.5, 0.0],
+          "drag": 0.5,
+          "spin": {"random": [-90.0, 90.0]},
+          "wind": [2.0, 0.0, 0.0]
+        },
+        {
+          "id": "m-0000000000000005",
+          "type": "turbulence",
+          "strength": 2.5,
+          "octaves": 3,
+          "field": {
+            "kind": "curl",
+            "scale": [1.0, 1.0, 1.0],
+            "animated": true
+          }
+        }
+      ],
+      "solo": false,
+      "tags": ["smoke", "soft"]
+    }
+  ],
+  "platform": {
+    "mobile": {"maxParticles": 200, "note": "früh ✨"},
+    "vr": null
+  }
+}

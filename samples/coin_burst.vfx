@@ -1,0 +1,113 @@
+{
+  "format": "vfxforge.effect",
+  "formatVersion": 1,
+  "id": "e-e52b5c93420674e6",
+  "name": "Coin Burst",
+  "space": "2d",
+  "seed": 1337,
+  "duration": 2.0,
+  "loop": "once",
+  "frameRate": 30.0,
+  "assets": [],
+  "layers": [
+    {
+      "id": "l-c0cc304f5f593c72",
+      "name": "Coins",
+      "enabled": true,
+      "start": 0.0,
+      "duration": 2.0,
+      "controls": [
+        {
+          "id": "c-cb557823e8f3890b",
+          "label": "Size",
+          "targets": ["m-e89911b266b19078/size"]
+        },
+        {
+          "id": "c-33d2d9c27e7aee28",
+          "label": "Speed",
+          "targets": ["m-e89911b266b19078/speed"]
+        },
+        {
+          "id": "c-aacdc74ca4c031ef",
+          "label": "Amount",
+          "targets": ["m-6ddcfc1845bc1b6d/rate"]
+        },
+        {
+          "id": "c-0468df839ca93723",
+          "label": "Lifetime",
+          "targets": ["m-e89911b266b19078/lifetime"]
+        },
+        {
+          "id": "c-8de5030609c55d88",
+          "label": "Color",
+          "targets": ["m-e89911b266b19078/color"]
+        },
+        {
+          "id": "c-6a3ece6f4690fa14",
+          "label": "Glow",
+          "targets": ["m-97155b025368b57f/glow"]
+        },
+        {
+          "id": "c-46237d26abdab03d",
+          "label": "Spread",
+          "targets": ["m-e89911b266b19078/spread"]
+        },
+        {
+          "id": "c-d3e8f977bdb9d530",
+          "label": "Direction",
+          "targets": ["m-e89911b266b19078/direction"]
+        }
+      ],
+      "modules": [
+        {
+          "id": "m-6ddcfc1845bc1b6d",
+          "type": "emission",
+          "rate": 0.0,
+          "bursts": [{"time": 0.0, "count": 24}]
+        },
+        {
+          "id": "m-cb387728d9bc314e",
+          "type": "shape",
+          "shape": "point",
+          "radius": 1.0,
+          "size": [1.0, 1.0, 1.0],
+          "angle": 25.0,
+          "emitFrom": "volume"
+        },
+        {
+          "id": "m-e89911b266b19078",
+          "type": "initial",
+          "lifetime": {"random": [0.8, 1.4]},
+          "speed": {"random": [4.0, 7.0]},
+          "direction": [0.0, 1.0, 0.0],
+          "spread": 60.0,
+          "size": 0.2,
+          "rotation": 0.0,
+          "color": [1.0, 0.82, 0.2, 1.0]
+        },
+        {
+          "id": "m-3fafe417269505f3",
+          "type": "motion",
+          "gravity": [0.0, -9.8, 0.0],
+          "drag": 0.0,
+          "spin": 0.0
+        },
+        {
+          "id": "m-4824e9f3e8075401",
+          "type": "overLife",
+          "size": {"curve": [[0.0, 1.0], [1.0, 0.4]]},
+          "color": {"gradient": [[0.0, [1.0, 1.0, 1.0, 1.0]], [1.0, [1.0, 1.0, 1.0, 1.0]]]},
+          "opacity": {"curve": [[0.0, 1.0], [1.0, 0.0]]}
+        },
+        {
+          "id": "m-97155b025368b57f",
+          "type": "sprite",
+          "texture": null,
+          "blend": "alpha",
+          "glow": 1.0,
+          "facing": "camera"
+        }
+      ]
+    }
+  ]
+}

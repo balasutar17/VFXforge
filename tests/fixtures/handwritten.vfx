@@ -1,0 +1,24 @@
+{
+    "layers": [
+        {
+            "modules": [
+                { "type": "emission", "id": "m-22C1", "bursts": [ { "count": 24, "time": 0 } ], "rate": 0 },
+                { "type": "initial", "id": "m-22c2",
+                  "lifetime": { "random": [0.8, 1.4] },
+                  "speed": { "random": [4, 7] },
+                  "color": [1, 0.5, 0] },
+                { "type": "motion", "id": "m-22c3", "gravity": [0, -9.8, 0] },
+                { "type": "overLife", "id": "m-22c4", "size": { "curve": [[0, 1], [1, 0.4]] } },
+                { "type": "sprite", "id": "m-22c5", "texture": "a-91d0", "blend": "additive" }
+            ],
+            "name": "Coins",
+            "id": "l-7f3a"
+        }
+    ],
+    "assets": [ { "id": "a-91d0", "path": "textures/coin.png" } ],
+    "duration": 3,
+    "name": "By Hand",
+    "id": "e-5b1c",
+    "formatVersion": 1,
+    "format": "vfxforge.effect"
+}

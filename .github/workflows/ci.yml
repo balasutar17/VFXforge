@@ -1,0 +1,362 @@
+# Builds and tests VFX Forge on Windows, macOS and Linux, then packages the
+# app for Mac and Windows.
+#
+# Every job writes what it found (logs, test output, a picture of the running
+# app) into a results folder. The last job gathers those, along with the
+# packaged apps, onto the "ci-results" branch, so the outcome of a build can
+# be read with nothing more than "git fetch".
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: '6.10.1'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # ------------------------------------------------------------------ core
+  # The core and the editor layer, with every test. No Qt involved.
+  core:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: windows }
+          - { os: macos-latest, name: mac }
+          - { os: ubuntu-24.04, name: linux }
+    runs-on: ${{ matrix.os }}
+    env:
+      OUT: results/core-${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: |
+          mkdir -p "$OUT"
+          set -o pipefail
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release 2>&1 | tee "$OUT/configure.txt"
+
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake --build build --config Release --parallel 4 2>&1 | tee "$OUT/build.txt"
+
+      - name: Test
+        run: |
+          set -o pipefail
+          ctest --test-dir build -C Release --output-on-failure 2>&1 | tee "$OUT/tests.txt"
+
+      - name: Fingerprints and speed
+        run: |
+          set -o pipefail
+          CLI=build/tools/vfxcli/vfxcli
+          [ -f build/tools/vfxcli/Release/vfxcli.exe ] && CLI=build/tools/vfxcli/Release/vfxcli.exe
+          {
+            "$CLI" simulate samples/coin_burst.vfx --every 0.5
+            "$CLI" benchmark --particles 20000
+            "$CLI" benchmark --particles 20000 --3d
+          } 2>&1 | tee "$OUT/fingerprints.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-core-${{ matrix.name }}
+          path: results
+
+  # Memory and undefined-behaviour checks.
+  sanitizers:
+    runs-on: ubuntu-24.04
+    env:
+      OUT: results/sanitizers
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: |
+          mkdir -p "$OUT"
+          set -o pipefail
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DVFX_SANITIZE=ON 2>&1 | tee "$OUT/configure.txt"
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake --build build --parallel 4 2>&1 | tee "$OUT/build.txt"
+      - name: Test
+        run: |
+          set -o pipefail
+          ctest --test-dir build --output-on-failure 2>&1 | tee "$OUT/tests.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-sanitizers
+          path: results
+
+  # --------------------------------------------------------------- the app
+  app-linux:
+    # Not shipped. Built because it is the most dependable place to start the
+    # real app unattended and take a picture of it.
+    runs-on: ubuntu-24.04
+    env:
+      OUT: results/app-linux
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install what Qt needs to open a window
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libgl1-mesa-dev libgl1-mesa-dri libegl1 libopengl0 libglx-mesa0 \
+            libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xfixes0 \
+            libxcb-xkb1 libxcb-sync1 libxcb-shm0 libxcb-glx0 libxcb-util1 libx11-xcb1 \
+            libxkbcommon0 libfontconfig1 libdbus-1-3 fonts-dejavu-core
+
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: qtshadertools
+          cache: true
+
+      - name: Configure
+        run: |
+          mkdir -p "$OUT"
+          set -o pipefail
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DVFX_BUILD_APP=ON -DVFX_BUILD_TESTS=OFF \
+            "-DCMAKE_PREFIX_PATH=$QT_ROOT_DIR" 2>&1 | tee "$OUT/configure.txt"
+
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake --build build --target vfxforge --parallel 4 2>&1 | tee "$OUT/build.txt"
+
+      - name: Start the app and take a picture
+        run: |
+          set -o pipefail
+          export QT_QPA_PLATFORM=xcb
+          xvfb-run -a -s "-screen 0 1440x900x24" timeout 120 \
+            "build/app/VFX Forge" --self-test "$OUT/window.png" 2>&1 | tee "$OUT/selftest-output.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-app-linux
+          path: results
+
+  app-mac:
+    runs-on: macos-latest
+    env:
+      OUT: results/app-mac
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: qtshadertools
+          cache: true
+
+      - name: Configure
+        run: |
+          mkdir -p "$OUT"
+          set -o pipefail
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DVFX_BUILD_APP=ON -DVFX_BUILD_TESTS=OFF \
+            "-DCMAKE_PREFIX_PATH=$QT_ROOT_DIR" \
+            "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+            2>&1 | tee "$OUT/configure.txt"
+
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake --build build --target vfxforge --parallel 4 2>&1 | tee "$OUT/build.txt"
+          lipo -info "build/app/VFX Forge.app/Contents/MacOS/VFX Forge" | tee -a "$OUT/build.txt"
+
+      - name: Put Qt inside the app and sign it
+        run: |
+          set -o pipefail
+          {
+            macdeployqt "build/app/VFX Forge.app" "-qmldir=$GITHUB_WORKSPACE/app/qml" -verbose=1
+            # An ad-hoc signature: no developer account, but Apple Silicon
+            # Macs refuse to run a program that has no signature at all.
+            codesign --force --deep --sign - "build/app/VFX Forge.app"
+            codesign --verify --deep --strict --verbose=2 "build/app/VFX Forge.app"
+            du -sh "build/app/VFX Forge.app"
+          } 2>&1 | tee "$OUT/package.txt"
+
+      - name: Start the packaged app and take a picture
+        # The build machines do not always have a usable graphics card, so a
+        # failure here is recorded but does not stop the app being packaged.
+        continue-on-error: true
+        run: |
+          # Forget where Qt was installed: the app must run on what it carries.
+          unset QT_PLUGIN_PATH QML2_IMPORT_PATH QML_IMPORT_PATH QT_ROOT_DIR
+          "build/app/VFX Forge.app/Contents/MacOS/VFX Forge" --self-test "$PWD/$OUT/window.png" \
+            > "$OUT/selftest-output.txt" 2>&1 &
+          PID=$!
+          for i in $(seq 1 90); do kill -0 $PID 2>/dev/null || break; sleep 1; done
+          if kill -0 $PID 2>/dev/null; then kill -9 $PID; echo "TIMED OUT" >> "$OUT/selftest-output.txt"; fi
+          CODE=0
+          wait $PID || CODE=$?
+          cat "$OUT/selftest-output.txt"
+          exit $CODE
+
+      - name: Make the disk image and the archive
+        run: |
+          set -o pipefail
+          mkdir -p package stage
+          cp -R "build/app/VFX Forge.app" stage/
+          ln -s /Applications stage/Applications
+          for attempt in 1 2 3 4 5; do
+            hdiutil create -volname "VFX Forge" -srcfolder stage -ov -format UDZO \
+              package/VFX-Forge-mac.dmg && break
+            sleep 5
+          done
+          test -f package/VFX-Forge-mac.dmg
+          tar -czf package/VFX-Forge-mac.tar.gz -C build/app "VFX Forge.app"
+          ls -la package | tee -a "$OUT/package.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-app-mac
+          path: results
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-mac
+          path: package
+
+  app-windows:
+    runs-on: windows-latest
+    env:
+      OUT: results/app-windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: qtshadertools
+          cache: true
+
+      - name: Configure
+        run: |
+          mkdir -p "$OUT"
+          set -o pipefail
+          cmake -S . -B build -DVFX_BUILD_APP=ON -DVFX_BUILD_TESTS=OFF \
+            "-DCMAKE_PREFIX_PATH=${QT_ROOT_DIR//\\//}" 2>&1 | tee "$OUT/configure.txt"
+
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake --build build --config Release --target vfxforge --parallel 4 2>&1 | tee "$OUT/build.txt"
+
+      - name: Gather the app and everything it needs into one folder
+        run: |
+          set -o pipefail
+          mkdir -p "stage/VFX Forge"
+          cp "build/app/Release/VFX Forge.exe" "stage/VFX Forge/"
+          {
+            windeployqt --release --no-translations --no-compiler-runtime \
+              --qmldir app/qml "stage/VFX Forge/VFX Forge.exe"
+            # The Visual C++ runtime, so the app starts on a clean Windows.
+            CRT=$(ls -d "/c/Program Files/Microsoft Visual Studio/2022/"*/VC/Redist/MSVC/*/x64/Microsoft.VC*.CRT 2>/dev/null | tail -1 || true)
+            echo "Visual C++ runtime: ${CRT:-NOT FOUND}"
+            if [ -n "$CRT" ]; then cp "$CRT"/*.dll "stage/VFX Forge/"; fi
+            du -sh "stage/VFX Forge"
+          } 2>&1 | tee "$OUT/package.txt"
+
+      - name: Start the packaged app and take a picture
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          # Draw with the processor: these machines have no graphics card.
+          $env:QSG_RHI_PREFER_SOFTWARE_RENDERER = "1"
+          Remove-Item Env:QT_PLUGIN_PATH, Env:QML2_IMPORT_PATH, Env:QML_IMPORT_PATH -ErrorAction SilentlyContinue
+          $picture = Join-Path $PWD "results\app-windows\window.png"
+          $p = Start-Process -FilePath "stage\VFX Forge\VFX Forge.exe" -ArgumentList "--self-test", "`"$picture`"" -WorkingDirectory $PWD -PassThru
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); "TIMED OUT" | Tee-Object -FilePath "results\app-windows\selftest-output.txt"; exit 1 }
+          if (Test-Path "$picture.txt") { Get-Content "$picture.txt" } else { "The app wrote no report." }
+          exit $p.ExitCode
+
+      - name: Make the zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force package | Out-Null
+          Compress-Archive -Path "stage\VFX Forge" -DestinationPath "package\VFX-Forge-windows.zip"
+          Get-ChildItem package | Tee-Object -Append -FilePath "results\app-windows\package.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-app-windows
+          path: results
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-windows
+          path: package
+
+  # --------------------------------------------------------------- publish
+  publish:
+    if: always() && github.event_name != 'pull_request'
+    needs: [core, sanitizers, app-linux, app-mac, app-windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Gather results onto the ci-results branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir out && cd out
+          git init -q -b ci-results
+          for d in ../artifacts/results-*; do
+            [ -d "$d" ] && cp -R "$d"/. .
+          done
+          # The packaged apps, cut into pieces small enough to store and fetch.
+          mkdir -p packages
+          for f in ../artifacts/package-*/*; do
+            [ -f "$f" ] || continue
+            sha256sum "$f" | sed "s|  .*/|  |" >> packages/SHA256SUMS
+            split -b 20m -d "$f" "packages/$(basename "$f").part"
+          done
+          cat > SUMMARY.txt <<TXT
+          commit:      ${GITHUB_SHA}
+          run:         ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          core:        ${{ needs.core.result }}
+          sanitizers:  ${{ needs.sanitizers.result }}
+          app-linux:   ${{ needs.app-linux.result }}
+          app-mac:     ${{ needs.app-mac.result }}
+          app-windows: ${{ needs.app-windows.result }}
+          TXT
+          cat SUMMARY.txt
+          git add -A
+          git -c user.name="VFX Forge build" -c user.email="build@vfxforge.invalid" \
+            commit -qm "Results for ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-results
+
+      - name: Publish the apps as the latest build
+        if: needs.app-mac.result == 'success' && needs.app-windows.result == 'success' && needs.core.result == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete latest --cleanup-tag --yes 2>/dev/null || true
+          sleep 3
+          gh release create latest \
+            artifacts/package-mac/VFX-Forge-mac.dmg \
+            artifacts/package-windows/VFX-Forge-windows.zip \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "VFX Forge, latest build" \
+            --notes "Built automatically from commit ${GITHUB_SHA}. Mac: open the .dmg and drag VFX Forge to Applications. Windows: unzip and run VFX Forge.exe."

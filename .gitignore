@@ -1,0 +1,11 @@
+build/
+.vfxforge/
+*.tmp-*
+.DS_Store
+Thumbs.db
+compile_commands.json
+.vscode/
+.idea/
+build-log.txt
+*.user
+CMakeUserPresets.json

@@ -1,0 +1,43 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "dev",
+      "displayName": "Debug build with tests",
+      "binaryDir": "${sourceDir}/build/dev",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "release",
+      "displayName": "Optimised build with tests",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "sanitize",
+      "displayName": "Debug build with memory and undefined-behaviour checks (macOS and Linux)",
+      "binaryDir": "${sourceDir}/build/sanitize",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "VFX_SANITIZE": "ON" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "dev", "configurePreset": "dev", "configuration": "Debug" },
+    { "name": "release", "configurePreset": "release", "configuration": "Release" },
+    { "name": "sanitize", "configurePreset": "sanitize", "configuration": "Debug" }
+  ],
+  "testPresets": [
+    {
+      "name": "dev", "configurePreset": "dev", "configuration": "Debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "release", "configurePreset": "release", "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "sanitize", "configurePreset": "sanitize", "configuration": "Debug",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

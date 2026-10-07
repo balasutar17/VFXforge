@@ -1,0 +1,8 @@
+# .vfx files are canonical text with LF line endings on every platform.
+# Without this, Git on Windows would rewrite them with CRLF and every file
+# would stop being byte-identical to what VFX Forge saves.
+*.vfx text eol=lf
+*.cpp text
+*.h text
+*.md text
+*.json text
