@@ -6,7 +6,10 @@
 # editing session can be tested without opening a window. The desktop app is
 # a thin skin over this.
 add_library(vfx_editor STATIC
+    src/Picture.cpp
+    src/Presets.cpp
     src/Session.cpp
+    src/Shapes.cpp
     src/SpriteMesh.cpp
 )
 add_library(vfx::editor ALIAS vfx_editor)

@@ -1,5 +1,7 @@
 add_executable(vfx_editor_tests
+    test_presets.cpp
     test_session.cpp
+    test_shapes.cpp
     test_sprite_mesh.cpp
 )
 target_link_libraries(vfx_editor_tests PRIVATE vfx::editor catch2_amalgamated)

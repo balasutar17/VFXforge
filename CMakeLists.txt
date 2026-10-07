@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(VFXForge VERSION 0.1.2 DESCRIPTION "VFX Forge" LANGUAGES CXX)
+project(VFXForge VERSION 0.2.0 DESCRIPTION "VFX Forge" LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,6 +30,7 @@ endif()
 add_subdirectory(core)
 add_subdirectory(editor)
 add_subdirectory(tools/vfxcli)
+add_subdirectory(tools/vfxshot)
 if(VFX_BUILD_APP)
     add_subdirectory(app)
 endif()

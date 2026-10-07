@@ -60,6 +60,13 @@ enum class ShapeType : std::uint8_t { Point, Circle, Rectangle, Sphere, Box, Con
 enum class BlendMode : std::uint8_t { Alpha, Additive };
 enum class Facing : std::uint8_t { Camera, Plane };
 
+// The built-in particle pictures, in the order the "shape" property lists them.
+enum class SpriteShape : std::uint8_t {
+    Soft, Disc, Ring, Bubble, Sparkle, Star, Smoke, Square, Diamond, Heart, Streak, Flame,
+    Puff, Burst, Crescent, Orb, Glint
+};
+inline constexpr int kSpriteShapeCount = 17;
+
 struct EmitterProgram {
     Id layer;
     std::uint64_t key = 0;  // effect seed mixed with the layer's ID
@@ -110,6 +117,9 @@ struct EmitterProgram {
     BlendMode blend = BlendMode::Alpha;
     Facing facing = Facing::Camera;
     float glow = 1;
+    SpriteShape spriteShape = SpriteShape::Soft;
+    bool alongMotion = false;  // point each particle the way it is moving
+    float stretch = 0;         // seconds of travel drawn as a streak
 
     // Limits worked out at compile time, so stepping never allocates memory.
     double maxLifetime = 0;

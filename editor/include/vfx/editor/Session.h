@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "vfx/Clock.h"
@@ -52,6 +53,9 @@ public:
     // ----------------------------------------------------------- files
     void newEffect(bool threeD);
 
+    // Starts a new effect from one of the library's presets.
+    Status openPreset(std::string_view presetId);
+
     // Replaces the open effect only when the file loads. Notes from the
     // loader (repaired values, newer file version) are kept in loadNotes().
     Status open(const std::filesystem::path& path);
@@ -76,6 +80,10 @@ public:
     Status set(const Path& path, Value value);
     Status addEmitter(std::string name, Id* created = nullptr);
     Status removeLayer(Id layer);
+
+    // Adds every layer of a library preset to the open effect, as one undo
+    // step. How many layers were added is returned through added.
+    Status addPreset(std::string_view presetId, int* added = nullptr);
     Status undo();
     Status redo();
 

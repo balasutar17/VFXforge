@@ -10,12 +10,16 @@
 
 #include <QCoreApplication>
 #include <QFileInfo>
+#include <QImageReader>
 #include <QRandomGenerator>
+#include <QSettings>
 #include <QVariantMap>
 
 #include "vfx/Command.h"
 #include "vfx/FileIO.h"
+#include "vfx/Id.h"
 #include "vfx/Path.h"
+#include "vfx/editor/Presets.h"
 
 using vfx::editor::ControlView;
 
@@ -26,6 +30,19 @@ QString text(const std::string& s) { return QString::fromUtf8(s.data(), static_c
 std::string utf8(const QString& s) { return s.toUtf8().toStdString(); }
 
 std::filesystem::path toPath(const QString& localFile) { return vfx::pathFromUtf8(utf8(localFile)); }
+
+// The words shown for one choice of a property. Files store short lower-case
+// names; artists see these.
+QString optionLabel(const vfx::PropertyDesc& desc, const std::string& option) {
+    if (desc.key == "blend") {
+        return option == "additive" ? QStringLiteral("Glow") : QStringLiteral("Normal");
+    }
+    QString label = text(option);
+    if (!label.isEmpty()) {
+        label[0] = label[0].toUpper();
+    }
+    return label;
+}
 
 double clampTo(const vfx::PropertyDesc& desc, double v) {
     if (!std::isfinite(v)) {
@@ -45,7 +62,8 @@ double clampTo(const vfx::PropertyDesc& desc, double v) {
 AppController::AppController(QObject* parent) : QObject(parent) {
     rebuildLayers();
     rebuildControls();
-    say(QStringLiteral("Ready. Drag the controls on the right to shape the effect."));
+    loadBackdrop();
+    say(QStringLiteral("Ready. Pick an effect from the library, or shape this one with the controls on the right."));
 }
 
 QString AppController::version() const { return QCoreApplication::applicationVersion(); }
@@ -181,6 +199,19 @@ void AppController::rebuildControls() {
                                   static_cast<float>(std::min(1.0, vfx::editor::linearToSrgb(color->b))),
                                   static_cast<float>(std::clamp(color->a, 0.0, 1.0)));
                     row.insert(QStringLiteral("color"), shown);
+                } else if (const auto* choice = std::get_if<std::string>(&c.value);
+                           choice && d.kind == vfx::ValueKind::Enum) {
+                    // The shape picker shows pictures; any other choice shows words.
+                    kind = d.key == "shape" ? QStringLiteral("shape") : QStringLiteral("choice");
+                    row.insert(QStringLiteral("value"), text(*choice));
+                    QVariantList options;
+                    for (const std::string& option : d.options) {
+                        QVariantMap entry;
+                        entry.insert(QStringLiteral("value"), text(option));
+                        entry.insert(QStringLiteral("label"), optionLabel(d, option));
+                        options.push_back(entry);
+                    }
+                    row.insert(QStringLiteral("options"), options);
                 } else if (const auto* direction = std::get_if<vfx::Vec3>(&c.value)) {
                     kind = QStringLiteral("direction");
                     const vfx::editor::Heading h = vfx::editor::headingFromDirection(*direction);
@@ -213,8 +244,10 @@ void AppController::changed(Refresh what) {
 void AppController::newEffect(bool threeD) {
     session_.newEffect(threeD);
     selected_ = 0;
+    loadBackdrop();
     changed(Structure);
     emit playbackChanged();
+    emit viewSuggested(0.0, 0.0, 0.0);
     say(threeD ? QStringLiteral("New 3D effect.") : QStringLiteral("New 2D effect."));
 }
 
@@ -229,8 +262,10 @@ bool AppController::openPath(const QString& path) {
         return false;
     }
     selected_ = 0;
+    loadBackdrop();
     changed(Structure);
     emit playbackChanged();
+    emit viewSuggested(0.0, 0.0, 0.0);
 
     const auto& notes = session_.loadNotes();
     if (session_.readOnly()) {
@@ -534,6 +569,181 @@ void AppController::setControlDirection(int index, double heading, double tilt) 
     }
     applyControl(index, vfx::Value(vfx::editor::directionFromHeading(
                             vfx::editor::Heading{heading, threeD() ? tilt : 0.0})));
+}
+
+void AppController::setControlChoice(int index, const QString& option) {
+    ControlView c;
+    if (!control(index, c) || c.desc->kind != vfx::ValueKind::Enum) {
+        return;
+    }
+    session_.endEdit();
+    applyControl(index, vfx::Value(utf8(option)));
+}
+
+// -------------------------------------------------------------- library
+
+QVariantList AppController::presets() const {
+    QVariantList list;
+    for (const vfx::editor::PresetInfo& info : vfx::editor::presets()) {
+        QVariantMap row;
+        row.insert(QStringLiteral("id"), text(info.id));
+        row.insert(QStringLiteral("name"), text(info.name));
+        row.insert(QStringLiteral("category"), text(info.category));
+        row.insert(QStringLiteral("description"), text(info.description));
+        list.push_back(row);
+    }
+    return list;
+}
+
+QStringList AppController::presetCategories() const {
+    QStringList list;
+    for (const std::string& category : vfx::editor::presetCategories()) {
+        list.push_back(text(category));
+    }
+    return list;
+}
+
+void AppController::setLibraryOpen(bool open) {
+    if (open != libraryOpen_) {
+        libraryOpen_ = open;
+        emit libraryOpenChanged();
+    }
+}
+
+bool AppController::openPreset(const QString& id) {
+    const std::string key = utf8(id);
+    if (!report(session_.openPreset(key))) {
+        return false;
+    }
+    selected_ = 0;
+    loadBackdrop();
+    changed(Structure);
+    emit playbackChanged();
+    if (const vfx::editor::PresetInfo* info = vfx::editor::findPreset(key)) {
+        // A little room around the effect, so it does not touch the edges.
+        emit viewSuggested(static_cast<double>(info->viewX), static_cast<double>(info->viewY),
+                           static_cast<double>(info->viewHeight) * 1.25);
+        say(QStringLiteral("Opened %1 from the library. Every layer and control in it can be changed.")
+                .arg(text(info->name)));
+    }
+    return true;
+}
+
+bool AppController::addPreset(const QString& id) {
+    const int before = static_cast<int>(session_.effect().layers.size());
+    int added = 0;
+    if (!report(session_.addPreset(utf8(id), &added))) {
+        return false;
+    }
+    selected_ = before;  // the first of the new layers
+    changed(Structure);
+    const vfx::editor::PresetInfo* info = vfx::editor::findPreset(utf8(id));
+    say(QStringLiteral("Added %1 (%2 layers). Undo takes it out again.")
+            .arg(info ? text(info->name) : id)
+            .arg(added));
+    return true;
+}
+
+// ------------------------------------------------------------- backdrop
+
+QString AppController::backdropName() const {
+    return backdrop_.source.isEmpty() ? QString() : QFileInfo(backdrop_.source.toLocalFile()).fileName();
+}
+
+QString AppController::backdropKey() const {
+    return QStringLiteral("backdrops/") + text(vfx::formatId('e', session_.effect().id));
+}
+
+void AppController::loadBackdrop() {
+    QSettings settings;
+    const QString key = backdropKey();
+    Backdrop loaded;
+    const QString path = settings.value(key + QStringLiteral("/path")).toString();
+    if (!path.isEmpty() && QFileInfo::exists(path)) {
+        loaded.source = QUrl::fromLocalFile(path);
+        loaded.x = settings.value(key + QStringLiteral("/x"), 0.0).toDouble();
+        loaded.y = settings.value(key + QStringLiteral("/y"), 1.5).toDouble();
+        loaded.height = settings.value(key + QStringLiteral("/height"), 3.0).toDouble();
+        loaded.opacity = settings.value(key + QStringLiteral("/opacity"), 1.0).toDouble();
+    }
+    backdrop_ = loaded;
+    emit backdropChanged();
+}
+
+void AppController::storeBackdrop() {
+    QSettings settings;
+    const QString key = backdropKey();
+    if (backdrop_.source.isEmpty()) {
+        settings.remove(key);
+    } else {
+        settings.setValue(key + QStringLiteral("/path"), backdrop_.source.toLocalFile());
+        settings.setValue(key + QStringLiteral("/x"), backdrop_.x);
+        settings.setValue(key + QStringLiteral("/y"), backdrop_.y);
+        settings.setValue(key + QStringLiteral("/height"), backdrop_.height);
+        settings.setValue(key + QStringLiteral("/opacity"), backdrop_.opacity);
+    }
+    emit backdropChanged();
+}
+
+void AppController::setBackdrop(const QUrl& image) {
+    const QString path = image.toLocalFile();
+    if (path.isEmpty() || !QFileInfo::exists(path)) {
+        say(QStringLiteral("That picture could not be found on this computer."), true);
+        return;
+    }
+    QImageReader reader(path);
+    if (!reader.canRead()) {
+        say(QStringLiteral("That file is not a picture this version can show. Try a PNG or a JPG."), true);
+        return;
+    }
+    const double x = backdrop_.x, y = backdrop_.y, height = backdrop_.height, opacity = backdrop_.opacity;
+    const bool had = hasBackdrop();
+    backdrop_ = Backdrop{};
+    backdrop_.source = QUrl::fromLocalFile(path);
+    if (had) {  // swapping the picture keeps where the last one was
+        backdrop_.x = x;
+        backdrop_.y = y;
+        backdrop_.height = height;
+        backdrop_.opacity = opacity;
+    }
+    storeBackdrop();
+    say(QStringLiteral("Showing %1 behind the effect. Hold Option (Alt) and drag to move it, "
+                       "Option and scroll to resize it.")
+            .arg(backdropName()));
+}
+
+void AppController::clearBackdrop() {
+    backdrop_ = Backdrop{};
+    storeBackdrop();
+}
+
+void AppController::setBackdropPlace(double x, double y, double height) {
+    if (!hasBackdrop() || !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(height)) {
+        emit backdropChanged();
+        return;
+    }
+    backdrop_.x = std::clamp(x, -1000.0, 1000.0);
+    backdrop_.y = std::clamp(y, -1000.0, 1000.0);
+    backdrop_.height = std::clamp(height, 0.05, 1000.0);
+    storeBackdrop();
+}
+
+void AppController::moveBackdrop(double dx, double dy) {
+    setBackdropPlace(backdrop_.x + dx, backdrop_.y + dy, backdrop_.height);
+}
+
+void AppController::scaleBackdrop(double factor) {
+    if (std::isfinite(factor) && factor > 0.0) {
+        setBackdropPlace(backdrop_.x, backdrop_.y, backdrop_.height * factor);
+    }
+}
+
+void AppController::setBackdropOpacity(double opacity) {
+    if (!hasBackdrop() || !std::isfinite(opacity)) {
+        return;
+    }
+    backdrop_.opacity = std::clamp(opacity, 0.0, 1.0);
+    storeBackdrop();
 }
 
 // ------------------------------------------------------------- playback

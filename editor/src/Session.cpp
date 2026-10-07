@@ -8,6 +8,7 @@
 #include "vfx/FileIO.h"
 #include "vfx/Metadata.h"
 #include "vfx/Path.h"
+#include "vfx/editor/Presets.h"
 
 namespace vfx::editor {
 
@@ -97,6 +98,21 @@ void Session::newEffect(bool threeD) {
     state_->clock.play();
 }
 
+Status Session::openPreset(std::string_view presetId) {
+    IdGenerator ids = IdGenerator::fromEntropy();
+    const IdSource newId = [&ids]() { return ids.next(); };
+    auto made = makePreset(presetId, newId);
+    if (!made) {
+        return made.error();
+    }
+    adopt(std::move(made.value()));
+    path_.clear();
+    readOnly_ = false;
+    notes_.clear();
+    state_->clock.play();
+    return {};
+}
+
 Status Session::open(const std::filesystem::path& path) {
     auto loaded = loadEffect(path);
     if (!loaded) {
@@ -159,6 +175,27 @@ Status Session::addEmitter(std::string name, Id* created) {
 
 Status Session::removeLayer(Id layer) {
     return state_->commands.push(std::make_unique<RemoveLayerCommand>(layer));
+}
+
+Status Session::addPreset(std::string_view presetId, int* added) {
+    Document& doc = state_->document;
+    const IdSource newId = [&doc]() { return doc.newId(); };
+    auto made = makePreset(presetId, newId);
+    if (!made) {
+        return made.error();
+    }
+    const PresetInfo* info = findPreset(presetId);
+    std::vector<CommandPtr> steps;
+    for (Layer& layer : made.value().layers) {
+        steps.push_back(std::make_unique<AddLayerCommand>(std::move(layer)));
+    }
+    const int count = static_cast<int>(steps.size());
+    Status pushed = state_->commands.push(std::make_unique<CompositeCommand>(
+        "Add " + (info ? info->name : std::string("Preset")), std::move(steps)));
+    if (pushed && added) {
+        *added = count;
+    }
+    return pushed;
 }
 
 Status Session::undo() { return state_->commands.undo(); }

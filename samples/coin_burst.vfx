@@ -56,6 +56,16 @@
           "id": "c-d3e8f977bdb9d530",
           "label": "Direction",
           "targets": ["m-e89911b266b19078/direction"]
+        },
+        {
+          "id": "c-5b1e0c7a94d2f631",
+          "label": "Shape",
+          "targets": ["m-97155b025368b57f/shape"]
+        },
+        {
+          "id": "c-2f8a6d41c3e97b05",
+          "label": "Blend",
+          "targets": ["m-97155b025368b57f/blend"]
         }
       ],
       "modules": [
@@ -105,7 +115,10 @@
           "texture": null,
           "blend": "alpha",
           "glow": 1.0,
-          "facing": "camera"
+          "facing": "camera",
+          "shape": "soft",
+          "align": "none",
+          "stretch": 0.0
         }
       ]
     }

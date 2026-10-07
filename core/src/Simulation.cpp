@@ -647,6 +647,9 @@ void Simulation::extract(RenderFrame& frame) const {
         batch.blend = e.blend;
         batch.facing = e.facing;
         batch.glow = e.glow;
+        batch.shape = e.spriteShape;
+        batch.alongMotion = e.alongMotion;
+        batch.stretch = e.stretch;
         batch.first = at;
         batch.count = em.count;
         frame.batches.push_back(batch);
@@ -657,6 +660,9 @@ void Simulation::extract(RenderFrame& frame) const {
         const float* x = em.f[kX].data();
         const float* y = em.f[kY].data();
         const float* z = em.f[kZ].data();
+        const float* vx = em.f[kVX].data();
+        const float* vy = em.f[kVY].data();
+        const float* vz = em.f[kVZ].data();
         const float* age = em.f[kAge].data();
         const float* life = em.f[kLife].data();
         const float* size = em.f[kSize].data();
@@ -672,6 +678,9 @@ void Simulation::extract(RenderFrame& frame) const {
             out.x = x[i];
             out.y = y[i];
             out.z = z[i];
+            out.vx = vx[i];
+            out.vy = vy[i];
+            out.vz = vz[i];
             out.size = sizeCurve ? size[i] * evalCurve(e.sizeOverLife.keys, lived) : size[i];
             out.rotation = rot[i] * kDegreesToRadiansF;
             out.r = r[i];
@@ -719,11 +728,14 @@ std::uint64_t hashFrame(const RenderFrame& frame) {
         h = det::mix64(h ^ static_cast<std::uint64_t>(b.blend));
         h = det::mix64(h ^ static_cast<std::uint64_t>(b.facing));
         h = det::mix64(h ^ bits(b.glow));
+        h = det::mix64(h ^ static_cast<std::uint64_t>(b.shape));
+        h = det::mix64(h ^ (b.alongMotion ? 1u : 0u));
+        h = det::mix64(h ^ bits(b.stretch));
         h = det::mix64(h ^ b.first);
         h = det::mix64(h ^ b.count);
     }
     for (const auto& s : frame.instances) {
-        for (float v : {s.x, s.y, s.z, s.size, s.rotation, s.r, s.g, s.b, s.a}) {
+        for (float v : {s.x, s.y, s.z, s.size, s.rotation, s.r, s.g, s.b, s.a, s.vx, s.vy, s.vz}) {
             h = det::mix64(h ^ bits(v));
         }
     }

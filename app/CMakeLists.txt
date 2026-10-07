@@ -11,6 +11,10 @@ qt_add_executable(vfxforge WIN32 MACOSX_BUNDLE
     src/main.cpp
     src/AppController.cpp
     src/AppController.h
+    src/PreviewItems.cpp
+    src/PreviewItems.h
+    src/SpriteNode.cpp
+    src/SpriteNode.h
     src/ViewportItem.cpp
     src/ViewportItem.h
 )
@@ -41,6 +45,9 @@ qt_add_resources(vfxforge "vfxforge_qml"
         qml/ControlColor.qml
         qml/ControlDirection.qml
         qml/ControlNote.qml
+        qml/ControlChoice.qml
+        qml/ControlShape.qml
+        qml/Library.qml
 )
 
 # One shader source, translated at build time for Metal, Direct3D and OpenGL.

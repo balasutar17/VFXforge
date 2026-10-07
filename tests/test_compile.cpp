@@ -404,3 +404,36 @@ TEST_CASE("Compiling never fails, whatever valid values a layer holds") {
         }
     }
 }
+
+TEST_CASE("Compile: every sprite shape, alignment and stretch") {
+    Effect effect = oneLayer();
+    Layer& layer = effect.layers[0];
+
+    // A new layer draws upright soft dots.
+    auto e = compileLayer(effect, layer);
+    CHECK(e->spriteShape == SpriteShape::Soft);
+    CHECK_FALSE(e->alongMotion);
+    CHECK(e->stretch == 0.0f);
+
+    // The enum follows the order the property lists its options in.
+    const auto& options = Registry::builtin().findModule("sprite")->find("shape")->options;
+    REQUIRE(options.size() == static_cast<std::size_t>(kSpriteShapeCount));
+    CHECK(options.front() == "soft");
+    CHECK(options[static_cast<std::size_t>(SpriteShape::Bubble)] == "bubble");
+    CHECK(options[static_cast<std::size_t>(SpriteShape::Heart)] == "heart");
+    CHECK(options[static_cast<std::size_t>(SpriteShape::Flame)] == "flame");
+    CHECK(options[static_cast<std::size_t>(SpriteShape::Puff)] == "puff");
+    CHECK(options.back() == "glint");
+    for (std::size_t i = 0; i < options.size(); ++i) {
+        put(layer, "sprite", "shape", text(options[i].c_str()));
+        CHECK(static_cast<std::size_t>(compileLayer(effect, layer)->spriteShape) == i);
+    }
+
+    // Stretch only means something when particles point along their movement.
+    put(layer, "sprite", "stretch", number(0.2));
+    CHECK(compileLayer(effect, layer)->stretch == 0.0f);
+    put(layer, "sprite", "align", text("movement"));
+    e = compileLayer(effect, layer);
+    CHECK(e->alongMotion);
+    CHECK(e->stretch == 0.2f);
+}

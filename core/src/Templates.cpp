@@ -1,6 +1,7 @@
 #include "vfx/Templates.h"
 
 #include <utility>
+#include <vector>
 
 namespace vfx {
 
@@ -45,6 +46,24 @@ Layer makeBasicEmitter(const IdSource& newId, std::string name) {
     bind("Glow", sprite, "glow");
     bind("Spread", initial, "spread");
     bind("Direction", initial, "direction");
+    bind("Shape", sprite, "shape");
+    bind("Blend", sprite, "blend");
+
+    // The order an artist reads them in: what it looks like first, then how
+    // much of it there is, then how it moves. The IDs above are handed out
+    // in the older order so that effects made by earlier versions and by
+    // this one get the same IDs for the same things.
+    const char* order[] = {"Shape", "Color", "Blend", "Glow", "Size", "Amount", "Lifetime",
+                           "Speed", "Spread", "Direction"};
+    std::vector<SimpleControl> arranged;
+    for (const char* label : order) {
+        for (SimpleControl& control : layer.controls) {
+            if (control.label == label) {
+                arranged.push_back(std::move(control));
+            }
+        }
+    }
+    layer.controls = std::move(arranged);
 
     return layer;
 }

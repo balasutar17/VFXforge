@@ -59,4 +59,5 @@ camera puts a particle, how colours are prepared for blending) lives in
 
 ## Status
 
-See the "ci-results" branch for the outcome of the latest automatic build.
+See the "ci-results" branch for the outcome of the latest automatic build, and
+[library-and-shapes.md](library-and-shapes.md) for what version 0.2 added.

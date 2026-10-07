@@ -22,6 +22,7 @@
 #include <QtQml>
 
 #include "AppController.h"
+#include "PreviewItems.h"
 #include "ViewportItem.h"
 
 #ifndef VFX_APP_VERSION
@@ -52,13 +53,51 @@ void fillTheme(QQmlPropertyMap& theme) {
 // --self-test <picture.png>
 //
 // Used by the automatic builds, where nobody is watching: start the real
-// app, let it run for a few seconds, save a picture of the window, and fail
-// loudly if the window did not load cleanly or no particles appeared.
+// app, let it run, take pictures of the window in three states (the starter
+// effect, a library preset, and the library itself), and fail loudly if the
+// window did not load cleanly or nothing was drawn.
 struct SelfTest {
     bool enabled = false;
     QString picture;
     QStringList problems;
+    QString report;
+    int result = 0;
 };
+
+// Saves a picture of the window beside the first one, with a suffix, and
+// returns how many clearly lit pixels the middle of it has.
+int capture(QQuickWindow* window, SelfTest& test, const QString& suffix, const QString& what) {
+    QTextStream out(&test.report);
+    const QImage image = window->grabWindow();
+    if (image.isNull()) {
+        out << "FAIL: a picture of " << what << " could not be taken\n";
+        test.result = 1;
+        return 0;
+    }
+    int lit = 0;
+    const int x0 = image.width() * 3 / 10, x1 = image.width() * 7 / 10;
+    const int y0 = image.height() * 2 / 10, y1 = image.height() * 7 / 10;
+    for (int y = y0; y < y1; ++y) {
+        for (int x = x0; x < x1; ++x) {
+            const QRgb pixel = image.pixel(x, y);
+            if (qMax(qRed(pixel), qMax(qGreen(pixel), qBlue(pixel))) > 140) {
+                ++lit;
+            }
+        }
+    }
+    QFileInfo first(test.picture);
+    const QString path = suffix.isEmpty()
+        ? test.picture
+        : first.absolutePath() + QLatin1Char('/') + first.completeBaseName() + suffix + QStringLiteral(".png");
+    QDir().mkpath(first.absolutePath());
+    if (!image.save(path)) {
+        out << "FAIL: the picture of " << what << " could not be saved to " << path << "\n";
+        test.result = 1;
+    }
+    out << "picture of " << what << ": " << image.width() << "x" << image.height() << ", " << lit
+        << " lit pixels in the middle\n";
+    return lit;
+}
 
 }  // namespace
 
@@ -84,6 +123,8 @@ int main(int argc, char* argv[]) {
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
     qmlRegisterType<ViewportItem>("VfxForge", 1, 0, "Viewport");
+    qmlRegisterType<PresetPreview>("VfxForge", 1, 0, "PresetPreview");
+    qmlRegisterType<ShapeIcon>("VfxForge", 1, 0, "ShapeIcon");
     qmlRegisterUncreatableType<AppController>("VfxForge", 1, 0, "AppController",
                                               QStringLiteral("The app provides this."));
 
@@ -100,6 +141,9 @@ int main(int argc, char* argv[]) {
                      });
     engine.rootContext()->setContextProperty(QStringLiteral("app"), &controller);
     engine.rootContext()->setContextProperty(QStringLiteral("theme"), &theme);
+    // A fresh start opens on the library. Opening a file goes straight to it.
+    engine.rootContext()->setContextProperty(QStringLiteral("showLibraryAtStart"),
+                                             !selfTest.enabled && fileToOpen.isEmpty());
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
 
     if (engine.rootObjects().isEmpty()) {
@@ -116,90 +160,95 @@ int main(int argc, char* argv[]) {
 
     if (selfTest.enabled) {
         auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().constFirst());
-        QTimer::singleShot(4000, &application, [&, window]() {
-            int result = 0;
-            QString report;
-            QTextStream out(&report);
-            out << "SELF-TEST VFX Forge " << VFX_APP_VERSION << "\n";
-            if (window) {
-                out << "graphics: " << static_cast<int>(window->rendererInterface()->graphicsApi())
-                    << " (QSGRendererInterface::GraphicsApi)\n";
+        if (!window) {
+            std::fprintf(stderr, "SELF-TEST FAILED: the main window is not a window\n");
+            return 2;
+        }
+        const bool software =
+            window->rendererInterface()->graphicsApi() == QSGRendererInterface::Software;
+
+        auto finish = [&]() {
+            QTextStream out(&selfTest.report);
+            for (const QString& problem : selfTest.problems) {
+                out << "FAIL: " << problem << "\n";
+                selfTest.result = 1;
             }
+            out << (selfTest.result == 0 ? "SELF-TEST PASS\n" : "SELF-TEST FAILED\n");
+            out.flush();
+            // A windowed program on Windows has no console to print to, so
+            // the report also goes into a file beside the picture.
+            std::fputs(qPrintable(selfTest.report), stdout);
+            std::fflush(stdout);
+            QFile file(selfTest.picture + QStringLiteral(".txt"));
+            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                file.write(selfTest.report.toUtf8());
+            }
+            QCoreApplication::exit(selfTest.result);
+        };
+
+        // Third: the library, with every card playing.
+        auto third = [&, window, software, finish]() {
+            const int lit = capture(window, selfTest, QStringLiteral("-library"), QStringLiteral("the library"));
+            if (!software && lit < 500) {
+                QTextStream(&selfTest.report) << "FAIL: the library shows no previews\n";
+                selfTest.result = 1;
+            }
+            finish();
+        };
+
+        // Second: a toon preset, which uses the hard-edged shapes.
+        auto second = [&, window, software, third]() {
+            QTextStream out(&selfTest.report);
+            out << "preset: " << controller.effectName() << ", " << controller.particleCount()
+                << " particles\n";
+            const int lit = capture(window, selfTest, QStringLiteral("-preset"), QStringLiteral("a preset"));
+            if (!software && lit < 500) {
+                out << "FAIL: the preset shows nothing\n";
+                selfTest.result = 1;
+            }
+            controller.setLibraryOpen(true);
+            QTimer::singleShot(2500, &application, third);
+        };
+
+        // First: the starter effect.
+        QTimer::singleShot(4000, &application, [&, window, software, second]() {
+            QTextStream out(&selfTest.report);
+            out << "SELF-TEST VFX Forge " << VFX_APP_VERSION << "\n";
+            out << "graphics: " << static_cast<int>(window->rendererInterface()->graphicsApi())
+                << " (QSGRendererInterface::GraphicsApi)\n";
             const bool shaders = QFile::exists(QStringLiteral(":/shaders/sprite.vert.qsb")) &&
                                  QFile::exists(QStringLiteral(":/shaders/sprite.frag.qsb"));
             out << "shaders present: " << (shaders ? "yes" : "NO") << "\n";
             out << "particles alive: " << controller.particleCount() << "\n";
             out << "frame: " << controller.frame() << "  time: " << controller.time() << "\n";
             out << "frames per second: " << controller.framesPerSecond() << "\n";
-
+            out << "presets in the library: " << controller.presets().size() << "\n";
             if (!shaders) {
                 out << "FAIL: the particle shaders are missing from the app\n";
-                result = 1;
+                selfTest.result = 1;
             }
             if (controller.particleCount() <= 0) {
                 out << "FAIL: no particles after four seconds\n";
-                result = 1;
+                selfTest.result = 1;
             }
             if (controller.time() <= 0.0) {
                 out << "FAIL: time did not move, so the window is not being redrawn\n";
-                result = 1;
+                selfTest.result = 1;
             }
-            for (const QString& problem : selfTest.problems) {
-                out << "FAIL: " << problem << "\n";
-                result = 1;
+            if (software) {
+                out << "note: drawing without a graphics card, which cannot show particles, "
+                       "so the pictures are not checked\n";
             }
-            if (window) {
-                const QImage image = window->grabWindow();
-                if (image.isNull()) {
-                    out << "FAIL: a picture of the window could not be taken\n";
-                    result = 1;
-                } else {
-                    // Count clearly lit, warm pixels in the middle of the
-                    // window, where the viewport is: proof particles were drawn.
-                    int lit = 0;
-                    const int x0 = image.width() * 3 / 10, x1 = image.width() * 7 / 10;
-                    const int y0 = image.height() * 2 / 10, y1 = image.height() * 7 / 10;
-                    for (int y = y0; y < y1; ++y) {
-                        for (int x = x0; x < x1; ++x) {
-                            const QRgb pixel = image.pixel(x, y);
-                            if (qRed(pixel) > 150 && qRed(pixel) > qBlue(pixel) + 40) {
-                                ++lit;
-                            }
-                        }
-                    }
-                    out << "picture: " << image.width() << "x" << image.height() << ", " << lit
-                        << " lit particle pixels\n";
-                    QDir().mkpath(QFileInfo(selfTest.picture).absolutePath());
-                    if (!image.save(selfTest.picture)) {
-                        out << "FAIL: the picture could not be saved to " << selfTest.picture << "\n";
-                        result = 1;
-                    }
-                    const bool software = window->rendererInterface()->graphicsApi() ==
-                                          QSGRendererInterface::Software;
-                    if (software) {
-                        out << "note: drawing without a graphics card, which cannot show "
-                               "particles, so the picture is not checked\n";
-                    } else if (lit < 50) {
-                        out << "FAIL: the viewport shows no particles\n";
-                        result = 1;
-                    }
-                }
-            } else {
-                out << "FAIL: the main window is not a window\n";
-                result = 1;
+            const int lit = capture(window, selfTest, QString(), QStringLiteral("the starter effect"));
+            if (!software && lit < 50) {
+                out << "FAIL: the viewport shows no particles\n";
+                selfTest.result = 1;
             }
-            out << (result == 0 ? "SELF-TEST PASS\n" : "SELF-TEST FAILED\n");
-            out.flush();
-
-            // A windowed program on Windows has no console to print to, so
-            // the report also goes into a file beside the picture.
-            std::fputs(qPrintable(report), stdout);
-            std::fflush(stdout);
-            QFile file(selfTest.picture + QStringLiteral(".txt"));
-            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-                file.write(report.toUtf8());
+            if (!controller.openPreset(QStringLiteral("toon-explosion"))) {
+                out << "FAIL: a library preset would not open\n";
+                selfTest.result = 1;
             }
-            QCoreApplication::exit(result);
+            QTimer::singleShot(350, &application, second);
         });
     }
 

@@ -115,18 +115,51 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
         const bool additive = batch.blend == BlendMode::Additive;
         const bool onPlane = !frame.flat && batch.facing == Facing::Plane;
         const float glow = batch.glow > 0.0f ? batch.glow : 0.0f;
+        const auto shape = static_cast<float>(batch.shape);
 
         for (std::uint32_t n = 0; n < batch.count; ++n) {
             const SpriteInstance& p = frame.instances[batch.first + n];
             if (!(p.a > 0.0f) || !(p.size > 0.0f)) {
                 continue;
             }
+            const float z = frame.flat ? 0.0f : p.z;
             float px = 0, py = 0, scale = 1;
-            if (!project(camera, p.x, p.y, frame.flat ? 0.0f : p.z, px, py, scale)) {
+            if (!project(camera, p.x, p.y, z, px, py, scale)) {
                 continue;
             }
             const float half = p.size * 0.5f;
-            const float reach = half * scale * 1.5f;  // a turned square reaches further than its side
+            const float halfPx = half * scale;
+
+            // The particle's own two axes, as steps across the screen in
+            // pixels: axisX runs from its centre to the middle of its right
+            // edge, axisY to the middle of its top edge.
+            const float cs = std::cos(p.rotation), sn = std::sin(p.rotation);
+            float axX = cs * halfPx, axY = -sn * halfPx;
+            float ayX = -sn * halfPx, ayY = -cs * halfPx;
+
+            if (batch.alongMotion && !onPlane) {
+                // Where it will be a moment from now says which way it is
+                // heading on screen, and how fast.
+                const float moment = 1.0f / 120.0f;
+                float qx = 0, qy = 0, qs = 1;
+                if (project(camera, p.x + p.vx * moment, p.y + p.vy * moment,
+                            frame.flat ? 0.0f : z + p.vz * moment, qx, qy, qs)) {
+                    const float sx = (qx - px) / moment, sy = (qy - py) / moment;
+                    const float speed = std::sqrt(sx * sx + sy * sy);
+                    if (speed > 1e-3f) {
+                        const float dx = sx / speed, dy = sy / speed;
+                        const float length = halfPx + 0.5f * batch.stretch * speed;
+                        axX = dx * length;
+                        axY = dy * length;
+                        ayX = dy * halfPx;
+                        ayY = -dx * halfPx;
+                    }
+                }
+            }
+
+            const float lenX = std::sqrt(axX * axX + axY * axY);
+            const float lenY = std::sqrt(ayX * ayX + ayY * ayY);
+            const float reach = (lenX + lenY) * 1.05f;
             if (px + reach < 0.0f || px - reach > view.width || py + reach < 0.0f ||
                 py - reach > view.height) {
                 continue;
@@ -134,38 +167,34 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
 
             const float alpha = p.a > 1.0f ? 1.0f : p.a;
             const float strength = alpha * glow;
-            const float r = toScreen(p.r) * strength;
-            const float g = toScreen(p.g) * strength;
-            const float b = toScreen(p.b) * strength;
-            const float a = additive ? 0.0f : alpha;
+            SpriteVertex v;
+            v.r = toScreen(p.r) * strength;
+            v.g = toScreen(p.g) * strength;
+            v.b = toScreen(p.b) * strength;
+            v.a = additive ? 0.0f : alpha;
+            v.shape = shape;
+            v.aaX = 1.0f / (lenX > 0.25f ? lenX : 0.25f);
+            v.aaY = 1.0f / (lenY > 0.25f ? lenY : 0.25f);
 
-            const float cs = std::cos(p.rotation), sn = std::sin(p.rotation);
             const auto base = static_cast<std::uint32_t>(mesh.vertices.size());
             bool visible = true;
             for (int k = 0; k < 4; ++k) {
-                // The corner, turned by the particle's rotation, in world units.
-                const float ox = (cornerX[k] * cs - cornerY[k] * sn) * half;
-                const float oy = (cornerX[k] * sn + cornerY[k] * cs) * half;
-                SpriteVertex v;
                 if (onPlane) {
                     // Lying flat on the effect's own plane: each corner is a
                     // real point in the world and is projected by itself.
+                    const float ox = (cornerX[k] * cs - cornerY[k] * sn) * half;
+                    const float oy = (cornerX[k] * sn + cornerY[k] * cs) * half;
                     float s = 1;
                     if (!project(camera, p.x + ox, p.y + oy, p.z, v.x, v.y, s)) {
                         visible = false;
                         break;
                     }
                 } else {
-                    // Facing the camera: offset on screen. Screen y runs down.
-                    v.x = px + ox * scale;
-                    v.y = py - oy * scale;
+                    v.x = px + cornerX[k] * axX + cornerY[k] * ayX;
+                    v.y = py + cornerX[k] * axY + cornerY[k] * ayY;
                 }
                 v.u = cornerU[k];
                 v.v = cornerV[k];
-                v.r = r;
-                v.g = g;
-                v.b = b;
-                v.a = a;
                 mesh.vertices.push_back(v);
             }
             if (!visible) {

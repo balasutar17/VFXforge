@@ -24,6 +24,19 @@ ApplicationWindow {
     // True while a question is on screen; keyboard shortcuts wait for it.
     readonly property bool asking: unsaved.visible
 
+    Component.onCompleted: if (showLibraryAtStart) app.libraryOpen = true
+
+    // Opening a preset or a file says which part of the world to look at.
+    Connections {
+        target: app
+        function onViewSuggested(x, y, unitsHigh) {
+            if (unitsHigh > 0)
+                viewport.frame(x, y, unitsHigh)
+            else
+                viewport.resetView()
+        }
+    }
+
     function guard(action) {
         if (app.dirty) {
             pendingAction = action
@@ -75,6 +88,15 @@ ApplicationWindow {
     Shortcut { enabled: !root.asking; sequence: "Home"; onActivated: app.restart() }
     Shortcut { enabled: !root.asking; sequence: ","; onActivated: app.stepFrames(-1) }
     Shortcut { enabled: !root.asking; sequence: "."; onActivated: app.stepFrames(1) }
+    Shortcut { enabled: !root.asking && app.libraryOpen; sequence: "Escape"; onActivated: app.libraryOpen = false }
+
+    FileDialog {
+        id: backdropDialog
+        title: "Choose a picture to show behind the effect"
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["Pictures (*.png *.jpg *.jpeg *.webp *.bmp *.gif)", "All files (*)"]
+        onAccepted: app.setBackdrop(selectedFile)
+    }
 
     FileDialog {
         id: openDialog
@@ -117,6 +139,7 @@ ApplicationWindow {
                 anchors.rightMargin: 12
                 spacing: 6
 
+                VButton { primary: true; text: "Library"; tip: "Browse the ready-made effects"; onClicked: app.libraryOpen = true }
                 VButton { text: "New 2D"; tip: "Start a new flat effect"; onClicked: root.guard(function() { app.newEffect(false) }) }
                 VButton { text: "New 3D"; tip: "Start a new effect with depth"; onClicked: root.guard(function() { app.newEffect(true) }) }
                 VButton { text: "Open…"; tip: "Open a .vfx file"; onClicked: root.guard(function() { openDialog.open() }) }
@@ -200,6 +223,43 @@ ApplicationWindow {
                         text: "Try another variation"
                         tip: "Same settings, different random result"
                         onClicked: app.newVariation()
+                    }
+
+                    Item { Layout.preferredHeight: 6 }
+                    PanelTitle { Layout.fillWidth: true; text: "Backdrop"; detail: app.backdropName }
+
+                    VButton {
+                        Layout.fillWidth: true
+                        visible: !app.hasBackdrop
+                        text: "Import a picture…"
+                        tip: "Show a character, button or scene behind the effect"
+                        onClicked: backdropDialog.open()
+                    }
+                    GridLayout {
+                        Layout.fillWidth: true
+                        visible: app.hasBackdrop
+                        columns: 2
+                        columnSpacing: 8
+                        rowSpacing: 6
+
+                        Text { text: "Height (units)"; color: theme.dim; font.pixelSize: theme.fontSize; Layout.fillWidth: true }
+                        VNumberField { value: app.backdropHeight; decimals: 2; onEdited: function(v) { app.setBackdropPlace(app.backdropX, app.backdropY, v) } }
+
+                        Text { text: "Opacity"; color: theme.dim; font.pixelSize: theme.fontSize }
+                        VSlider {
+                            Layout.fillWidth: true
+                            from: 0
+                            to: 1
+                            value: app.backdropOpacity
+                            onMoved: function(v) { app.setBackdropOpacity(v) }
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: app.hasBackdrop
+                        spacing: 6
+                        VButton { Layout.fillWidth: true; text: "Change…"; onClicked: backdropDialog.open() }
+                        VButton { Layout.fillWidth: true; text: "Remove"; onClicked: app.clearBackdrop() }
                     }
 
                     Item { Layout.preferredHeight: 6 }
@@ -301,6 +361,20 @@ ApplicationWindow {
                     color: theme.viewport
                     clip: true
 
+                    // The backdrop: a picture to work against, behind everything.
+                    Image {
+                        visible: app.hasBackdrop && viewport.unitScale > 0
+                        source: app.backdropSource
+                        asynchronous: true
+                        smooth: true
+                        mipmap: true
+                        opacity: app.backdropOpacity
+                        height: app.backdropHeight * viewport.unitScale
+                        width: implicitHeight > 0 ? height * implicitWidth / implicitHeight : height
+                        x: viewport.origin.x + app.backdropX * viewport.unitScale - width / 2
+                        y: viewport.origin.y - app.backdropY * viewport.unitScale - height / 2
+                    }
+
                     // Where the effect starts from.
                     Item {
                         visible: viewport.originVisible
@@ -327,13 +401,24 @@ ApplicationWindow {
                             forceActiveFocus()
                         }
                         onPositionChanged: function(mouse) {
-                            var secondary = mouse.buttons !== Qt.LeftButton || (mouse.modifiers & Qt.ShiftModifier)
-                            viewport.dragBy(mouse.x - lastX, mouse.y - lastY, secondary ? true : false)
+                            if ((mouse.modifiers & Qt.AltModifier) && app.hasBackdrop && viewport.unitScale > 0) {
+                                // Option-drag moves the backdrop, not the camera.
+                                app.moveBackdrop((mouse.x - lastX) / viewport.unitScale,
+                                                 -(mouse.y - lastY) / viewport.unitScale)
+                            } else {
+                                var secondary = mouse.buttons !== Qt.LeftButton || (mouse.modifiers & Qt.ShiftModifier)
+                                viewport.dragBy(mouse.x - lastX, mouse.y - lastY, secondary ? true : false)
+                            }
                             lastX = mouse.x
                             lastY = mouse.y
                         }
                         onWheel: function(wheel) {
-                            viewport.zoomBy(wheel.angleDelta.y / 120.0, wheel.x, wheel.y)
+                            // Some systems turn Option-scroll into sideways scrolling.
+                            var turned = wheel.angleDelta.y !== 0 ? wheel.angleDelta.y : wheel.angleDelta.x
+                            if ((wheel.modifiers & Qt.AltModifier) && app.hasBackdrop)
+                                app.scaleBackdrop(Math.pow(1.1, turned / 120.0))
+                            else
+                                viewport.zoomBy(turned / 120.0, wheel.x, wheel.y)
                         }
                         onDoubleClicked: viewport.resetView()
                     }
@@ -510,6 +595,8 @@ ApplicationWindow {
                                 Component.onCompleted: {
                                     var kind = modelData.kind
                                     var file = kind === "number" ? "ControlNumber.qml"
+                                             : kind === "shape" ? "ControlShape.qml"
+                                             : kind === "choice" ? "ControlChoice.qml"
                                              : kind === "range" ? "ControlRange.qml"
                                              : kind === "color" ? "ControlColor.qml"
                                              : kind === "direction" ? "ControlDirection.qml"
@@ -562,6 +649,25 @@ ApplicationWindow {
                 color: theme.faint
                 font.pixelSize: theme.smallFontSize
             }
+        }
+    }
+
+    // ------------------------------------------------------ the library
+
+    Library {
+        id: library
+        anchors.fill: parent
+        visible: app.libraryOpen
+        onCloseRequested: app.libraryOpen = false
+        onOpenRequested: function(presetId) {
+            root.guard(function() {
+                if (app.openPreset(presetId))
+                    app.libraryOpen = false
+            })
+        }
+        onAddRequested: function(presetId) {
+            if (app.addPreset(presetId))
+                app.libraryOpen = false
         }
     }
 

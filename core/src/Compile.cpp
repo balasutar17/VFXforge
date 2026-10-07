@@ -271,6 +271,16 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
                                                                   : BlendMode::Alpha;
         e->facing = sprite.get<std::string>("facing") == "plane" ? Facing::Plane : Facing::Camera;
         e->glow = f(sprite.get<double>("glow"));
+
+        const std::string picture = sprite.get<std::string>("shape");
+        const auto& options = Registry::builtin().findModule("sprite")->find("shape")->options;
+        for (std::size_t i = 0; i < options.size() && i < static_cast<std::size_t>(kSpriteShapeCount); ++i) {
+            if (options[i] == picture) {
+                e->spriteShape = static_cast<SpriteShape>(i);
+            }
+        }
+        e->alongMotion = sprite.get<std::string>("align") == "movement";
+        e->stretch = e->alongMotion ? f(sprite.get<double>("stretch")) : 0.0f;
     }
 
     // ------------------------------------------------------------- capacity

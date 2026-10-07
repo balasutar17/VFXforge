@@ -18,10 +18,12 @@ namespace vfx::editor {
 // an additive particle is simply one whose alpha is zero.
 struct SpriteVertex {
     float x = 0, y = 0;  // pixels from the top-left of the viewport
-    float u = 0, v = 0;  // 0..1 across the particle
+    float u = 0, v = 0;  // 0..1 across the particle; v runs downward
     float r = 0, g = 0, b = 0, a = 0;
+    float shape = 0;         // which built-in picture (a SpriteShape, as a number)
+    float aaX = 1, aaY = 1;  // the size of one pixel, in the particle's own -1..1 units
 };
-static_assert(sizeof(SpriteVertex) == 32, "the graphics code copies these as raw bytes");
+static_assert(sizeof(SpriteVertex) == 44, "the graphics code copies these as raw bytes");
 
 // How the effect is looked at.
 struct View {

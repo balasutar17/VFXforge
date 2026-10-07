@@ -23,6 +23,7 @@ struct SpriteInstance {
     float size = 0;
     float rotation = 0;  // radians
     float r = 1, g = 1, b = 1, a = 1;  // straight alpha, linear colour
+    float vx = 0, vy = 0, vz = 0;      // units per second, for streaks
 };
 
 // A run of instances drawn with the same settings: one per drawn layer.
@@ -32,6 +33,9 @@ struct RenderBatch {
     BlendMode blend = BlendMode::Alpha;
     Facing facing = Facing::Camera;
     float glow = 1;
+    SpriteShape shape = SpriteShape::Soft;
+    bool alongMotion = false;  // point each particle the way it is moving
+    float stretch = 0;         // seconds of travel drawn as a streak
     std::uint32_t first = 0;
     std::uint32_t count = 0;
 };

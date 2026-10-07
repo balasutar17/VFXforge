@@ -132,13 +132,28 @@ Registry::Registry() {
         P("texture", "Texture", ValueKind::Asset, AssetRef{})
             .help("The image drawn for each particle. None draws a soft dot."),
         P("blend", "Blend Mode", ValueKind::Enum, text("alpha"))
-            .options({"alpha", "additive"}),
+            .simple()
+            .options({"alpha", "additive"})
+            .help("Alpha covers what is behind it. Additive adds light, so overlaps glow."),
         P("glow", "Glow", ValueKind::Float, num(1.0))
             .simple().range(0, 1000).ui(0, 10)
             .help("Brightness multiplier. Above 1 the particle glows."),
         P("facing", "Facing", ValueKind::Enum, text("camera"))
             .options({"camera", "plane"})
             .help("Turn toward the camera, or stay flat on the effect's plane."),
+        P("shape", "Shape", ValueKind::Enum, text("soft"))
+            .simple()
+            .options({"soft", "disc", "ring", "bubble", "sparkle", "star", "smoke", "square",
+                      "diamond", "heart", "streak", "flame", "puff", "burst", "crescent", "orb",
+                      "glint"})
+            .help("What each particle looks like when it has no texture."),
+        P("align", "Align", ValueKind::Enum, text("none"))
+            .options({"none", "movement"})
+            .help("Keep each particle upright, or point it the way it is moving."),
+        P("stretch", "Stretch", ValueKind::Float, num(0.0))
+            .unit("seconds").range(0, 10).ui(0, 0.3)
+            .help("Draws a moving particle as a streak this many seconds of travel long. "
+                  "Needs Align set to movement."),
     }));
 
     effect_ = module("effect", "Effect", Stage::Update, {

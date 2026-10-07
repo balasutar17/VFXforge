@@ -712,6 +712,9 @@ TEST_CASE("A frame holds one batch per drawn layer, in stack order") {
     put(third, "sprite", "glow", number(4));
     put(third, "sprite", "facing", text("plane"));
     put(third, "sprite", "texture", Value(AssetRef{}));
+    put(third, "sprite", "shape", text("sparkle"));
+    put(third, "sprite", "align", text("movement"));
+    put(third, "sprite", "stretch", number(0.05));
     effect.layers.push_back(third);
 
     Simulation sim = simulate(effect, 40);
@@ -731,9 +734,27 @@ TEST_CASE("A frame holds one batch per drawn layer, in stack order") {
     CHECK(frame.batches[1].blend == BlendMode::Additive);
     CHECK(frame.batches[1].facing == Facing::Plane);
     CHECK(frame.batches[1].glow == 4.0f);
+    CHECK(frame.batches[0].shape == SpriteShape::Soft);
+    CHECK_FALSE(frame.batches[0].alongMotion);
+    CHECK(frame.batches[0].stretch == 0.0f);
+    CHECK(frame.batches[1].shape == SpriteShape::Sparkle);
+    CHECK(frame.batches[1].alongMotion);
+    CHECK(frame.batches[1].stretch == 0.05f);
     CHECK(frame.batches[1].first == frame.batches[0].count);
     CHECK(frame.instances.size() == frame.batches[0].count + frame.batches[1].count);
     CHECK(sim.aliveCount() > frame.instances.size());  // the undrawn layer is still simulated
+
+    // Each drawn particle carries its velocity, for streaks.
+    const ParticleView live = sim.particles(0);
+    REQUIRE(live.count == frame.batches[0].count);
+    bool moving = false;
+    for (std::uint32_t i = 0; i < live.count; ++i) {
+        REQUIRE(frame.instances[i].vx == live.vx[i]);
+        REQUIRE(frame.instances[i].vy == live.vy[i]);
+        REQUIRE(frame.instances[i].vz == live.vz[i]);
+        moving = moving || live.vx[i] != 0.0f || live.vy[i] != 0.0f;
+    }
+    CHECK(moving);
 
     // Taking a frame does not disturb the simulation, and is repeatable.
     const std::uint64_t before = sim.stateHash();

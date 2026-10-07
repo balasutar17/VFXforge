@@ -13,6 +13,8 @@ class ViewportItem : public QQuickItem {
     // Where the effect's origin sits in the viewport, for the marker.
     Q_PROPERTY(QPointF origin READ origin NOTIFY viewChanged)
     Q_PROPERTY(bool originVisible READ originVisible NOTIFY viewChanged)
+    // How many pixels one world unit covers at the origin.
+    Q_PROPERTY(double unitScale READ unitScale NOTIFY viewChanged)
     Q_PROPERTY(int drawnCount READ drawnCount NOTIFY drawnCountChanged)
 
 public:
@@ -23,12 +25,15 @@ public:
 
     QPointF origin() const;
     bool originVisible() const;
+    double unitScale() const;
     int drawnCount() const { return drawnCount_; }
 
     // Mouse handling lives in the window; these do the camera arithmetic.
     Q_INVOKABLE void dragBy(double dx, double dy, bool secondary);
     Q_INVOKABLE void zoomBy(double steps, double atX, double atY);
     Q_INVOKABLE void resetView();
+    // Shows the given world point in the middle, with this many units top to bottom.
+    Q_INVOKABLE void frame(double x, double y, double unitsHigh);
 
 signals:
     void controllerChanged();

@@ -9,6 +9,7 @@
 #include <QColor>
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QUrl>
 #include <QVariantList>
 
@@ -57,6 +58,21 @@ class AppController : public QObject {
     Q_PROPERTY(QString warning READ warning NOTIFY frameChanged)
     Q_PROPERTY(QString version READ version CONSTANT)
 
+    // The effect library.
+    Q_PROPERTY(QVariantList presets READ presets CONSTANT)
+    Q_PROPERTY(QStringList presetCategories READ presetCategories CONSTANT)
+    Q_PROPERTY(bool libraryOpen READ libraryOpen WRITE setLibraryOpen NOTIFY libraryOpenChanged)
+
+    // A picture shown behind the effect, to work against. It is not part of
+    // the effect and is remembered on this computer only.
+    Q_PROPERTY(QUrl backdropSource READ backdropSource NOTIFY backdropChanged)
+    Q_PROPERTY(QString backdropName READ backdropName NOTIFY backdropChanged)
+    Q_PROPERTY(bool hasBackdrop READ hasBackdrop NOTIFY backdropChanged)
+    Q_PROPERTY(double backdropX READ backdropX NOTIFY backdropChanged)
+    Q_PROPERTY(double backdropY READ backdropY NOTIFY backdropChanged)
+    Q_PROPERTY(double backdropHeight READ backdropHeight NOTIFY backdropChanged)
+    Q_PROPERTY(double backdropOpacity READ backdropOpacity NOTIFY backdropChanged)
+
 public:
     explicit AppController(QObject* parent = nullptr);
 
@@ -98,12 +114,37 @@ public:
     QString warning() const { return warning_; }
     QString version() const;
 
+    QVariantList presets() const;
+    QStringList presetCategories() const;
+    bool libraryOpen() const { return libraryOpen_; }
+    void setLibraryOpen(bool open);
+
+    QUrl backdropSource() const { return backdrop_.source; }
+    QString backdropName() const;
+    bool hasBackdrop() const { return !backdrop_.source.isEmpty(); }
+    double backdropX() const { return backdrop_.x; }
+    double backdropY() const { return backdrop_.y; }
+    double backdropHeight() const { return backdrop_.height; }
+    double backdropOpacity() const { return backdrop_.opacity; }
+
     // ------------------------------------------------------------ files
     Q_INVOKABLE void newEffect(bool threeD);
     Q_INVOKABLE bool openFile(const QUrl& file);
     Q_INVOKABLE bool openPath(const QString& path);
     Q_INVOKABLE bool save();  // false when there is no file yet, or it failed
     Q_INVOKABLE bool saveAs(const QUrl& file);
+
+    // ---------------------------------------------------------- library
+    Q_INVOKABLE bool openPreset(const QString& id);  // replaces the open effect
+    Q_INVOKABLE bool addPreset(const QString& id);   // adds its layers to the open effect
+
+    // --------------------------------------------------------- backdrop
+    Q_INVOKABLE void setBackdrop(const QUrl& image);
+    Q_INVOKABLE void clearBackdrop();
+    Q_INVOKABLE void setBackdropPlace(double x, double y, double height);
+    Q_INVOKABLE void moveBackdrop(double dx, double dy);
+    Q_INVOKABLE void scaleBackdrop(double factor);
+    Q_INVOKABLE void setBackdropOpacity(double opacity);
 
     // ------------------------------------------------------------ edits
     Q_INVOKABLE void undo();
@@ -129,6 +170,7 @@ public:
     Q_INVOKABLE void setControlRandom(int index, bool random);
     Q_INVOKABLE void setControlColor(int index, const QColor& color);
     Q_INVOKABLE void setControlDirection(int index, double heading, double tilt);
+    Q_INVOKABLE void setControlChoice(int index, const QString& option);
 
     // --------------------------------------------------------- playback
     Q_INVOKABLE void togglePlay();
@@ -152,6 +194,11 @@ signals:
     void messageChanged();
     // The picture needs drawing again.
     void redraw();
+    void libraryOpenChanged();
+    void backdropChanged();
+    // The viewport should show this part of the world: the point in the
+    // middle and how many units fit top to bottom. Zero height means "reset".
+    void viewSuggested(double x, double y, double unitsHigh);
 
 private:
     enum Refresh { Values = 0, Structure = 1 };
@@ -165,6 +212,16 @@ private:
     vfx::Id selectedLayerId() const;
     bool control(int index, vfx::editor::ControlView& out) const;
     void applyControl(int index, const vfx::Value& value);
+    void loadBackdrop();
+    void storeBackdrop();
+    QString backdropKey() const;
+
+    struct Backdrop {
+        QUrl source;
+        double x = 0.0, y = 1.5, height = 3.0, opacity = 1.0;
+    };
+    Backdrop backdrop_;
+    bool libraryOpen_ = false;
 
     vfx::editor::Session session_;
     QVariantList layers_;

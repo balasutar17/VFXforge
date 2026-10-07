@@ -15,8 +15,8 @@ using IdSource = std::function<Id()>;
 Effect makeEmptyEffect(const IdSource& newId, std::string name, bool threeD);
 
 // A layer with one of every Phase 1 module at its default, plus the Simple
-// controls bound to them: Size, Speed, Amount, Lifetime, Color, Glow, Spread
-// and Direction.
+// controls bound to them: Size, Speed, Amount, Lifetime, Color, Glow, Spread,
+// Direction, Shape and Blend.
 Layer makeBasicEmitter(const IdSource& newId, std::string name);
 
 }  // namespace vfx

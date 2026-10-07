@@ -13,9 +13,13 @@ What exists so far:
   gives the same result on every machine
 - the **editor layer**: what an editing session is (open, edit, undo, play,
   scrub, save), with no window attached, so every rule is tested without one
-- the **desktop app**: a window with a live viewport, layers, the Simple
-  controls, playback, open and save. This is the first build of it; what it
-  does and does not do yet is in [docs/app-first-build.md](docs/app-first-build.md)
+- the **desktop app**: a window with a live viewport, an effect library of
+  ready-made presets, layers, the Simple controls, a backdrop picture to work
+  against, playback, open and save. What it does and does not do yet is in
+  [docs/app-first-build.md](docs/app-first-build.md) and
+  [docs/library-and-shapes.md](docs/library-and-shapes.md)
+- **`vfxshot`**, which draws any effect or preset to a PNG with no window and
+  no graphics card
 - **`vfxcli`**, a command-line tool that drives the core with no UI
 - a **test suite**, including random edit sequences, a fuzzed file loader and
   pinned simulation fingerprints
@@ -80,6 +84,7 @@ core/          the library: no UI toolkit, no graphics API
 editor/        an editing session and the particle mesh: still no UI toolkit
 app/           the desktop app (Qt 6): window, viewport, packaging
 tools/vfxcli/  command-line tool, links core only
+tools/vfxshot/ pictures of effects and presets, links the editor layer
 tests/         core test suite and fixture files
 samples/       example .vfx files
 third_party/   vendored libraries and their licences
