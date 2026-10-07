@@ -2,7 +2,7 @@
 
 ## What was added
 
-**An effect library.** 36 presets in nine groups: Toon, Blasts, Fire, Water,
+**An effect library.** 37 presets in nine groups: Toon, Blasts, Fire, Water,
 Glow and magic, Frames, Shooting, Rewards and Weather. The library opens as a
 gallery in which every card is the effect itself, playing. Clicking a card
 opens the preset as a new effect; "Add to my effect" puts its layers into the
@@ -12,10 +12,10 @@ A preset is an ordinary effect built from ordinary modules
 (`editor/src/Presets.cpp`). Nothing in the simulation or the renderer knows
 what a preset is, so everything in one can be changed after opening it.
 
-**Particle shapes.** Seventeen built-in shapes, chosen per layer with the new
+**Particle shapes.** Eighteen built-in shapes, chosen per layer with the new
 Shape control: soft, disc, ring, bubble, sparkle, star, smoke, square,
-diamond, heart, streak, flame, and five hard-edged toon shapes with a lighter
-inner tone and a shadow: puff, burst, crescent, orb and glint. Each shape is
+diamond, heart, streak, flame, and six hard-edged toon shapes with a lighter
+inner tone: puff, burst, crescent, orb, glint and blaze. Each shape is
 a formula, not an image, so it is sharp at any size.
 
 The formulas exist twice and must be kept the same: `editor/src/Shapes.cpp`

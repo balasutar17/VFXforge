@@ -423,7 +423,8 @@ TEST_CASE("Compile: every sprite shape, alignment and stretch") {
     CHECK(options[static_cast<std::size_t>(SpriteShape::Heart)] == "heart");
     CHECK(options[static_cast<std::size_t>(SpriteShape::Flame)] == "flame");
     CHECK(options[static_cast<std::size_t>(SpriteShape::Puff)] == "puff");
-    CHECK(options.back() == "glint");
+    CHECK(options[static_cast<std::size_t>(SpriteShape::Glint)] == "glint");
+    CHECK(options.back() == "blaze");
     for (std::size_t i = 0; i < options.size(); ++i) {
         put(layer, "sprite", "shape", text(options[i].c_str()));
         CHECK(static_cast<std::size_t>(compileLayer(effect, layer)->spriteShape) == i);

@@ -253,6 +253,20 @@ Effect magicOrb(const IdSource& id) {
     return e;
 }
 
+Effect toonFire(const IdSource& id) {
+    Effect e = begin(id, "Toon Fire", 4.0);
+    add(e, Make(id, "Flames").rate(13).circle(0.45).life(0.55, 0.9).speed(1.4, 2.6).aim(90, 8)
+               .size(1.1, 1.8).turn(-14, 14).color(0xff6a14).gravity(0, 1.2)
+               .sizeOver({{0, 0.35}, {0.25, 1.0}, {0.7, 0.75}, {1, 0}}).solid().look("blaze"));
+    add(e, Make(id, "Hot flames").rate(11).circle(0.3).life(0.4, 0.65).speed(1.0, 1.9).aim(90, 6)
+               .size(0.7, 1.1).turn(-12, 12).color(0xffc531).gravity(0, 1.0)
+               .sizeOver({{0, 0.4}, {0.25, 1.0}, {1, 0}}).solid().look("blaze"));
+    add(e, Make(id, "Bits").rate(9).circle(0.5).life(0.7, 1.2).speed(2.2, 3.8).aim(90, 22)
+               .size(0.08, 0.16).color(0xffb347).gravity(0, 0.6)
+               .sizeOver({{0, 1}, {0.6, 0.8}, {1, 0}}).solid().look("disc"));
+    return e;
+}
+
 Effect toonSparkles(const IdSource& id) {
     Effect e = begin(id, "Toon Sparkles", 4.0);
     add(e, Make(id, "Big glints").rate(5).circle(1.8).life(0.6, 1.0).speed(0, 0.3).aim(90, 180)
@@ -755,6 +769,7 @@ const std::vector<Entry>& table() {
         {describe("toon-hit", "Toon Hit", "Toon", "A spiky flash for a hit landing.", 0, 0, 5.2f, 0.08), toonHit},
         {describe("toon-explosion", "Toon Explosion", "Toon", "A flat-shaded explosion of fire and smoke puffs.", 0, 0.2f, 6.4f, 0.25), toonExplosion},
         {describe("slash", "Slash", "Toon", "A blade swipe.", 0.9f, 0.3f, 5.4f, 0.1), slash},
+        {describe("toon-fire", "Toon Fire", "Toon", "A flat-shaded fire with a hot core.", 0, 1.3f, 5.2f, 2.0), toonFire},
         {describe("magic-orb", "Magic Orb", "Toon", "A floating orb with glints around it.", 0, 0, 5.4f, 2.0), magicOrb},
         {describe("toon-sparkles", "Toon Sparkles", "Toon", "Flat four-pointed sparkles, for anything shiny.", 0, 0, 5.2f, 2.0), toonSparkles},
 

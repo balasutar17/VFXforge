@@ -61,6 +61,20 @@ void PresetPreview::advance(double seconds) {
         simulation_->seek(target);
     }
     simulation_->extract(frame_);
+
+    // A short burst is over in half a second and then waits out the rest of
+    // its loop. In the gallery that would leave the card empty most of the
+    // time, so here it starts again soon after it has gone quiet.
+    if (frame_.instances.empty()) {
+        quiet_ += seconds;
+        if (quiet_ > 0.35) {
+            quiet_ = 0.0;
+            time_ = 0.0;
+            simulation_->seek(0);
+        }
+    } else {
+        quiet_ = 0.0;
+    }
     update();
 }
 

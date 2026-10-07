@@ -73,6 +73,18 @@ float spikes(vec2 p, float reach) {
     return reach * (0.38 + (longer - 0.38) * pow(1.0 - across, 1.5));
 }
 
+// A hard-edged flame leaning to one side: negative inside, positive outside.
+float blaze(vec2 p, float bottom, float top, float girth) {
+    float t = (p.y - bottom) / (top - bottom);
+    if (t <= 0.0 || t >= 1.0) {
+        return 1.0;
+    }
+    float base = (0.3 - min(t, 0.3)) / 0.3;
+    float taper = 1.0 - max(t - 0.3, 0.0) / 0.7;
+    float width = girth * sqrt(clamp(1.0 - base * base, 0.0, 1.0)) * pow(taper, 0.9);
+    return (abs(p.x - 0.16 * t * t) - width) * 0.8;
+}
+
 void main() {
     // Across the particle from -1 to 1, with y pointing up.
     vec2 p = vec2(vTexCoord.x * 2.0 - 1.0, 1.0 - vTexCoord.y * 2.0);
@@ -155,10 +167,13 @@ void main() {
         float shine = edge(length(p - vec2(-0.34, 0.36)) - 0.24, pixel);
         float shade = 1.0 - edge(length(p - vec2(-0.16, 0.16)) - 0.84, pixel);
         tone = shine - 0.7 * shade;
-    } else {                     // glint
+    } else if (shape == 16) {    // glint
         float s = sqrt(abs(p.x)) + sqrt(abs(p.y));
         cover = edge((s - 0.95) * (0.5 * r + 0.12), pixel);
         tone = edge((s - 0.6) * (0.5 * r + 0.12), pixel);
+    } else {                     // blaze
+        cover = edge(blaze(p, -0.92, 0.95, 0.62), pixel);
+        tone = edge(blaze(p + vec2(0.02, 0.0), -0.74, 0.42, 0.36), pixel);
     }
 
     // Toon shading: a highlight moves toward white at the particle's own

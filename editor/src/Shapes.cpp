@@ -74,6 +74,19 @@ float spikes(float x, float y, float reach) {
     return reach * (0.38f + (longer - 0.38f) * std::pow(1.0f - across, 1.5f));
 }
 
+// A hard-edged flame leaning to one side: negative inside, positive outside.
+// Not a true distance, but close enough near the edge to soften it.
+float blaze(float x, float y, float bottom, float top, float girth) {
+    const float t = (y - bottom) / (top - bottom);
+    if (t <= 0.0f || t >= 1.0f) {
+        return 1.0f;
+    }
+    const float base = (0.3f - std::min(t, 0.3f)) / 0.3f;
+    const float taper = 1.0f - std::max(t - 0.3f, 0.0f) / 0.7f;
+    const float width = girth * std::sqrt(clamp01(1.0f - base * base)) * std::pow(taper, 0.9f);
+    return (std::fabs(x - 0.16f * t * t) - width) * 0.8f;
+}
+
 }  // namespace
 
 ShapeSample sampleShape(SpriteShape shape, float x, float y, float aaX, float aaY) {
@@ -217,6 +230,12 @@ ShapeSample sampleShape(SpriteShape shape, float x, float y, float aaX, float aa
             out.tone = edge((s - 0.6f) * (0.5f * r + 0.12f), pixel);
             break;
         }
+
+        case SpriteShape::Blaze:
+            // A toon flame with a lighter flame inside it.
+            out.cover = edge(blaze(x, y, -0.92f, 0.95f, 0.62f), pixel);
+            out.tone = edge(blaze(x + 0.02f, y, -0.74f, 0.42f, 0.36f), pixel);
+            break;
     }
     return out;
 }
@@ -228,7 +247,7 @@ float shapeCoverage(SpriteShape shape, float x, float y, float aaX, float aaY) {
 const char* shapeName(SpriteShape shape) {
     static const char* names[kSpriteShapeCount] = {
         "soft", "disc", "ring", "bubble", "sparkle", "star", "smoke", "square", "diamond",
-        "heart", "streak", "flame", "puff", "burst", "crescent", "orb", "glint"};
+        "heart", "streak", "flame", "puff", "burst", "crescent", "orb", "glint", "blaze"};
     const auto i = static_cast<int>(shape);
     return i >= 0 && i < kSpriteShapeCount ? names[i] : "soft";
 }

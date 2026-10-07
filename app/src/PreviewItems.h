@@ -39,6 +39,7 @@ private:
     vfx::editor::PresetInfo info_;
     std::unique_ptr<vfx::Simulation> simulation_;
     double time_ = 0.0;
+    double quiet_ = 0.0;  // how long nothing has been on screen
     vfx::RenderFrame frame_;
     vfx::editor::SpriteMesh mesh_;
 };

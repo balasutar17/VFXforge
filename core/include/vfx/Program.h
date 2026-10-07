@@ -63,9 +63,9 @@ enum class Facing : std::uint8_t { Camera, Plane };
 // The built-in particle pictures, in the order the "shape" property lists them.
 enum class SpriteShape : std::uint8_t {
     Soft, Disc, Ring, Bubble, Sparkle, Star, Smoke, Square, Diamond, Heart, Streak, Flame,
-    Puff, Burst, Crescent, Orb, Glint
+    Puff, Burst, Crescent, Orb, Glint, Blaze
 };
-inline constexpr int kSpriteShapeCount = 17;
+inline constexpr int kSpriteShapeCount = 18;
 
 struct EmitterProgram {
     Id layer;

@@ -145,7 +145,7 @@ Registry::Registry() {
             .simple()
             .options({"soft", "disc", "ring", "bubble", "sparkle", "star", "smoke", "square",
                       "diamond", "heart", "streak", "flame", "puff", "burst", "crescent", "orb",
-                      "glint"})
+                      "glint", "blaze"})
             .help("What each particle looks like when it has no texture."),
         P("align", "Align", ValueKind::Enum, text("none"))
             .options({"none", "movement"})
