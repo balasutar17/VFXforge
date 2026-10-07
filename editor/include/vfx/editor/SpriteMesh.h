@@ -31,14 +31,14 @@ struct View {
     // 2D effects: a flat camera. centre is the world point in the middle of
     // the viewport, and unitsHigh is how much of the world fits top to bottom.
     float centerX = 0;
-    float centerY = 2;
-    float unitsHigh = 10;
+    float centerY = 1.5f;
+    float unitsHigh = 7;
 
     // 3D effects: a camera that orbits a target point.
-    float targetX = 0, targetY = 2, targetZ = 0;
+    float targetX = 0, targetY = 1.5f, targetZ = 0;
     float yaw = 30;       // degrees around the vertical axis
     float pitch = 15;     // degrees above the horizon
-    float distance = 14;  // world units from the target
+    float distance = 10;  // world units from the target
     float fieldOfView = 40;  // degrees, top to bottom
 };
 

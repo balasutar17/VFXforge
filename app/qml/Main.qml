@@ -369,16 +369,41 @@ ApplicationWindow {
                 }
                 Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: theme.line }
 
-                // ---- transport
+                // ---- transport: the scrub bar, then the buttons
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 48
+                    Layout.preferredHeight: 76
                     color: theme.panel
 
+                    VSlider {
+                        id: scrub
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.leftMargin: 6
+                        anchors.rightMargin: 6
+                        anchors.topMargin: 6
+                        height: 22
+                        property bool resume: false
+                        from: 0
+                        to: app.duration
+                        value: app.time
+                        onDragStarted: {
+                            resume = app.playing
+                            app.pause()
+                        }
+                        onMoved: function(v) { app.seek(v) }
+                        onDragEnded: if (resume) app.play()
+                    }
+
                     RowLayout {
-                        anchors.fill: parent
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
                         anchors.leftMargin: 10
                         anchors.rightMargin: 12
+                        anchors.bottomMargin: 9
+                        height: 30
                         spacing: 6
 
                         VButton { text: "Restart"; tip: "Play from the start (Home)"; onClicked: app.restart() }
@@ -389,44 +414,28 @@ ApplicationWindow {
                             tip: "Play or pause (Space)"
                             onClicked: app.togglePlay()
                         }
-                        VButton { text: "‹ Frame"; tip: "Back one frame (,)"; onClicked: app.stepFrames(-1) }
-                        VButton { text: "Frame ›"; tip: "Forward one frame (.)"; onClicked: app.stepFrames(1) }
-
-                        VSlider {
-                            id: scrub
-                            Layout.fillWidth: true
-                            Layout.leftMargin: 6
-                            Layout.rightMargin: 6
-                            property bool resume: false
-                            from: 0
-                            to: app.duration
-                            value: app.time
-                            onDragStarted: {
-                                resume = app.playing
-                                app.pause()
-                            }
-                            onMoved: function(v) { app.seek(v) }
-                            onDragEnded: if (resume) app.play()
-                        }
+                        VButton { text: "\u2039 Frame"; tip: "Back one frame (,)"; onClicked: app.stepFrames(-1) }
+                        VButton { text: "Frame \u203a"; tip: "Forward one frame (.)"; onClicked: app.stepFrames(1) }
 
                         Text {
-                            Layout.preferredWidth: 150
-                            horizontalAlignment: Text.AlignRight
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 8
                             text: app.time.toFixed(2) + " s    frame " + (app.frame + 1) + " of " + app.frameCount
                             color: theme.dim
                             font.pixelSize: theme.smallFontSize
+                            elide: Text.ElideRight
                         }
 
                         VCheck {
-                            Layout.leftMargin: 8
                             text: "Loop"
                             checked: app.loop
                             onToggled: function(nowChecked) { app.setLoop(nowChecked) }
                         }
                         VButton {
                             Layout.preferredWidth: 58
+                            Layout.leftMargin: 6
                             readonly property var speeds: [0.25, 0.5, 1, 2]
-                            text: app.timeScale + "×"
+                            text: app.timeScale + "\u00d7"
                             tip: "Playback speed. Click to change."
                             onClicked: {
                                 var at = speeds.indexOf(app.timeScale)
@@ -477,8 +486,9 @@ ApplicationWindow {
                     anchors.rightMargin: 12
                     anchors.bottomMargin: 8
                     clip: true
+                    id: controlsScroll
                     contentWidth: width
-                    contentHeight: controlsColumn.height
+                    contentHeight: controlsColumn.height + 12
                     boundsBehavior: Flickable.StopAtBounds
 
                     Column {
@@ -509,6 +519,18 @@ ApplicationWindow {
                             }
                         }
                     }
+                }
+
+                // Shows there is more to scroll to, and where you are in it.
+                Rectangle {
+                    visible: controlsScroll.contentHeight > controlsScroll.height
+                    anchors.right: parent.right
+                    anchors.rightMargin: 3
+                    width: 4
+                    radius: 2
+                    color: theme.hover
+                    y: controlsScroll.y + controlsScroll.visibleArea.yPosition * controlsScroll.height
+                    height: Math.max(24, controlsScroll.visibleArea.heightRatio * controlsScroll.height)
                 }
             }
         }

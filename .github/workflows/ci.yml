@@ -192,9 +192,6 @@ jobs:
           } 2>&1 | tee "$OUT/package.txt"
 
       - name: Start the packaged app and take a picture
-        # The build machines do not always have a usable graphics card, so a
-        # failure here is recorded but does not stop the app being packaged.
-        continue-on-error: true
         run: |
           # Forget where Qt was installed: the app must run on what it carries.
           unset QT_PLUGIN_PATH QML2_IMPORT_PATH QML_IMPORT_PATH QT_ROOT_DIR
@@ -267,14 +264,13 @@ jobs:
             windeployqt --release --no-translations --no-compiler-runtime \
               --qmldir app/qml "stage/VFX Forge/VFX Forge.exe"
             # The Visual C++ runtime, so the app starts on a clean Windows.
-            CRT=$(ls -d "/c/Program Files/Microsoft Visual Studio/2022/"*/VC/Redist/MSVC/*/x64/Microsoft.VC*.CRT 2>/dev/null | tail -1 || true)
+            CRT=$(ls -d "/c/Program Files/Microsoft Visual Studio/"*/*/VC/Redist/MSVC/*/x64/Microsoft.VC*.CRT 2>/dev/null | tail -1 || true)
             echo "Visual C++ runtime: ${CRT:-NOT FOUND}"
             if [ -n "$CRT" ]; then cp "$CRT"/*.dll "stage/VFX Forge/"; fi
             du -sh "stage/VFX Forge"
           } 2>&1 | tee "$OUT/package.txt"
 
       - name: Start the packaged app and take a picture
-        continue-on-error: true
         shell: pwsh
         run: |
           # Draw with the processor: these machines have no graphics card.

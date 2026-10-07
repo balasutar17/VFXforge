@@ -46,11 +46,11 @@ Effect makeStarterEffect(const IdSource& newId, bool threeD) {
     layer.duration = 3.0;
     put(layer, "emission", "rate", Scalar::constant(60.0));
     put(layer, "initial", "lifetime", Scalar::random(0.8, 1.4));
-    put(layer, "initial", "speed", Scalar::random(3.0, 5.0));
+    put(layer, "initial", "speed", Scalar::random(4.5, 7.0));
     put(layer, "initial", "spread", 22.0);
-    put(layer, "initial", "size", Scalar::random(0.18, 0.34));
+    put(layer, "initial", "size", Scalar::random(0.12, 0.26));
     put(layer, "initial", "color", Color{1.0, 0.45, 0.08, 1.0});
-    put(layer, "motion", "gravity", Vec3{0.0, -6.0, 0.0});
+    put(layer, "motion", "gravity", Vec3{0.0, -7.0, 0.0});
     put(layer, "sprite", "blend", std::string("additive"));
     put(layer, "sprite", "glow", 1.6);
     effect.layers.push_back(std::move(layer));
