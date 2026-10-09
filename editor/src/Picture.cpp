@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "vfx/FileIO.h"
+#include "vfx/editor/Archive.h"
 #include "vfx/editor/Shapes.h"
 
 namespace vfx::editor {
@@ -23,7 +24,7 @@ Edge edgeThrough(const SpriteVertex& p, const SpriteVertex& q) {
 // other triangle has already drawn, so the shared diagonal is drawn once.
 void drawTriangle(std::vector<float>& canvas, int width, int height, const SpriteVertex& v0,
                   const SpriteVertex& v1, const SpriteVertex& v2, SpriteShape shape,
-                  std::vector<std::uint32_t>& taken, std::uint32_t stamp) {
+                  std::vector<std::uint32_t>& taken, std::uint32_t stamp, bool keepAlpha) {
     const float area = edgeThrough(v0, v1).at(v2.x, v2.y);
     if (!(std::fabs(area) > 1e-9f)) {
         return;
@@ -67,6 +68,14 @@ void drawTriangle(std::vector<float>& canvas, int width, int height, const Sprit
             d[0] = r * cover + d[0] * keep;
             d[1] = g * cover + d[1] * keep;
             d[2] = b * cover + d[2] * keep;
+            if (keepAlpha) {
+                // Coverage, for pictures with a see-through background. Light
+                // that is added (alpha 0) still has to show when the picture
+                // is laid over something, so it counts by its brightness.
+                const float own = v0.a > 0.0f ? v0.a * cover
+                                               : std::min(1.0f, std::max({r, g, b})) * cover;
+                d[3] = own + d[3] * (1.0f - own);
+            }
         }
     }
 }
@@ -86,46 +95,11 @@ std::uint8_t toByte(float v, float nudge) {
     return static_cast<std::uint8_t>(std::lround(v));
 }
 
-// ------------------------------------------------------------------- PNG
-
-std::uint32_t crc32(const std::uint8_t* data, std::size_t size, std::uint32_t crc = 0) {
-    static std::uint32_t table[256];
-    static bool ready = false;
-    if (!ready) {
-        for (std::uint32_t n = 0; n < 256; ++n) {
-            std::uint32_t c = n;
-            for (int k = 0; k < 8; ++k) {
-                c = (c & 1u) ? 0xedb88320u ^ (c >> 1) : c >> 1;
-            }
-            table[n] = c;
-        }
-        ready = true;
-    }
-    crc = ~crc;
-    for (std::size_t i = 0; i < size; ++i) {
-        crc = table[(crc ^ data[i]) & 0xffu] ^ (crc >> 8);
-    }
-    return ~crc;
-}
-
-void put32(std::string& out, std::uint32_t v) {
-    out.push_back(static_cast<char>(v >> 24));
-    out.push_back(static_cast<char>(v >> 16));
-    out.push_back(static_cast<char>(v >> 8));
-    out.push_back(static_cast<char>(v));
-}
-
-void chunk(std::string& out, const char type[4], const std::string& body) {
-    put32(out, static_cast<std::uint32_t>(body.size()));
-    std::string typed(type, 4);
-    typed += body;
-    out += typed;
-    put32(out, crc32(reinterpret_cast<const std::uint8_t*>(typed.data()), typed.size()));
-}
-
 }  // namespace
 
-Picture drawPicture(const SpriteMesh& mesh, int width, int height, ScreenColor background) {
+namespace {
+
+Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor background, bool transparent) {
     Picture picture;
     picture.width = width > 0 ? width : 0;
     picture.height = height > 0 ? height : 0;
@@ -136,11 +110,13 @@ Picture drawPicture(const SpriteMesh& mesh, int width, int height, ScreenColor b
         return picture;
     }
 
-    std::vector<float> canvas(pixels * 4u);
-    for (std::size_t i = 0; i < pixels; ++i) {
-        canvas[i * 4u] = background.r;
-        canvas[i * 4u + 1] = background.g;
-        canvas[i * 4u + 2] = background.b;
+    std::vector<float> canvas(pixels * 4u, 0.0f);
+    if (!transparent) {
+        for (std::size_t i = 0; i < pixels; ++i) {
+            canvas[i * 4u] = background.r;
+            canvas[i * 4u + 1] = background.g;
+            canvas[i * 4u + 2] = background.b;
+        }
     }
 
     std::vector<std::uint32_t> taken(pixels, 0u);
@@ -154,19 +130,43 @@ Picture drawPicture(const SpriteMesh& mesh, int width, int height, ScreenColor b
             const int number = static_cast<int>(std::lround(v0.shape));
             const auto shape = static_cast<SpriteShape>(
                 number >= 0 && number < kSpriteShapeCount ? number : 0);
-            drawTriangle(canvas, picture.width, picture.height, v0, v1, v2, shape, taken, stamp);
+            drawTriangle(canvas, picture.width, picture.height, v0, v1, v2, shape, taken, stamp,
+                         transparent);
         }
     }
 
     for (std::size_t i = 0; i < pixels; ++i) {
         const float nudge = ditherAt(static_cast<int>(i % static_cast<std::size_t>(picture.width)),
                                      static_cast<int>(i / static_cast<std::size_t>(picture.width)));
-        picture.rgba[i * 4u] = toByte(canvas[i * 4u], nudge);
-        picture.rgba[i * 4u + 1] = toByte(canvas[i * 4u + 1], nudge);
-        picture.rgba[i * 4u + 2] = toByte(canvas[i * 4u + 2], nudge);
-        picture.rgba[i * 4u + 3] = 255;
+        float r = canvas[i * 4u], g = canvas[i * 4u + 1], b = canvas[i * 4u + 2];
+        float a = 1.0f;
+        if (transparent) {
+            // Stored colours are premultiplied; PNG wants them straight.
+            a = std::min(canvas[i * 4u + 3], 1.0f);
+            if (a > 1e-4f) {
+                r /= a;
+                g /= a;
+                b /= a;
+            } else {
+                r = g = b = a = 0.0f;
+            }
+        }
+        picture.rgba[i * 4u] = toByte(r, nudge);
+        picture.rgba[i * 4u + 1] = toByte(g, nudge);
+        picture.rgba[i * 4u + 2] = toByte(b, nudge);
+        picture.rgba[i * 4u + 3] = transparent ? toByte(a, a > 0.0f && a < 1.0f ? nudge : 0.0f) : 255;
     }
     return picture;
+}
+
+}  // namespace
+
+Picture drawPicture(const SpriteMesh& mesh, int width, int height, ScreenColor background) {
+    return render(mesh, width, height, background, false);
+}
+
+Picture drawPictureClear(const SpriteMesh& mesh, int width, int height) {
+    return render(mesh, width, height, ScreenColor{0, 0, 0}, true);
 }
 
 void paste(Picture& onto, const Picture& piece, int left, int top) {
@@ -189,47 +189,9 @@ void paste(Picture& onto, const Picture& piece, int left, int top) {
 }
 
 std::string encodePng(const Picture& picture) {
-    std::string out("\x89PNG\r\n\x1a\n", 8);
-
-    std::string header;
-    put32(header, static_cast<std::uint32_t>(picture.width));
-    put32(header, static_cast<std::uint32_t>(picture.height));
-    header += std::string("\x08\x06\x00\x00\x00", 5);  // 8 bits, RGBA, no interlace
-    chunk(out, "IHDR", header);
-
-    // The image data: each row starts with a zero ("no filter") byte.
-    std::string raw;
-    const std::size_t rowBytes = static_cast<std::size_t>(picture.width) * 4u;
-    raw.reserve((rowBytes + 1u) * static_cast<std::size_t>(picture.height));
-    for (int y = 0; y < picture.height; ++y) {
-        raw.push_back('\0');
-        raw.append(reinterpret_cast<const char*>(picture.rgba.data()) + static_cast<std::size_t>(y) * rowBytes,
-                   rowBytes);
-    }
-
-    // Wrapped as "stored" deflate blocks: correct, simply not compressed.
-    std::string data("\x78\x01", 2);
-    std::size_t at = 0;
-    do {
-        const std::size_t n = std::min<std::size_t>(65535u, raw.size() - at);
-        const bool last = at + n >= raw.size();
-        data.push_back(last ? '\x01' : '\x00');
-        data.push_back(static_cast<char>(n & 0xffu));
-        data.push_back(static_cast<char>(n >> 8));
-        data.push_back(static_cast<char>(~n & 0xffu));
-        data.push_back(static_cast<char>((~n >> 8) & 0xffu));
-        data.append(raw, at, n);
-        at += n;
-    } while (at < raw.size());
-    std::uint32_t a = 1, b = 0;  // Adler-32 of the raw data
-    for (const char c : raw) {
-        a = (a + static_cast<std::uint8_t>(c)) % 65521u;
-        b = (b + a) % 65521u;
-    }
-    put32(data, (b << 16) | a);
-    chunk(out, "IDAT", data);
-    chunk(out, "IEND", std::string());
-    return out;
+    return encodePngImage(picture.width, picture.height, 4,
+                          std::string_view(reinterpret_cast<const char*>(picture.rgba.data()),
+                                           picture.rgba.size()));
 }
 
 Status writePng(const std::filesystem::path& path, const Picture& picture) {

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <utility>
@@ -19,7 +20,9 @@
 #include "vfx/FileIO.h"
 #include "vfx/Id.h"
 #include "vfx/Path.h"
+#include "vfx/editor/Frames.h"
 #include "vfx/editor/Presets.h"
+#include "vfx/editor/UnityExport.h"
 
 using vfx::editor::ControlView;
 
@@ -744,6 +747,125 @@ void AppController::setBackdropOpacity(double opacity) {
     }
     backdrop_.opacity = std::clamp(opacity, 0.0, 1.0);
     storeBackdrop();
+}
+
+// --------------------------------------------------------------- export
+
+void AppController::setExportOpen(bool open) {
+    if (open != exportOpen_) {
+        exportOpen_ = open;
+        emit exportOpenChanged();
+    }
+}
+
+QString AppController::lastUnityProject() const {
+    return QSettings().value(QStringLiteral("export/unityProject")).toString();
+}
+
+QString AppController::lastUnityProjectName() const {
+    const QString path = lastUnityProject();
+    return path.isEmpty() ? QString() : QFileInfo(path).fileName();
+}
+
+int AppController::exportFrameCount() const {
+    return vfx::editor::frameCount(session_.effect(), session_.effect().frameRate);
+}
+
+bool AppController::exportToUnity(const QUrl& folder) { return exportToUnityPath(folder.toLocalFile()); }
+
+bool AppController::exportToUnityPath(const QString& folder) {
+    if (folder.isEmpty()) {
+        say(QStringLiteral("That is not a folder on this computer."), true);
+        return false;
+    }
+    // Accept the project itself or any folder inside it (Assets, say).
+    std::filesystem::path at = toPath(QFileInfo(folder).absoluteFilePath());
+    std::filesystem::path project;
+    for (std::filesystem::path p = at; !p.empty(); p = p.parent_path()) {
+        if (vfx::editor::isUnityProject(p)) {
+            project = p;
+            break;
+        }
+        if (p == p.parent_path()) {
+            break;
+        }
+    }
+    if (project.empty()) {
+        say(QStringLiteral("That folder is not inside a Unity project. Choose the project's folder: "
+                           "the one that holds Assets and ProjectSettings."),
+            true);
+        return false;
+    }
+    std::filesystem::path written;
+    if (!report(vfx::editor::exportToUnityProject(session_.effect(), project, &written))) {
+        return false;
+    }
+    const QString projectPath = text(vfx::pathToUtf8(project));
+    QSettings().setValue(QStringLiteral("export/unityProject"), projectPath);
+    emit exportsChanged();
+    say(QStringLiteral("Exported to %1. In Unity, the prefab is in Assets/VFXForge/Effects: drag it into a scene.")
+            .arg(QFileInfo(projectPath).fileName()));
+    return true;
+}
+
+bool AppController::exportUnityPackage(const QUrl& file) {
+    QString path = file.toLocalFile();
+    if (path.isEmpty()) {
+        say(QStringLiteral("That is not a place on this computer."), true);
+        return false;
+    }
+    if (!path.endsWith(QStringLiteral(".unitypackage"), Qt::CaseInsensitive)) {
+        path += QStringLiteral(".unitypackage");
+    }
+    if (!report(vfx::editor::exportUnityPackage(session_.effect(), toPath(path)))) {
+        return false;
+    }
+    say(QStringLiteral("Saved %1. In Unity: Assets > Import Package > Custom Package.")
+            .arg(QFileInfo(path).fileName()));
+    return true;
+}
+
+bool AppController::exportFrames(const QUrl& folder, int size, bool transparent, bool sheet,
+                                 const QVariantMap& view) {
+    const QString path = folder.toLocalFile();
+    if (path.isEmpty()) {
+        say(QStringLiteral("That is not a folder on this computer."), true);
+        return false;
+    }
+    vfx::editor::FrameOptions options;
+    options.width = options.height = std::clamp(size, 16, 4096);
+    options.framesPerSecond = session_.effect().frameRate;
+    options.transparent = transparent;
+    options.sheet = sheet;
+    auto number = [&view](const char* key, float fallback) {
+        const QVariant v = view.value(QString::fromLatin1(key));
+        bool ok = false;
+        const double d = v.toDouble(&ok);
+        return ok && std::isfinite(d) ? static_cast<float>(d) : fallback;
+    };
+    vfx::editor::View& v = options.view;
+    v.centerX = number("centerX", v.centerX);
+    v.centerY = number("centerY", v.centerY);
+    v.unitsHigh = number("unitsHigh", v.unitsHigh);
+    v.targetX = number("targetX", v.targetX);
+    v.targetY = number("targetY", v.targetY);
+    v.targetZ = number("targetZ", v.targetZ);
+    v.yaw = number("yaw", v.yaw);
+    v.pitch = number("pitch", v.pitch);
+    v.distance = number("distance", v.distance);
+    v.fieldOfView = number("fieldOfView", v.fieldOfView);
+
+    const std::string stem = vfx::editor::unityFileStem(session_.effect());
+    auto written = vfx::editor::exportFrames(session_.effect(), options, toPath(path), stem);
+    if (!written) {
+        report(written.error());
+        return false;
+    }
+    say(QStringLiteral("Wrote %1 frames%2 to %3.")
+            .arg(written.value().frames)
+            .arg(written.value().sheet.empty() ? QString() : QStringLiteral(" and a sprite sheet"))
+            .arg(QFileInfo(path).fileName()));
+    return true;
 }
 
 // ------------------------------------------------------------- playback

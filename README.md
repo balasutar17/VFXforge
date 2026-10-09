@@ -18,6 +18,9 @@ What exists so far:
   against, playback, open and save. What it does and does not do yet is in
   [docs/app-first-build.md](docs/app-first-build.md) and
   [docs/library-and-shapes.md](docs/library-and-shapes.md)
+- **export to Unity**: a prefab built from Unity's Particle System, a
+  `.unitypackage`, or animation frames and sprite sheets; see
+  [docs/export.md](docs/export.md)
 - **`vfxshot`**, which draws any effect or preset to a PNG with no window and
   no graphics card
 - **`vfxcli`**, a command-line tool that drives the core with no UI
@@ -83,6 +86,7 @@ core/          the library: no UI toolkit, no graphics API
   src/           implementation
 editor/        an editing session and the particle mesh: still no UI toolkit
 app/           the desktop app (Qt 6): window, viewport, packaging
+unity/         the Unity side of the export: importer scripts and shader
 tools/vfxcli/  command-line tool, links core only
 tools/vfxshot/ pictures of effects and presets, links the editor layer
 tests/         core test suite and fixture files

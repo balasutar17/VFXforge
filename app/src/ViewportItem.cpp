@@ -117,6 +117,21 @@ void ViewportItem::frame(double x, double y, double unitsHigh) {
     update();
 }
 
+QVariantMap ViewportItem::viewState() const {
+    QVariantMap out;
+    out.insert(QStringLiteral("centerX"), static_cast<double>(view_.centerX));
+    out.insert(QStringLiteral("centerY"), static_cast<double>(view_.centerY));
+    out.insert(QStringLiteral("unitsHigh"), static_cast<double>(view_.unitsHigh));
+    out.insert(QStringLiteral("targetX"), static_cast<double>(view_.targetX));
+    out.insert(QStringLiteral("targetY"), static_cast<double>(view_.targetY));
+    out.insert(QStringLiteral("targetZ"), static_cast<double>(view_.targetZ));
+    out.insert(QStringLiteral("yaw"), static_cast<double>(view_.yaw));
+    out.insert(QStringLiteral("pitch"), static_cast<double>(view_.pitch));
+    out.insert(QStringLiteral("distance"), static_cast<double>(view_.distance));
+    out.insert(QStringLiteral("fieldOfView"), static_cast<double>(view_.fieldOfView));
+    return out;
+}
+
 double ViewportItem::unitScale() const {
     float x = 0, y = 0, scale = 0;
     if (!vfx::editor::projectPoint(currentView(), flat(), 0, 0, 0, x, y, scale)) {

@@ -252,3 +252,30 @@ TEST_CASE("a PNG is written in the right form", "[picture]") {
 
     CHECK_FALSE(writePng("unused.png", Picture{}).ok());
 }
+
+TEST_CASE("a see-through picture keeps colours straight and counts glow", "[picture]") {
+    SpriteInstance p;
+    p.size = 2.0f;
+    p.r = 1.0f;
+    p.g = 0.0f;
+    p.b = 0.0f;
+    p.a = 0.5f;
+    SpriteMesh mesh;
+    buildSpriteMesh(one(p, SpriteShape::Disc), square(100, 4), mesh);
+    const Picture half = drawPictureClear(mesh, 100, 100);
+    // Outside the particle: nothing at all.
+    CHECK(half.pixel(2, 2)[3] == 0);
+    CHECK(half.pixel(2, 2)[0] == 0);
+    // Inside: the particle's own colour, at its own opacity.
+    CHECK(half.pixel(50, 50)[0] == 255);
+    CHECK(half.pixel(50, 50)[1] == 0);
+    CHECK(half.pixel(50, 50)[3] == Catch::Approx(128).margin(1));
+
+    // Glow (added light) still shows, by its brightness.
+    p.a = 1.0f;
+    p.r = p.g = p.b = 1.0f;
+    buildSpriteMesh(one(p, SpriteShape::Disc, BlendMode::Additive), square(100, 4), mesh);
+    const Picture glow = drawPictureClear(mesh, 100, 100);
+    CHECK(glow.pixel(50, 50)[3] == 255);
+    CHECK(glow.pixel(50, 50)[0] == 255);
+}

@@ -3,6 +3,7 @@
 
 #include <QPointF>
 #include <QQuickItem>
+#include <QVariantMap>
 
 #include "AppController.h"
 #include "vfx/editor/SpriteMesh.h"
@@ -34,6 +35,8 @@ public:
     Q_INVOKABLE void resetView();
     // Shows the given world point in the middle, with this many units top to bottom.
     Q_INVOKABLE void frame(double x, double y, double unitsHigh);
+    // The camera as it is now, for exports that should show the same view.
+    Q_INVOKABLE QVariantMap viewState() const;
 
 signals:
     void controllerChanged();

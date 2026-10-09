@@ -73,6 +73,12 @@ class AppController : public QObject {
     Q_PROPERTY(double backdropHeight READ backdropHeight NOTIFY backdropChanged)
     Q_PROPERTY(double backdropOpacity READ backdropOpacity NOTIFY backdropChanged)
 
+    // Exports.
+    Q_PROPERTY(bool exportOpen READ exportOpen WRITE setExportOpen NOTIFY exportOpenChanged)
+    Q_PROPERTY(QString lastUnityProject READ lastUnityProject NOTIFY exportsChanged)
+    Q_PROPERTY(QString lastUnityProjectName READ lastUnityProjectName NOTIFY exportsChanged)
+    Q_PROPERTY(int exportFrameCount READ exportFrameCount NOTIFY documentChanged)
+
 public:
     explicit AppController(QObject* parent = nullptr);
 
@@ -127,6 +133,12 @@ public:
     double backdropHeight() const { return backdrop_.height; }
     double backdropOpacity() const { return backdrop_.opacity; }
 
+    bool exportOpen() const { return exportOpen_; }
+    void setExportOpen(bool open);
+    QString lastUnityProject() const;
+    QString lastUnityProjectName() const;
+    int exportFrameCount() const;
+
     // ------------------------------------------------------------ files
     Q_INVOKABLE void newEffect(bool threeD);
     Q_INVOKABLE bool openFile(const QUrl& file);
@@ -145,6 +157,16 @@ public:
     Q_INVOKABLE void moveBackdrop(double dx, double dy);
     Q_INVOKABLE void scaleBackdrop(double factor);
     Q_INVOKABLE void setBackdropOpacity(double opacity);
+
+    // ----------------------------------------------------------- export
+    // Into a Unity project: the folder may be the project itself or any
+    // folder inside it.
+    Q_INVOKABLE bool exportToUnity(const QUrl& folder);
+    Q_INVOKABLE bool exportToUnityPath(const QString& folder);
+    Q_INVOKABLE bool exportUnityPackage(const QUrl& file);
+    // Numbered PNG frames, and a sprite sheet, showing what the view shows.
+    Q_INVOKABLE bool exportFrames(const QUrl& folder, int size, bool transparent, bool sheet,
+                                  const QVariantMap& view);
 
     // ------------------------------------------------------------ edits
     Q_INVOKABLE void undo();
@@ -196,6 +218,8 @@ signals:
     void redraw();
     void libraryOpenChanged();
     void backdropChanged();
+    void exportOpenChanged();
+    void exportsChanged();
     // The viewport should show this part of the world: the point in the
     // middle and how many units fit top to bottom. Zero height means "reset".
     void viewSuggested(double x, double y, double unitsHigh);
@@ -222,6 +246,7 @@ private:
     };
     Backdrop backdrop_;
     bool libraryOpen_ = false;
+    bool exportOpen_ = false;
 
     vfx::editor::Session session_;
     QVariantList layers_;

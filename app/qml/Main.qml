@@ -89,6 +89,8 @@ ApplicationWindow {
     Shortcut { enabled: !root.asking; sequence: ","; onActivated: app.stepFrames(-1) }
     Shortcut { enabled: !root.asking; sequence: "."; onActivated: app.stepFrames(1) }
     Shortcut { enabled: !root.asking && app.libraryOpen; sequence: "Escape"; onActivated: app.libraryOpen = false }
+    Shortcut { enabled: !root.asking && app.exportOpen; sequence: "Escape"; onActivated: app.exportOpen = false }
+    Shortcut { enabled: !root.asking; sequence: "Ctrl+E"; onActivated: app.exportOpen = true }
 
     FileDialog {
         id: backdropDialog
@@ -145,6 +147,7 @@ ApplicationWindow {
                 VButton { text: "Open…"; tip: "Open a .vfx file"; onClicked: root.guard(function() { openDialog.open() }) }
                 VButton { text: "Save"; tip: "Save this effect"; enabled: app.dirty || !app.hasFile; onClicked: root.saveThen(null) }
                 VButton { text: "Save As…"; tip: "Save a copy under a new name"; onClicked: root.saveAsThen(null) }
+                VButton { text: "Export…"; tip: "To Unity, or as animation frames (Ctrl/Cmd+E)"; onClicked: app.exportOpen = true }
 
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 22; Layout.leftMargin: 6; Layout.rightMargin: 6; color: theme.line }
 
@@ -669,6 +672,15 @@ ApplicationWindow {
             if (app.addPreset(presetId))
                 app.libraryOpen = false
         }
+    }
+
+    // ---------------------------------------------------------- export
+
+    ExportPanel {
+        anchors.fill: parent
+        visible: app.exportOpen
+        viewState: visible ? viewport.viewState() : ({})
+        onCloseRequested: app.exportOpen = false
     }
 
     // --------------------------------------------- "save your changes?"

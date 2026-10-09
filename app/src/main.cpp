@@ -19,6 +19,7 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QUrl>
+#include <QVariantMap>
 #include <QtQml>
 
 #include "AppController.h"
@@ -186,6 +187,33 @@ int main(int argc, char* argv[]) {
             QCoreApplication::exit(selfTest.result);
         };
 
+        // The exports, into a scratch folder, so a build proves they work.
+        auto exports = [&]() {
+            QTextStream out(&selfTest.report);
+            const QString scratch = QDir::tempPath() + QStringLiteral("/vfxforge-selftest");
+            QDir(scratch).removeRecursively();
+            QDir().mkpath(scratch + QStringLiteral("/Unity Project/Assets"));
+            QDir().mkpath(scratch + QStringLiteral("/Unity Project/ProjectSettings"));
+            const bool unity = controller.exportToUnityPath(scratch + QStringLiteral("/Unity Project/Assets"));
+            const bool prefabFile = QFile::exists(scratch + QStringLiteral("/Unity Project/Assets/VFXForge/Effects/") +
+                                                  controller.effectName() + QStringLiteral(".vfxforge"));
+            const bool package = controller.exportUnityPackage(
+                QUrl::fromLocalFile(scratch + QStringLiteral("/effect.unitypackage")));
+            QVariantMap view;
+            view.insert(QStringLiteral("unitsHigh"), 6.4);
+            const bool frames = controller.exportFrames(QUrl::fromLocalFile(scratch), 128, true, true, view);
+            const bool sheet = QFile::exists(scratch + QLatin1Char('/') + controller.effectName() +
+                                             QStringLiteral(" sheet.png"));
+            out << "export to a Unity project: " << (unity && prefabFile ? "yes" : "NO") << "\n";
+            out << "export a .unitypackage: " << (package ? "yes" : "NO") << "\n";
+            out << "export frames and a sheet: " << (frames && sheet ? "yes" : "NO") << "\n";
+            if (!(unity && prefabFile && package && frames && sheet)) {
+                out << "FAIL: an export did not work: " << controller.message() << "\n";
+                selfTest.result = 1;
+            }
+            QDir(scratch).removeRecursively();
+        };
+
         // Third: the library, with every card playing.
         auto third = [&, window, software, finish]() {
             const int lit = capture(window, selfTest, QStringLiteral("-library"), QStringLiteral("the library"));
@@ -197,7 +225,7 @@ int main(int argc, char* argv[]) {
         };
 
         // Second: a toon preset, which uses the hard-edged shapes.
-        auto second = [&, window, software, third]() {
+        auto second = [&, window, software, third, exports]() {
             QTextStream out(&selfTest.report);
             out << "preset: " << controller.effectName() << ", " << controller.particleCount()
                 << " particles\n";
@@ -206,6 +234,7 @@ int main(int argc, char* argv[]) {
                 out << "FAIL: the preset shows nothing\n";
                 selfTest.result = 1;
             }
+            exports();
             controller.setLibraryOpen(true);
             QTimer::singleShot(2500, &application, third);
         };

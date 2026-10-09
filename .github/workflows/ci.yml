@@ -100,6 +100,64 @@ jobs:
           name: results-sanitizers
           path: results
 
+  # ------------------------------------------------------- Unity scripts
+  # Compiles the Unity-side scripts (unity/Editor) against Unity's own
+  # libraries, taken from a Unity editor image. Running Unity needs a
+  # licence; compiling against its libraries does not.
+  unity-scripts:
+    strategy:
+      fail-fast: false
+      matrix:
+        unity: ['2022.3', '6000.0']
+    runs-on: ubuntu-24.04
+    env:
+      OUT: results/unity-${{ matrix.unity }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make room for the Unity image
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+
+      - name: Pick the newest Unity ${{ matrix.unity }} editor image
+        run: |
+          mkdir -p "$OUT"
+          curl -s "https://hub.docker.com/v2/repositories/unityci/editor/tags?page_size=100&name=ubuntu-${{ matrix.unity }}" > tags.json
+          TAG=$(python3 - <<'PY'
+          import json, re
+          names = [t["name"] for t in json.load(open("tags.json")).get("results", [])]
+          pattern = re.compile(r"^ubuntu-(\d+)\.(\d+)\.(\d+)f(\d+)-base-(\d+)\.(\d+)\.(\d+)$")
+          found = sorted((tuple(map(int, m.groups())), n) for n in names for m in [pattern.match(n)] if m)
+          print(found[-1][1] if found else "")
+          PY
+          )
+          test -n "$TAG"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "image: unityci/editor:$TAG" | tee "$OUT/compile.txt"
+
+      - name: Compile the scripts against Unity's libraries
+        run: |
+          set -o pipefail
+          docker run --rm -v "$PWD/unity:/src:ro" "unityci/editor:$TAG" bash -c '
+            D=/opt/unity/Editor/Data
+            MONO=$D/MonoBleedingEdge/bin/mono
+            MCS=$(find $D/MonoBleedingEdge/lib/mono -name mcs.exe | sort | tail -1)
+            NS=$(find $D/MonoBleedingEdge/lib/mono -path "*Facades/netstandard.dll" | sort | tail -1)
+            REFS="-r:$NS"
+            for f in $D/Managed/UnityEngine.dll $D/Managed/UnityEngine/*.dll $D/Managed/UnityEditor.dll; do
+              [ -f "$f" ] && REFS="$REFS -r:$f"
+            done
+            echo "compiler: $MCS"
+            echo "netstandard: $NS"
+            $MONO $MCS -target:library -out:/tmp/VFXForge.Editor.dll $REFS /src/Editor/*.cs && echo "COMPILED OK"
+          ' 2>&1 | tee -a "$OUT/compile.txt"
+          grep -q "COMPILED OK" "$OUT/compile.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-unity-${{ matrix.unity }}
+          path: results
+
   # --------------------------------------------------------------- the app
   app-linux:
     # Not shipped. Built because it is the most dependable place to start the
@@ -302,7 +360,7 @@ jobs:
   # --------------------------------------------------------------- publish
   publish:
     if: always() && github.event_name != 'pull_request'
-    needs: [core, sanitizers, app-linux, app-mac, app-windows]
+    needs: [core, sanitizers, unity-scripts, app-linux, app-mac, app-windows]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -332,6 +390,7 @@ jobs:
           run:         ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
           core:        ${{ needs.core.result }}
           sanitizers:  ${{ needs.sanitizers.result }}
+          unity:       ${{ needs.unity-scripts.result }}
           app-linux:   ${{ needs.app-linux.result }}
           app-mac:     ${{ needs.app-mac.result }}
           app-windows: ${{ needs.app-windows.result }}
