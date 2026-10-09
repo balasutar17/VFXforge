@@ -19,11 +19,12 @@ using UnityEngine;
 
 namespace VFXForge.EditorTools
 {
-    [ScriptedImporter(1, "vfxforge")]
+    [ScriptedImporter(2, "vfxforge")]
     public class VFXForgeImporter : ScriptedImporter
     {
         public const string ShaderPath = "Assets/VFXForge/Shaders/VFXForgeParticle.shader";
         public const string AtlasPath = "Assets/VFXForge/Textures/VFXForgeShapes.png";
+        public const string ImagesFolder = "Assets/VFXForge/Images/";
 
         // How streak shapes line up with a stretched billboard's texture.
         // 0: the shape's head is along the texture's U axis.
@@ -97,7 +98,17 @@ namespace VFXForge.EditorTools
                 child.transform.SetParent(top.transform, false);
                 var system = child.AddComponent<ParticleSystem>();
                 system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-                Material material = BuildLayer(system, layer, duration, loop, shader, atlas, columns, rows);
+                // A layer that draws the artist's picture waits for it too.
+                Texture2D picture = null;
+                string picturePath = Str(Obj(layer, "render"), "picture", "");
+                if (picturePath.Length > 0)
+                {
+                    ctx.DependsOnArtifact(picturePath);
+                    picture = AssetDatabase.LoadAssetAtPath<Texture2D>(picturePath);
+                    if (picture == null)
+                        ctx.LogImportWarning("The picture " + picturePath + " is missing, so the layer \"" + child.name + "\" draws its shape. Export from VFX Forge again to restore it.");
+                }
+                Material material = BuildLayer(system, layer, duration, loop, shader, atlas, columns, rows, picture);
                 if (material != null)
                     ctx.AddObjectToAsset("material " + i, material);
                 child.SetActive(Bool(layer, "enabled", true));
@@ -108,7 +119,8 @@ namespace VFXForge.EditorTools
         }
 
         static Material BuildLayer(ParticleSystem system, Dictionary<string, object> layer, float duration,
-                                   bool loop, Shader shader, Texture2D atlas, float columns, float rows)
+                                   bool loop, Shader shader, Texture2D atlas, float columns, float rows,
+                                   Texture2D picture)
         {
             // ---- main
             var main = system.main;
@@ -248,12 +260,31 @@ namespace VFXForge.EditorTools
             renderer.maxParticleSize = 10f;
             renderer.enabled = Bool(layer, "drawn", true);
 
+            // ---- a sprite sheet, played by Unity's own Texture Sheet Animation
+            var sheetInfo = Obj(renderInfo, "sheet");
+            var sheet = system.textureSheetAnimation;
+            sheet.enabled = picture != null && sheetInfo != null;
+            if (sheet.enabled)
+            {
+                sheet.mode = ParticleSystemAnimationMode.Grid;
+                sheet.numTilesX = Mathf.Max(1, (int)Num(sheetInfo, "columns", 1));
+                sheet.numTilesY = Mathf.Max(1, (int)Num(sheetInfo, "rows", 1));
+                sheet.animation = ParticleSystemAnimationType.WholeSheet;
+                sheet.timeMode = ParticleSystemAnimationTimeMode.Lifetime;
+                sheet.frameOverTime = Curve(sheetInfo, "frameOverTime", 0);
+                sheet.startFrame = Curve(sheetInfo, "startFrame", 0);
+                sheet.cycleCount = Mathf.Max(1, (int)Num(sheetInfo, "cycles", 1));
+            }
+
             if (shader == null)
                 return null;
             var material = new Material(shader);
             material.name = system.gameObject.name;
-            if (atlas != null)
+            if (picture != null)
+                material.SetTexture("_MainTex", picture);
+            else if (atlas != null)
                 material.SetTexture("_MainTex", atlas);
+            material.SetFloat("_Picture", picture != null ? 1f : 0f);
             material.SetFloat("_Shape", (float)Num(renderInfo, "shape", 0));
             material.SetFloat("_Columns", columns);
             material.SetFloat("_Rows", rows);
@@ -366,11 +397,27 @@ namespace VFXForge.EditorTools
     }
 
     // The shape picture holds shapes, not colours: it must be read exactly
-    // as stored, without colour correction or compression.
+    // as stored, without colour correction or compression. The artist's own
+    // pictures are colours: kept sharp and uncompressed, as painted.
     public class VFXForgeTextureSettings : AssetPostprocessor
     {
         void OnPreprocessTexture()
         {
+            if (assetPath.StartsWith(VFXForgeImporter.ImagesFolder, StringComparison.Ordinal))
+            {
+                var picture = (TextureImporter)assetImporter;
+                picture.textureType = TextureImporterType.Default;
+                picture.sRGBTexture = true;
+                picture.alphaSource = TextureImporterAlphaSource.FromInput;
+                picture.alphaIsTransparency = true;
+                picture.mipmapEnabled = true;
+                picture.wrapMode = TextureWrapMode.Clamp;
+                picture.filterMode = FilterMode.Bilinear;
+                picture.npotScale = TextureImporterNPOTScale.None;
+                picture.textureCompression = TextureImporterCompression.Uncompressed;
+                picture.maxTextureSize = 8192;
+                return;
+            }
             if (assetPath != VFXForgeImporter.AtlasPath)
                 return;
             var importer = (TextureImporter)assetImporter;

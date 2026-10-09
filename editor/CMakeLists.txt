@@ -11,6 +11,7 @@ vfx_embed_unity_files(${PROJECT_SOURCE_DIR}/unity ${CMAKE_CURRENT_BINARY_DIR}/Un
 add_library(vfx_editor STATIC
     src/Archive.cpp
     src/Frames.cpp
+    src/Image.cpp
     src/Picture.cpp
     src/Presets.cpp
     src/Session.cpp

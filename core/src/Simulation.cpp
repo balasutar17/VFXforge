@@ -23,6 +23,7 @@ enum Field : std::size_t {
     kAge, kLife,
     kSize, kRot, kSpin,
     kR, kG, kB, kA,
+    kPick,  // a random number fixed at birth, for picking a sprite-sheet picture
     kFieldCount
 };
 
@@ -33,7 +34,8 @@ enum Channel : std::uint32_t {
     kChShapeU, kChShapeV, kChShapeW,
     kChSpreadU, kChSpreadV,
     kChSizeScale, kChOpacityScale,
-    kChRate
+    kChRate,
+    kChFrame
 };
 
 constexpr float kDegreesToRadiansF = static_cast<float>(det::kDegreesToRadians);
@@ -243,7 +245,7 @@ void Simulation::Emitter::advance() {
     // 3. Death. Survivors close up in order, so the oldest particle is always
     // first and the draw order never flickers.
     // First list who survives, then close up one field at a time: walking
-    // fifteen arrays at once is far slower than walking each in turn.
+    // sixteen arrays at once is far slower than walking each in turn.
     std::uint32_t* keep = survivors.data();
     std::uint32_t kept = 0;
     for (std::uint32_t i = 0; i < n; ++i) {
@@ -522,6 +524,7 @@ void Simulation::Emitter::spawn(std::int64_t inPass, double offset, float progre
     f[kG][i] = e.color[1];
     f[kB][i] = e.color[2];
     f[kA][i] = alpha;
+    f[kPick][i] = random(kChFrame);
 }
 
 // ------------------------------------------------------------- Simulation
@@ -650,6 +653,8 @@ void Simulation::extract(RenderFrame& frame) const {
         batch.shape = e.spriteShape;
         batch.alongMotion = e.alongMotion;
         batch.stretch = e.stretch;
+        batch.columns = e.columns;
+        batch.rows = e.rows;
         batch.first = at;
         batch.count = em.count;
         frame.batches.push_back(batch);
@@ -671,6 +676,8 @@ void Simulation::extract(RenderFrame& frame) const {
         const float* g = em.f[kG].data();
         const float* b = em.f[kB].data();
         const float* a = em.f[kA].data();
+        const float* pick = em.f[kPick].data();
+        const int frames = e.frames;
 
         for (std::uint32_t i = 0; i < em.count; ++i) {
             SpriteInstance& out = frame.instances[at + i];
@@ -694,6 +701,29 @@ void Simulation::extract(RenderFrame& frame) const {
                 out.b *= c.b;
                 out.a *= c.a;
             }
+            int frame = 0;
+            if (frames > 1) {
+                const float n = static_cast<float>(frames);
+                switch (e.animate) {
+                    case Animate::Life:
+                        frame = static_cast<int>(lived * n);
+                        break;
+                    case Animate::Random:
+                        frame = static_cast<int>(pick[i] * n);
+                        break;
+                    case Animate::Loop: {
+                        double at = static_cast<double>(age[i]) * e.fps;
+                        if (e.randomStart) {
+                            at += static_cast<double>(pick[i]) * frames;
+                        }
+                        frame = static_cast<int>(
+                            static_cast<std::int64_t>(std::floor(at)) % frames);
+                        break;
+                    }
+                }
+                frame = frame < 0 ? 0 : (frame >= frames ? frames - 1 : frame);
+            }
+            out.frame = static_cast<float>(frame);
         }
         at += em.count;
     }
@@ -731,11 +761,13 @@ std::uint64_t hashFrame(const RenderFrame& frame) {
         h = det::mix64(h ^ static_cast<std::uint64_t>(b.shape));
         h = det::mix64(h ^ (b.alongMotion ? 1u : 0u));
         h = det::mix64(h ^ bits(b.stretch));
+        h = det::mix64(h ^ static_cast<std::uint64_t>(b.columns * 4096 + b.rows));
         h = det::mix64(h ^ b.first);
         h = det::mix64(h ^ b.count);
     }
     for (const auto& s : frame.instances) {
-        for (float v : {s.x, s.y, s.z, s.size, s.rotation, s.r, s.g, s.b, s.a, s.vx, s.vy, s.vz}) {
+        for (float v : {s.x, s.y, s.z, s.size, s.rotation, s.r, s.g, s.b, s.a, s.vx, s.vy, s.vz,
+                        s.frame}) {
             h = det::mix64(h ^ bits(v));
         }
     }

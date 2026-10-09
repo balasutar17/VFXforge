@@ -11,6 +11,7 @@
 
 #include "vfx/FileIO.h"
 #include "vfx/Program.h"
+#include "vfx/editor/Image.h"
 #include "vfx/editor/Session.h"
 #include "vfx/editor/Shapes.h"
 #include "vfx/editor/UnityFiles.h"
@@ -315,7 +316,54 @@ std::vector<float> keyTimes(std::vector<float> times) {
 
 // ------------------------------------------------------------- one layer
 
-J layerJson(const Effect& effect, const Layer& layer, int order) {
+const UnityPicture* pictureFor(const std::vector<UnityPicture>& pictures, Id asset) {
+    for (const UnityPicture& p : pictures) {
+        if (p.asset == asset) {
+            return &p;
+        }
+    }
+    return nullptr;
+}
+
+// How Unity's Texture Sheet Animation plays a sprite sheet. Its "frame over
+// time" runs from 0 to 1 across every cell of the sheet; its start frame
+// counts cells.
+J sheetJson(const EmitterProgram& e) {
+    const int cells = e.columns * e.rows;
+    const int frames = std::max(1, e.frames);
+    J sheet = J::object();
+    sheet["columns"] = e.columns;
+    sheet["rows"] = e.rows;
+    // Just short of the end, so the last moment never shows the next cell.
+    const double end = (static_cast<double>(frames) - 0.01) / static_cast<double>(cells);
+    J through = frames > 1 ? curveValue({Key{0.0, 0.0}, Key{1.0, end}}) : J(0.0);
+    J randomCell = frames > 1 ? J::array({0.0, round6(static_cast<double>(frames) - 0.01)}) : J(0.0);
+    switch (e.animate) {
+        case Animate::Life:
+            sheet["frameOverTime"] = std::move(through);
+            sheet["startFrame"] = 0.0;
+            sheet["cycles"] = 1;
+            break;
+        case Animate::Loop: {
+            // Unity loops a whole number of times per life; pick the count
+            // that comes closest to the frame rate for a typical particle.
+            const double plays = meanOf(e.lifetime) * e.fps / frames;
+            sheet["frameOverTime"] = std::move(through);
+            sheet["startFrame"] = e.randomStart ? std::move(randomCell) : J(0.0);
+            sheet["cycles"] = std::max(1, static_cast<int>(std::lround(plays)));
+            break;
+        }
+        case Animate::Random:
+            sheet["frameOverTime"] = 0.0;
+            sheet["startFrame"] = std::move(randomCell);
+            sheet["cycles"] = 1;
+            break;
+    }
+    return sheet;
+}
+
+J layerJson(const Effect& effect, const Layer& layer, int order,
+            const std::vector<UnityPicture>& pictures) {
     const std::shared_ptr<const EmitterProgram> program = compileLayer(effect, layer);
     const EmitterProgram& e = *program;
     const double total = effect.duration > 0.0 ? effect.duration : 0.01;
@@ -490,6 +538,12 @@ J layerJson(const Effect& effect, const Layer& layer, int order) {
     }
     render["shape"] = static_cast<int>(e.spriteShape);
     render["shapeName"] = shapeName(e.spriteShape);
+    if (const UnityPicture* picture = e.texture.valid() ? pictureFor(pictures, e.texture) : nullptr) {
+        render["picture"] = picture->path;
+        if (e.columns * e.rows > 1) {
+            render["sheet"] = sheetJson(e);
+        }
+    }
     render["additive"] = e.blend == BlendMode::Additive;
     render["glow"] = round6(glow);
     render["order"] = order;
@@ -518,7 +572,26 @@ std::string guidFor(const std::string& path) {
 
 }  // namespace
 
-std::string unityDescription(const Effect& effect) {
+std::vector<UnityPicture> unityPictures(const Effect& effect, const std::filesystem::path& folder) {
+    std::vector<UnityPicture> out;
+    if (folder.empty()) {
+        return out;
+    }
+    for (const Asset& asset : effect.assets) {
+        if (asset.kind != "texture" || !isAssetReferenced(effect, asset.id)) {
+            continue;
+        }
+        auto bytes = readFile(folder / pathFromUtf8(asset.path));
+        if (!bytes || !decodePng(bytes.value())) {
+            continue;
+        }
+        std::string file = asset.path.substr(asset.path.find_last_of('/') + 1);
+        out.push_back(UnityPicture{asset.id, "Assets/VFXForge/Images/" + file, std::move(bytes.value())});
+    }
+    return out;
+}
+
+std::string unityDescription(const Effect& effect, const std::vector<UnityPicture>& pictures) {
     J root = J::object();
     root["format"] = "vfxforge.unity";
     root["formatVersion"] = kUnityFormatVersion;
@@ -534,7 +607,7 @@ std::string unityDescription(const Effect& effect) {
     J layers = J::array();
     int order = 0;
     for (const Layer& layer : effect.layers) {
-        layers.push_back(layerJson(effect, layer, order++));
+        layers.push_back(layerJson(effect, layer, order++, pictures));
     }
     root["layers"] = std::move(layers);
     return root.dump(2) + "\n";
@@ -579,14 +652,19 @@ std::string unityShapeAtlasPng() {
     return encodePngImage(width, height, 2, pixels);
 }
 
-std::vector<TarEntry> unityExportFiles(const Effect& effect) {
+std::vector<TarEntry> unityExportFiles(const Effect& effect, const std::filesystem::path& pictureFolder) {
     std::vector<TarEntry> files;
     for (const UnityFile& f : unityHelperSources()) {
         files.push_back(TarEntry{std::string("Assets/VFXForge/") + f.path, std::string(f.text)});
     }
     files.push_back(TarEntry{"Assets/VFXForge/Textures/VFXForgeShapes.png", unityShapeAtlasPng()});
+    const std::vector<UnityPicture> pictures = unityPictures(effect, pictureFolder);
+    // Pictures before the effect, so Unity has them when it builds the prefab.
+    for (const UnityPicture& p : pictures) {
+        files.push_back(TarEntry{p.path, p.png});
+    }
     files.push_back(TarEntry{"Assets/VFXForge/Effects/" + unityFileStem(effect) + ".vfxforge",
-                             unityDescription(effect)});
+                             unityDescription(effect, pictures)});
     return files;
 }
 
@@ -597,13 +675,13 @@ bool isUnityProject(const std::filesystem::path& folder) {
 }
 
 Status exportToUnityProject(const Effect& effect, const std::filesystem::path& projectFolder,
-                            std::filesystem::path* written) {
+                            std::filesystem::path* written, const std::filesystem::path& pictureFolder) {
     if (!isUnityProject(projectFolder)) {
         return makeError(
             "That folder is not a Unity project. Choose the project's own folder: the one that "
             "holds the Assets and ProjectSettings folders.");
     }
-    for (const TarEntry& f : unityExportFiles(effect)) {
+    for (const TarEntry& f : unityExportFiles(effect, pictureFolder)) {
         const std::filesystem::path target = projectFolder / pathFromUtf8(f.path);
         std::error_code ec;
         std::filesystem::create_directories(target.parent_path(), ec);
@@ -651,8 +729,9 @@ std::string makeUnityPackage(const std::vector<TarEntry>& files) {
     return gzipCompress(makeTar(entries));
 }
 
-Status exportUnityPackage(const Effect& effect, const std::filesystem::path& file) {
-    return writeFileAtomic(file, makeUnityPackage(unityExportFiles(effect)));
+Status exportUnityPackage(const Effect& effect, const std::filesystem::path& file,
+                          const std::filesystem::path& pictureFolder) {
+    return writeFileAtomic(file, makeUnityPackage(unityExportFiles(effect, pictureFolder)));
 }
 
 }  // namespace vfx::editor

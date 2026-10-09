@@ -1,7 +1,9 @@
 #include "vfx/editor/SpriteMesh.h"
 
+#include <algorithm>
 #include <cmath>
 
+#include "vfx/editor/Image.h"
 #include "vfx/editor/Session.h"
 
 namespace vfx::editor {
@@ -97,9 +99,11 @@ bool projectPoint(const View& view, bool flat, float x, float y, float z, float&
     return project(makeCamera(view, flat), x, y, flat ? 0.0f : z, px, py, scale);
 }
 
-void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mesh) {
+void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mesh,
+                     const ImageSet* images) {
     mesh.vertices.clear();
     mesh.indices.clear();
+    mesh.runs.clear();
     mesh.drawn = 0;
     if (!(view.width > 0.0f) || !(view.height > 0.0f)) {
         return;
@@ -115,7 +119,16 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
         const bool additive = batch.blend == BlendMode::Additive;
         const bool onPlane = !frame.flat && batch.facing == Facing::Plane;
         const float glow = batch.glow > 0.0f ? batch.glow : 0.0f;
-        const auto shape = static_cast<float>(batch.shape);
+        const Image* picture =
+            images && batch.texture.valid() ? images->find(batch.texture) : nullptr;
+        const auto shape = picture ? kPictureShape : static_cast<float>(batch.shape);
+        const int columns = batch.columns > 0 ? batch.columns : 1;
+        const int rows = batch.rows > 0 ? batch.rows : 1;
+        // Half a pixel in from each cell's edge, so smoothing never picks up
+        // the neighbouring picture.
+        const float insetU = picture ? 0.5f / static_cast<float>(picture->width) : 0.0f;
+        const float insetV = picture ? 0.5f / static_cast<float>(picture->height) : 0.0f;
+        const auto runStart = static_cast<std::uint32_t>(mesh.indices.size());
 
         for (std::uint32_t n = 0; n < batch.count; ++n) {
             const SpriteInstance& p = frame.instances[batch.first + n];
@@ -176,6 +189,12 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
             v.aaX = 1.0f / (lenX > 0.25f ? lenX : 0.25f);
             v.aaY = 1.0f / (lenY > 0.25f ? lenY : 0.25f);
 
+            int cellX = 0, cellY = 0;
+            if (picture) {
+                const int cell = std::clamp(static_cast<int>(p.frame), 0, columns * rows - 1);
+                cellX = cell % columns;
+                cellY = cell / columns;
+            }
             const auto base = static_cast<std::uint32_t>(mesh.vertices.size());
             bool visible = true;
             for (int k = 0; k < 4; ++k) {
@@ -193,8 +212,17 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
                     v.x = px + cornerX[k] * axX + cornerY[k] * ayX;
                     v.y = py + cornerX[k] * axY + cornerY[k] * ayY;
                 }
-                v.u = cornerU[k];
-                v.v = cornerV[k];
+                if (picture) {
+                    v.u = (static_cast<float>(cellX) + (cornerU[k] > 0.5f ? 1.0f : 0.0f)) /
+                              static_cast<float>(columns) +
+                          (cornerU[k] > 0.5f ? -insetU : insetU);
+                    v.v = (static_cast<float>(cellY) + (cornerV[k] > 0.5f ? 1.0f : 0.0f)) /
+                              static_cast<float>(rows) +
+                          (cornerV[k] > 0.5f ? -insetV : insetV);
+                } else {
+                    v.u = cornerU[k];
+                    v.v = cornerV[k];
+                }
                 mesh.vertices.push_back(v);
             }
             if (!visible) {
@@ -204,6 +232,17 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
             mesh.indices.insert(mesh.indices.end(),
                                 {base, base + 1, base + 2, base, base + 2, base + 3});
             ++mesh.drawn;
+        }
+
+        const auto runEnd = static_cast<std::uint32_t>(mesh.indices.size());
+        if (runEnd == runStart) {
+            continue;
+        }
+        const Id texture = picture ? batch.texture : Id{};
+        if (!mesh.runs.empty() && mesh.runs.back().texture == texture) {
+            mesh.runs.back().indexCount += runEnd - runStart;
+        } else {
+            mesh.runs.push_back(SpriteRun{texture, runStart, runEnd - runStart});
         }
     }
 }

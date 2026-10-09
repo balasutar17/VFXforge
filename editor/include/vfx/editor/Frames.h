@@ -22,6 +22,7 @@ struct FrameOptions {
     bool transparent = true;  // see-through background; otherwise black
     bool sheet = true;        // also write every frame into one picture
     View view;                // what part of the world to show; width and height are ignored
+    const ImageSet* images = nullptr;  // the effect's own pictures, if it uses any
 };
 
 struct FramesWritten {

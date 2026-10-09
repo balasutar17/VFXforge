@@ -10,6 +10,7 @@
 //   Assets/VFXForge/Editor/...           the importer that builds prefabs
 //   Assets/VFXForge/Shaders/...          the particle shader
 //   Assets/VFXForge/Textures/...         the shape atlas
+//   Assets/VFXForge/Images/...           the artist's own pictures, if any
 //   Assets/VFXForge/Effects/<name>.vfxforge   one per exported effect
 //
 // Unity turns each .vfxforge file into a prefab as soon as it appears, and
@@ -35,8 +36,20 @@ inline constexpr int kAtlasColumns = 8;
 inline constexpr int kAtlasRows = 4;
 inline constexpr int kAtlasTile = 256;
 
+// One of the artist's pictures, as it travels to Unity.
+struct UnityPicture {
+    Id asset;
+    std::string path;  // in the Unity project: "Assets/VFXForge/Images/<file>.png"
+    std::string png;
+};
+
+// The pictures the effect's drawn layers use, read from the folder they are
+// kept in (the effect's project folder). A picture that can't be read is
+// left out, and its layer is exported with its Shape instead.
+std::vector<UnityPicture> unityPictures(const Effect& effect, const std::filesystem::path& folder);
+
 // The effect, translated into Unity Particle System terms, as JSON text.
-std::string unityDescription(const Effect& effect);
+std::string unityDescription(const Effect& effect, const std::vector<UnityPicture>& pictures = {});
 
 // A file name for an effect: its name with anything awkward replaced.
 std::string unityFileStem(const Effect& effect);
@@ -46,7 +59,9 @@ std::string unityShapeAtlasPng();
 
 // Every file an export writes, with paths relative to the Unity project
 // folder (each starts with "Assets/VFXForge/").
-std::vector<TarEntry> unityExportFiles(const Effect& effect);
+// pictureFolder is where the effect's own pictures are kept.
+std::vector<TarEntry> unityExportFiles(const Effect& effect,
+                                       const std::filesystem::path& pictureFolder = {});
 
 // True when the folder looks like the top of a Unity project.
 bool isUnityProject(const std::filesystem::path& folder);
@@ -54,10 +69,12 @@ bool isUnityProject(const std::filesystem::path& folder);
 // Writes the files into a Unity project. Fails, writing nothing, when the
 // folder is not a Unity project.
 Status exportToUnityProject(const Effect& effect, const std::filesystem::path& projectFolder,
-                            std::filesystem::path* written = nullptr);
+                            std::filesystem::path* written = nullptr,
+                            const std::filesystem::path& pictureFolder = {});
 
 // The same files as a .unitypackage, to import with Assets > Import Package.
 std::string makeUnityPackage(const std::vector<TarEntry>& files);
-Status exportUnityPackage(const Effect& effect, const std::filesystem::path& file);
+Status exportUnityPackage(const Effect& effect, const std::filesystem::path& file,
+                          const std::filesystem::path& pictureFolder = {});
 
 }  // namespace vfx::editor

@@ -13,6 +13,7 @@
 
 #include "vfx/FileIO.h"
 #include "vfx/Templates.h"
+#include "vfx/editor/Image.h"
 #include "vfx/editor/Presets.h"
 #include "vfx/editor/Session.h"
 #include "vfx/editor/UnityExport.h"
@@ -369,4 +370,103 @@ TEST_CASE("a .unitypackage is a gzip of one folder per asset", "[unity][files]")
     CHECK(static_cast<std::uint8_t>(package[1]) == 0x8b);
     // The same files give the same package, byte for byte.
     CHECK(makeUnityPackage(files) == package);
+}
+
+TEST_CASE("a layer drawing a sprite sheet exports the picture and its animation",
+          "[unity][picture]") {
+    const auto folder = std::filesystem::temp_directory_path() / "vfxforge_unity_picture";
+    std::filesystem::remove_all(folder);
+    std::filesystem::create_directories(folder / "images");
+    Image sheet;
+    sheet.width = 64;
+    sheet.height = 32;
+    sheet.rgba.assign(64 * 32 * 4, 200);
+    const std::string png = encodePng(sheet);
+    REQUIRE(writeFileAtomic(folder / "images" / "fire-00000001.png", png).ok());
+
+    Asset asset;
+    asset.id = Id{0xabcdefull};
+    asset.path = "images/fire-00000001.png";
+    Effect effect = single([&](Layer& layer) {
+        put(layer, "sprite", "texture", Value(AssetRef{asset.id}));
+        put(layer, "sprite", "columns", Value(std::int64_t{4}));
+        put(layer, "sprite", "rows", Value(std::int64_t{2}));
+        put(layer, "sprite", "frames", Value(std::int64_t{6}));
+        put(layer, "initial", "lifetime", Value(Scalar::constant(1.5)));
+    });
+    effect.assets.push_back(asset);
+
+    // The picture travels with the effect, before it.
+    const auto files = unityExportFiles(effect, folder);
+    int pictureAt = -1, effectAt = -1;
+    for (std::size_t i = 0; i < files.size(); ++i) {
+        if (files[i].path == "Assets/VFXForge/Images/fire-00000001.png") {
+            pictureAt = static_cast<int>(i);
+            CHECK(files[i].bytes == png);
+        }
+        if (files[i].path == "Assets/VFXForge/Effects/Test.vfxforge") {
+            effectAt = static_cast<int>(i);
+        }
+    }
+    REQUIRE(pictureAt >= 0);
+    REQUIRE(effectAt > pictureAt);
+
+    // Once over each life: frame over time runs through the six frames used
+    // of the eight cells, stopping just short of the seventh.
+    const auto pictures = unityPictures(effect, folder);
+    REQUIRE(pictures.size() == 1);
+    J render = J::parse(unityDescription(effect, pictures))["layers"][0]["render"];
+    CHECK(render["picture"] == "Assets/VFXForge/Images/fire-00000001.png");
+    J sheetInfo = render["sheet"];
+    CHECK(sheetInfo["columns"] == 4);
+    CHECK(sheetInfo["rows"] == 2);
+    CHECK(sheetInfo["cycles"] == 1);
+    CHECK(sheetInfo["startFrame"] == 0.0);
+    const J& keys = sheetInfo["frameOverTime"]["keys"];
+    const double multiplier = sheetInfo["frameOverTime"]["multiplier"];
+    REQUIRE(keys.size() == 2);
+    CHECK(keys[0][1].get<double>() * multiplier == Catch::Approx(0.0));
+    CHECK(keys[1][1].get<double>() * multiplier == Catch::Approx(5.99 / 8.0));
+
+    // Looping at 8 frames a second over a 1.5 s life: two plays of six frames.
+    auto sprite = [&]() -> Module& {
+        for (Module& m : effect.layers[0].modules) {
+            if (m.type == "sprite") {
+                return m;
+            }
+        }
+        FAIL("no sprite");
+        return effect.layers[0].modules[0];
+    };
+    *sprite().find("animate") = Value(std::string("loop"));
+    *sprite().find("fps") = Value(8.0);
+    *sprite().find("randomStart") = Value(true);
+    sheetInfo = J::parse(unityDescription(effect, pictures))["layers"][0]["render"]["sheet"];
+    CHECK(sheetInfo["cycles"] == 2);
+    CHECK(sheetInfo["startFrame"] == J::array({0.0, 5.99}));
+
+    // One random picture each: no movement, a random start cell.
+    *sprite().find("animate") = Value(std::string("random"));
+    sheetInfo = J::parse(unityDescription(effect, pictures))["layers"][0]["render"]["sheet"];
+    CHECK(sheetInfo["frameOverTime"] == 0.0);
+    CHECK(sheetInfo["startFrame"] == J::array({0.0, 5.99}));
+
+    // A picture that can't be found is left out and the layer draws its shape.
+    std::filesystem::remove_all(folder);
+    CHECK(unityPictures(effect, folder).empty());
+    render = J::parse(unityDescription(effect, unityPictures(effect, folder)))["layers"][0]["render"];
+    CHECK_FALSE(render.contains("picture"));
+    CHECK_FALSE(render.contains("sheet"));
+}
+
+TEST_CASE("the importer and shader know about pictures", "[unity][picture]") {
+    std::string importer, shader;
+    for (const UnityFile& f : unityHelperSources()) {
+        if (std::string(f.path) == "Editor/VFXForgeImporter.cs") importer = f.text;
+        if (std::string(f.path) == "Shaders/VFXForgeParticle.shader") shader = f.text;
+    }
+    CHECK(importer.find("textureSheetAnimation") != std::string::npos);
+    CHECK(importer.find("\"picture\"") != std::string::npos);
+    CHECK(importer.find("Assets/VFXForge/Images/") != std::string::npos);
+    CHECK(shader.find("_Picture") != std::string::npos);
 }

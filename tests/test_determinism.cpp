@@ -48,6 +48,12 @@ Effect busy(bool threeD, bool loop) {
     put(a, "overLife", "size", Value(Scalar::curve({{0, 0.2}, {0.3, 1}, {1, 0}})));
     put(a, "overLife", "color",
         Value(Gradient{{{0, Color{1, 1, 0.6, 1}}, {1, Color{1, 0.2, 0, 0}}}}));
+    put(a, "sprite", "columns", Value(std::int64_t{4}));
+    put(a, "sprite", "rows", Value(std::int64_t{2}));
+    put(a, "sprite", "frames", Value(std::int64_t{7}));
+    put(a, "sprite", "animate", text("loop"));
+    put(a, "sprite", "fps", number(15));
+    put(a, "sprite", "randomStart", Value(true));
 
     Layer& b = effect.layers[1];
     b.start = 0.25;
@@ -61,6 +67,10 @@ Effect busy(bool threeD, bool loop) {
     put(b, "initial", "spread", number(15));
     put(b, "motion", "spin", Value(Scalar::curve({{0, 0}, {1, 720}})));
     put(b, "sprite", "blend", text("additive"));
+    put(b, "sprite", "texture", Value(AssetRef{effect.assets[0].id}));
+    put(b, "sprite", "columns", Value(std::int64_t{3}));
+    put(b, "sprite", "rows", Value(std::int64_t{3}));
+    put(b, "sprite", "animate", text("random"));
     return effect;
 }
 
@@ -348,8 +358,9 @@ TEST_CASE("Editing while playing shows exactly what the new settings produce") {
 
 TEST_CASE("These exact results on every machine") {
     // Fingerprints recorded once. (The frame fingerprints were recorded again
-    // when frames gained particle velocity and shape; the state fingerprints
-    // have never changed.) The same effect must give the same bits on
+    // when frames gained particle velocity and shape, and both again when
+    // particles gained a sprite-sheet pick; with that one field left out the
+    // state fingerprints were checked to be the originals.) The same effect must give the same bits on
     // Windows, macOS and Linux, on Intel and on Arm. If a platform ever
     // differs, this is the test that says so.
     auto bytes = readFile(pathFromUtf8(std::string(VFX_SAMPLES_DIR) + "/coin_burst.vfx"));
@@ -361,16 +372,16 @@ TEST_CASE("These exact results on every machine") {
 
     coins.seek(15);
     CHECK(coins.aliveCount() == 24);
-    CHECK(coins.stateHash() == 0xb53faee796723d64ull);
+    CHECK(coins.stateHash() == 0xb51e9ebf1a6f6aa6ull);
     coins.extract(frame);
-    CHECK(hashFrame(frame) == 0x3f97591ecc0d28dcull);
+    CHECK(hashFrame(frame) == 0x71b643ffcaa43430ull);
     coins.seek(60);
     CHECK(coins.aliveCount() == 15);
-    CHECK(coins.stateHash() == 0x25e45d1942aa4413ull);
+    CHECK(coins.stateHash() == 0x92a9228aee86e130ull);
     coins.seek(75);
-    CHECK(coins.stateHash() == 0xcc557f786eb1156eull);
+    CHECK(coins.stateHash() == 0x0c447cd3e7b67e3aull);
     coins.extract(frame);
-    CHECK(hashFrame(frame) == 0x1508ec548b475171ull);
+    CHECK(hashFrame(frame) == 0x8d6731a49c2585c3ull);
 
     // The busy effects go through every shape, curve and trigonometric path.
     struct Pin {
@@ -380,11 +391,11 @@ TEST_CASE("These exact results on every machine") {
         std::uint64_t state, frame;
     };
     const Pin pins[] = {
-        {false, false, 100, 254u, 0xb5bfa04ad4f1f952ull, 0xc805cde9e8102e59ull},
-        {false, true, 400, 326u, 0x4862fb0b10395e3dull, 0xcd615ea0f3a37ad6ull},
-        {true, false, 100, 240u, 0x45cc525b891f2906ull, 0x23bc53ff044a515cull},
-        {true, true, 400, 344u, 0x58a8967b933e5749ull, 0x4aa2475beadb50c5ull},
-        {true, true, 100000, 316u, 0x948de485bdd008d6ull, 0xe0b6ff922b01c084ull},
+        {false, false, 100, 254u, 0x21ab6ad9011299e4ull, 0x1eb459172fd88cedull},
+        {false, true, 400, 326u, 0x92a3f5ec81107348ull, 0x614376932ae4623full},
+        {true, false, 100, 240u, 0xb76d6dc331cbb741ull, 0x15318b1ded0dfabaull},
+        {true, true, 400, 344u, 0xa00abf80c71c3c99ull, 0x3885cc60ff31b1f8ull},
+        {true, true, 100000, 316u, 0x17ec92d8d3065986ull, 0xff7d612b5fcef903ull},
     };
     for (const Pin& pin : pins) {
         Simulation sim(compileEffect(busy(pin.threeD, pin.loop)));

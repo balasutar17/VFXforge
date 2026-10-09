@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -12,6 +13,7 @@
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QImageReader>
+#include <QRegularExpression>
 #include <QRandomGenerator>
 #include <QSettings>
 #include <QVariantMap>
@@ -20,7 +22,9 @@
 #include "vfx/FileIO.h"
 #include "vfx/Id.h"
 #include "vfx/Path.h"
+#include "vfx/Metadata.h"
 #include "vfx/editor/Frames.h"
+#include "vfx/editor/Image.h"
 #include "vfx/editor/Presets.h"
 #include "vfx/editor/UnityExport.h"
 
@@ -206,6 +210,9 @@ void AppController::rebuildControls() {
                            choice && d.kind == vfx::ValueKind::Enum) {
                     // The shape picker shows pictures; any other choice shows words.
                     kind = d.key == "shape" ? QStringLiteral("shape") : QStringLiteral("choice");
+                    if (d.key == "shape") {
+                        row.insert(QStringLiteral("picture"), pictureInfo());
+                    }
                     row.insert(QStringLiteral("value"), text(*choice));
                     QVariantList options;
                     for (const std::string& option : d.options) {
@@ -583,6 +590,227 @@ void AppController::setControlChoice(int index, const QString& option) {
     applyControl(index, vfx::Value(utf8(option)));
 }
 
+// ------------------------------------------------------------- pictures
+
+vfx::Id AppController::spriteModuleId() const {
+    const vfx::Layer* layer = vfx::findLayer(session_.effect(), selectedLayerId());
+    if (!layer) {
+        return vfx::Id{};
+    }
+    for (const vfx::Module& m : layer->modules) {
+        if (m.type == "sprite") {
+            return m.id;
+        }
+    }
+    return vfx::Id{};
+}
+
+QVariantMap AppController::pictureInfo() const {
+    QVariantMap info;
+    const vfx::Layer* layer = vfx::findLayer(session_.effect(), selectedLayerId());
+    const vfx::Module* sprite = nullptr;
+    if (layer) {
+        for (const vfx::Module& m : layer->modules) {
+            if (m.type == "sprite") {
+                sprite = &m;
+            }
+        }
+    }
+    info.insert(QStringLiteral("has"), false);
+    if (!sprite) {
+        return info;
+    }
+    auto number = [&](const char* key, double fallback) -> double {
+        const vfx::Value* v = sprite->find(key);
+        if (const auto* i = v ? std::get_if<std::int64_t>(v) : nullptr) {
+            return static_cast<double>(*i);
+        }
+        if (const auto* d = v ? std::get_if<double>(v) : nullptr) {
+            return *d;
+        }
+        return fallback;
+    };
+    info.insert(QStringLiteral("columns"), number("columns", 1));
+    info.insert(QStringLiteral("rows"), number("rows", 1));
+    info.insert(QStringLiteral("frames"), number("frames", 0));
+    info.insert(QStringLiteral("fps"), number("fps", 12));
+    const vfx::Value* animate = sprite->find("animate");
+    info.insert(QStringLiteral("animate"),
+                animate && std::holds_alternative<std::string>(*animate)
+                    ? text(std::get<std::string>(*animate))
+                    : QStringLiteral("life"));
+    const vfx::Value* randomStart = sprite->find("randomStart");
+    info.insert(QStringLiteral("randomStart"),
+                randomStart && std::holds_alternative<bool>(*randomStart) && std::get<bool>(*randomStart));
+
+    const vfx::Value* texture = sprite->find("texture");
+    const auto* ref = texture ? std::get_if<vfx::AssetRef>(texture) : nullptr;
+    if (!ref || !ref->id.valid()) {
+        return info;
+    }
+    const vfx::Asset* asset = vfx::findAsset(session_.effect(), ref->id);
+    if (!asset) {
+        return info;
+    }
+    info.insert(QStringLiteral("has"), true);
+    const auto file = session_.projectFolder() / vfx::pathFromUtf8(asset->path);
+    info.insert(QStringLiteral("source"), QUrl::fromLocalFile(QString::fromStdU16String(file.u16string())));
+    QString name = text(asset->path);
+    name = name.mid(name.lastIndexOf(QLatin1Char('/')) + 1);
+    info.insert(QStringLiteral("name"), name);
+    if (const vfx::editor::Image* image = session_.images().find(ref->id)) {
+        info.insert(QStringLiteral("width"), image->width);
+        info.insert(QStringLiteral("height"), image->height);
+        info.insert(QStringLiteral("problem"), QString());
+    } else {
+        info.insert(QStringLiteral("width"), 0);
+        info.insert(QStringLiteral("height"), 0);
+        info.insert(QStringLiteral("problem"),
+                    QStringLiteral("This picture can't be found next to the effect. Choose it again."));
+    }
+    return info;
+}
+
+bool AppController::usePictureImage(const QImage& source, const QString& name) {
+    const vfx::Id layer = selectedLayerId();
+    if (!layer.valid() || !spriteModuleId().valid()) {
+        say(QStringLiteral("Pick a layer first."), true);
+        return false;
+    }
+    if (source.isNull()) {
+        say(QStringLiteral("That picture could not be read."), true);
+        return false;
+    }
+    if (source.width() > 8192 || source.height() > 8192) {
+        say(QStringLiteral("That picture is too large: at most 8192 pixels wide and high."), true);
+        return false;
+    }
+    const QImage image = source.convertToFormat(QImage::Format_RGBA8888);
+    vfx::editor::Image pixels;
+    pixels.width = image.width();
+    pixels.height = image.height();
+    pixels.rgba.resize(static_cast<std::size_t>(pixels.width) * static_cast<std::size_t>(pixels.height) * 4u);
+    for (int y = 0; y < image.height(); ++y) {
+        std::memcpy(&pixels.rgba[static_cast<std::size_t>(y) * static_cast<std::size_t>(pixels.width) * 4u],
+                    image.constScanLine(y), static_cast<std::size_t>(pixels.width) * 4u);
+    }
+    const std::string png = vfx::editor::encodePng(pixels);
+
+    // "fire_4x2.png", "smoke 8x8.png": the grid is in the name.
+    const QRegularExpression grid(QStringLiteral("(\\d{1,2})\\s*[xX×]\\s*(\\d{1,2})"));
+    const QRegularExpressionMatch match = grid.match(name);
+    const bool first = !pictureInfo().value(QStringLiteral("has")).toBool();
+    session_.beginEdit("Use Picture");
+    bool ok = report(session_.useImage(layer, utf8(name), png));
+    bool whitened = false;
+    if (ok) {
+        const vfx::Id sprite = spriteModuleId();
+        auto put = [&](const char* key, vfx::Value value) {
+            (void)session_.set(vfx::Path::property(layer, sprite, key), std::move(value));
+        };
+        // The colour tints the picture. The first time a layer gets one, it
+        // starts white, so the picture shows as it was painted.
+        if (first) {
+            if (const vfx::Layer* l = vfx::findLayer(session_.effect(), layer)) {
+                for (const vfx::Module& m : l->modules) {
+                    const vfx::Value* c = m.type == "initial" ? m.find("color") : nullptr;
+                    if (const auto* color = c ? std::get_if<vfx::Color>(c) : nullptr) {
+                        if (color->r != 1.0 || color->g != 1.0 || color->b != 1.0) {
+                            whitened = session_.set(vfx::Path::property(layer, m.id, "color"),
+                                                    vfx::Value(vfx::Color{1.0, 1.0, 1.0, color->a}))
+                                           .ok();
+                        }
+                    }
+                }
+            }
+        }
+        if (match.hasMatch()) {
+            const int columns = std::clamp(match.captured(1).toInt(), 1, 64);
+            const int rows = std::clamp(match.captured(2).toInt(), 1, 64);
+            put("columns", vfx::Value(static_cast<std::int64_t>(columns)));
+            put("rows", vfx::Value(static_cast<std::int64_t>(rows)));
+            put("frames", vfx::Value(std::int64_t{0}));
+        }
+    }
+    session_.endEdit();
+    if (ok) {
+        changed(Structure);
+        QString line = match.hasMatch()
+                           ? QStringLiteral("Drawing %1 as a %2 by %3 sprite sheet.")
+                                 .arg(name, match.captured(1), match.captured(2))
+                           : QStringLiteral("Drawing %1. If it is a sprite sheet, set how many pictures across and down.")
+                                 .arg(name);
+        if (whitened) {
+            line += QStringLiteral(" Colour set to white so it shows as painted.");
+        }
+        say(line);
+    }
+    return ok;
+}
+
+bool AppController::usePicture(const QUrl& file) { return usePicturePath(file.toLocalFile()); }
+
+bool AppController::usePicturePath(const QString& path) {
+    QImageReader reader(path);
+    reader.setAutoTransform(true);
+    const QImage image = reader.read();
+    if (image.isNull()) {
+        say(QStringLiteral("That picture could not be read: %1").arg(reader.errorString()), true);
+        return false;
+    }
+    return usePictureImage(image, QFileInfo(path).fileName());
+}
+
+bool AppController::useSamplePicture() {
+    const QImage image(QStringLiteral(":/samples/toon-flame-4x2.png"));
+    if (!usePictureImage(image, QStringLiteral("toon-flame-4x2.png"))) {
+        return false;
+    }
+    // A sheet that loops reads as a living flame.
+    setPictureChoice(QStringLiteral("animate"), QStringLiteral("loop"));
+    setPictureFlag(QStringLiteral("randomStart"), true);
+    return true;
+}
+
+void AppController::clearPicture() {
+    if (report(session_.clearImage(selectedLayerId()))) {
+        changed(Structure);
+        say(QStringLiteral("Back to the shape."));
+    }
+}
+
+void AppController::setPictureNumber(const QString& key, double value) {
+    const vfx::Id sprite = spriteModuleId();
+    const vfx::ModuleTypeDesc* desc = vfx::Registry::builtin().findModule("sprite");
+    const vfx::PropertyDesc* p = desc ? desc->find(utf8(key)) : nullptr;
+    if (!sprite.valid() || !p) {
+        return;
+    }
+    value = clampTo(*p, value);
+    vfx::Value v = p->kind == vfx::ValueKind::Int
+                       ? vfx::Value(static_cast<std::int64_t>(std::lround(value)))
+                       : vfx::Value(value);
+    if (report(session_.set(vfx::Path::property(selectedLayerId(), sprite, utf8(key)), std::move(v)))) {
+        changed(Values);
+    }
+}
+
+void AppController::setPictureChoice(const QString& key, const QString& value) {
+    const vfx::Id sprite = spriteModuleId();
+    if (sprite.valid() &&
+        report(session_.set(vfx::Path::property(selectedLayerId(), sprite, utf8(key)), vfx::Value(utf8(value))))) {
+        changed(Values);
+    }
+}
+
+void AppController::setPictureFlag(const QString& key, bool value) {
+    const vfx::Id sprite = spriteModuleId();
+    if (sprite.valid() &&
+        report(session_.set(vfx::Path::property(selectedLayerId(), sprite, utf8(key)), vfx::Value(value)))) {
+        changed(Values);
+    }
+}
+
 // -------------------------------------------------------------- library
 
 QVariantList AppController::presets() const {
@@ -797,7 +1025,7 @@ bool AppController::exportToUnityPath(const QString& folder) {
         return false;
     }
     std::filesystem::path written;
-    if (!report(vfx::editor::exportToUnityProject(session_.effect(), project, &written))) {
+    if (!report(vfx::editor::exportToUnityProject(session_.effect(), project, &written, session_.projectFolder()))) {
         return false;
     }
     const QString projectPath = text(vfx::pathToUtf8(project));
@@ -817,7 +1045,7 @@ bool AppController::exportUnityPackage(const QUrl& file) {
     if (!path.endsWith(QStringLiteral(".unitypackage"), Qt::CaseInsensitive)) {
         path += QStringLiteral(".unitypackage");
     }
-    if (!report(vfx::editor::exportUnityPackage(session_.effect(), toPath(path)))) {
+    if (!report(vfx::editor::exportUnityPackage(session_.effect(), toPath(path), session_.projectFolder()))) {
         return false;
     }
     say(QStringLiteral("Saved %1. In Unity: Assets > Import Package > Custom Package.")
@@ -837,6 +1065,7 @@ bool AppController::exportFrames(const QUrl& folder, int size, bool transparent,
     options.framesPerSecond = session_.effect().frameRate;
     options.transparent = transparent;
     options.sheet = sheet;
+    options.images = &session_.images();
     auto number = [&view](const char* key, float fallback) {
         const QVariant v = view.value(QString::fromLatin1(key));
         bool ok = false;
@@ -936,7 +1165,9 @@ void AppController::tick(double seconds) {
         // Checked twice a second, not every frame: it only changes on edits.
         QString warning;
         const auto capped = session_.cappedLayers();
-        if (!capped.empty()) {
+        if (!session_.imageProblems().empty()) {
+            warning = text(session_.imageProblems().front());
+        } else if (!capped.empty()) {
             const vfx::Layer* layer = vfx::findLayer(session_.effect(), capped.front());
             warning = QStringLiteral("%1 wants more particles than the safety limit of %2, so some are left out.")
                           .arg(layer ? text(layer->name) : QStringLiteral("A layer"))

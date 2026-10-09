@@ -49,6 +49,7 @@ qt_add_resources(vfxforge "vfxforge_qml"
         qml/ControlShape.qml
         qml/Library.qml
         qml/ExportPanel.qml
+        samples/toon-flame-4x2.png
 )
 
 # One shader source, translated at build time for Metal, Direct3D and OpenGL.
@@ -59,6 +60,7 @@ qt_add_shaders(vfxforge "vfxforge_shaders"
     FILES
         shaders/sprite.vert
         shaders/sprite.frag
+        shaders/image.frag
 )
 
 set_target_properties(vfxforge PROPERTIES

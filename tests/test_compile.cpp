@@ -1,6 +1,8 @@
 #include <catch2/catch_amalgamated.hpp>
 
+#include <algorithm>
 #include <memory>
+#include <set>
 
 #include "random_values.h"
 #include "sim_helpers.h"
@@ -437,4 +439,102 @@ TEST_CASE("Compile: every sprite shape, alignment and stretch") {
     e = compileLayer(effect, layer);
     CHECK(e->alongMotion);
     CHECK(e->stretch == 0.2f);
+}
+
+TEST_CASE("Sprite sheets: grid, frame count and which picture each particle shows") {
+    Effect effect = oneLayer();
+    Layer& layer = effect.layers[0];
+    Asset sheet;
+    sheet.id = Id{0x5eed5eedull};
+    sheet.path = "images/fire.png";
+    effect.assets.push_back(sheet);
+
+    // Without a texture there is no sheet, whatever the grid says.
+    put(layer, "sprite", "columns", Value(std::int64_t{4}));
+    put(layer, "sprite", "rows", Value(std::int64_t{2}));
+    auto e = compileLayer(effect, layer);
+    CHECK(e->columns == 1);
+    CHECK(e->rows == 1);
+    CHECK(e->frames == 1);
+
+    put(layer, "sprite", "texture", Value(AssetRef{sheet.id}));
+    e = compileLayer(effect, layer);
+    CHECK(e->columns == 4);
+    CHECK(e->rows == 2);
+    CHECK(e->frames == 8);  // 0 means every cell
+    CHECK(e->animate == Animate::Life);
+    put(layer, "sprite", "frames", Value(std::int64_t{6}));
+    CHECK(compileLayer(effect, layer)->frames == 6);
+    put(layer, "sprite", "frames", Value(std::int64_t{99}));
+    CHECK(compileLayer(effect, layer)->frames == 8);  // never more than the grid holds
+    put(layer, "sprite", "frames", Value(std::int64_t{0}));
+
+    auto framesOf = [&](std::int64_t step) {
+        Simulation sim(compileEffect(effect));
+        sim.seek(step);
+        RenderFrame frame;
+        sim.extract(frame);
+        const ParticleView v = sim.particles(0);
+        REQUIRE(frame.batches.size() == 1);
+        CHECK(frame.batches[0].columns == 4);
+        CHECK(frame.batches[0].rows == 2);
+        REQUIRE(v.count == frame.instances.size());
+        std::vector<std::pair<float, float>> out;  // (age / lifetime, frame)
+        for (std::uint32_t i = 0; i < v.count; ++i) {
+            out.emplace_back(v.age[i], frame.instances[i].frame);
+            CHECK(frame.instances[i].frame >= 0.0f);
+            CHECK(frame.instances[i].frame <= 7.0f);
+            CHECK(frame.instances[i].frame == std::floor(frame.instances[i].frame));
+        }
+        return std::make_pair(out, std::vector<float>(v.lifetime, v.lifetime + v.count));
+    };
+
+    // Once over each particle's life.
+    {
+        auto [ages, lives] = framesOf(50);
+        REQUIRE_FALSE(ages.empty());
+        for (std::size_t i = 0; i < ages.size(); ++i) {
+            const float lived = std::clamp(ages[i].first / lives[i], 0.0f, 1.0f);
+            const int expected = std::min(7, static_cast<int>(lived * 8.0f));
+            CHECK(ages[i].second == static_cast<float>(expected));
+        }
+    }
+
+    // Looping at the frame rate.
+    put(layer, "sprite", "animate", text("loop"));
+    put(layer, "sprite", "fps", number(10));
+    {
+        auto [ages, lives] = framesOf(50);
+        for (const auto& [age, frame] : ages) {
+            const auto expected = static_cast<std::int64_t>(std::floor(age * 10.0)) % 8;
+            CHECK(frame == static_cast<float>(expected));
+        }
+    }
+
+    // One random picture each, held for life, and different particles differ.
+    put(layer, "sprite", "animate", text("random"));
+    {
+        auto [early, lives] = framesOf(40);
+        auto [later, lives2] = framesOf(41);
+        std::set<float> seen;
+        for (const auto& p : early) {
+            seen.insert(p.second);
+        }
+        CHECK(seen.size() > 3);
+        // A particle alive in both keeps its picture. The dead leave from the
+        // front, the newborn join at the back, and the rest keep their order.
+        std::size_t newborn = 0;
+        for (const auto& p : later) {
+            if (p.first < static_cast<float>(kSimulationStep)) {
+                ++newborn;
+            }
+        }
+        const std::size_t kept = later.size() - newborn;
+        REQUIRE(kept <= early.size());
+        const std::size_t died = early.size() - kept;
+        REQUIRE(kept > 10);
+        for (std::size_t k = 0; k < kept; ++k) {
+            CHECK(early[died + k].second == later[k].second);
+        }
+    }
 }

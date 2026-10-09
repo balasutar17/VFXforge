@@ -34,13 +34,16 @@ struct ScreenColor {
 };
 
 // Draws a mesh over a plain background. The mesh's coordinates are pixels.
-Picture drawPicture(const SpriteMesh& mesh, int width, int height, ScreenColor background = {});
+// Pictures for layers that draw the artist's own image come from images.
+Picture drawPicture(const SpriteMesh& mesh, int width, int height, ScreenColor background = {},
+                    const ImageSet* images = nullptr);
 
 // Draws a mesh over nothing: where no particle is, the picture is fully
 // see-through. Colours are stored straight (not premultiplied), as PNG
 // expects. Light added by glowing particles counts toward coverage by its
 // brightness, so it still shows when the picture is laid over a scene.
-Picture drawPictureClear(const SpriteMesh& mesh, int width, int height);
+Picture drawPictureClear(const SpriteMesh& mesh, int width, int height,
+                         const ImageSet* images = nullptr);
 
 // Copies one picture into another at (left, top), clipped to fit.
 void paste(Picture& onto, const Picture& piece, int left, int top);

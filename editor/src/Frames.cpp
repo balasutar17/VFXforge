@@ -81,10 +81,11 @@ Result<FramesWritten> exportFrames(const Effect& effect, const FrameOptions& opt
         const double t = begin + static_cast<double>(k) / options.framesPerSecond;
         simulation.seek(static_cast<std::int64_t>(std::llround(t / kSimulationStep)) + 1);
         simulation.extract(frame);
-        buildSpriteMesh(frame, view, mesh);
+        buildSpriteMesh(frame, view, mesh, options.images);
         const Picture picture = options.transparent
-                                    ? drawPictureClear(mesh, options.width, options.height)
-                                    : drawPicture(mesh, options.width, options.height, ScreenColor{0, 0, 0});
+                                    ? drawPictureClear(mesh, options.width, options.height, options.images)
+                                    : drawPicture(mesh, options.width, options.height, ScreenColor{0, 0, 0},
+                                                  options.images);
         char name[32];
         std::snprintf(name, sizeof name, "_%04d.png", k);
         if (Status ok = writePng(out.folder / pathFromUtf8(stem + name), picture); !ok) {

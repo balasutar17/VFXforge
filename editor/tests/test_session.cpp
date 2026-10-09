@@ -8,6 +8,7 @@
 
 #include "vfx/FileIO.h"
 #include "vfx/editor/Session.h"
+#include "vfx/editor/SpriteMesh.h"
 
 using namespace vfx;
 using namespace vfx::editor;
@@ -368,4 +369,128 @@ TEST_CASE("directions and headings convert both ways", "[session][heading]") {
             CHECK(back.tilt == Catch::Approx(tilt).margin(1e-9));
         }
     }
+}
+
+namespace {
+
+// A 4 x 2 sprite sheet of 8-pixel cells, each one solid colour.
+std::string testSheet() {
+    Image sheet;
+    sheet.width = 32;
+    sheet.height = 16;
+    sheet.rgba.resize(32 * 16 * 4);
+    for (int y = 0; y < 16; ++y) {
+        for (int x = 0; x < 32; ++x) {
+            const int cell = (y / 8) * 4 + x / 8;
+            std::uint8_t* p = &sheet.rgba[static_cast<std::size_t>(y * 32 + x) * 4];
+            p[0] = static_cast<std::uint8_t>(cell * 30);
+            p[1] = static_cast<std::uint8_t>(255 - cell * 30);
+            p[2] = 128;
+            p[3] = 255;
+        }
+    }
+    return encodePng(sheet);
+}
+
+Id firstLayer(const Session& s) { return s.effect().layers.at(0).id; }
+
+Id textureOf(const Session& s) {
+    for (const auto& m : s.effect().layers.at(0).modules) {
+        if (m.type == "sprite") {
+            return std::get<AssetRef>(*m.find("texture")).id;
+        }
+    }
+    return {};
+}
+
+}  // namespace
+
+TEST_CASE("a layer can draw the artist's own picture, with undo", "[session][image]") {
+    Session s;
+    const std::string png = testSheet();
+    REQUIRE(s.useImage(firstLayer(s), "/Users/me/My Fire.png", png).ok());
+    REQUIRE(s.effect().assets.size() == 1);
+    const Asset asset = s.effect().assets[0];
+    CHECK(asset.path.rfind("images/my-fire-", 0) == 0);
+    CHECK(textureOf(s) == asset.id);
+    CHECK(s.images().has(asset.id));
+    CHECK(std::filesystem::exists(s.projectFolder() / asset.path));
+
+    // Drawn as the picture: the mesh says so, in one run of that picture.
+    play(s, 0.5);
+    SpriteMesh mesh;
+    View view;
+    buildSpriteMesh(s.frame(), view, mesh, &s.images());
+    REQUIRE(mesh.drawn > 0);
+    REQUIRE(mesh.runs.size() == 1);
+    CHECK(mesh.runs[0].texture == asset.id);
+    CHECK(mesh.runs[0].indexCount == mesh.indices.size());
+    CHECK(mesh.vertices[0].shape == kPictureShape);
+
+    // Without the pictures it falls back to the Shape.
+    buildSpriteMesh(s.frame(), view, mesh);
+    CHECK(mesh.vertices[0].shape >= 0.0f);
+    CHECK_FALSE(mesh.runs[0].texture.valid());
+
+    // The same picture again is not added twice.
+    REQUIRE(s.useImage(firstLayer(s), "My Fire.png", png).ok());
+    CHECK(s.effect().assets.size() == 1);
+
+    REQUIRE(s.undo().ok());
+    CHECK_FALSE(s.commands().canUndo());
+    CHECK(s.effect().assets.empty());
+    CHECK_FALSE(textureOf(s).valid());
+    play(s, 0.1);
+    CHECK_FALSE(s.images().has(asset.id));
+    REQUIRE(s.redo().ok());
+    play(s, 0.1);
+    CHECK(textureOf(s) == asset.id);
+    CHECK(s.images().has(asset.id));
+    CHECK(s.imageProblems().empty());
+
+    // Back to the shape drops the picture from the effect.
+    REQUIRE(s.clearImage(firstLayer(s)).ok());
+    CHECK(s.effect().assets.empty());
+    CHECK_FALSE(textureOf(s).valid());
+}
+
+TEST_CASE("pictures are saved next to the effect and found again", "[session][image]") {
+    const auto folder = scratchFile("pictures");
+    std::filesystem::remove_all(folder);
+    std::filesystem::create_directories(folder);
+    std::filesystem::path relative;
+    {
+        Session s;
+        REQUIRE(s.useImage(firstLayer(s), "sheet.png", testSheet()).ok());
+        relative = pathFromUtf8(s.effect().assets[0].path);
+        const auto scratch = s.projectFolder();
+        REQUIRE(s.saveAs(folder / "Fire.vfx").ok());
+        CHECK(std::filesystem::exists(folder / relative));
+        CHECK(s.projectFolder() == folder);
+        CHECK_FALSE(scratch.empty());
+    }
+    Session again;
+    REQUIRE(again.open(folder / "Fire.vfx").ok());
+    play(again, 0.2);
+    CHECK(again.imageProblems().empty());
+    CHECK(again.images().size() == 1);
+
+    // A picture that has gone missing is reported, and the layer still draws.
+    std::filesystem::remove(folder / relative);
+    Session third;
+    REQUIRE(third.open(folder / "Fire.vfx").ok());
+    play(third, 0.5);
+    REQUIRE(third.imageProblems().size() == 1);
+    CHECK(third.imageProblems()[0].find("can't be found") != std::string::npos);
+    SpriteMesh mesh;
+    buildSpriteMesh(third.frame(), View{}, mesh, &third.images());
+    CHECK(mesh.drawn > 0);
+    std::filesystem::remove_all(folder);
+}
+
+TEST_CASE("a damaged picture is refused and nothing changes", "[session][image]") {
+    Session s;
+    CHECK_FALSE(s.useImage(firstLayer(s), "x.png", "not a png").ok());
+    CHECK(s.effect().assets.empty());
+    CHECK_FALSE(s.commands().canUndo());
 }

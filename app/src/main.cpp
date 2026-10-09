@@ -214,7 +214,7 @@ int main(int argc, char* argv[]) {
             QDir(scratch).removeRecursively();
         };
 
-        // Third: the library, with every card playing.
+        // Last: the library, with every card playing.
         auto third = [&, window, software, finish]() {
             const int lit = capture(window, selfTest, QStringLiteral("-library"), QStringLiteral("the library"));
             if (!software && lit < 500) {
@@ -224,8 +224,28 @@ int main(int argc, char* argv[]) {
             finish();
         };
 
+        // Third: a layer drawing a painted sprite sheet, then the exports
+        // of that effect, pictures and all.
+        auto picture = [&, window, software, third, exports]() {
+            QTextStream out(&selfTest.report);
+            out << "picture effect: " << controller.effectName() << ", " << controller.particleCount()
+                << " particles, " << controller.session().images().size() << " picture(s)\n";
+            if (controller.session().images().size() != 1) {
+                out << "FAIL: the sample sprite sheet did not load\n";
+                selfTest.result = 1;
+            }
+            const int lit = capture(window, selfTest, QStringLiteral("-picture"), QStringLiteral("a painted sprite sheet"));
+            if (!software && lit < 500) {
+                out << "FAIL: the painted sprite sheet shows nothing\n";
+                selfTest.result = 1;
+            }
+            exports();
+            controller.setLibraryOpen(true);
+            QTimer::singleShot(2500, &application, third);
+        };
+
         // Second: a toon preset, which uses the hard-edged shapes.
-        auto second = [&, window, software, third, exports]() {
+        auto second = [&, window, software, picture]() {
             QTextStream out(&selfTest.report);
             out << "preset: " << controller.effectName() << ", " << controller.particleCount()
                 << " particles\n";
@@ -234,9 +254,19 @@ int main(int argc, char* argv[]) {
                 out << "FAIL: the preset shows nothing\n";
                 selfTest.result = 1;
             }
-            exports();
-            controller.setLibraryOpen(true);
-            QTimer::singleShot(2500, &application, third);
+            const bool sheet = QFile::exists(QStringLiteral(":/samples/toon-flame-4x2.png")) &&
+                               QFile::exists(QStringLiteral(":/shaders/image.frag.qsb"));
+            out << "sample sheet and picture shader present: " << (sheet ? "yes" : "NO") << "\n";
+            if (!sheet || !controller.openPreset(QStringLiteral("toon-fire"))) {
+                out << "FAIL: could not set up the picture test\n";
+                selfTest.result = 1;
+            }
+            controller.selectLayer(0);
+            if (!controller.useSamplePicture()) {
+                out << "FAIL: the sample sprite sheet could not be used: " << controller.message() << "\n";
+                selfTest.result = 1;
+            }
+            QTimer::singleShot(1500, &application, picture);
         };
 
         // First: the starter effect.

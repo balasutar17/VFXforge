@@ -7,6 +7,7 @@
 #pragma once
 
 #include <QColor>
+#include <QImage>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -194,6 +195,20 @@ public:
     Q_INVOKABLE void setControlDirection(int index, double heading, double tilt);
     Q_INVOKABLE void setControlChoice(int index, const QString& option);
 
+    // ----------------------------------------------- the artist's pictures
+    // Any picture Qt can read (PNG, JPEG, WebP, TIFF...) becomes a PNG copy
+    // next to the effect, drawn by the selected layer instead of its Shape.
+    // A name like "fire_4x2.png" sets the sprite-sheet grid to 4 by 2.
+    Q_INVOKABLE bool usePicture(const QUrl& file);
+    Q_INVOKABLE bool usePicturePath(const QString& path);
+    Q_INVOKABLE bool useSamplePicture();  // the toon flame sheet that ships with the app
+    Q_INVOKABLE void clearPicture();
+    // Sprite-sheet settings of the selected layer's picture: columns, rows,
+    // frames, fps (numbers), animate (life, loop, random), randomStart.
+    Q_INVOKABLE void setPictureNumber(const QString& key, double value);
+    Q_INVOKABLE void setPictureChoice(const QString& key, const QString& value);
+    Q_INVOKABLE void setPictureFlag(const QString& key, bool value);
+
     // --------------------------------------------------------- playback
     Q_INVOKABLE void togglePlay();
     Q_INVOKABLE void play();
@@ -235,6 +250,9 @@ private:
     bool report(const vfx::Status& status);
     vfx::Id selectedLayerId() const;
     bool control(int index, vfx::editor::ControlView& out) const;
+    QVariantMap pictureInfo() const;
+    bool usePictureImage(const QImage& image, const QString& name);
+    vfx::Id spriteModuleId() const;
     void applyControl(int index, const vfx::Value& value);
     void loadBackdrop();
     void storeBackdrop();

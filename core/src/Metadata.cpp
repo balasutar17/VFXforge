@@ -130,7 +130,7 @@ Registry::Registry() {
 
     modules_.push_back(module("sprite", "Sprite", Stage::Render, {
         P("texture", "Texture", ValueKind::Asset, AssetRef{})
-            .help("The image drawn for each particle. None draws a soft dot."),
+            .help("Your own picture or sprite sheet, drawn for each particle. None draws the Shape."),
         P("blend", "Blend Mode", ValueKind::Enum, text("alpha"))
             .simple()
             .options({"alpha", "additive"})
@@ -154,6 +154,22 @@ Registry::Registry() {
             .unit("seconds").range(0, 10).ui(0, 0.3)
             .help("Draws a moving particle as a streak this many seconds of travel long. "
                   "Needs Align set to movement."),
+        P("columns", "Columns", ValueKind::Int, integer(1)).range(1, 64)
+            .help("For a sprite sheet: how many pictures across the image."),
+        P("rows", "Rows", ValueKind::Int, integer(1)).range(1, 64)
+            .help("For a sprite sheet: how many pictures down the image."),
+        P("frames", "Frames", ValueKind::Int, integer(0)).range(0, 4096)
+            .help("How many pictures the sheet holds, read left to right and top to bottom. "
+                  "0 uses every cell."),
+        P("animate", "Animate", ValueKind::Enum, text("life"))
+            .options({"life", "loop", "random"})
+            .help("Play the sheet once over each particle's life, loop it at the frame rate, "
+                  "or give each particle one random picture."),
+        P("fps", "Frame Rate", ValueKind::Float, num(12.0))
+            .unit("frames per second").range(0.1, 240).ui(1, 60)
+            .help("How fast a looping sheet plays."),
+        P("randomStart", "Random Start", ValueKind::Bool, Value(false))
+            .help("Start each particle's loop on a different picture."),
     }));
 
     effect_ = module("effect", "Effect", Stage::Update, {

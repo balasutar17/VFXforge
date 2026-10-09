@@ -59,6 +59,8 @@ struct BurstF {
 enum class ShapeType : std::uint8_t { Point, Circle, Rectangle, Sphere, Box, Cone };
 enum class BlendMode : std::uint8_t { Alpha, Additive };
 enum class Facing : std::uint8_t { Camera, Plane };
+// How a sprite sheet steps through its pictures.
+enum class Animate : std::uint8_t { Life, Loop, Random };
 
 // The built-in particle pictures, in the order the "shape" property lists them.
 enum class SpriteShape : std::uint8_t {
@@ -120,6 +122,13 @@ struct EmitterProgram {
     SpriteShape spriteShape = SpriteShape::Soft;
     bool alongMotion = false;  // point each particle the way it is moving
     float stretch = 0;         // seconds of travel drawn as a streak
+
+    // A sprite sheet: the texture cut into columns x rows pictures, of which
+    // the first `frames` are used. One picture when there is no texture.
+    int columns = 1, rows = 1, frames = 1;
+    Animate animate = Animate::Life;
+    float fps = 12;
+    bool randomStart = false;
 
     // Limits worked out at compile time, so stepping never allocates memory.
     double maxLifetime = 0;

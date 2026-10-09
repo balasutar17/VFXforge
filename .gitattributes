@@ -6,3 +6,5 @@
 *.h text
 *.md text
 *.json text
+*.png binary
+*.rgba binary

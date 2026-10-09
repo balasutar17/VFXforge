@@ -118,7 +118,13 @@
           "facing": "camera",
           "shape": "soft",
           "align": "none",
-          "stretch": 0.0
+          "stretch": 0.0,
+          "columns": 1,
+          "rows": 1,
+          "frames": 0,
+          "animate": "life",
+          "fps": 12.0,
+          "randomStart": false
         }
       ]
     }

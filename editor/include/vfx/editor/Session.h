@@ -23,6 +23,7 @@
 #include "vfx/Simulation.h"
 #include "vfx/Templates.h"
 #include "vfx/Value.h"
+#include "vfx/editor/Image.h"
 
 namespace vfx::editor {
 
@@ -84,6 +85,25 @@ public:
     // Adds every layer of a library preset to the open effect, as one undo
     // step. How many layers were added is returned through added.
     Status addPreset(std::string_view presetId, int* added = nullptr);
+    // ------------------------------------------------- the artist's pictures
+    // Copies a PNG into the project's images folder and makes the layer draw
+    // it, as one undo step. originalName is only used to name the copy.
+    Status useImage(Id layer, std::string_view originalName, std::string_view pngBytes);
+
+    // Goes back to the layer's Shape. The picture is dropped from the effect
+    // when no other layer uses it (the file stays on disk).
+    Status clearImage(Id layer);
+
+    // The folder pictures are stored relative to: the effect file's folder,
+    // or, until the effect is first saved, a private scratch folder.
+    std::filesystem::path projectFolder() const;
+
+    // The decoded pictures, kept in step with the effect on every tick.
+    const ImageSet& images() const { return images_; }
+
+    // Pictures the effect refers to that could not be loaded.
+    const std::vector<std::string>& imageProblems() const { return imageProblems_; }
+
     Status undo();
     Status redo();
 
@@ -128,6 +148,11 @@ private:
     bool readOnly_ = false;
     std::vector<Diagnostic> notes_;
     std::uint64_t generation_ = 0;
+    ImageSet images_;
+    std::vector<std::string> imageProblems_;
+    std::filesystem::path scratch_;  // created on first use, removed with the session
+
+    void syncImages();
 };
 
 // -------------------------------------------------------------- helpers

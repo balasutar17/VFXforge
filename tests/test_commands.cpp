@@ -65,6 +65,8 @@ TEST_CASE("Set property: every property of every module applies and reverts") {
                 Value changed;
                 switch (p.kind) {
                     case ValueKind::Float: changed = std::get<double>(p.defaultValue) + 0.25; break;
+                    case ValueKind::Int: changed = std::get<std::int64_t>(p.defaultValue) + 1; break;
+                    case ValueKind::Bool: changed = !std::get<bool>(p.defaultValue); break;
                     case ValueKind::Scalar: changed = Scalar::random(0.5, 0.75); break;
                     case ValueKind::Vec3: changed = Vec3{0.25, 0.5, 0.75}; break;
                     case ValueKind::Color: changed = Color{0.25, 0.5, 0.75, 0.5}; break;
@@ -86,7 +88,7 @@ TEST_CASE("Set property: every property of every module applies and reverts") {
             }
         }
     }
-    CHECK(checked == 54);
+    CHECK(checked == 66);
 }
 
 TEST_CASE("Set property: effect and layer fields") {

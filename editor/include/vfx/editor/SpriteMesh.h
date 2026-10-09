@@ -18,12 +18,18 @@ namespace vfx::editor {
 // an additive particle is simply one whose alpha is zero.
 struct SpriteVertex {
     float x = 0, y = 0;  // pixels from the top-left of the viewport
-    float u = 0, v = 0;  // 0..1 across the particle; v runs downward
+    float u = 0, v = 0;  // 0..1 across the particle, v running downward; for a
+                         // picture, where in the picture (its sprite-sheet cell)
     float r = 0, g = 0, b = 0, a = 0;
-    float shape = 0;         // which built-in picture (a SpriteShape, as a number)
+    float shape = 0;         // which built-in shape (a SpriteShape, as a number);
+                             // kPictureShape when the artist's picture is drawn
     float aaX = 1, aaY = 1;  // the size of one pixel, in the particle's own -1..1 units
 };
 static_assert(sizeof(SpriteVertex) == 44, "the graphics code copies these as raw bytes");
+
+inline constexpr float kPictureShape = -1.0f;
+
+class ImageSet;
 
 // How the effect is looked at.
 struct View {
@@ -44,15 +50,26 @@ struct View {
     float fieldOfView = 40;  // degrees, top to bottom
 };
 
+// A stretch of the index list drawn with one picture, in drawing order. An
+// invalid texture means the built-in shapes.
+struct SpriteRun {
+    Id texture;
+    std::uint32_t firstIndex = 0;
+    std::uint32_t indexCount = 0;
+};
+
 struct SpriteMesh {
     std::vector<SpriteVertex> vertices;  // four per particle
     std::vector<std::uint32_t> indices;  // six per particle
+    std::vector<SpriteRun> runs;         // covering every index, in order
     std::uint32_t drawn = 0;             // particles that made it on screen
 };
 
 // Rebuilds the mesh from a frame. Reuse one mesh object from frame to frame
-// and no memory is allocated once it has grown to size.
-void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mesh);
+// and no memory is allocated once it has grown to size. A layer whose
+// picture is not in images (or with no images given) draws its Shape instead.
+void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mesh,
+                     const ImageSet* images = nullptr);
 
 // Where a world point lands in the viewport. Returns false when a 3D point
 // is behind the camera. scale receives pixels per world unit at that point.

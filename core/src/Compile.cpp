@@ -281,6 +281,24 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         }
         e->alongMotion = sprite.get<std::string>("align") == "movement";
         e->stretch = e->alongMotion ? f(sprite.get<double>("stretch")) : 0.0f;
+
+        if (e->texture.valid()) {
+            auto whole = [&](const char* key, std::int64_t lo, std::int64_t hi) {
+                return static_cast<int>(std::clamp(sprite.get<std::int64_t>(key), lo, hi));
+            };
+            e->columns = whole("columns", 1, 64);
+            e->rows = whole("rows", 1, 64);
+            const int cells = e->columns * e->rows;
+            const int frames = whole("frames", 0, 4096);
+            e->frames = frames == 0 ? cells : std::min(frames, cells);
+            const std::string& animate = sprite.get<std::string>("animate");
+            e->animate = animate == "loop"     ? Animate::Loop
+                         : animate == "random" ? Animate::Random
+                                               : Animate::Life;
+            const double fps = sprite.get<double>("fps");
+            e->fps = std::isfinite(fps) ? std::clamp(f(fps), 0.1f, 240.0f) : 12.0f;
+            e->randomStart = sprite.get<bool>("randomStart");
+        }
     }
 
     // ------------------------------------------------------------- capacity

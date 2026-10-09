@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <system_error>
 #include <utility>
 
 #include "vfx/Command.h"
@@ -81,11 +83,158 @@ struct Session::State {
 
 Session::Session() { newEffect(false); }
 
-Session::~Session() = default;
+Session::~Session() {
+    if (!scratch_.empty()) {
+        std::error_code ignored;
+        std::filesystem::remove_all(scratch_, ignored);
+    }
+}
 
 void Session::adopt(Effect effect) {
     state_ = std::make_unique<State>(std::move(effect), IdGenerator::fromEntropy());
     ++generation_;
+    images_.clear();
+    images_.retryFailed();
+}
+
+std::filesystem::path Session::projectFolder() const {
+    if (!path_.empty()) {
+        return path_.parent_path();
+    }
+    return scratch_;
+}
+
+void Session::syncImages() {
+    imageProblems_ = images_.sync(effect(), projectFolder());
+}
+
+namespace {
+
+const Module* spriteOf(const Layer& layer) {
+    for (const auto& m : layer.modules) {
+        if (m.type == "sprite") {
+            return &m;
+        }
+    }
+    return nullptr;
+}
+
+}  // namespace
+
+Status Session::useImage(Id layerId, std::string_view originalName, std::string_view pngBytes) {
+    const Layer* layer = findLayer(effect(), layerId);
+    if (!layer) {
+        return makeError("That layer no longer exists.");
+    }
+    const Module* sprite = spriteOf(*layer);
+    if (!sprite) {
+        return makeError("This layer is not drawn, so it can't show a picture.");
+    }
+    auto decoded = decodePng(pngBytes);
+    if (!decoded) {
+        return decoded.error();
+    }
+
+    // Unsaved effects keep their pictures in a scratch folder until saved.
+    if (path_.empty() && scratch_.empty()) {
+        std::error_code error;
+        const auto base = std::filesystem::temp_directory_path(error);
+        if (error) {
+            return makeError("There is nowhere to keep the picture.", error.message());
+        }
+        IdGenerator ids = IdGenerator::fromEntropy();
+        char name[40];
+        std::snprintf(name, sizeof name, "unsaved-%016llx",
+                      static_cast<unsigned long long>(ids.next().value));
+        scratch_ = base / "VFX Forge" / name;
+    }
+    const std::string relative = imageAssetPath(originalName, pngBytes);
+    const std::filesystem::path target = projectFolder() / pathFromUtf8(relative);
+    std::error_code error;
+    if (!std::filesystem::exists(target, error)) {
+        std::filesystem::create_directories(target.parent_path(), error);
+        if (Status written = writeFileAtomic(target, pngBytes); !written) {
+            return written;
+        }
+    }
+
+    // The same picture already in the effect is used again, not added twice.
+    Id asset;
+    for (const Asset& a : effect().assets) {
+        if (a.kind == "texture" && a.path == relative) {
+            asset = a.id;
+        }
+    }
+    std::vector<CommandPtr> steps;
+    if (!asset.valid()) {
+        Asset added;
+        added.id = state_->document.newId();
+        added.kind = "texture";
+        added.path = relative;
+        asset = added.id;
+        steps.push_back(std::make_unique<AddAssetCommand>(std::move(added)));
+    }
+    const Id previous = std::get_if<AssetRef>(sprite->find("texture"))
+                            ? std::get<AssetRef>(*sprite->find("texture")).id
+                            : Id{};
+    if (steps.empty() && previous == asset) {
+        return {};  // already showing this picture
+    }
+    steps.push_back(std::make_unique<SetPropertyCommand>(
+        Path::property(layerId, sprite->id, "texture"), Value(AssetRef{asset})));
+    if (previous.valid() && previous != asset) {
+        // Dropped only if nothing else uses it; checked when the step runs.
+        int users = 0;
+        for (const Layer& l : effect().layers) {
+            if (const Module* s = spriteOf(l)) {
+                if (const auto* ref = std::get_if<AssetRef>(s->find("texture"))) {
+                    users += ref->id == previous ? 1 : 0;
+                }
+            }
+        }
+        if (users <= 1) {
+            steps.push_back(std::make_unique<RemoveAssetCommand>(previous));
+        }
+    }
+    auto image = std::make_shared<const Image>(std::move(decoded.value()));
+    Status pushed = state_->commands.push(
+        std::make_unique<CompositeCommand>("Use Picture", std::move(steps)));
+    if (pushed) {
+        images_.put(asset, std::move(image), relative);
+        syncImages();
+    }
+    return pushed;
+}
+
+Status Session::clearImage(Id layerId) {
+    const Layer* layer = findLayer(effect(), layerId);
+    if (!layer) {
+        return makeError("That layer no longer exists.");
+    }
+    const Module* sprite = spriteOf(*layer);
+    const auto* ref = sprite ? std::get_if<AssetRef>(sprite->find("texture")) : nullptr;
+    if (!ref || !ref->id.valid()) {
+        return {};
+    }
+    const Id previous = ref->id;
+    std::vector<CommandPtr> steps;
+    steps.push_back(std::make_unique<SetPropertyCommand>(
+        Path::property(layerId, sprite->id, "texture"), Value(AssetRef{})));
+    int users = 0;
+    for (const Layer& l : effect().layers) {
+        if (const Module* s = spriteOf(l)) {
+            if (const auto* r = std::get_if<AssetRef>(s->find("texture"))) {
+                users += r->id == previous ? 1 : 0;
+            }
+        }
+    }
+    if (users <= 1) {
+        steps.push_back(std::make_unique<RemoveAssetCommand>(previous));
+    }
+    Status pushed = state_->commands.push(
+        std::make_unique<CompositeCommand>("Use Shape", std::move(steps)));
+    syncImages();
+    return pushed;
 }
 
 void Session::newEffect(bool threeD) {
@@ -140,10 +289,34 @@ Status Session::saveAs(const std::filesystem::path& path) {
             "This file was made by a newer version of VFX Forge, so it cannot be saved over. "
             "Use Save As to keep a copy.");
     }
+    // Pictures travel with the effect: copy any the new folder lacks.
+    const std::filesystem::path from = projectFolder();
+    const std::filesystem::path to = path.parent_path();
+    if (!from.empty() && from != to) {
+        for (const Asset& asset : effect().assets) {
+            const auto source = from / pathFromUtf8(asset.path);
+            const auto target = to / pathFromUtf8(asset.path);
+            std::error_code error;
+            if (std::filesystem::exists(target, error) || !std::filesystem::exists(source, error)) {
+                continue;
+            }
+            auto bytes = readFile(source);
+            if (!bytes) {
+                return makeError("A picture could not be copied next to the effect.",
+                                 bytes.error().message);
+            }
+            std::filesystem::create_directories(target.parent_path(), error);
+            if (Status copied = writeFileAtomic(target, bytes.value()); !copied) {
+                return makeError("A picture could not be copied next to the effect.",
+                                 copied.error().message);
+            }
+        }
+    }
     if (Status saved = saveEffect(path, effect()); !saved) {
         return saved;
     }
     path_ = path;
+    images_.retryFailed();
     readOnly_ = false;
     state_->commands.markSaved();
     return {};
@@ -285,6 +458,7 @@ void Session::tick(double realSeconds) {
         s.simulation.seek(target);
     }
     s.simulation.extract(s.frame);
+    syncImages();
 }
 
 const RenderFrame& Session::frame() const { return state_->frame; }

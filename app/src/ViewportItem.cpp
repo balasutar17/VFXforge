@@ -159,9 +159,11 @@ QSGNode* ViewportItem::updatePaintNode(QSGNode* old, UpdatePaintNodeData*) {
     // session's frame can be read here safely.
     mesh_.vertices.clear();
     mesh_.indices.clear();
+    mesh_.runs.clear();
     mesh_.drawn = 0;
+    const vfx::editor::ImageSet* images = controller_ ? &controller_->session().images() : nullptr;
     if (controller_ && width() > 0 && height() > 0) {
-        vfx::editor::buildSpriteMesh(controller_->session().frame(), currentView(), mesh_);
+        vfx::editor::buildSpriteMesh(controller_->session().frame(), currentView(), mesh_, images);
     }
 
     const int drawn = static_cast<int>(mesh_.drawn);
@@ -169,5 +171,5 @@ QSGNode* ViewportItem::updatePaintNode(QSGNode* old, UpdatePaintNodeData*) {
         drawnCount_ = drawn;
         QMetaObject::invokeMethod(this, &ViewportItem::drawnCountChanged, Qt::QueuedConnection);
     }
-    return updateSpriteNode(old, mesh_);
+    return updateSpriteNode(old, mesh_, images, window());
 }

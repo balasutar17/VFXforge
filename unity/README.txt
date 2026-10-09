@@ -10,6 +10,9 @@ open effects made in VFX Forge.
               of a game build).
   Shaders/    the particle shader the effects are drawn with.
   Textures/   the picture that holds VFX Forge's built-in particle shapes.
+  Images/     your own pictures and sprite sheets, used by layers that draw
+              them. A sprite sheet plays through Unity's Texture Sheet
+              Animation module, set up for you.
 
 Each effect is ordinary Unity Particle Systems, one per layer, under one
 parent. Play the parent to play the whole effect.

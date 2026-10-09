@@ -18,6 +18,9 @@ What exists so far:
   against, playback, open and save. What it does and does not do yet is in
   [docs/app-first-build.md](docs/app-first-build.md) and
   [docs/library-and-shapes.md](docs/library-and-shapes.md)
+- **your own pictures**: any layer can draw a picture or sprite sheet you
+  painted instead of a built-in shape, played once per life, looped, or one
+  random picture per particle; see [docs/pictures.md](docs/pictures.md)
 - **export to Unity**: a prefab built from Unity's Particle System, a
   `.unitypackage`, or animation frames and sprite sheets; see
   [docs/export.md](docs/export.md)

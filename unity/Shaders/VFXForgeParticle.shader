@@ -1,7 +1,11 @@
-// VFX Forge: draws particles with the built-in VFX Forge shapes.
+// VFX Forge: draws particles with the built-in VFX Forge shapes, or with
+// the artist's own picture.
 //
 // The shape picture holds every shape: how much of the particle shows in
 // its alpha, and the toon tone (a lighter or darker shade) in its grey.
+// With Picture on, _MainTex is the artist's picture instead, tinted by the
+// particle's colour; a sprite sheet is stepped through by the Particle
+// System's Texture Sheet Animation, which hands over the right cell.
 // Colours arrive premultiplied, so ordinary and glowing (additive)
 // particles both use one blend: source + destination * (1 - source alpha).
 // Works in the Built-in pipeline and in URP, including the 2D Renderer.
@@ -16,6 +20,7 @@ Shader "VFX Forge/Particle"
         _Glow ("Glow", Float) = 1
         [Toggle] _Additive ("Glow blending (additive)", Float) = 0
         _MotionAxis ("Streak direction", Float) = 0
+        [Toggle] _Picture ("Draw the picture as painted", Float) = 0
     }
 
     SubShader
@@ -39,6 +44,7 @@ Shader "VFX Forge/Particle"
             float _Glow;
             float _Additive;
             float _MotionAxis;
+            float _Picture;
 
             struct appdata
             {
@@ -65,6 +71,15 @@ Shader "VFX Forge/Particle"
 
             float4 frag(v2f i) : SV_Target
             {
+                if (_Picture > 0.5)
+                {
+                    // The picture, premultiplied, tinted and faded by the particle.
+                    float4 p = tex2D(_MainTex, i.uv);
+                    float a = i.color.a;
+                    float3 tint = i.color.rgb * (a * _Glow);
+                    return float4(tint * p.rgb * p.a, (_Additive > 0.5 ? 0.0 : a) * p.a);
+                }
+
                 // Across the particle from 0 to 1, with v pointing up.
                 float2 local = i.uv;
                 if (_MotionAxis > 0.5)

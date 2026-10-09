@@ -2,7 +2,11 @@
 #include <catch2/catch_amalgamated.hpp>
 
 #include <cmath>
+#include <cstdlib>
+#include <memory>
 
+#include "vfx/editor/Image.h"
+#include "vfx/editor/Picture.h"
 #include "vfx/editor/Session.h"
 #include "vfx/editor/SpriteMesh.h"
 
@@ -268,5 +272,91 @@ TEST_CASE("a whole frame from a session turns into a mesh", "[mesh][session]") {
         REQUIRE(std::isfinite(vert.y));
         REQUIRE(vert.a == 0.0f);  // the starter effect is additive
         REQUIRE(vert.r >= 0.0f);
+    }
+}
+
+TEST_CASE("a picture particle shows its sprite-sheet cell, drawn by the picture renderer",
+          "[mesh][image]") {
+    // A 4 x 2 sheet of 8-pixel cells, each one solid colour.
+    auto sheet = std::make_shared<Image>();
+    sheet->width = 32;
+    sheet->height = 16;
+    sheet->rgba.resize(32 * 16 * 4);
+    for (int y = 0; y < 16; ++y) {
+        for (int x = 0; x < 32; ++x) {
+            const int cell = (y / 8) * 4 + x / 8;
+            std::uint8_t* px = &sheet->rgba[static_cast<std::size_t>(y * 32 + x) * 4];
+            px[0] = static_cast<std::uint8_t>(cell * 30);
+            px[1] = static_cast<std::uint8_t>(255 - cell * 30);
+            px[2] = 128;
+            px[3] = 255;
+        }
+    }
+    ImageSet images;
+    images.put(Id{7}, sheet, "images/sheet.png");
+
+    SpriteInstance p;
+    p.size = 2.0f;
+    p.frame = 5;  // second row, second column
+    RenderFrame frame = oneParticle(p);
+    frame.batches[0].texture = Id{7};
+    frame.batches[0].columns = 4;
+    frame.batches[0].rows = 2;
+
+    SpriteMesh mesh;
+    buildSpriteMesh(frame, flatView(), mesh, &images);
+    REQUIRE(mesh.drawn == 1);
+    REQUIRE(mesh.runs.size() == 1);
+    CHECK(mesh.runs[0].texture == Id{7});
+    float minU = 9, maxU = -9, minV = 9, maxV = -9;
+    for (const auto& v : mesh.vertices) {
+        CHECK(v.shape == kPictureShape);
+        minU = std::min(minU, v.u);
+        maxU = std::max(maxU, v.u);
+        minV = std::min(minV, v.v);
+        maxV = std::max(maxV, v.v);
+    }
+    // Half a pixel inside the cell, so smoothing never reaches the next one.
+    CHECK(minU == Catch::Approx(0.25f + 0.5f / 32.0f));
+    CHECK(maxU == Catch::Approx(0.5f - 0.5f / 32.0f));
+    CHECK(minV == Catch::Approx(0.5f + 0.5f / 16.0f));
+    CHECK(maxV == Catch::Approx(1.0f - 0.5f / 16.0f));
+
+    // The picture renderer paints the cell's colour, tinted by white.
+    const Picture picture = drawPicture(mesh, 800, 600, ScreenColor{0, 0, 0}, &images);
+    const std::uint8_t* centre = picture.pixel(400, 300);
+    CHECK(std::abs(centre[0] - 150) <= 1);
+    CHECK(std::abs(centre[1] - 105) <= 1);
+    CHECK(std::abs(centre[2] - 128) <= 1);
+
+    // Frames past the end of the sheet hold on the last cell.
+    frame.instances[0].frame = 99;
+    buildSpriteMesh(frame, flatView(), mesh, &images);
+    for (const auto& v : mesh.vertices) {
+        CHECK(v.u > 0.75f);
+        CHECK(v.v > 0.5f);
+    }
+
+    // Drawn far smaller than painted, it reads a smaller copy and stays
+    // smooth: a striped sheet averages to grey instead of shimmering.
+    auto stripes = std::make_shared<Image>();
+    stripes->width = stripes->height = 256;
+    stripes->rgba.resize(256 * 256 * 4);
+    for (int i = 0; i < 256 * 256; ++i) {
+        const std::uint8_t on = ((i % 256) % 2) ? 255 : 0;
+        stripes->rgba[static_cast<std::size_t>(i) * 4] = on;
+        stripes->rgba[static_cast<std::size_t>(i) * 4 + 1] = on;
+        stripes->rgba[static_cast<std::size_t>(i) * 4 + 2] = on;
+        stripes->rgba[static_cast<std::size_t>(i) * 4 + 3] = 255;
+    }
+    images.put(Id{8}, stripes, "images/stripes.png");
+    frame.batches[0].texture = Id{8};
+    frame.batches[0].columns = frame.batches[0].rows = 1;
+    frame.instances[0].frame = 0;
+    frame.instances[0].size = 0.2f;  // 20 pixels for 256
+    buildSpriteMesh(frame, flatView(), mesh, &images);
+    const Picture small = drawPicture(mesh, 800, 600, ScreenColor{0, 0, 0}, &images);
+    for (int x = 395; x <= 405; ++x) {
+        CHECK(std::abs(small.pixel(x, 300)[0] - 128) < 12);
     }
 }

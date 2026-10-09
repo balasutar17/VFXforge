@@ -5,6 +5,7 @@
 
 #include "vfx/FileIO.h"
 #include "vfx/editor/Archive.h"
+#include "vfx/editor/Image.h"
 #include "vfx/editor/Shapes.h"
 
 namespace vfx::editor {
@@ -24,12 +25,26 @@ Edge edgeThrough(const SpriteVertex& p, const SpriteVertex& q) {
 // other triangle has already drawn, so the shared diagonal is drawn once.
 void drawTriangle(std::vector<float>& canvas, int width, int height, const SpriteVertex& v0,
                   const SpriteVertex& v1, const SpriteVertex& v2, SpriteShape shape,
-                  std::vector<std::uint32_t>& taken, std::uint32_t stamp, bool keepAlpha) {
+                  std::vector<std::uint32_t>& taken, std::uint32_t stamp, bool keepAlpha,
+                  const MipChain* picture) {
     const float area = edgeThrough(v0, v1).at(v2.x, v2.y);
     if (!(std::fabs(area) > 1e-9f)) {
         return;
     }
     const Edge e0 = edgeThrough(v1, v2), e1 = edgeThrough(v2, v0), e2 = edgeThrough(v0, v1);
+
+    // How many of the picture's pixels one screen pixel covers.
+    float footprint = 1.0f;
+    if (picture && !picture->levels.empty()) {
+        const auto w = static_cast<float>(picture->levels[0].width);
+        const auto h = static_cast<float>(picture->levels[0].height);
+        const float dudx = (e0.a * v0.u + e1.a * v1.u + e2.a * v2.u) / area * w;
+        const float dvdx = (e0.a * v0.v + e1.a * v1.v + e2.a * v2.v) / area * h;
+        const float dudy = (e0.b * v0.u + e1.b * v1.u + e2.b * v2.u) / area * w;
+        const float dvdy = (e0.b * v0.v + e1.b * v1.v + e2.b * v2.v) / area * h;
+        footprint = std::max(std::sqrt(dudx * dudx + dvdx * dvdx),
+                             std::sqrt(dudy * dudy + dvdy * dvdy));
+    }
 
     const float minX = std::min({v0.x, v1.x, v2.x}), maxX = std::max({v0.x, v1.x, v2.x});
     const float minY = std::min({v0.y, v1.y, v2.y}), maxY = std::max({v0.y, v1.y, v2.y});
@@ -54,6 +69,26 @@ void drawTriangle(std::vector<float>& canvas, int width, int height, const Sprit
 
             const float u = w0 * v0.u + w1 * v1.u + w2 * v2.u;
             const float v = w0 * v0.v + w1 * v1.v + w2 * v2.v;
+            if (picture) {
+                // The painted picture, premultiplied, tinted by the particle.
+                float t[4];
+                sampleMips(*picture, u, v, footprint, t);
+                if (!(t[3] > 0.0f) && !(t[0] + t[1] + t[2] > 0.0f)) {
+                    continue;
+                }
+                const float r = v0.r * t[0], g = v0.g * t[1], b = v0.b * t[2];
+                float* d = &canvas[index * 4u];
+                const float keep = 1.0f - v0.a * t[3];
+                d[0] = r + d[0] * keep;
+                d[1] = g + d[1] * keep;
+                d[2] = b + d[2] * keep;
+                if (keepAlpha) {
+                    const float own = v0.a > 0.0f ? v0.a * t[3]
+                                                   : std::min(1.0f, std::max({r, g, b}));
+                    d[3] = own + d[3] * (1.0f - own);
+                }
+                continue;
+            }
             const ShapeSample sample =
                 sampleShape(shape, 2.0f * u - 1.0f, 1.0f - 2.0f * v, v0.aaX, v0.aaY);
             const float cover = sample.cover;
@@ -99,15 +134,16 @@ std::uint8_t toByte(float v, float nudge) {
 
 namespace {
 
-Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor background, bool transparent) {
-    Picture picture;
-    picture.width = width > 0 ? width : 0;
-    picture.height = height > 0 ? height : 0;
+Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor background, bool transparent,
+               const ImageSet* images) {
+    Picture out;
+    out.width = width > 0 ? width : 0;
+    out.height = height > 0 ? height : 0;
     const std::size_t pixels =
-        static_cast<std::size_t>(picture.width) * static_cast<std::size_t>(picture.height);
-    picture.rgba.resize(pixels * 4u);
+        static_cast<std::size_t>(out.width) * static_cast<std::size_t>(out.height);
+    out.rgba.resize(pixels * 4u);
     if (pixels == 0) {
-        return picture;
+        return out;
     }
 
     std::vector<float> canvas(pixels * 4u, 0.0f);
@@ -121,8 +157,19 @@ Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor backgr
 
     std::vector<std::uint32_t> taken(pixels, 0u);
     std::uint32_t stamp = 0;
+    // Which picture each particle uses, from the runs.
+    std::size_t run = 0;
     for (std::size_t i = 0; i + 5 < mesh.indices.size(); i += 6) {
         ++stamp;
+        while (run < mesh.runs.size() &&
+               i >= static_cast<std::size_t>(mesh.runs[run].firstIndex) + mesh.runs[run].indexCount) {
+            ++run;
+        }
+        const MipChain* picture = nullptr;
+        if (run < mesh.runs.size() && mesh.runs[run].texture.valid() && images &&
+            mesh.vertices[mesh.indices[i]].shape < 0.0f) {
+            picture = images->mips(mesh.runs[run].texture);
+        }
         for (std::size_t t = 0; t < 2; ++t) {
             const SpriteVertex& v0 = mesh.vertices[mesh.indices[i + t * 3]];
             const SpriteVertex& v1 = mesh.vertices[mesh.indices[i + t * 3 + 1]];
@@ -130,14 +177,14 @@ Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor backgr
             const int number = static_cast<int>(std::lround(v0.shape));
             const auto shape = static_cast<SpriteShape>(
                 number >= 0 && number < kSpriteShapeCount ? number : 0);
-            drawTriangle(canvas, picture.width, picture.height, v0, v1, v2, shape, taken, stamp,
-                         transparent);
+            drawTriangle(canvas, out.width, out.height, v0, v1, v2, shape, taken, stamp,
+                         transparent, picture);
         }
     }
 
     for (std::size_t i = 0; i < pixels; ++i) {
-        const float nudge = ditherAt(static_cast<int>(i % static_cast<std::size_t>(picture.width)),
-                                     static_cast<int>(i / static_cast<std::size_t>(picture.width)));
+        const float nudge = ditherAt(static_cast<int>(i % static_cast<std::size_t>(out.width)),
+                                     static_cast<int>(i / static_cast<std::size_t>(out.width)));
         float r = canvas[i * 4u], g = canvas[i * 4u + 1], b = canvas[i * 4u + 2];
         float a = 1.0f;
         if (transparent) {
@@ -151,22 +198,23 @@ Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor backgr
                 r = g = b = a = 0.0f;
             }
         }
-        picture.rgba[i * 4u] = toByte(r, nudge);
-        picture.rgba[i * 4u + 1] = toByte(g, nudge);
-        picture.rgba[i * 4u + 2] = toByte(b, nudge);
-        picture.rgba[i * 4u + 3] = transparent ? toByte(a, a > 0.0f && a < 1.0f ? nudge : 0.0f) : 255;
+        out.rgba[i * 4u] = toByte(r, nudge);
+        out.rgba[i * 4u + 1] = toByte(g, nudge);
+        out.rgba[i * 4u + 2] = toByte(b, nudge);
+        out.rgba[i * 4u + 3] = transparent ? toByte(a, a > 0.0f && a < 1.0f ? nudge : 0.0f) : 255;
     }
-    return picture;
+    return out;
 }
 
 }  // namespace
 
-Picture drawPicture(const SpriteMesh& mesh, int width, int height, ScreenColor background) {
-    return render(mesh, width, height, background, false);
+Picture drawPicture(const SpriteMesh& mesh, int width, int height, ScreenColor background,
+                    const ImageSet* images) {
+    return render(mesh, width, height, background, false, images);
 }
 
-Picture drawPictureClear(const SpriteMesh& mesh, int width, int height) {
-    return render(mesh, width, height, ScreenColor{0, 0, 0}, true);
+Picture drawPictureClear(const SpriteMesh& mesh, int width, int height, const ImageSet* images) {
+    return render(mesh, width, height, ScreenColor{0, 0, 0}, true, images);
 }
 
 void paste(Picture& onto, const Picture& piece, int left, int top) {
