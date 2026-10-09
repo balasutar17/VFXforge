@@ -164,8 +164,10 @@ QSGTexture* textureFor(SpriteRoot& root, vfx::Id id, const vfx::editor::ImageSet
                       QImage::Format_RGBA8888);
         // Premultiplied, so smoothing between pixels never darkens edges.
         const QImage ready = pixels.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
-        QSGTexture* texture = window->createTextureFromImage(
-            ready, QQuickWindow::TextureHasAlphaChannel | QQuickWindow::TextureHasMipmaps);
+        QQuickWindow::CreateTextureOptions options;
+        options |= QQuickWindow::TextureHasAlphaChannel;
+        options |= QQuickWindow::TextureHasMipmaps;
+        QSGTexture* texture = window->createTextureFromImage(ready, options);
         if (!texture) {
             return nullptr;
         }
