@@ -769,6 +769,7 @@ bool AppController::useSamplePicture() {
     // A sheet that loops reads as a living flame.
     setPictureChoice(QStringLiteral("animate"), QStringLiteral("loop"));
     setPictureFlag(QStringLiteral("randomStart"), true);
+    changed(Structure);  // so the panel shows the loop
     return true;
 }
 
