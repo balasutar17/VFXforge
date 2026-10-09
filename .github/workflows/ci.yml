@@ -141,10 +141,13 @@ jobs:
             D=/opt/unity/Editor/Data
             MONO=$D/MonoBleedingEdge/bin/mono
             MCS=$(find $D/MonoBleedingEdge/lib/mono -name mcs.exe | sort | tail -1)
-            NS=$(find $D/MonoBleedingEdge/lib/mono -path "*Facades/netstandard.dll" | sort | tail -1)
+            NS=$(find $D/MonoBleedingEdge/lib/mono -path "*4.7.1-api/Facades/netstandard.dll" | head -1)
+            [ -n "$NS" ] || NS=$(find $D/MonoBleedingEdge/lib/mono -path "*Facades/netstandard.dll" | sort | tail -1)
             REFS="-r:$NS"
-            for f in $D/Managed/UnityEngine.dll $D/Managed/UnityEngine/*.dll $D/Managed/UnityEditor.dll; do
-              [ -f "$f" ] && REFS="$REFS -r:$f"
+            # Managed/UnityEngine holds UnityEngine.dll, UnityEditor.dll and
+            # every module; the copies one folder up are the same assemblies.
+            for f in $D/Managed/UnityEngine/*.dll; do
+              REFS="$REFS -r:$f"
             done
             echo "compiler: $MCS"
             echo "netstandard: $NS"
