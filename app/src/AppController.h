@@ -194,6 +194,11 @@ public:
     Q_INVOKABLE void removeLayer(int index);
     Q_INVOKABLE void renameLayer(int index, const QString& name);
     Q_INVOKABLE void setLayerEnabled(int index, bool enabled);
+    // A locked layer is left alone by Refine and by rebuilding from a reference.
+    Q_INVOKABLE void setLayerLocked(int index, bool locked);
+    // Moves a layer up (-1, drawn earlier, further back) or down (+1) the list.
+    Q_INVOKABLE void moveLayer(int index, int by);
+    Q_INVOKABLE void duplicateLayer(int index);
 
     Q_INVOKABLE void setControlNumber(int index, double value);
     Q_INVOKABLE void setControlRange(int index, double from, double to);
@@ -248,6 +253,11 @@ public:
 
     // Called once per displayed frame with the real time since the last one.
     Q_INVOKABLE void tick(double seconds);
+
+    // For the Reference to VFX workspace, which changes the effect as a
+    // whole: refresh everything shown, say something, frame the viewport.
+    void effectChangedOutside(const QString& message, bool error = false);
+    void suggestView(double x, double y, double unitsHigh) { emit viewSuggested(x, y, unitsHigh); }
 
 signals:
     void documentChanged();

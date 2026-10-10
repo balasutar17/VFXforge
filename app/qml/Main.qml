@@ -75,7 +75,10 @@ ApplicationWindow {
     // hiccup is capped so the effect never leaps ahead after a stall.
     FrameAnimation {
         running: true
-        onTriggered: app.tick(Math.min(frameTime, 0.1))
+        onTriggered: {
+            app.tick(Math.min(frameTime, 0.1))
+            reference.tick(Math.min(frameTime, 0.1))
+        }
     }
 
     Shortcut { enabled: !root.asking; sequences: [StandardKey.New]; onActivated: root.guard(function() { app.newEffect(false) }) }
@@ -91,6 +94,8 @@ ApplicationWindow {
     Shortcut { enabled: !root.asking && app.libraryOpen; sequence: "Escape"; onActivated: app.libraryOpen = false }
     Shortcut { enabled: !root.asking && app.exportOpen; sequence: "Escape"; onActivated: app.exportOpen = false }
     Shortcut { enabled: !root.asking; sequence: "Ctrl+E"; onActivated: app.exportOpen = true }
+    Shortcut { enabled: !root.asking && reference.open; sequence: "Escape"; onActivated: reference.open = false }
+    Shortcut { enabled: !root.asking; sequence: "Ctrl+R"; onActivated: reference.open = true }
 
     FileDialog {
         id: backdropDialog
@@ -142,6 +147,7 @@ ApplicationWindow {
                 spacing: 6
 
                 VButton { primary: true; text: "Library"; tip: "Browse the ready-made effects"; onClicked: app.libraryOpen = true }
+                VButton { text: "From a reference…"; tip: "Rebuild an effect from a picture, a GIF or a short video of it (Ctrl/Cmd+R)"; onClicked: reference.open = true }
                 VButton { text: "New 2D"; tip: "Start a new flat effect"; onClicked: root.guard(function() { app.newEffect(false) }) }
                 VButton { text: "New 3D"; tip: "Start a new effect with depth"; onClicked: root.guard(function() { app.newEffect(true) }) }
                 VButton { text: "Open…"; tip: "Open a .vfx file"; onClicked: root.guard(function() { openDialog.open() }) }
@@ -342,6 +348,22 @@ ApplicationWindow {
                         }
                     }
 
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+                        enabled: app.selectedLayer >= 0 && app.selectedLayer < app.layers.length
+                        VButton { Layout.fillWidth: true; text: "\u2191"; tip: "Move the selected layer up: drawn earlier, further back"; onClicked: app.moveLayer(app.selectedLayer, -1) }
+                        VButton { Layout.fillWidth: true; text: "\u2193"; tip: "Move the selected layer down: drawn later, in front"; onClicked: app.moveLayer(app.selectedLayer, 1) }
+                        VButton { Layout.fillWidth: true; text: "Copy"; tip: "Make a copy of the selected layer"; onClicked: app.duplicateLayer(app.selectedLayer) }
+                        VButton {
+                            Layout.fillWidth: true
+                            readonly property bool locked: parent.enabled && app.layers[app.selectedLayer].locked === true
+                            text: locked ? "Locked" : "Lock"
+                            checked: locked
+                            tip: "A locked layer is left alone by Refine and by rebuilding from a reference"
+                            onClicked: app.setLayerLocked(app.selectedLayer, !locked)
+                        }
+                    }
                     VButton {
                         Layout.fillWidth: true
                         text: "Add a layer"
@@ -690,6 +712,14 @@ ApplicationWindow {
         visible: app.exportOpen
         viewState: visible ? viewport.viewState() : ({})
         onCloseRequested: app.exportOpen = false
+    }
+
+    // ------------------------------------------------ reference to VFX
+
+    ReferenceWorkspace {
+        anchors.fill: parent
+        visible: reference.open
+        onCloseRequested: reference.open = false
     }
 
     // --------------------------------------------- "save your changes?"

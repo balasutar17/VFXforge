@@ -15,6 +15,8 @@ qt_add_executable(vfxforge WIN32 MACOSX_BUNDLE
     src/AudioPlayer.h
     src/PreviewItems.cpp
     src/PreviewItems.h
+    src/ReferenceController.cpp
+    src/ReferenceController.h
     src/SpriteNode.cpp
     src/SpriteNode.h
     src/ViewportItem.cpp
@@ -53,7 +55,12 @@ qt_add_resources(vfxforge "vfxforge_qml"
         qml/Library.qml
         qml/ExportPanel.qml
         qml/ControlSound.qml
+        qml/ReferenceWorkspace.qml
         samples/toon-flame-4x2.png
+        samples/reference-flash.png
+        samples/reference-burst.gif
+        samples/reference-burst.mp4
+        samples/reference-burst.webm
 )
 
 # One shader source, translated at build time for Metal, Direct3D and OpenGL.

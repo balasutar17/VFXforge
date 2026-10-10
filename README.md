@@ -26,6 +26,9 @@ What exists so far:
   and [docs/trails-and-flashes.md](docs/trails-and-flashes.md)
 - **sound**: layers play sounds in exact step with their particles, from a
   built-in library or your own files; see [docs/sound.md](docs/sound.md)
+- **reference to VFX**: bring a picture, a GIF or a short video of an effect
+  and get editable layers rebuilt from it, with a side-by-side comparison;
+  see [docs/reference.md](docs/reference.md)
 - **export to Unity**: a prefab built from Unity's Particle System, a
   `.unitypackage`, or animation frames and sprite sheets; see
   [docs/export.md](docs/export.md)

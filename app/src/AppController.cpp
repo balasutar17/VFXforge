@@ -162,6 +162,9 @@ void AppController::rebuildLayers() {
         QVariantMap row;
         row.insert(QStringLiteral("name"), text(layer.name));
         row.insert(QStringLiteral("enabled"), layer.enabled);
+        row.insert(QStringLiteral("locked"), layer.locked);
+        row.insert(QStringLiteral("role"), text(layer.role));
+        row.insert(QStringLiteral("id"), text(vfx::formatId('l', layer.id)));
         list.push_back(row);
     }
     layers_ = std::move(list);
@@ -492,6 +495,60 @@ void AppController::setLayerEnabled(int index, bool enabled) {
         report(session_.set(vfx::Path::layerField(layer.id, "enabled"), vfx::Value(enabled)));
     }
     changed(Structure);
+}
+
+void AppController::setLayerLocked(int index, bool locked) {
+    const auto& layers = session_.effect().layers;
+    if (index < 0 || index >= static_cast<int>(layers.size())) {
+        return;
+    }
+    const vfx::Layer& layer = layers[static_cast<std::size_t>(index)];
+    const QString name = text(layer.name);
+    if (layer.locked != locked) {
+        if (report(session_.set(vfx::Path::layerField(layer.id, "locked"), vfx::Value(locked)))) {
+            say(locked ? QStringLiteral("%1 is locked: Refine and rebuilding from a reference will leave it alone.").arg(name)
+                       : QStringLiteral("%1 is unlocked.").arg(name));
+        }
+    }
+    changed(Structure);
+}
+
+void AppController::moveLayer(int index, int by) {
+    const auto& layers = session_.effect().layers;
+    const int count = static_cast<int>(layers.size());
+    const int target = index + by;
+    if (index < 0 || index >= count || target < 0 || target >= count || by == 0) {
+        return;
+    }
+    if (report(session_.moveLayer(layers[static_cast<std::size_t>(index)].id, target))) {
+        if (selected_ == index) {
+            selected_ = target;
+        } else if (selected_ == target) {
+            selected_ = index;
+        }
+        changed(Structure);
+    }
+}
+
+void AppController::duplicateLayer(int index) {
+    const auto& layers = session_.effect().layers;
+    if (index < 0 || index >= static_cast<int>(layers.size())) {
+        return;
+    }
+    const QString name = text(layers[static_cast<std::size_t>(index)].name);
+    if (report(session_.duplicateLayer(layers[static_cast<std::size_t>(index)].id))) {
+        selected_ = index + 1;
+        changed(Structure);
+        say(QStringLiteral("Copied %1.").arg(name));
+    }
+}
+
+void AppController::effectChangedOutside(const QString& message, bool error) {
+    changed(Structure);
+    emit playbackChanged();
+    if (!message.isEmpty()) {
+        say(message, error);
+    }
 }
 
 bool AppController::control(int index, ControlView& out) const {

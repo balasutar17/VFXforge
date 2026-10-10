@@ -24,6 +24,7 @@
 
 #include "AppController.h"
 #include "PreviewItems.h"
+#include "ReferenceController.h"
 #include "ViewportItem.h"
 
 #ifndef VFX_APP_VERSION
@@ -128,8 +129,12 @@ int main(int argc, char* argv[]) {
     qmlRegisterType<ShapeIcon>("VfxForge", 1, 0, "ShapeIcon");
     qmlRegisterUncreatableType<AppController>("VfxForge", 1, 0, "AppController",
                                               QStringLiteral("The app provides this."));
+    qmlRegisterType<ReferenceView>("VfxForge", 1, 0, "ReferenceView");
+    qmlRegisterUncreatableType<ReferenceController>("VfxForge", 1, 0, "ReferenceController",
+                                                    QStringLiteral("The app provides this."));
 
     AppController controller;
+    ReferenceController referenceController(&controller);
     QQmlPropertyMap theme;
     fillTheme(theme);
 
@@ -141,6 +146,7 @@ int main(int argc, char* argv[]) {
                          }
                      });
     engine.rootContext()->setContextProperty(QStringLiteral("app"), &controller);
+    engine.rootContext()->setContextProperty(QStringLiteral("reference"), &referenceController);
     engine.rootContext()->setContextProperty(QStringLiteral("theme"), &theme);
     // A fresh start opens on the library. Opening a file goes straight to it.
     engine.rootContext()->setContextProperty(QStringLiteral("showLibraryAtStart"),
@@ -233,9 +239,88 @@ int main(int argc, char* argv[]) {
             finish();
         };
 
+        // Reference to VFX, start to finish: read a picture and a clip,
+        // build an effect from each, and take a picture of the workspace.
+        auto referenceTest = [&, window]() {
+            QTextStream out(&selfTest.report);
+            ReferenceController& ref = referenceController;
+            ref.setOpen(true);
+            out << "reference formats: " << ref.formats() << "\n";
+
+            const bool loaded = ref.loadPath(QStringLiteral(":/samples/reference-flash.png"));
+            ref.waitUntilIdle(30000);
+            out << "reference picture: " << ref.report() << "\n";
+            if (!loaded || !ref.analysed() || ref.findings().isEmpty()) {
+                out << "FAIL: the sample reference picture was not read and studied\n";
+                selfTest.result = 1;
+            }
+            ref.setCutouts(true);
+            ref.build();
+            ref.waitUntilIdle(120000);
+            out << "built from the picture: " << ref.report() << "\n";
+            const int layers = static_cast<int>(controller.session().effect().layers.size());
+            const double alike = ref.similarity().value(QStringLiteral("overall")).toDouble();
+            if (!ref.built() || layers < 1 || alike < 0.3) {
+                out << "FAIL: no effect was built from the sample reference picture\n";
+                selfTest.result = 1;
+            }
+            if (!ref.keptWithProject() || !controller.session().keptReference().found) {
+                out << "FAIL: the reference was not kept with the project\n";
+                selfTest.result = 1;
+            }
+            const bool undone = controller.session().undo().ok() && controller.session().redo().ok();
+            out << "rebuild is one undo step: " << (undone ? "yes" : "NO") << "\n";
+            // Each view of the comparison draws.
+            for (const char* kind : {"full", "reference", "made", "overlay", "difference"}) {
+                if (ref.picture(QString::fromLatin1(kind)).isNull()) {
+                    out << "FAIL: the \"" << kind << "\" comparison picture is empty\n";
+                    selfTest.result = 1;
+                }
+            }
+            ref.refine(QStringLiteral("more-sparks"));
+            ref.waitUntilIdle(60000);
+            QCoreApplication::processEvents();
+            capture(window, selfTest, QStringLiteral("-reference"), QStringLiteral("the reference workspace"));
+
+            ref.setCutouts(false);
+            const bool clip = ref.loadPath(QStringLiteral(":/samples/reference-burst.gif"));
+            ref.waitUntilIdle(60000);
+            out << "reference GIF: " << ref.report() << "\n";
+            if (!clip || !ref.moving() || ref.frameCount() < 8 || !ref.analysed()) {
+                out << "FAIL: the sample reference GIF was not read as a clip\n";
+                selfTest.result = 1;
+            }
+            ref.build();
+            ref.waitUntilIdle(180000);
+            out << "built from the GIF: " << ref.report() << "\n";
+            if (!ref.built()) {
+                out << "FAIL: no effect was built from the sample reference GIF\n";
+                selfTest.result = 1;
+            }
+            ref.setTime(ref.length() * 0.3);
+            QCoreApplication::processEvents();
+            capture(window, selfTest, QStringLiteral("-reference-clip"), QStringLiteral("the reference workspace with a clip"));
+
+            // Video goes through the computer's own media support, which a
+            // build machine may lack. What happens is written down either way.
+            for (const char* name : {"reference-burst.mp4", "reference-burst.webm"}) {
+                const QString temp = QDir::tempPath() + QStringLiteral("/vfxforge-selftest-") + QString::fromLatin1(name);
+                QFile::remove(temp);
+                QFile::copy(QStringLiteral(":/samples/") + QString::fromLatin1(name), temp);
+                QFile::setPermissions(temp, QFile::ReadOwner | QFile::WriteOwner);
+                ref.loadPath(temp);
+                ref.waitUntilIdle(30000);
+                const bool read = ref.moving() && ref.frameCount() >= 8 && ref.name() == QString::fromLatin1(name);
+                out << "video " << name << ": " << (read ? "read, " : "NOT READ, ") << ref.report() << "\n";
+                QFile::remove(temp);
+            }
+            ref.cancel();
+            ref.setOpen(false);
+        };
+
         // Third: a layer drawing a painted sprite sheet, then the exports
         // of that effect, pictures and all.
-        auto picture = [&, window, software, third, exports]() {
+        auto picture = [&, window, software, third, exports, referenceTest]() {
             QTextStream out(&selfTest.report);
             out << "picture effect: " << controller.effectName() << ", " << controller.particleCount()
                 << " particles, " << controller.session().images().size() << " picture(s)\n";
@@ -249,6 +334,7 @@ int main(int argc, char* argv[]) {
                 selfTest.result = 1;
             }
             exports();
+            referenceTest();
             controller.setLibraryOpen(true);
             QTimer::singleShot(2500, &application, third);
         };
