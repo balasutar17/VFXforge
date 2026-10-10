@@ -632,7 +632,7 @@ std::string unityFileStem(const Effect& effect) {
 
 std::string unityShapeAtlasPng() {
     const int width = kAtlasColumns * kAtlasTile, height = kAtlasRows * kAtlasTile;
-    std::string pixels(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 2u, '\0');
+    std::string pixels(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4u, '\0');
     const float pixel = 2.0f / static_cast<float>(kAtlasTile);
     for (int i = 0; i < kSpriteShapeCount; ++i) {
         const int col = i % kAtlasColumns, row = i / kAtlasColumns;
@@ -642,14 +642,16 @@ std::string unityShapeAtlasPng() {
                 const float py = 1.0f - (static_cast<float>(y) + 0.5f) * pixel;
                 const ShapeSample s = sampleShape(static_cast<SpriteShape>(i), px, py, pixel, pixel);
                 const std::size_t at = (static_cast<std::size_t>(row * kAtlasTile + y) * static_cast<std::size_t>(width) +
-                                        static_cast<std::size_t>(col * kAtlasTile + x)) * 2u;
+                                        static_cast<std::size_t>(col * kAtlasTile + x)) * 4u;
                 const float tone = std::clamp(s.tone * 0.5f + 0.5f, 0.0f, 1.0f);
                 pixels[at] = static_cast<char>(std::lround(tone * 255.0f));
-                pixels[at + 1] = static_cast<char>(std::lround(std::clamp(s.cover, 0.0f, 1.0f) * 255.0f));
+                pixels[at + 1] = static_cast<char>(std::lround(std::clamp(s.shine, 0.0f, 1.0f) * 255.0f));
+                pixels[at + 2] = static_cast<char>(std::lround(tone * 255.0f));
+                pixels[at + 3] = static_cast<char>(std::lround(std::clamp(s.cover, 0.0f, 1.0f) * 255.0f));
             }
         }
     }
-    return encodePngImage(width, height, 2, pixels);
+    return encodePngImage(width, height, 4, pixels);
 }
 
 std::vector<TarEntry> unityExportFiles(const Effect& effect, const std::filesystem::path& pictureFolder) {

@@ -742,6 +742,263 @@ Effect fireflies(const IdSource& id) {
     return e;
 }
 
+// --------------------------------------------------------------- match-3
+// Juicy, glossy candy effects in the manner of the big match-3 games: short,
+// front-loaded, saturated, with white gloss, white flashes and twinkles.
+// One board tile is about 1.2 units across.
+
+const unsigned kCandyColors[6] = {0xff2d55, 0xff8a1f, 0xffd21f, 0x2ed46b, 0x2b8cff, 0xa04dff};
+
+Effect candyPop(const IdSource& id) {
+    Effect e = begin(id, "Candy Pop", 1.0);
+    add(e, Make(id, "Flash").burst(1).life(0.16, 0.16).speed(0, 0).size(2.6, 2.6).color(0xffffff)
+               .gravity(0, 0).sizeOver({{0, 0.4}, {0.3, 1.0}, {1, 1.1}}).fade({{0, 0.9}, {1, 0}})
+               .additive().glow(1.4));
+    add(e, Make(id, "Pop ring").burst(1).life(0.28, 0.28).speed(0, 0).size(2.8, 2.8).color(0xffd1dc)
+               .gravity(0, 0).sizeOver({{0, 0.25}, {1, 1}}).fade({{0, 1}, {0.6, 0.6}, {1, 0}})
+               .look("ring").additive().glow(1.2));
+    add(e, Make(id, "Candy").burst(7).circle(0.3).life(0.5, 0.75).speed(4.5, 7.5).aim(90, 180)
+               .size(0.32, 0.48).turn(0, 360).spin(-500, 500).color(0xff2d55).gravity(0, -11).drag(0.8)
+               .sizeOver({{0, 0.6}, {0.1, 1}, {0.75, 1}, {1, 0}}).solid().look("candy"));
+    add(e, Make(id, "Shards").burst(6).circle(0.3).life(0.45, 0.7).speed(5, 9).aim(90, 180)
+               .size(0.22, 0.34).turn(0, 360).spin(-600, 600).color(0xff6b86).gravity(0, -11).drag(0.8)
+               .sizeOver({{0, 1}, {0.75, 1}, {1, 0}}).solid().look("shard"));
+    add(e, Make(id, "Twinkles").burst(4).circle(0.7).life(0.35, 0.55).speed(0.3, 1.2).aim(90, 180)
+               .size(0.7, 1.1).turn(0, 45).color(0xfff2c8).gravity(0, 0)
+               .sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.3));
+    add(e, Make(id, "Sugar").burst(12).life(0.4, 0.7).speed(3, 7).aim(90, 180).size(0.05, 0.1)
+               .color(0xffffff, 0.9).gravity(0, -6).drag(1).sizeOver({{0, 1}, {1, 0}}).solid().look("disc"));
+    return e;
+}
+
+Effect jellySplat(const IdSource& id) {
+    Effect e = begin(id, "Jelly Splat", 1.2);
+    add(e, Make(id, "Splat").burst(1).life(0.6, 0.6).speed(0, 0).size(2.8, 2.8).turn(0, 360)
+               .color(0xff4fa0).gravity(0, 0).sizeOver({{0, 0.2}, {0.12, 1.08}, {0.25, 1}, {1, 0.95}})
+               .fade({{0, 1}, {0.55, 1}, {1, 0}}).look("splat"));
+    add(e, Make(id, "Drops").burst(10).circle(0.4).life(0.4, 0.65).speed(5, 9).aim(90, 180)
+               .size(0.32, 0.55).color(0xff6fb5).gravity(0, -12)
+               .sizeOver({{0, 1}, {0.8, 0.9}, {1, 0}}).solid().look("drop").streak(0.0));
+    add(e, Make(id, "Droplets").burst(12).circle(0.4).life(0.35, 0.6).speed(3, 8).aim(90, 180)
+               .size(0.07, 0.14).color(0xffa6d2).gravity(0, -10).sizeOver({{0, 1}, {1, 0}}).solid()
+               .look("disc"));
+    add(e, Make(id, "Shine").burst(1, 0.05).circle(0.4).life(0.3, 0.3).speed(0, 0).size(1.4, 1.4)
+               .color(0xffffff).gravity(0, 0).sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid()
+               .look("twinkle").additive().glow(1.4));
+    return e;
+}
+
+Effect lineBlast(const IdSource& id, bool down) {
+    Effect e = begin(id, down ? "Line Blast Down" : "Line Blast Across", 1.1);
+    const double a = down ? 90.0 : 0.0;
+    add(e, Make(id, "Charge").burst(1).life(0.2, 0.2).speed(0, 0).size(3.0, 3.0).color(0xffffff)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {0.3, 1}, {1, 0.8}}).fade({{0, 1}, {1, 0}})
+               .additive().glow(1.6));
+    for (const double heading : {a, a + 180.0}) {
+        add(e, Make(id, "Glow beam").burst(1).life(0.42, 0.42).speed(30, 30).aim(heading, 0)
+                   .size(2.4, 2.4).color(0x4fc3ff).gravity(0, 0).fade({{0, 0.8}, {1, 0}})
+                   .look("streak").additive().glow(1.4).streak(0.34));
+        add(e, Make(id, "Core beam").burst(1).life(0.4, 0.4).speed(30, 30).aim(heading, 0)
+                   .size(1.0, 1.0).color(0xfff6d8).gravity(0, 0).fade({{0, 1}, {0.6, 1}, {1, 0}})
+                   .look("streak").additive().glow(2.2).streak(0.30));
+    }
+    Make twinkles(id, "Twinkles");
+    twinkles.from(0.04, 0.3).rate(70).life(0.25, 0.45).speed(0, 0.6).aim(90, 180).size(0.4, 0.8)
+        .turn(0, 45).color(0xfff1b8).gravity(0, 0).sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid()
+        .look("twinkle").additive().glow(1.3);
+    down ? twinkles.rect(0.25, 12) : twinkles.rect(12, 0.25);
+    add(e, twinkles);
+    const char* looks[3] = {"candy", "bean", "swirl"};
+    for (int i = 0; i < 3; ++i) {
+        Make pieces(id, "Candy");
+        pieces.burst(5, 0.06).life(0.5, 0.8).speed(2, 5).aim(down ? 0 : 90, down ? 180 : 60)
+            .size(0.45, 0.65).turn(0, 360).spin(-400, 400).color(kCandyColors[i * 2]).gravity(0, -9)
+            .sizeOver({{0, 0.5}, {0.15, 1}, {0.8, 1}, {1, 0}}).solid().look(looks[i]);
+        down ? pieces.rect(0.4, 10) : pieces.rect(10, 0.4);
+        add(e, pieces);
+    }
+    return e;
+}
+
+Effect lineBlastAcross(const IdSource& id) { return lineBlast(id, false); }
+Effect lineBlastDown(const IdSource& id) { return lineBlast(id, true); }
+
+Effect candyBomb(const IdSource& id) {
+    Effect e = begin(id, "Candy Bomb", 1.4);
+    for (const double at : {0.0, 0.35}) {
+        const double s = at > 0.0 ? 1.25 : 1.0;  // the second blast is bigger
+        add(e, Make(id, "Flash").burst(1, at).life(0.14, 0.14).speed(0, 0).size(3.2 * s, 3.2 * s)
+                   .color(0xffffff).gravity(0, 0).sizeOver({{0, 0.3}, {0.3, 1}, {1, 1}})
+                   .fade({{0, 1}, {1, 0}}).additive().glow(1.5));
+        add(e, Make(id, "Shockwave").burst(1, at).life(0.32, 0.32).speed(0, 0).size(5.5 * s, 5.5 * s)
+                   .color(0xffd86b).gravity(0, 0).sizeOver({{0, 0.2}, {1, 1}})
+                   .fade({{0, 1}, {0.4, 0.8}, {1, 0}}).look("shockwave").additive().glow(1.5));
+    }
+    add(e, Make(id, "Burst").burst(1).life(0.3, 0.3).speed(0, 0).size(4.8, 4.8).turn(0, 36)
+               .color(0xffd23f).gravity(0, 0).sizeOver({{0, 0.3}, {0.25, 1}, {0.6, 0.9}, {1, 0}}).solid()
+               .look("burst"));
+    add(e, Make(id, "Puffs").burst(8, 0.35).circle(0.4).life(0.5, 0.8).speed(2.5, 5).aim(90, 180)
+               .size(1.1, 1.7).turn(-30, 30).color(0xff9ac8).drag(4).gravity(0, 0)
+               .sizeOver({{0, 0.35}, {0.2, 1}, {0.65, 0.85}, {1, 0}}).solid().look("puff"));
+    const char* looks[4] = {"candy", "bean", "swirl", "star"};
+    const unsigned colors[4] = {0xff2d55, 0x2ed46b, 0xff2d55, 0xffd21f};
+    for (int i = 0; i < 4; ++i) {
+        add(e, Make(id, "Candy").burst(4, 0.35).circle(0.5).life(0.6, 0.9).speed(6, 11).aim(90, 180)
+                   .size(0.35, 0.55).turn(0, 360).spin(-450, 450).color(colors[i]).gravity(0, -12).drag(0.6)
+                   .sizeOver({{0, 0.5}, {0.1, 1}, {0.8, 1}, {1, 0}}).solid().look(looks[i]));
+    }
+    add(e, Make(id, "Twinkles").burst(5, 0.38).circle(1.6).life(0.35, 0.6).speed(0.5, 2).aim(90, 180)
+               .size(0.6, 1.1).turn(0, 45).color(0xfff2c8).gravity(0, 0)
+               .sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.4));
+    return e;
+}
+
+Effect rainbowBurst(const IdSource& id) {
+    Effect e = begin(id, "Rainbow Burst", 1.6);
+    add(e, Make(id, "Rays").burst(1).life(0.8, 0.8).speed(0, 0).size(6.5, 6.5).turn(0, 36)
+               .spin(120, 120).color(0xfff2a8).gravity(0, 0).sizeOver({{0, 0.4}, {0.3, 1}, {1, 1.1}})
+               .fade({{0, 0}, {0.2, 0.9}, {1, 0}}).look("rays").additive().glow(1.2));
+    add(e, Make(id, "Glow").burst(1).life(0.6, 0.6).speed(0, 0).size(4, 4).color(0xd7b8ff)
+               .gravity(0, 0).sizeOver({{0, 0.5}, {0.3, 1.1}, {1, 1}}).fade({{0, 0.8}, {1, 0}})
+               .additive());
+    add(e, Make(id, "Orb").burst(1).life(0.55, 0.55).speed(0, 0).size(1.6, 1.6).color(0x8a4bff)
+               .gravity(0, 0).sizeOver({{0, 0.2}, {0.3, 1.15}, {0.6, 1}, {1, 0}}).solid().look("orb"));
+    add(e, Make(id, "Flare").burst(1, 0.1).life(0.4, 0.4).speed(0, 0).size(3.5, 3.5).turn(0, 30)
+               .color(0xffffff).gravity(0, 0).sizeOver({{0, 0.3}, {0.25, 1}, {1, 0.7}})
+               .fade({{0, 1}, {1, 0}}).look("flare").additive().glow(1.6));
+    for (const unsigned c : kCandyColors) {
+        add(e, Make(id, "Beams").burst(3, 0.12).life(0.3, 0.45).speed(18, 26).aim(90, 180).size(0.5, 0.7)
+                   .color(c).gravity(0, 0).fade({{0, 1}, {0.6, 1}, {1, 0}}).look("streak").additive()
+                   .glow(1.8).streak(0.12));
+        add(e, Make(id, "Candy").burst(3, 0.15).circle(0.4).life(0.6, 0.9).speed(5, 9).aim(90, 180)
+                   .size(0.28, 0.42).turn(0, 360).spin(-400, 400).color(c).gravity(0, -10)
+                   .sizeOver({{0, 0.5}, {0.1, 1}, {0.8, 1}, {1, 0}}).solid().look("candy"));
+    }
+    return e;
+}
+
+Effect sweetCelebration(const IdSource& id) {
+    Effect e = begin(id, "Sweet Celebration", 3.0);
+    const char* looks[5] = {"candy", "bean", "swirl", "star", "heart"};
+    const unsigned colors[5] = {0xff2d55, 0x2ed46b, 0xff8a1f, 0xffd21f, 0xff6fb5};
+    for (int i = 0; i < 5; ++i) {
+        add(e, Make(id, "Candy").burst(8).rect(10, 0.2).life(2.0, 2.8).speed(9, 14).aim(90, 25)
+                   .size(0.55, 0.85).turn(0, 360).spin(-300, 300).color(colors[i]).gravity(0, -9).drag(1)
+                   .fade({{0, 1}, {0.85, 1}, {1, 0}}).look(looks[i]));
+    }
+    add(e, Make(id, "Twinkles").rate(12).rect(10, 6).life(0.4, 0.7).speed(0, 0.3).aim(90, 180)
+               .size(0.5, 1.0).turn(0, 45).color(0xfff2c8).gravity(0, 0)
+               .sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.4));
+    for (const unsigned c : {0xff6fb5u, 0x4fc3ffu, 0xffd21fu}) {
+        add(e, Make(id, "Flares").rate(1.2).rect(8, 5).life(0.35, 0.5).speed(0, 0).size(1.6, 2.6)
+                   .turn(0, 30).color(c).gravity(0, 0).sizeOver({{0, 0.2}, {0.25, 1}, {1, 0.6}})
+                   .fade({{0, 1}, {1, 0}}).look("flare").additive().glow(1.6));
+    }
+    return e;
+}
+
+Effect collectSparkle(const IdSource& id) {
+    Effect e = begin(id, "Collect Sparkle", 0.9);
+    add(e, Make(id, "Ring").burst(1).life(0.3, 0.3).speed(0, 0).size(2.2, 2.2).color(0xfff3b0)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {1, 1}}).fade({{0, 1}, {1, 0}}).look("ring").additive()
+               .glow(1.4));
+    add(e, Make(id, "Glow").burst(1).life(0.35, 0.35).speed(0, 0).size(2.4, 2.4).color(0xffe27a)
+               .gravity(0, 0).sizeOver({{0, 0.4}, {0.3, 1}, {1, 0.9}}).fade({{0, 0.8}, {1, 0}}).additive());
+    add(e, Make(id, "Twinkle").burst(1).life(0.4, 0.4).speed(0, 0).size(2.6, 2.6).color(0xffffff)
+               .gravity(0, 0).sizeOver({{0, 0}, {0.25, 1.15}, {0.5, 1}, {1, 0}}).solid().look("twinkle")
+               .additive().glow(1.6));
+    add(e, Make(id, "Sparkles").burst(8).life(0.35, 0.55).speed(2.5, 4.5).aim(90, 180).size(0.35, 0.6)
+               .turn(0, 45).color(0xffe27a).drag(3).gravity(0, 0).sizeOver({{0, 1}, {1, 0}}).solid()
+               .look("twinkle").additive().glow(1.3));
+    return e;
+}
+
+Effect hintGlow(const IdSource& id) {
+    Effect e = begin(id, "Hint Glow", 1.2);
+    add(e, Make(id, "Pulse").burst(1).life(1.2, 1.2).speed(0, 0).size(2.2, 2.2).color(0xffd86b)
+               .gravity(0, 0).sizeOver({{0, 0.85}, {0.5, 1.05}, {1, 0.85}})
+               .fade({{0, 0.15}, {0.5, 0.45}, {1, 0.15}}).additive());
+    add(e, Make(id, "Ring").burst(1).life(0.6, 0.6).speed(0, 0).size(2.6, 2.6).color(0xfff2b0)
+               .gravity(0, 0).sizeOver({{0, 0.55}, {1, 1}}).fade({{0, 0}, {0.2, 0.9}, {1, 0}})
+               .look("ring").additive().glow(1.3));
+    add(e, Make(id, "Twinkles").rate(3).circle(0.8, true).life(0.5, 0.7).speed(0, 0.2).aim(90, 180)
+               .size(0.4, 0.7).turn(0, 45).color(0xffffff).gravity(0, 0)
+               .sizeOver({{0, 0}, {0.4, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.3));
+    return e;
+}
+
+// ------------------------------------------------------- light and energy
+
+Effect starburstFlare(const IdSource& id) {
+    Effect e = begin(id, "Starburst Flare", 1.2);
+    add(e, Make(id, "Halo").burst(1).life(0.5, 0.5).speed(0, 0).size(5, 5).color(0x4fa8ff)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {0.2, 1}, {1, 1.1}}).fade({{0, 0.9}, {1, 0}}).additive());
+    add(e, Make(id, "Flare").burst(1).life(0.5, 0.5).speed(0, 0).size(5, 5).turn(0, 30).color(0xbfe4ff)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {0.2, 1}, {1, 0.8}}).fade({{0, 1}, {0.4, 0.9}, {1, 0}})
+               .look("flare").additive().glow(1.6));
+    add(e, Make(id, "Twinkles").burst(6).circle(1.5).life(0.35, 0.6).speed(0.5, 2).aim(90, 180)
+               .size(0.5, 0.9).turn(0, 45).color(0xdff1ff).gravity(0, 0)
+               .sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.4));
+    return e;
+}
+
+Effect rewardRays(const IdSource& id) {
+    Effect e = begin(id, "Reward Rays", 4.0);
+    add(e, Make(id, "Glow").burst(1).life(4, 4).speed(0, 0).size(4.5, 4.5).color(0xffc94a)
+               .gravity(0, 0).fade({{0, 0}, {0.1, 0.7}, {0.9, 0.7}, {1, 0}}).additive());
+    add(e, Make(id, "Rays").burst(1).life(4, 4).speed(0, 0).size(7, 7).color(0xffd75e).spin(20, 20)
+               .gravity(0, 0).fade({{0, 0}, {0.15, 0.8}, {0.85, 0.8}, {1, 0}}).look("rays").additive()
+               .glow(1.1));
+    add(e, Make(id, "Inner rays").burst(1).life(4, 4).speed(0, 0).size(6, 6).turn(18, 18)
+               .color(0xfff3c4).spin(-14, -14).gravity(0, 0).fade({{0, 0}, {0.15, 0.7}, {0.85, 0.7}, {1, 0}})
+               .look("rays").additive());
+    add(e, Make(id, "Twinkles").rate(5).circle(2.2).life(0.5, 0.8).speed(0, 0.3).aim(90, 180)
+               .size(0.5, 0.9).turn(0, 45).color(0xffffff).gravity(0, 0)
+               .sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.4));
+    return e;
+}
+
+Effect meteorShower(const IdSource& id) {
+    Effect e = begin(id, "Meteor Shower", 3.0);
+    for (const unsigned c : {0x6fd0ffu, 0xff6fd8u, 0xffb347u}) {
+        add(e, Make(id, "Meteors").rate(1.2).rect(12, 0.2).life(0.9, 1.2).speed(9, 12).aim(240, 4)
+                   .size(0.9, 1.3).color(c).gravity(0, 0).fade({{0, 0}, {0.1, 1}, {0.8, 1}, {1, 0}})
+                   .look("streak").additive().glow(2.0).streak(0.18));
+    }
+    add(e, Make(id, "Stars").rate(10).rect(16, 12).life(0.6, 1.2).speed(0, 0).size(0.15, 0.3)
+               .color(0xffffff).gravity(0, 0).fade({{0, 0}, {0.5, 1}, {1, 0}}).look("twinkle").additive());
+    return e;
+}
+
+Effect lightningStrike(const IdSource& id) {
+    Effect e = begin(id, "Lightning Strike", 1.2);
+    // The bolt flickers: several short strikes, each turned a little.
+    for (const double at : {0.0, 0.07, 0.15, 0.3}) {
+        add(e, Make(id, "Bolt").burst(1, at).life(0.09, 0.12).speed(0, 0).size(6, 6.8).turn(82, 98)
+                   .color(0x7fc8ff).gravity(0, 0).fade({{0, 1}, {1, 0.3}}).look("bolt").additive()
+                   .glow(2.2));
+    }
+    add(e, Make(id, "Glow").burst(1).life(0.4, 0.4).speed(0, 0).size(5, 5).color(0x2f7dff)
+               .gravity(0, 0).fade({{0, 0.9}, {0.3, 0.4}, {0.4, 0.8}, {1, 0}}).additive());
+    add(e, Make(id, "Sparks").burst(14).rect(0.3, 5).life(0.2, 0.4).speed(1, 3).aim(90, 180)
+               .size(0.3, 0.55).turn(0, 45).color(0xbfe6ff).gravity(0, 0)
+               .sizeOver({{0, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.6));
+    return e;
+}
+
+Effect electricOrb(const IdSource& id) {
+    Effect e = begin(id, "Electric Orb", 2.0);
+    add(e, Make(id, "Glow").rate(2).life(1.0, 1.0).speed(0, 0).size(3.6, 4.2).color(0x2f7dff)
+               .gravity(0, 0).fade({{0, 0}, {0.5, 0.6}, {1, 0}}).additive());
+    add(e, Make(id, "Core").rate(4).life(0.5, 0.5).speed(0, 0).size(1.6, 1.9).turn(0, 30)
+               .color(0xd8f0ff).gravity(0, 0).fade({{0, 0}, {0.5, 1}, {1, 0}}).look("flare").additive()
+               .glow(1.6));
+    add(e, Make(id, "Arcs").rate(16).circle(0.2).life(0.08, 0.14).speed(0, 0).size(2.2, 3.0)
+               .turn(0, 360).color(0x8fd8ff).gravity(0, 0).fade({{0, 1}, {1, 0.2}}).look("bolt")
+               .additive().glow(2.0));
+    return e;
+}
+
 // ----------------------------------------------------------------- table
 
 struct Entry {
@@ -810,6 +1067,22 @@ const std::vector<Entry>& table() {
         {describe("rain", "Rain", "Weather", "Rain across the whole scene.", 0, 0, 6, 1.5), rain},
         {describe("snow", "Snow", "Weather", "Snow drifting down.", 0, 0, 6, 4.0), snow},
         {describe("fireflies", "Fireflies", "Weather", "Small lights wandering and blinking.", 0, 0, 5, 3.6), fireflies},
+
+        {describe("candy-pop", "Candy Pop", "Match-3", "A candy clearing: glossy pieces, a pop ring and twinkles.", 0, 0, 5.4f, 0.12), candyPop},
+        {describe("jelly-splat", "Jelly Splat", "Match-3", "Jelly breaking: a wet splat and flying drops.", 0, 0, 5.4f, 0.12), jellySplat},
+        {describe("line-blast-across", "Line Blast Across", "Match-3", "A striped piece firing beams along its row.", 0, 0, 7, 0.14), lineBlastAcross},
+        {describe("line-blast-down", "Line Blast Down", "Match-3", "A striped piece firing beams along its column.", 0, 0, 7, 0.14), lineBlastDown},
+        {describe("candy-bomb", "Candy Bomb", "Match-3", "A wrapped bomb going off twice, throwing candy.", 0, 0, 7.5f, 0.42), candyBomb},
+        {describe("rainbow-burst", "Rainbow Burst", "Match-3", "A rainbow orb firing coloured beams in every direction.", 0, 0, 7, 0.22), rainbowBurst},
+        {describe("sweet-celebration", "Sweet Celebration", "Match-3", "Candy thrown up across the screen for a level win.", 0, 3.4f, 8, 0.9), sweetCelebration},
+        {describe("collect-sparkle", "Collect Sparkle", "Match-3", "A piece arriving at its goal.", 0, 0, 4.4f, 0.12), collectSparkle},
+        {describe("hint-glow", "Hint Glow", "Match-3", "A soft pulse with twinkles, to point at a move.", 0, 0, 4.4f, 0.6), hintGlow},
+
+        {describe("starburst-flare", "Starburst Flare", "Light and energy", "A white-hot star of thin rays in a blue halo.", 0, 0, 5.6f, 0.1), starburstFlare},
+        {describe("reward-rays", "Reward Rays", "Light and energy", "Slowly turning golden rays to put behind a reward.", 0, 0, 7, 1.5), rewardRays},
+        {describe("meteor-shower", "Meteor Shower", "Light and energy", "Comets with white-hot heads and coloured tails.", -2.2f, -3.2f, 8, 2.0), meteorShower},
+        {describe("lightning-strike", "Lightning Strike", "Light and energy", "A flickering bolt of electricity.", 0, 0, 7, 0.08), lightningStrike},
+        {describe("electric-orb", "Electric Orb", "Light and energy", "A ball of crackling arcs.", 0, 0, 5, 1.0), electricOrb},
     };
     return entries;
 }

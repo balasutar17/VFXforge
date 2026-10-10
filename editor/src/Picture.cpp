@@ -97,6 +97,7 @@ void drawTriangle(std::vector<float>& canvas, int width, int height, const Sprit
             }
             float r = v0.r, g = v0.g, b = v0.b;
             applyTone(r, g, b, sample.tone);
+            applyShine(r, g, b, v0.a, sample.shine);
             // The one blend rule: source + destination * (1 - source alpha).
             float* d = &canvas[index * 4u];
             const float keep = 1.0f - v0.a * cover;

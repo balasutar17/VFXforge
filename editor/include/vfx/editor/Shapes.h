@@ -17,6 +17,9 @@ struct ShapeSample {
     // Toon shading: 0 is the particle's own colour, toward +1 a lighter
     // tone of it (a highlight), toward -1 a darker one (a shadow).
     float tone = 0;
+    // Gloss: toward 1 the colour turns white, at the particle's own
+    // brightness. The white shine on candy, the white-hot core of a flare.
+    float shine = 0;
 };
 
 // (x, y) runs from -1 to 1 across the particle with y pointing up. For a
@@ -43,6 +46,18 @@ inline void applyTone(float& r, float& g, float& b, float tone) {
         r *= dim;
         g *= dim;
         b *= dim;
+    }
+}
+
+// Applies gloss to a premultiplied colour. alpha is the particle's own
+// alpha: 0 for additive particles, which shine at their brightest channel.
+inline void applyShine(float& r, float& g, float& b, float alpha, float shine) {
+    if (shine > 0.0f) {
+        float white = r > g ? (r > b ? r : b) : (g > b ? g : b);
+        white = white > alpha ? white : alpha;
+        r += (white - r) * shine;
+        g += (white - g) * shine;
+        b += (white - b) * shine;
     }
 }
 

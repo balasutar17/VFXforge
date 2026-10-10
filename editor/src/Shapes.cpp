@@ -87,6 +87,85 @@ float blaze(float x, float y, float bottom, float top, float girth) {
     return (std::fabs(x - 0.16f * t * t) - width) * 0.8f;
 }
 
+// One thin ray along an axis: along runs out from the middle, across is the
+// distance from the ray's centre line. Narrows and fades to its tip.
+float ray(float along, float across, float length, float width) {
+    if (along >= length) {
+        return 0.0f;
+    }
+    const float left = 1.0f - along / length;
+    return clamp01(1.0f - across / (width * left + 1e-4f)) * std::sqrt(left);
+}
+
+// Distance to the jagged line of a lightning bolt running along x, with one
+// fork. Thinner toward its ends.
+float boltDistance(float x, float y, float& thin) {
+    static const float px[16] = {-0.95f, -0.8233f, -0.6967f, -0.57f, -0.4433f, -0.3167f, -0.19f, -0.0633f, 0.0633f, 0.19f, 0.3167f, 0.4433f, 0.57f, 0.6967f, 0.8233f, 0.95f};
+    static const float py[16] = {0.0f, 0.08f, -0.05f, 0.12f, 0.02f, -0.1f, 0.06f, -0.02f, 0.14f, -0.06f, 0.04f, -0.12f, 0.03f, 0.09f, -0.04f, 0.0f};
+    float best = 1e9f;
+    auto segment = [&](float ax, float ay, float bx, float by) {
+        const float ex = bx - ax, ey = by - ay;
+        const float h = clamp01(((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey));
+        best = std::min(best, std::sqrt(sq(x - ax - ex * h) + sq(y - ay - ey * h)));
+    };
+    for (int i = 0; i < 15; ++i) {
+        segment(px[i], py[i], px[i + 1], py[i + 1]);
+    }
+    segment(-0.19f, 0.06f, -0.06f, -0.30f);  // the fork
+    segment(-0.06f, -0.30f, 0.10f, -0.36f);
+    segment(0.10f, -0.36f, 0.24f, -0.52f);
+    thin = 1.0f - std::pow(std::fabs(x), 6.0f);
+    return best;
+}
+
+// A rounded square (a "squircle"): the outline of a gumdrop or jelly candy.
+// Close to a signed distance near the edge.
+float squircle(float x, float y, float radius) {
+    const float n = 2.6f;
+    return std::pow(std::pow(std::fabs(x), n) + std::pow(std::fabs(y), n), 1.0f / n) - radius;
+}
+
+// Signed distance to a convex four-cornered fragment, corners in
+// counter-clockwise order (the largest distance to any side's line).
+float shardShape(float x, float y) {
+    const float px[4] = {-0.85f, 0.10f, 0.90f, -0.20f};
+    const float py[4] = {-0.35f, -0.90f, 0.15f, 0.85f};
+    float d = -1e9f;
+    for (int i = 0; i < 4; ++i) {
+        const int j = (i + 1) % 4;
+        const float ex = px[j] - px[i], ey = py[j] - py[i];
+        const float length = std::sqrt(ex * ex + ey * ey);
+        d = std::max(d, ((x - px[i]) * ey - (y - py[i]) * ex) / length);
+    }
+    return d;
+}
+
+// A flying drop with its round head at +x and a tail to -x.
+float dropShape(float x, float y) {
+    const float head = std::sqrt(sq(x - 0.35f) + sq(y)) - 0.55f;
+    if (x >= 0.35f || x <= -0.95f) {
+        return head;
+    }
+    const float width = 0.55f * std::pow((x + 0.95f) / 1.3f, 0.9f);
+    return std::min(head, (std::fabs(y) - width) * 0.85f);
+}
+
+// A splat of jelly: a round body, lobes around it and a few flung drops.
+float splatShape(float x, float y) {
+    float d = std::sqrt(sq(x) + sq(y)) - 0.52f;
+    static const float lobes[6][3] = {{0.56f, 0.18f, 0.22f},   {0.10f, 0.60f, 0.20f},
+                                      {-0.50f, 0.34f, 0.19f},  {-0.58f, -0.22f, 0.21f},
+                                      {-0.06f, -0.60f, 0.18f}, {0.48f, -0.40f, 0.20f}};
+    for (const auto& l : lobes) {
+        d = std::min(d, std::sqrt(sq(x - l[0]) + sq(y - l[1])) - l[2]);
+    }
+    static const float drops[3][3] = {{0.86f, 0.52f, 0.09f}, {-0.84f, 0.66f, 0.07f}, {0.30f, -0.90f, 0.08f}};
+    for (const auto& l : drops) {
+        d = std::min(d, std::sqrt(sq(x - l[0]) + sq(y - l[1])) - l[2]);
+    }
+    return d;
+}
+
 }  // namespace
 
 ShapeSample sampleShape(SpriteShape shape, float x, float y, float aaX, float aaY) {
@@ -161,6 +240,7 @@ ShapeSample sampleShape(SpriteShape shape, float x, float y, float aaX, float aa
             out.cover = edge(heart(x * 0.64f, y * 0.64f + 0.55f) / 0.64f, pixel);
             // A small shine on the upper-left lobe.
             out.tone = edge(std::sqrt(sq((x + 0.42f) / 1.5f) + sq(y - 0.42f)) - 0.13f, pixel);
+            out.shine = 0.8f * out.tone;
             break;
 
         case SpriteShape::Streak: {
@@ -171,6 +251,8 @@ ShapeSample sampleShape(SpriteShape shape, float x, float y, float aaX, float aa
             if (width > 1e-4f) {
                 out.cover = sq(clamp01(1.0f - sq(y / width))) * std::pow(t, 1.2f);
             }
+            // The head burns white, the tail keeps the particle's colour.
+            out.shine = sq(clamp01((t - 0.6f) / 0.35f)) * out.cover;
             break;
         }
 
@@ -220,6 +302,7 @@ ShapeSample sampleShape(SpriteShape shape, float x, float y, float aaX, float aa
             const float shine = edge(std::sqrt(sq(x + 0.34f) + sq(y - 0.36f)) - 0.24f, pixel);
             const float shade = 1.0f - edge(std::sqrt(sq(x + 0.16f) + sq(y - 0.16f)) - 0.84f, pixel);
             out.tone = shine - 0.7f * shade;
+            out.shine = 0.8f * shine;
             break;
         }
 
@@ -236,6 +319,157 @@ ShapeSample sampleShape(SpriteShape shape, float x, float y, float aaX, float aa
             out.cover = edge(blaze(x, y, -0.92f, 0.95f, 0.62f), pixel);
             out.tone = edge(blaze(x + 0.02f, y, -0.74f, 0.42f, 0.36f), pixel);
             break;
+
+        case SpriteShape::Candy: {
+            // A glossy gumdrop: a long white shine at the upper left, a
+            // small one beside it, and a shadow along the lower right.
+            out.cover = edge(squircle(x, y, 0.86f), pixel);
+            const float sx = (x + 0.30f) * 0.866f + (y - 0.40f) * 0.5f;
+            const float sy = -(x + 0.30f) * 0.5f + (y - 0.40f) * 0.866f;
+            const float longShine = edge((std::sqrt(sq(sx / 0.30f) + sq(sy / 0.13f)) - 1.0f) * 0.13f, pixel);
+            const float spot = edge(std::sqrt(sq(x - 0.14f) + sq(y - 0.58f)) - 0.07f, pixel);
+            const float shade = 1.0f - edge(squircle(x + 0.10f, y - 0.12f, 0.80f), pixel * 2.0f);
+            out.tone = 0.35f * longShine - 0.55f * shade;
+            out.shine = std::max(0.9f * longShine, spot);
+            break;
+        }
+
+        case SpriteShape::Shard: {
+            // A broken piece: two facets, one catching the light, and a
+            // glint on its tip.
+            out.cover = edge(shardShape(x * 1.05f, y * 1.05f) / 1.05f, pixel);
+            const float side = (0.3f * (y - 0.85f) + 1.75f * (x + 0.2f)) / 1.7755f;
+            const float lit = edge(side, pixel);
+            out.tone = 0.6f * lit - 0.4f * (1.0f - lit);
+            out.shine = edge(std::sqrt(sq(x + 0.16f) + sq(y - 0.56f)) - 0.09f, pixel);
+            break;
+        }
+
+        case SpriteShape::Drop: {
+            // A glossy drop flying head first (+x), shine near the front.
+            out.cover = edge(dropShape(x, y), pixel);
+            const float spot = edge(std::sqrt(sq(x - 0.48f) + sq(y - 0.20f)) - 0.13f, pixel);
+            const float shade = 1.0f - edge(dropShape(x + 0.03f, y + 0.12f) + 0.08f, pixel * 2.0f);
+            out.tone = 0.3f * spot - 0.45f * shade;
+            out.shine = spot;
+            break;
+        }
+
+        case SpriteShape::Splat: {
+            // Jelly hitting a surface: hard edged, with a wet shine.
+            out.cover = edge(splatShape(x, y), pixel);
+            const float spot = edge(std::sqrt(sq((x + 0.18f) / 1.6f) + sq(y - 0.22f)) - 0.11f, pixel);
+            const float rim = 1.0f - edge(r - 0.40f, pixel * 3.0f);
+            out.tone = 0.3f * spot - 0.35f * rim;
+            out.shine = spot;
+            break;
+        }
+
+        case SpriteShape::Shockwave: {
+            // A thick ring of force, bright on its inner edge, with a faint
+            // haze filling the middle.
+            const float ring = edge(std::fabs(r - 0.77f) - 0.15f, pixel);
+            const float haze = 0.15f * std::pow(clamp01(r / 0.62f), 3.0f) * edge(r - 0.62f, pixel);
+            out.cover = clamp01(ring + haze);
+            const float inner = edge(std::fabs(r - 0.68f) - 0.05f, pixel);
+            out.tone = ring * (inner - 0.35f * edge(0.86f - r, pixel));
+            out.shine = 0.6f * ring * inner;
+            break;
+        }
+
+        case SpriteShape::Twinkle: {
+            // A sharp four-pointed twinkle: long thin rays, short diagonal
+            // ones, and a white-hot middle.
+            const float d = 0.70710678f;
+            const float u = (x + y) * d, v = (x - y) * d;
+            const float rays = std::max(std::max(ray(std::fabs(x), std::fabs(y), 0.95f, 0.07f),
+                                                 ray(std::fabs(y), std::fabs(x), 0.95f, 0.07f)),
+                                        std::max(ray(std::fabs(u), std::fabs(v), 0.45f, 0.05f),
+                                                 ray(std::fabs(v), std::fabs(u), 0.45f, 0.05f)));
+            const float core = sq(clamp01(1.0f - r2 / sq(0.30f)));
+            out.cover = clamp01(std::max(rays, core) + 0.25f * sq(clamp01(1.0f - r2 / sq(0.55f))));
+            out.shine = core;
+            break;
+        }
+
+        case SpriteShape::Flare: {
+            // A starburst: twelve thin rays of different lengths around a
+            // white-hot core and a soft halo.
+            float angle = std::atan2(y, x);
+            if (angle < 0.0f) {
+                angle += 6.2831853f;
+            }
+            const int k = static_cast<int>(std::floor(angle * 12.0f / 6.2831853f + 0.5f)) % 12;
+            static const float lengths[12] = {0.95f, 0.55f, 0.80f, 0.50f, 0.92f, 0.62f,
+                                              0.86f, 0.46f, 0.95f, 0.58f, 0.76f, 0.52f};
+            const float off = std::fabs(angle - static_cast<float>(k) * 6.2831853f / 12.0f);
+            const float across = std::min(off, 6.2831853f - off) * r;
+            const float rays = r < lengths[k] ? clamp01(1.0f - across / (0.10f * (1.0f - r / lengths[k]) + 1e-4f)) *
+                                                    std::pow(1.0f - r / lengths[k], 0.8f)
+                                              : 0.0f;
+            const float core = sq(clamp01(1.0f - r2 / sq(0.22f)));
+            const float halo = 0.5f * sq(clamp01(1.0f - r2 / sq(0.55f)));
+            out.cover = clamp01(std::max(rays, halo + core));
+            out.shine = core;
+            break;
+        }
+
+        case SpriteShape::Rays: {
+            // Ten soft beams of light from the middle: the sunburst behind a
+            // reward. Spin it slowly.
+            float angle = std::atan2(y, x);
+            if (angle < 0.0f) {
+                angle += 6.2831853f;
+            }
+            const float a = angle * 10.0f / 6.2831853f;
+            const float f = std::fabs(a - std::floor(a) - 0.5f) * 2.0f;  // 0 mid-beam, 1 between
+            const float beam = sq(clamp01(1.0f - f * 1.15f));
+            out.cover = r < 1.0f ? beam * std::pow(1.0f - r, 0.9f) * clamp01(r / 0.12f) +
+                                       0.35f * sq(clamp01(1.0f - r2 / sq(0.3f)))
+                                 : 0.0f;
+            out.cover = clamp01(out.cover);
+            break;
+        }
+
+        case SpriteShape::Swirl: {
+            // A peppermint or lollipop: a disc with white spiral stripes and
+            // a gloss spot.
+            out.cover = edge(r - 0.88f, pixel);
+            float angle = std::atan2(y, x);
+            const float s = angle / 6.2831853f * 3.0f + r * 1.7f;
+            const float stripe = edge((std::fabs(s - std::floor(s) - 0.5f) - 0.25f) * (r * 2.0f + 0.1f), pixel);
+            const float spot = edge(std::sqrt(sq(x + 0.36f) + sq(y - 0.40f)) - 0.13f, pixel);
+            const float shade = 1.0f - edge(std::sqrt(sq(x + 0.12f) + sq(y - 0.12f)) - 0.82f, pixel * 2.0f);
+            out.tone = 0.8f * stripe - 0.45f * shade;
+            out.shine = std::max(0.85f * stripe * (1.0f - 0.5f * shade), spot);
+            break;
+        }
+
+        case SpriteShape::Bolt: {
+            // A lightning bolt along x: a white-hot jagged core in a glow.
+            float thin = 1.0f;
+            const float d = boltDistance(x, y, thin);
+            const float core = edge(d - 0.03f * thin, pixel);
+            const float glow = 0.75f * sq(clamp01(1.0f - d / 0.2f)) * thin;
+            out.cover = clamp01(std::max(core, glow));
+            out.shine = core;
+            break;
+        }
+
+        case SpriteShape::Bean: {
+            // A jelly bean: a gently curved capsule with a long shine.
+            const float by = y + 0.28f * x * x - 0.06f;
+            const float body = std::sqrt(sq(std::max(std::fabs(x) - 0.48f, 0.0f)) + sq(by)) - 0.38f;
+            out.cover = edge(body, pixel);
+            const float shineD = std::sqrt(sq(std::max(std::fabs(x + 0.06f) - 0.28f, 0.0f)) +
+                                           sq((by - 0.17f) / 0.45f)) - 0.05f;
+            const float spot = edge(shineD, pixel);
+            const float shade = 1.0f - edge(std::sqrt(sq(std::max(std::fabs(x + 0.04f) - 0.46f, 0.0f)) +
+                                                      sq(by - 0.08f)) - 0.32f, pixel * 2.0f);
+            out.tone = 0.3f * spot - 0.5f * shade;
+            out.shine = spot;
+            break;
+        }
     }
     return out;
 }
@@ -247,7 +481,8 @@ float shapeCoverage(SpriteShape shape, float x, float y, float aaX, float aaY) {
 const char* shapeName(SpriteShape shape) {
     static const char* names[kSpriteShapeCount] = {
         "soft", "disc", "ring", "bubble", "sparkle", "star", "smoke", "square", "diamond",
-        "heart", "streak", "flame", "puff", "burst", "crescent", "orb", "glint", "blaze"};
+        "heart", "streak", "flame", "puff", "burst", "crescent", "orb", "glint", "blaze",
+        "candy", "shard", "drop", "splat", "shockwave", "twinkle", "flare", "rays", "swirl", "bean", "bolt"};
     const auto i = static_cast<int>(shape);
     return i >= 0 && i < kSpriteShapeCount ? names[i] : "soft";
 }

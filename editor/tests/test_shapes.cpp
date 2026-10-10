@@ -105,6 +105,32 @@ TEST_CASE("the shapes are the shapes they claim to be", "[shapes]") {
     // The flame is fat at the bottom and pointed at the top.
     CHECK(at(SpriteShape::Flame, 0.4f, -0.5f) > 0.3f);
     CHECK(at(SpriteShape::Flame, 0.4f, 0.5f) == 0.0f);
+
+    // Gloss: candy shines white at the upper left, flares and twinkles burn
+    // white in the middle, a streak's head is white and its tail is not.
+    auto shine = [px](SpriteShape s, float x, float y) { return sampleShape(s, x, y, px, px).shine; };
+    CHECK(shine(SpriteShape::Candy, -0.30f, 0.40f) > 0.8f);
+    CHECK(shine(SpriteShape::Candy, 0.3f, -0.3f) == 0.0f);
+    CHECK(shine(SpriteShape::Flare, 0, 0) == 1.0f);
+    CHECK(shine(SpriteShape::Twinkle, 0, 0) == 1.0f);
+    CHECK(shine(SpriteShape::Streak, 0.7f, 0) > 0.3f);
+    CHECK(shine(SpriteShape::Streak, -0.5f, 0) == 0.0f);
+    CHECK(shine(SpriteShape::Soft, 0, 0) == 0.0f);  // the old soft dot is unchanged
+
+    // A twinkle's long rays reach out along the axes, not the diagonals.
+    CHECK(at(SpriteShape::Twinkle, 0.7f, 0) > at(SpriteShape::Twinkle, 0.5f, 0.5f));
+    // The shockwave is a ring, the splat is a blob, the bolt is a thin line.
+    CHECK(at(SpriteShape::Shockwave, 0.77f, 0) == 1.0f);
+    CHECK(at(SpriteShape::Shockwave, 0, 0) < 0.1f);
+    CHECK(at(SpriteShape::Splat, 0, 0) == 1.0f);
+    CHECK(at(SpriteShape::Bolt, 0, 0.5f) == 0.0f);
+
+    // Gloss turns a premultiplied colour white at its own brightness.
+    float r = 0.8f, g = 0.1f, b = 0.1f;
+    applyShine(r, g, b, 0.8f, 1.0f);
+    CHECK(r == Catch::Approx(0.8f));
+    CHECK(g == Catch::Approx(0.8f));
+    CHECK(b == Catch::Approx(0.8f));
 }
 
 TEST_CASE("the mesh carries the shape and the pixel size", "[shapes][mesh]") {

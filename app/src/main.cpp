@@ -303,7 +303,7 @@ int main(int argc, char* argv[]) {
                 out << "FAIL: the viewport shows no particles\n";
                 selfTest.result = 1;
             }
-            if (!controller.openPreset(QStringLiteral("toon-explosion"))) {
+            if (!controller.openPreset(QStringLiteral("rainbow-burst"))) {
                 out << "FAIL: a library preset would not open\n";
                 selfTest.result = 1;
             }

@@ -312,7 +312,7 @@ TEST_CASE("the shape atlas holds every shape in a grid", "[unity]") {
     };
     CHECK(be32(16) == static_cast<std::uint32_t>(kAtlasColumns * kAtlasTile));
     CHECK(be32(20) == static_cast<std::uint32_t>(kAtlasRows * kAtlasTile));
-    CHECK(png[25] == 4);  // grey and alpha
+    CHECK(png[25] == 6);  // red, green, blue and alpha
     CHECK(kAtlasColumns * kAtlasRows >= kSpriteShapeCount);
     CHECK(png.size() < 2'000'000u);  // compressed: mostly empty space
 }

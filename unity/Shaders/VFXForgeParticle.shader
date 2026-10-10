@@ -2,7 +2,8 @@
 // the artist's own picture.
 //
 // The shape picture holds every shape: how much of the particle shows in
-// its alpha, and the toon tone (a lighter or darker shade) in its grey.
+// its alpha, the toon tone (a lighter or darker shade) in its red, and the
+// white gloss in its green.
 // With Picture on, _MainTex is the artist's picture instead, tinted by the
 // particle's colour; a sprite sheet is stepped through by the Particle
 // System's Texture Sheet Animation, which hands over the right cell.
@@ -96,6 +97,7 @@ Shader "VFX Forge/Particle"
                 float tone = t.r * 2.0 - 1.0;
                 if (abs(tone) < 0.01)
                     tone = 0.0;
+                float shine = t.g;
 
                 float alpha = i.color.a;
                 float3 rgb = i.color.rgb * (alpha * _Glow);
@@ -111,6 +113,10 @@ Shader "VFX Forge/Particle"
                 {
                     rgb *= 1.0 + 0.5 * tone;
                 }
+
+                // Gloss: toward white at the particle's own brightness.
+                float white = max(alpha, max(rgb.r, max(rgb.g, rgb.b)));
+                rgb += (white - rgb) * shine;
 
                 return float4(rgb, _Additive > 0.5 ? 0.0 : alpha) * cover;
             }

@@ -701,29 +701,29 @@ void Simulation::extract(RenderFrame& frame) const {
                 out.b *= c.b;
                 out.a *= c.a;
             }
-            int frame = 0;
+            int cell = 0;
             if (frames > 1) {
                 const float n = static_cast<float>(frames);
                 switch (e.animate) {
                     case Animate::Life:
-                        frame = static_cast<int>(lived * n);
+                        cell = static_cast<int>(lived * n);
                         break;
                     case Animate::Random:
-                        frame = static_cast<int>(pick[i] * n);
+                        cell = static_cast<int>(pick[i] * n);
                         break;
                     case Animate::Loop: {
-                        double at = static_cast<double>(age[i]) * e.fps;
+                        double played = static_cast<double>(age[i]) * e.fps;
                         if (e.randomStart) {
-                            at += static_cast<double>(pick[i]) * frames;
+                            played += static_cast<double>(pick[i]) * frames;
                         }
-                        frame = static_cast<int>(
-                            static_cast<std::int64_t>(std::floor(at)) % frames);
+                        cell = static_cast<int>(
+                            static_cast<std::int64_t>(std::floor(played)) % frames);
                         break;
                     }
                 }
-                frame = frame < 0 ? 0 : (frame >= frames ? frames - 1 : frame);
+                cell = cell < 0 ? 0 : (cell >= frames ? frames - 1 : cell);
             }
-            out.frame = static_cast<float>(frame);
+            out.frame = static_cast<float>(cell);
         }
         at += em.count;
     }

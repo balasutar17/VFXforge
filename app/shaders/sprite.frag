@@ -85,6 +85,77 @@ float blaze(vec2 p, float bottom, float top, float girth) {
     return (abs(p.x - 0.16 * t * t) - width) * 0.8;
 }
 
+// One thin ray along an axis, narrowing and fading to its tip.
+float ray(float along, float across, float len, float width) {
+    if (along >= len) {
+        return 0.0;
+    }
+    float left = 1.0 - along / len;
+    return clamp(1.0 - across / (width * left + 0.0001), 0.0, 1.0) * sqrt(left);
+}
+
+float segmentDistance(vec2 p, vec2 a, vec2 b) {
+    vec2 e = b - a;
+    float h = clamp(dot(p - a, e) / dot(e, e), 0.0, 1.0);
+    return length(p - a - e * h);
+}
+
+// Distance to the jagged line of a lightning bolt along x, with one fork.
+float boltDistance(vec2 p) {
+    vec2 c[16] = vec2[16](vec2(-0.95, 0.0), vec2(-0.8233, 0.08), vec2(-0.6967, -0.05), vec2(-0.57, 0.12), vec2(-0.4433, 0.02), vec2(-0.3167, -0.1), vec2(-0.19, 0.06), vec2(-0.0633, -0.02), vec2(0.0633, 0.14), vec2(0.19, -0.06), vec2(0.3167, 0.04), vec2(0.4433, -0.12), vec2(0.57, 0.03), vec2(0.6967, 0.09), vec2(0.8233, -0.04), vec2(0.95, 0.0));
+    float best = 1e9;
+    for (int i = 0; i < 15; ++i) {
+        best = min(best, segmentDistance(p, c[i], c[i + 1]));
+    }
+    best = min(best, segmentDistance(p, c[6], vec2(-0.06, -0.30)));
+    best = min(best, segmentDistance(p, vec2(-0.06, -0.30), vec2(0.10, -0.36)));
+    best = min(best, segmentDistance(p, vec2(0.10, -0.36), vec2(0.24, -0.52)));
+    return best;
+}
+
+// A rounded square: the outline of a gumdrop or jelly candy.
+float squircle(vec2 p, float radius) {
+    vec2 a = pow(abs(p) + vec2(1e-6), vec2(2.6));
+    return pow(a.x + a.y, 1.0 / 2.6) - radius;
+}
+
+// A convex four-cornered fragment, corners counter-clockwise.
+float shardShape(vec2 p) {
+    vec2 c[4] = vec2[4](vec2(-0.85, -0.35), vec2(0.10, -0.90), vec2(0.90, 0.15), vec2(-0.20, 0.85));
+    float d = -1e9;
+    for (int i = 0; i < 4; ++i) {
+        vec2 a = c[i];
+        vec2 e = c[(i + 1) % 4] - a;
+        d = max(d, ((p.x - a.x) * e.y - (p.y - a.y) * e.x) / length(e));
+    }
+    return d;
+}
+
+// A flying drop with its round head at +x and a tail to -x.
+float dropShape(vec2 p) {
+    float head = length(p - vec2(0.35, 0.0)) - 0.55;
+    if (p.x >= 0.35 || p.x <= -0.95) {
+        return head;
+    }
+    float width = 0.55 * pow((p.x + 0.95) / 1.3, 0.9);
+    return min(head, (abs(p.y) - width) * 0.85);
+}
+
+// A splat of jelly: a round body, lobes around it and a few flung drops.
+float splatShape(vec2 p) {
+    float d = length(p) - 0.52;
+    d = min(d, length(p - vec2(0.56, 0.18)) - 0.22);
+    d = min(d, length(p - vec2(0.10, 0.60)) - 0.20);
+    d = min(d, length(p - vec2(-0.50, 0.34)) - 0.19);
+    d = min(d, length(p - vec2(-0.58, -0.22)) - 0.21);
+    d = min(d, length(p - vec2(-0.06, -0.60)) - 0.18);
+    d = min(d, length(p - vec2(0.48, -0.40)) - 0.20);
+    d = min(d, length(p - vec2(0.86, 0.52)) - 0.09);
+    d = min(d, length(p - vec2(-0.84, 0.66)) - 0.07);
+    d = min(d, length(p - vec2(0.30, -0.90)) - 0.08);
+    return d;
+}
+
 void main() {
     // Across the particle from -1 to 1, with y pointing up.
     vec2 p = vec2(vTexCoord.x * 2.0 - 1.0, 1.0 - vTexCoord.y * 2.0);
@@ -95,6 +166,7 @@ void main() {
 
     float cover = 0.0;
     float tone = 0.0;
+    float shine = 0.0;
 
     if (shape == 0) {            // soft
         cover = sq(clamp(1.0 - r2, 0.0, 1.0));
@@ -135,6 +207,7 @@ void main() {
     } else if (shape == 9) {     // heart
         cover = edge(heart(vec2(p.x * 0.64, p.y * 0.64 + 0.55)) / 0.64, pixel);
         tone = edge(sqrt(sq((p.x + 0.42) / 1.5) + sq(p.y - 0.42)) - 0.13, pixel);
+        shine = 0.8 * tone;
     } else if (shape == 10) {    // streak
         float t = clamp((p.x + 1.0) * 0.5, 0.0, 1.0);
         float nose = max(t - 0.75, 0.0) / 0.25;
@@ -142,6 +215,7 @@ void main() {
         if (width > 0.0001) {
             cover = sq(clamp(1.0 - sq(p.y / width), 0.0, 1.0)) * pow(t, 1.2);
         }
+        shine = sq(clamp((t - 0.6) / 0.35, 0.0, 1.0)) * cover;
     } else if (shape == 11) {    // flame
         float t = clamp((p.y + 1.0) * 0.5, 0.0, 1.0);
         float base = (0.3 - min(t, 0.3)) / 0.3;
@@ -164,16 +238,113 @@ void main() {
         tone = edge(max(r - 0.92, -(length(p + vec2(0.16, 0.0)) - 0.98)), pixel);
     } else if (shape == 15) {    // orb
         cover = edge(r - 0.9, pixel);
-        float shine = edge(length(p - vec2(-0.34, 0.36)) - 0.24, pixel);
+        float spot = edge(length(p - vec2(-0.34, 0.36)) - 0.24, pixel);
         float shade = 1.0 - edge(length(p - vec2(-0.16, 0.16)) - 0.84, pixel);
-        tone = shine - 0.7 * shade;
+        tone = spot - 0.7 * shade;
+        shine = 0.8 * spot;
     } else if (shape == 16) {    // glint
         float s = sqrt(abs(p.x)) + sqrt(abs(p.y));
         cover = edge((s - 0.95) * (0.5 * r + 0.12), pixel);
         tone = edge((s - 0.6) * (0.5 * r + 0.12), pixel);
-    } else {                     // blaze
+    } else if (shape == 17) {    // blaze
         cover = edge(blaze(p, -0.92, 0.95, 0.62), pixel);
         tone = edge(blaze(p + vec2(0.02, 0.0), -0.74, 0.42, 0.36), pixel);
+    } else if (shape == 18) {    // candy
+        cover = edge(squircle(p, 0.86), pixel);
+        float sx = (p.x + 0.30) * 0.866 + (p.y - 0.40) * 0.5;
+        float sy = -(p.x + 0.30) * 0.5 + (p.y - 0.40) * 0.866;
+        float longShine = edge((sqrt(sq(sx / 0.30) + sq(sy / 0.13)) - 1.0) * 0.13, pixel);
+        float spot = edge(length(p - vec2(0.14, 0.58)) - 0.07, pixel);
+        float shade = 1.0 - edge(squircle(p + vec2(0.10, -0.12), 0.80), pixel * 2.0);
+        tone = 0.35 * longShine - 0.55 * shade;
+        shine = max(0.9 * longShine, spot);
+    } else if (shape == 19) {    // shard
+        cover = edge(shardShape(p * 1.05) / 1.05, pixel);
+        float side = (0.3 * (p.y - 0.85) + 1.75 * (p.x + 0.2)) / 1.7755;
+        float lit = edge(side, pixel);
+        tone = 0.6 * lit - 0.4 * (1.0 - lit);
+        shine = edge(length(p - vec2(-0.16, 0.56)) - 0.09, pixel);
+    } else if (shape == 20) {    // drop
+        cover = edge(dropShape(p), pixel);
+        float spot = edge(length(p - vec2(0.48, 0.20)) - 0.13, pixel);
+        float shade = 1.0 - edge(dropShape(p + vec2(0.03, 0.12)) + 0.08, pixel * 2.0);
+        tone = 0.3 * spot - 0.45 * shade;
+        shine = spot;
+    } else if (shape == 21) {    // splat
+        cover = edge(splatShape(p), pixel);
+        float spot = edge(sqrt(sq((p.x + 0.18) / 1.6) + sq(p.y - 0.22)) - 0.11, pixel);
+        float rim = 1.0 - edge(r - 0.40, pixel * 3.0);
+        tone = 0.3 * spot - 0.35 * rim;
+        shine = spot;
+    } else if (shape == 22) {    // shockwave
+        float ring = edge(abs(r - 0.77) - 0.15, pixel);
+        float haze = 0.15 * pow(clamp(r / 0.62, 0.0, 1.0), 3.0) * edge(r - 0.62, pixel);
+        cover = clamp(ring + haze, 0.0, 1.0);
+        float inner = edge(abs(r - 0.68) - 0.05, pixel);
+        tone = ring * (inner - 0.35 * edge(0.86 - r, pixel));
+        shine = 0.6 * ring * inner;
+    } else if (shape == 23) {    // twinkle
+        float d = 0.70710678;
+        vec2 q = abs(p);
+        vec2 w = abs(vec2(p.x + p.y, p.x - p.y) * d);
+        float rays = max(max(ray(q.x, q.y, 0.95, 0.07), ray(q.y, q.x, 0.95, 0.07)),
+                         max(ray(w.x, w.y, 0.45, 0.05), ray(w.y, w.x, 0.45, 0.05)));
+        float core = sq(clamp(1.0 - r2 / (0.30 * 0.30), 0.0, 1.0));
+        cover = clamp(max(rays, core) + 0.25 * sq(clamp(1.0 - r2 / (0.55 * 0.55), 0.0, 1.0)), 0.0, 1.0);
+        shine = core;
+    } else if (shape == 24) {    // flare
+        float angle = atan(p.y, p.x);
+        if (angle < 0.0) {
+            angle += 6.2831853;
+        }
+        int k = int(floor(angle * 12.0 / 6.2831853 + 0.5)) % 12;
+        float lengths[12] = float[12](0.95, 0.55, 0.80, 0.50, 0.92, 0.62, 0.86, 0.46, 0.95, 0.58, 0.76, 0.52);
+        float len = lengths[k];
+        float off = abs(angle - float(k) * 6.2831853 / 12.0);
+        float across = min(off, 6.2831853 - off) * r;
+        float rays = r < len ? clamp(1.0 - across / (0.10 * (1.0 - r / len) + 0.0001), 0.0, 1.0) *
+                                   pow(1.0 - r / len, 0.8)
+                             : 0.0;
+        float core = sq(clamp(1.0 - r2 / (0.22 * 0.22), 0.0, 1.0));
+        float halo = 0.5 * sq(clamp(1.0 - r2 / (0.55 * 0.55), 0.0, 1.0));
+        cover = clamp(max(rays, halo + core), 0.0, 1.0);
+        shine = core;
+    } else if (shape == 25) {    // rays
+        float angle = atan(p.y, p.x);
+        if (angle < 0.0) {
+            angle += 6.2831853;
+        }
+        float a = angle * 10.0 / 6.2831853;
+        float f = abs(fract(a) - 0.5) * 2.0;
+        float beam = sq(clamp(1.0 - f * 1.15, 0.0, 1.0));
+        cover = r < 1.0 ? beam * pow(1.0 - r, 0.9) * clamp(r / 0.12, 0.0, 1.0) +
+                              0.35 * sq(clamp(1.0 - r2 / (0.3 * 0.3), 0.0, 1.0))
+                        : 0.0;
+        cover = clamp(cover, 0.0, 1.0);
+    } else if (shape == 26) {    // swirl
+        cover = edge(r - 0.88, pixel);
+        float angle = atan(p.y, p.x);
+        float s = angle / 6.2831853 * 3.0 + r * 1.7;
+        float stripe = edge((abs(fract(s) - 0.5) - 0.25) * (r * 2.0 + 0.1), pixel);
+        float spot = edge(length(p - vec2(-0.36, 0.40)) - 0.13, pixel);
+        float shade = 1.0 - edge(length(p - vec2(-0.12, 0.12)) - 0.82, pixel * 2.0);
+        tone = 0.8 * stripe - 0.45 * shade;
+        shine = max(0.85 * stripe * (1.0 - 0.5 * shade), spot);
+    } else if (shape == 28) {    // bolt
+        float thin = 1.0 - pow(abs(p.x), 6.0);
+        float d = boltDistance(p);
+        float core = edge(d - 0.03 * thin, pixel);
+        float glow = 0.75 * sq(clamp(1.0 - d / 0.2, 0.0, 1.0)) * thin;
+        cover = clamp(max(core, glow), 0.0, 1.0);
+        shine = core;
+    } else if (shape == 27) {    // bean
+        float by = p.y + 0.28 * p.x * p.x - 0.06;
+        float body = length(vec2(max(abs(p.x) - 0.48, 0.0), by)) - 0.38;
+        cover = edge(body, pixel);
+        float spot = edge(length(vec2(max(abs(p.x + 0.06) - 0.28, 0.0), (by - 0.17) / 0.45)) - 0.05, pixel);
+        float shade = 1.0 - edge(length(vec2(max(abs(p.x + 0.04) - 0.46, 0.0), by - 0.08)) - 0.32, pixel * 2.0);
+        tone = 0.3 * spot - 0.5 * shade;
+        shine = spot;
     }
 
     // Toon shading: a highlight moves toward white at the particle's own
@@ -184,6 +355,12 @@ void main() {
         rgb = (rgb + (vec3(most) - rgb) * (0.5 * tone)) * (1.0 + 0.3 * tone);
     } else if (tone < 0.0) {
         rgb *= 1.0 + 0.5 * tone;
+    }
+
+    // Gloss: toward white at the particle's own brightness.
+    if (shine > 0.0) {
+        float white = max(vColor.a, max(rgb.r, max(rgb.g, rgb.b)));
+        rgb += (vec3(white) - rgb) * shine;
     }
 
     // vColor is premultiplied, so one multiply fades colour and alpha together.

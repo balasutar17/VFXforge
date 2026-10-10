@@ -65,9 +65,10 @@ enum class Animate : std::uint8_t { Life, Loop, Random };
 // The built-in particle pictures, in the order the "shape" property lists them.
 enum class SpriteShape : std::uint8_t {
     Soft, Disc, Ring, Bubble, Sparkle, Star, Smoke, Square, Diamond, Heart, Streak, Flame,
-    Puff, Burst, Crescent, Orb, Glint, Blaze
+    Puff, Burst, Crescent, Orb, Glint, Blaze,
+    Candy, Shard, Drop, Splat, Shockwave, Twinkle, Flare, Rays, Swirl, Bean, Bolt
 };
-inline constexpr int kSpriteShapeCount = 18;
+inline constexpr int kSpriteShapeCount = 29;
 
 struct EmitterProgram {
     Id layer;
