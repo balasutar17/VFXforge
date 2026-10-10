@@ -19,6 +19,18 @@ layout(std140, binding = 0) uniform buf {
 layout(binding = 1) uniform sampler2D picture;
 
 void main() {
+    if (vShape.x < -1.5) {
+        // A trail ribbon behind a picture particle: drawn as in sprite.frag.
+        float c = abs(vTexCoord.y * 2.0 - 1.0);
+        float cover = clamp((1.0 - c) * 2.2, 0.0, 1.0);
+        float head = 1.0 - vTexCoord.x;
+        float shine = max(1.0 - c * 2.5, 0.0) * head * head * head;
+        vec3 rgb = vColor.rgb;
+        float white = max(vColor.a, max(rgb.r, max(rgb.g, rgb.b)));
+        rgb += (vec3(white) - rgb) * shine;
+        fragColor = vec4(rgb, vColor.a) * (cover * qt_Opacity);
+        return;
+    }
     vec4 t = texture(picture, vTexCoord);
     fragColor = vec4(vColor.rgb * t.rgb, vColor.a * t.a) * qt_Opacity;
 }

@@ -22,6 +22,7 @@ Shader "VFX Forge/Particle"
         [Toggle] _Additive ("Glow blending (additive)", Float) = 0
         _MotionAxis ("Streak direction", Float) = 0
         [Toggle] _Picture ("Draw the picture as painted", Float) = 0
+        [Toggle] _Ribbon ("Draw a trail ribbon", Float) = 0
     }
 
     SubShader
@@ -46,6 +47,7 @@ Shader "VFX Forge/Particle"
             float _Additive;
             float _MotionAxis;
             float _Picture;
+            float _Ribbon;
 
             struct appdata
             {
@@ -72,6 +74,18 @@ Shader "VFX Forge/Particle"
 
             float4 frag(v2f i) : SV_Target
             {
+                if (_Ribbon > 0.5)
+                {
+                    // A trail: solid in the middle, soft at the edges, with a
+                    // white-hot centre line.
+                    float c = abs(i.uv.y * 2.0 - 1.0);
+                    float body = saturate((1.0 - c) * 2.2);
+                    float ra = i.color.a;
+                    float3 rrgb = i.color.rgb * (ra * _Glow);
+                    float rwhite = max(ra, max(rrgb.r, max(rrgb.g, rrgb.b)));
+                    rrgb += (rwhite - rrgb) * (saturate(1.0 - c * 2.5) * 0.6);
+                    return float4(rrgb, _Additive > 0.5 ? 0.0 : ra) * body;
+                }
                 if (_Picture > 0.5)
                 {
                     // The picture, premultiplied, tinted and faded by the particle.

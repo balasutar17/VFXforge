@@ -261,7 +261,7 @@ QSGNode* updateSpriteNode(QSGNode* old, const vfx::editor::SpriteMesh& mesh,
         if (!texture && run.texture.valid()) {
             // The picture is not there: show its quads as soft dots, never blank.
             for (std::uint32_t i = 0; i < vertexCount; ++i) {
-                if (vertices[i].shape < 0.0f) {
+                if (vertices[i].shape == vfx::editor::kPictureShape) {
                     vertices[i].shape = 0.0f;
                     vertices[i].u = (i % 4 == 1 || i % 4 == 2) ? 1.0f : 0.0f;
                     vertices[i].v = (i % 4 == 2 || i % 4 == 3) ? 0.0f : 1.0f;

@@ -509,6 +509,10 @@ void Simulation::Emitter::spawn(std::int64_t inPass, double offset, float progre
         clipped = e.step;
     }
 
+    if (e.offset) {
+        // Only when set, so effects without one keep their exact bits.
+        pos = det::Vec3f{pos.x + e.offsetX, pos.y + e.offsetY, pos.z + e.offsetZ};
+    }
     f[kX][i] = pos.x;
     f[kY][i] = pos.y;
     f[kZ][i] = e.flat ? 0.0f : pos.z;
@@ -655,6 +659,13 @@ void Simulation::extract(RenderFrame& frame) const {
         batch.stretch = e.stretch;
         batch.columns = e.columns;
         batch.rows = e.rows;
+        batch.trail = e.trail;
+        batch.trailWidth = e.trailWidth;
+        batch.gravityX = e.gravityX;
+        batch.gravityY = e.gravityY;
+        batch.gravityZ = e.flat ? 0.0f : e.gravityZ;
+        batch.drag = e.drag;
+        batch.step = static_cast<float>(e.step);
         batch.first = at;
         batch.count = em.count;
         frame.batches.push_back(batch);
@@ -724,6 +735,7 @@ void Simulation::extract(RenderFrame& frame) const {
                 cell = cell < 0 ? 0 : (cell >= frames ? frames - 1 : cell);
             }
             out.frame = static_cast<float>(cell);
+            out.age = age[i];
         }
         at += em.count;
     }
@@ -762,6 +774,12 @@ std::uint64_t hashFrame(const RenderFrame& frame) {
         h = det::mix64(h ^ (b.alongMotion ? 1u : 0u));
         h = det::mix64(h ^ bits(b.stretch));
         h = det::mix64(h ^ static_cast<std::uint64_t>(b.columns * 4096 + b.rows));
+        if (b.trail > 0.0f) {
+            // Mixed in only when there is a trail, so frames without one keep
+            // the fingerprints they always had.
+            h = det::mix64(h ^ bits(b.trail));
+            h = det::mix64(h ^ bits(b.trailWidth));
+        }
         h = det::mix64(h ^ b.first);
         h = det::mix64(h ^ b.count);
     }

@@ -268,6 +268,9 @@ J shapeJson(const EmitterProgram& e) {
             s["exact"] = !e.flat && spreadDeg == 0.0;
             break;
     }
+    if (e.offset) {
+        s["position"] = J::array({round6(e.offsetX), round6(e.offsetY), round6(e.offsetZ)});
+    }
     return s;
 }
 
@@ -543,6 +546,14 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
         if (e.columns * e.rows > 1) {
             render["sheet"] = sheetJson(e);
         }
+    }
+    if (e.trail > 0.0f && e.trailWidth > 0.0f) {
+        // Unity measures a trail in shares of the particle's life.
+        J trail = J::object();
+        const double life = std::max(meanOf(e.lifetime), 1e-3);
+        trail["ratio"] = round6(std::clamp(e.trail / life, 0.02, 1.0));
+        trail["width"] = round6(e.trailWidth);
+        render["trail"] = std::move(trail);
     }
     render["additive"] = e.blend == BlendMode::Additive;
     render["glow"] = round6(glow);

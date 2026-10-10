@@ -69,6 +69,11 @@ void drawTriangle(std::vector<float>& canvas, int width, int height, const Sprit
 
             const float u = w0 * v0.u + w1 * v1.u + w2 * v2.u;
             const float v = w0 * v0.v + w1 * v1.v + w2 * v2.v;
+            // Colour is smoothed across the triangle (it changes along a trail).
+            const float vr = w0 * v0.r + w1 * v1.r + w2 * v2.r;
+            const float vg = w0 * v0.g + w1 * v1.g + w2 * v2.g;
+            const float vb = w0 * v0.b + w1 * v1.b + w2 * v2.b;
+            const float va = w0 * v0.a + w1 * v1.a + w2 * v2.a;
             if (picture) {
                 // The painted picture, premultiplied, tinted by the particle.
                 float t[4];
@@ -76,31 +81,32 @@ void drawTriangle(std::vector<float>& canvas, int width, int height, const Sprit
                 if (!(t[3] > 0.0f) && !(t[0] + t[1] + t[2] > 0.0f)) {
                     continue;
                 }
-                const float r = v0.r * t[0], g = v0.g * t[1], b = v0.b * t[2];
+                const float r = vr * t[0], g = vg * t[1], b = vb * t[2];
                 float* d = &canvas[index * 4u];
-                const float keep = 1.0f - v0.a * t[3];
+                const float keep = 1.0f - va * t[3];
                 d[0] = r + d[0] * keep;
                 d[1] = g + d[1] * keep;
                 d[2] = b + d[2] * keep;
                 if (keepAlpha) {
-                    const float own = v0.a > 0.0f ? v0.a * t[3]
+                    const float own = va > 0.0f ? va * t[3]
                                                    : std::min(1.0f, std::max({r, g, b}));
                     d[3] = own + d[3] * (1.0f - own);
                 }
                 continue;
             }
             const ShapeSample sample =
-                sampleShape(shape, 2.0f * u - 1.0f, 1.0f - 2.0f * v, v0.aaX, v0.aaY);
+                v0.shape < -1.5f ? ribbonSample(u, v)
+                                 : sampleShape(shape, 2.0f * u - 1.0f, 1.0f - 2.0f * v, v0.aaX, v0.aaY);
             const float cover = sample.cover;
             if (!(cover > 0.0f)) {
                 continue;
             }
-            float r = v0.r, g = v0.g, b = v0.b;
+            float r = vr, g = vg, b = vb;
             applyTone(r, g, b, sample.tone);
-            applyShine(r, g, b, v0.a, sample.shine);
+            applyShine(r, g, b, va, sample.shine);
             // The one blend rule: source + destination * (1 - source alpha).
             float* d = &canvas[index * 4u];
-            const float keep = 1.0f - v0.a * cover;
+            const float keep = 1.0f - va * cover;
             d[0] = r * cover + d[0] * keep;
             d[1] = g * cover + d[1] * keep;
             d[2] = b * cover + d[2] * keep;
@@ -108,7 +114,7 @@ void drawTriangle(std::vector<float>& canvas, int width, int height, const Sprit
                 // Coverage, for pictures with a see-through background. Light
                 // that is added (alpha 0) still has to show when the picture
                 // is laid over something, so it counts by its brightness.
-                const float own = v0.a > 0.0f ? v0.a * cover
+                const float own = va > 0.0f ? va * cover
                                                : std::min(1.0f, std::max({r, g, b})) * cover;
                 d[3] = own + d[3] * (1.0f - own);
             }
@@ -168,7 +174,7 @@ Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor backgr
         }
         const MipChain* picture = nullptr;
         if (run < mesh.runs.size() && mesh.runs[run].texture.valid() && images &&
-            mesh.vertices[mesh.indices[i]].shape < 0.0f) {
+            mesh.vertices[mesh.indices[i]].shape == kPictureShape) {
             picture = images->mips(mesh.runs[run].texture);
         }
         for (std::size_t t = 0; t < 2; ++t) {

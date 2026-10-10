@@ -82,7 +82,8 @@
           "radius": 1.0,
           "size": [1.0, 1.0, 1.0],
           "angle": 25.0,
-          "emitFrom": "volume"
+          "emitFrom": "volume",
+          "offset": [0.0, 0.0, 0.0]
         },
         {
           "id": "m-e89911b266b19078",
@@ -124,7 +125,9 @@
           "frames": 0,
           "animate": "life",
           "fps": 12.0,
-          "randomStart": false
+          "randomStart": false,
+          "trail": 0.0,
+          "trailWidth": 0.6
         }
       ]
     }

@@ -92,6 +92,103 @@ bool project(const Camera& c, float x, float y, float z, float& px, float& py, f
 
 float toScreen(float linear) { return static_cast<float>(linearToSrgb(static_cast<double>(linear))); }
 
+// A ribbon along the path a particle took. The path is found by undoing the
+// simulation's own steps from where the particle is now (each step adds
+// gravity, divides by drag, then moves), so it is exactly the path it took,
+// back to its birth at most.
+void addTrail(SpriteMesh& mesh, const Camera& camera, bool flat, const RenderBatch& batch,
+              const SpriteInstance& p, float glow, bool additive) {
+    const float h = batch.step;
+    const float back = std::min(batch.trail, p.age > 0.0f ? p.age : 0.0f);
+    const int steps = static_cast<int>(back / h + 1e-3f);
+    if (steps < 2) {
+        return;
+    }
+    const int samples = std::min(steps, 24);
+    struct Point {
+        float x, y, scale;
+    };
+    Point points[25];
+    int count = 0;
+    float x = p.x, y = p.y, z = flat ? 0.0f : p.z;
+    float vx = p.vx, vy = p.vy, vz = flat ? 0.0f : p.vz;
+    int next = 0;  // the next sample is taken this many steps back
+    for (int s = 0; s <= steps && count <= samples; ++s) {
+        if (s == next) {
+            float px = 0, py = 0, sc = 1;
+            if (!project(camera, x, y, z, px, py, sc)) {
+                break;
+            }
+            points[count++] = Point{px, py, sc};
+            next = static_cast<int>(std::lround(static_cast<double>(count) * steps / samples));
+        }
+        // Undo one step.
+        x -= vx * h;
+        y -= vy * h;
+        z -= vz * h;
+        vx = vx * (1.0f + batch.drag * h) - batch.gravityX * h;
+        vy = vy * (1.0f + batch.drag * h) - batch.gravityY * h;
+        vz = vz * (1.0f + batch.drag * h) - batch.gravityZ * h;
+    }
+    if (count < 2) {
+        return;
+    }
+
+    // Across the ribbon at each point: the average of the two neighbouring
+    // directions, so segments meet without gaps.
+    float nx[25], ny[25];
+    for (int i = 0; i < count; ++i) {
+        const Point& a = points[i > 0 ? i - 1 : 0];
+        const Point& b = points[i + 1 < count ? i + 1 : count - 1];
+        float dx = b.x - a.x, dy = b.y - a.y;
+        const float length = std::sqrt(dx * dx + dy * dy);
+        if (length > 1e-4f) {
+            dx /= length;
+            dy /= length;
+        } else {
+            dx = 1.0f;
+            dy = 0.0f;
+        }
+        nx[i] = -dy;
+        ny[i] = dx;
+    }
+
+    const float alpha = p.a > 1.0f ? 1.0f : p.a;
+    const float strength = alpha * glow;
+    const float cr = toScreen(p.r) * strength, cg = toScreen(p.g) * strength, cb = toScreen(p.b) * strength;
+    const float last = static_cast<float>(count - 1);
+    auto corner = [&](int i, float side) {
+        const float t = static_cast<float>(i) / last;  // 0 at the particle, 1 at the end
+        // Swells out of the particle, then narrows to nothing at the end.
+        const float swell = std::sqrt(std::min(1.0f, t / 0.12f + 0.15f));
+        const float width = 0.5f * batch.trailWidth * p.size * points[i].scale * swell *
+                            std::pow(1.0f - t, 0.8f);
+        const float fade = 1.0f - t;
+        SpriteVertex v;
+        v.x = points[i].x + nx[i] * width * side;
+        v.y = points[i].y + ny[i] * width * side;
+        v.u = t;
+        v.v = side > 0.0f ? 0.0f : 1.0f;
+        v.r = cr * fade;
+        v.g = cg * fade;
+        v.b = cb * fade;
+        v.a = additive ? 0.0f : alpha * fade;
+        v.shape = kRibbonShape;
+        const float across = 2.0f * (width > 0.25f ? width : 0.25f);
+        v.aaX = 1.0f;
+        v.aaY = 2.0f / across;
+        return v;
+    };
+    for (int i = 0; i + 1 < count; ++i) {
+        const auto base = static_cast<std::uint32_t>(mesh.vertices.size());
+        mesh.vertices.push_back(corner(i, 1.0f));
+        mesh.vertices.push_back(corner(i, -1.0f));
+        mesh.vertices.push_back(corner(i + 1, -1.0f));
+        mesh.vertices.push_back(corner(i + 1, 1.0f));
+        mesh.indices.insert(mesh.indices.end(), {base, base + 1, base + 2, base, base + 2, base + 3});
+    }
+}
+
 }  // namespace
 
 bool projectPoint(const View& view, bool flat, float x, float y, float z, float& px, float& py,
@@ -142,6 +239,10 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
             }
             const float half = p.size * 0.5f;
             const float halfPx = half * scale;
+
+            if (batch.trail > 0.0f && batch.trailWidth > 0.0f && batch.step > 0.0f) {
+                addTrail(mesh, camera, frame.flat, batch, p, glow, additive);
+            }
 
             // The particle's own two axes, as steps across the screen in
             // pixels: axisX runs from its centre to the middle of its right

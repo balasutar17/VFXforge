@@ -56,6 +56,7 @@ public:
     }
 
     // ---- where
+    Make& at(double x, double y) { return put("shape", "offset", Vec3{x, y, 0.0}); }
     Make& circle(double radius, bool edge = false) {
         put("shape", "shape", std::string("circle"));
         put("shape", "radius", radius);
@@ -111,6 +112,22 @@ public:
                 control.id = newId_();
                 control.label = "Streak";
                 control.targets.push_back(ControlTarget{m.id, "stretch"});
+                layer_.controls.push_back(std::move(control));
+            }
+        }
+        return *this;
+    }
+
+    // A ribbon behind each particle, with a Simple control for its length.
+    Make& trail(double seconds, double width) {
+        put("sprite", "trail", seconds);
+        put("sprite", "trailWidth", width);
+        for (const Module& m : layer_.modules) {
+            if (m.type == "sprite") {
+                SimpleControl control;
+                control.id = newId_();
+                control.label = "Trail";
+                control.targets.push_back(ControlTarget{m.id, "trail"});
                 layer_.controls.push_back(std::move(control));
             }
         }
@@ -960,13 +977,53 @@ Effect rewardRays(const IdSource& id) {
 
 Effect meteorShower(const IdSource& id) {
     Effect e = begin(id, "Meteor Shower", 3.0);
-    for (const unsigned c : {0x6fd0ffu, 0xff6fd8u, 0xffb347u}) {
-        add(e, Make(id, "Meteors").rate(1.2).rect(12, 0.2).life(0.9, 1.2).speed(9, 12).aim(240, 4)
-                   .size(0.9, 1.3).color(c).gravity(0, 0).fade({{0, 0}, {0.1, 1}, {0.8, 1}, {1, 0}})
-                   .look("streak").additive().glow(2.0).streak(0.18));
+    for (const unsigned c : {0x4fb6ffu, 0xc44dffu, 0xff7a1au}) {
+        add(e, Make(id, "Comets").rate(0.9).rect(12, 0.2).life(1.1, 1.4).speed(8, 10).aim(240, 3)
+                   .size(0.75, 0.95).color(c).gravity(0, 0).fade({{0, 0}, {0.08, 1}, {0.85, 1}, {1, 0}})
+                   .look("drop").additive().glow(1.8).streak(0.0).trail(0.45, 0.7));
     }
     add(e, Make(id, "Stars").rate(10).rect(16, 12).life(0.6, 1.2).speed(0, 0).size(0.15, 0.3)
                .color(0xffffff).gravity(0, 0).fade({{0, 0}, {0.5, 1}, {1, 0}}).look("twinkle").additive());
+    return e;
+}
+
+Effect stylizedComets(const IdSource& id) {
+    Effect e = begin(id, "Stylized Comets", 2.4);
+    const unsigned colors[4] = {0xff8a1a, 0xb44dff, 0x3aa8ff, 0xff4a2a};
+    const double where[4][2] = {{-2.6, 2.4}, {0.2, 3.2}, {2.8, 3.8}, {-0.8, 5.2}};
+    for (int i = 0; i < 4; ++i) {
+        const double at = 0.3 * i;
+        const double ox = where[i][0], oy = where[i][1];
+        // Each comet: a coloured glow, a white-hot head with a long ribbon,
+        // and thinner wisps flowing beside it. Same place, same speed, so
+        // they travel together.
+        add(e, Make(id, "Glow").burst(1, at).at(ox, oy).life(1.5, 1.5).speed(7, 7).aim(235, 0)
+                   .size(2.0, 2.0).color(colors[i], 0.6).gravity(0, 0)
+                   .fade({{0, 0}, {0.06, 0.6}, {0.8, 0.6}, {1, 0}}).additive());
+        add(e, Make(id, "Comet").burst(1, at).at(ox, oy).life(1.5, 1.5).speed(7, 7).aim(235, 0)
+                   .size(0.9, 0.9).color(colors[i]).gravity(0, 0).fade({{0, 0}, {0.06, 1}, {0.8, 1}, {1, 0}})
+                   .look("drop").additive().glow(1.7).streak(0.0).trail(0.8, 0.85));
+        add(e, Make(id, "Wisps").burst(3, at).at(ox, oy).circle(0.25).life(1.5, 1.5).speed(6.3, 6.9)
+                   .aim(235, 2).size(0.3, 0.5).color(colors[i], 0.8).gravity(0, 0)
+                   .fade({{0, 0}, {0.1, 0.8}, {0.7, 0.5}, {1, 0}}).look("soft").additive().glow(1.2)
+                   .trail(0.55, 0.6));
+    }
+    add(e, Make(id, "Sparkles").rate(9).rect(12, 9).life(0.5, 0.9).speed(0, 0.2).aim(90, 180)
+               .size(0.3, 0.6).turn(0, 45).color(0xdff1ff).gravity(0, 0)
+               .sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.4));
+    return e;
+}
+
+Effect fireworkSparks(const IdSource& id) {
+    Effect e = begin(id, "Firework Sparks", 2.0);
+    add(e, Make(id, "Flash").burst(1).life(0.18, 0.18).speed(0, 0).size(3.5, 3.5).turn(0, 30)
+               .color(0xfff0c8).gravity(0, 0).sizeOver({{0, 0.3}, {0.3, 1}, {1, 0.8}}).fade({{0, 1}, {1, 0}})
+               .look("flare").additive().glow(1.6));
+    for (const unsigned c : {0xffb347u, 0xff5ab4u, 0x6fd0ffu}) {
+        add(e, Make(id, "Sparks").burst(14).life(0.9, 1.4).speed(6, 10).aim(90, 180).size(0.14, 0.22)
+                   .color(c).gravity(0, -5).drag(1.4).fade({{0, 1}, {0.7, 0.8}, {1, 0}}).look("soft")
+                   .additive().glow(2.0).trail(0.35, 1.2));
+    }
     return e;
 }
 
@@ -998,6 +1055,37 @@ Effect electricOrb(const IdSource& id) {
                .additive().glow(2.0));
     return e;
 }
+
+// ---------------------------------------------------------------- flashes
+// Bursts of light: hard white spikes in a coloured halo, slivers of light
+// flying out, and for some a ring breaking apart.
+
+Effect flash(const IdSource& id, const char* name, unsigned halo, unsigned tint, bool ring) {
+    Effect e = begin(id, name, 1.0);
+    add(e, Make(id, "Halo").burst(1).life(0.45, 0.45).speed(0, 0).size(5.2, 5.2).color(halo)
+               .gravity(0, 0).sizeOver({{0, 0.4}, {0.2, 1}, {1, 1.1}}).fade({{0, 0.9}, {1, 0}}).additive());
+    add(e, Make(id, "Flash").burst(1).life(0.35, 0.35).speed(0, 0).size(4.2, 4.2).turn(0, 360)
+               .color(tint).gravity(0, 0).sizeOver({{0, 0.3}, {0.15, 1.05}, {0.5, 1}, {1, 0.6}})
+               .fade({{0, 1}, {0.5, 0.9}, {1, 0}}).look("starflash").additive().glow(1.6));
+    add(e, Make(id, "Slivers").burst(12).circle(0.3).life(0.35, 0.6).speed(6, 11).aim(90, 180)
+               .size(0.5, 0.9).color(tint).drag(4).gravity(0, 0).sizeOver({{0, 1}, {1, 0}}).solid()
+               .look("sliver").additive().glow(1.6).streak(0.0));
+    add(e, Make(id, "Specks").burst(10).circle(0.6).life(0.3, 0.6).speed(2, 5).aim(90, 180)
+               .size(0.25, 0.45).turn(0, 45).color(tint).drag(3).gravity(0, 0)
+               .sizeOver({{0, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.3));
+    if (ring) {
+        add(e, Make(id, "Ring").burst(1).life(0.4, 0.4).speed(0, 0).size(4.6, 4.6).turn(0, 360)
+                   .color(halo).gravity(0, 0).sizeOver({{0, 0.5}, {1, 1.15}}).fade({{0, 1}, {0.6, 0.8}, {1, 0}})
+                   .look("shardring").additive().glow(1.2));
+    }
+    return e;
+}
+
+Effect goldFlash(const IdSource& id) { return flash(id, "Gold Flash", 0xff8a2a, 0xffd9a0, false); }
+Effect iceFlash(const IdSource& id) { return flash(id, "Ice Flash", 0x2f7dff, 0xbfe4ff, false); }
+Effect roseFlash(const IdSource& id) { return flash(id, "Rose Flash", 0xff3a8a, 0xffc4dc, true); }
+Effect violetFlash(const IdSource& id) { return flash(id, "Violet Flash", 0x7a3cff, 0xe2d0ff, false); }
+Effect emberFlash(const IdSource& id) { return flash(id, "Ember Flash", 0xc0401a, 0xffc890, true); }
 
 // ----------------------------------------------------------------- table
 
@@ -1081,8 +1169,16 @@ const std::vector<Entry>& table() {
         {describe("starburst-flare", "Starburst Flare", "Light and energy", "A white-hot star of thin rays in a blue halo.", 0, 0, 5.6f, 0.1), starburstFlare},
         {describe("reward-rays", "Reward Rays", "Light and energy", "Slowly turning golden rays to put behind a reward.", 0, 0, 7, 1.5), rewardRays},
         {describe("meteor-shower", "Meteor Shower", "Light and energy", "Comets with white-hot heads and coloured tails.", -2.2f, -3.2f, 8, 2.0), meteorShower},
+        {describe("stylized-comets", "Stylized Comets", "Light and energy", "Glowing comets with long flowing ribbon trails.", -2.5f, 0.5f, 9, 1.3), stylizedComets},
+        {describe("firework-sparks", "Firework Sparks", "Light and energy", "Sparks with trails, falling as they fade.", 0, -0.5f, 8, 0.6), fireworkSparks},
         {describe("lightning-strike", "Lightning Strike", "Light and energy", "A flickering bolt of electricity.", 0, 0, 7, 0.08), lightningStrike},
         {describe("electric-orb", "Electric Orb", "Light and energy", "A ball of crackling arcs.", 0, 0, 5, 1.0), electricOrb},
+
+        {describe("gold-flash", "Gold Flash", "Flashes", "A burst of white spikes in a golden glow.", 0, 0, 5.6f, 0.08), goldFlash},
+        {describe("ice-flash", "Ice Flash", "Flashes", "A burst of white spikes in a blue glow.", 0, 0, 5.6f, 0.08), iceFlash},
+        {describe("rose-flash", "Rose Flash", "Flashes", "A pink burst with a ring breaking apart.", 0, 0, 5.6f, 0.12), roseFlash},
+        {describe("violet-flash", "Violet Flash", "Flashes", "A burst of white spikes in a violet glow.", 0, 0, 5.6f, 0.08), violetFlash},
+        {describe("ember-flash", "Ember Flash", "Flashes", "A hot orange burst with a breaking ring.", 0, 0, 5.6f, 0.12), emberFlash},
     };
     return entries;
 }

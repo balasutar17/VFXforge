@@ -85,6 +85,9 @@ Registry::Registry() {
         P("emitFrom", "Emit From", ValueKind::Enum, text("volume"))
             .options({"volume", "edge"})
             .help("Fill the whole shape, or only its outline."),
+        P("offset", "Position", ValueKind::Vec3, Vec3{0, 0, 0})
+            .range(-10000, 10000).ui(-10, 10)
+            .help("Where this layer's particles appear, relative to the effect's centre."),
     }));
 
     modules_.push_back(module("initial", "Initial State", Stage::Spawn, {
@@ -146,7 +149,8 @@ Registry::Registry() {
             .options({"soft", "disc", "ring", "bubble", "sparkle", "star", "smoke", "square",
                       "diamond", "heart", "streak", "flame", "puff", "burst", "crescent", "orb",
                       "glint", "blaze", "candy", "shard", "drop", "splat", "shockwave",
-                      "twinkle", "flare", "rays", "swirl", "bean", "bolt"})
+                      "twinkle", "flare", "rays", "swirl", "bean", "bolt",
+                      "starflash", "sliver", "shardring"})
             .help("What each particle looks like when it has no texture."),
         P("align", "Align", ValueKind::Enum, text("none"))
             .options({"none", "movement"})
@@ -171,6 +175,14 @@ Registry::Registry() {
             .help("How fast a looping sheet plays."),
         P("randomStart", "Random Start", ValueKind::Bool, Value(false))
             .help("Start each particle's loop on a different picture."),
+        P("trail", "Trail", ValueKind::Float, num(0.0))
+            .unit("seconds").range(0, 5).ui(0, 1)
+            .help("Draws a ribbon behind each particle along the path it took this many "
+                  "seconds back. 0 draws none."),
+        P("trailWidth", "Trail Width", ValueKind::Float, num(0.6))
+            .range(0, 4).ui(0, 2)
+            .help("How wide the trail starts, as a share of the particle's size. It narrows "
+                  "to nothing at its end."),
     }));
 
     effect_ = module("effect", "Effect", Stage::Update, {

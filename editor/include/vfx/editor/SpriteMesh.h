@@ -28,6 +28,9 @@ struct SpriteVertex {
 static_assert(sizeof(SpriteVertex) == 44, "the graphics code copies these as raw bytes");
 
 inline constexpr float kPictureShape = -1.0f;
+// A segment of a trail ribbon: u runs along it (0 at the particle, 1 at the
+// end), v across it.
+inline constexpr float kRibbonShape = -2.0f;
 
 class ImageSet;
 

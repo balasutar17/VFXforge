@@ -200,6 +200,12 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         e->sizeY = f(size.y);
         e->sizeZ = f(size.z);
         e->coneAngle = f(shape.get<double>("angle") * det::kDegreesToRadians);
+        const Vec3& offset = shape.get<Vec3>("offset");
+        auto finite = [](double v) { return std::isfinite(v) ? static_cast<float>(v) : 0.0f; };
+        e->offsetX = finite(offset.x);
+        e->offsetY = finite(offset.y);
+        e->offsetZ = e->flat ? 0.0f : finite(offset.z);
+        e->offset = e->offsetX != 0.0f || e->offsetY != 0.0f || e->offsetZ != 0.0f;
     }
 
     // -------------------------------------------------------- initial state
@@ -279,6 +285,10 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
                 e->spriteShape = static_cast<SpriteShape>(i);
             }
         }
+        const double trail = sprite.get<double>("trail");
+        e->trail = std::isfinite(trail) ? std::clamp(f(trail), 0.0f, 5.0f) : 0.0f;
+        const double trailWidth = sprite.get<double>("trailWidth");
+        e->trailWidth = std::isfinite(trailWidth) ? std::clamp(f(trailWidth), 0.0f, 4.0f) : 0.0f;
         e->alongMotion = sprite.get<std::string>("align") == "movement";
         e->stretch = e->alongMotion ? f(sprite.get<double>("stretch")) : 0.0f;
 

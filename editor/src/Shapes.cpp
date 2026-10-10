@@ -118,6 +118,25 @@ float boltDistance(float x, float y, float& thin) {
     return best;
 }
 
+// The hard white part of a star flash: an uneven core and nine sharp,
+// tapering spikes of different lengths, as a signed distance.
+float starflashDistance(float x, float y) {
+    static const float angle[9] = {0.20f, 0.90f, 1.50f, 2.30f, 2.90f, 3.60f, 4.30f, 5.00f, 5.70f};
+    static const float length[9] = {0.95f, 0.55f, 0.80f, 0.45f, 0.90f, 0.60f, 0.85f, 0.50f, 0.70f};
+    static const float width[9] = {0.08f, 0.06f, 0.07f, 0.05f, 0.08f, 0.06f, 0.07f, 0.05f, 0.06f};
+    const float r = std::sqrt(x * x + y * y);
+    float d = r - (0.20f + 0.04f * std::sin(5.0f * std::atan2(y, x)));
+    for (int k = 0; k < 9; ++k) {
+        const float c = std::cos(angle[k]), s = std::sin(angle[k]);
+        const float along = x * c + y * s;
+        const float across = std::fabs(-x * s + y * c);
+        if (along > 0.0f && along < length[k]) {
+            d = std::min(d, (across - width[k] * (1.0f - along / length[k])) * 0.9f);
+        }
+    }
+    return d;
+}
+
 // A rounded square (a "squircle"): the outline of a gumdrop or jelly candy.
 // Close to a signed distance near the edge.
 float squircle(float x, float y, float radius) {
@@ -456,6 +475,41 @@ ShapeSample sampleShape(SpriteShape shape, float x, float y, float aaX, float aa
             break;
         }
 
+        case SpriteShape::Starflash: {
+            // A burst of light: white spikes and core, the particle's colour
+            // in a soft halo around them.
+            const float hard = edge(starflashDistance(x, y), pixel);
+            const float halo = 0.5f * sq(clamp01(1.0f - r2 / sq(0.85f)));
+            out.cover = std::max(hard, halo);
+            out.shine = hard;
+            break;
+        }
+
+        case SpriteShape::Sliver: {
+            // A thin bright needle along x, for flying slivers of light.
+            out.cover = edge((std::fabs(x) / 0.88f + std::fabs(y) / 0.09f - 1.0f) * 0.09f, pixel);
+            out.shine = 0.8f * edge(std::fabs(y) - 0.02f, pixel) * clamp01(1.0f - std::fabs(x));
+            break;
+        }
+
+        case SpriteShape::Shardring: {
+            // A ring breaking into six jagged pieces.
+            float angle = std::atan2(y, x);
+            if (angle < 0.0f) {
+                angle += 6.2831853f;
+            }
+            const float a = angle * 6.0f / 6.2831853f;
+            const float seg = a - std::floor(a);
+            const float inPiece = clamp01((seg - 0.08f) / 0.84f);
+            const float taper = seg > 0.08f && seg < 0.92f ? std::sin(3.14159265f * inPiece) : 0.0f;
+            const float jag = 0.03f * (a * 3.0f - std::floor(a * 3.0f));
+            const float thick = (0.08f + jag) * taper;
+            out.cover = edge(std::max(r - 0.88f, (0.88f - thick) - r), pixel);
+            out.shine = 0.5f * out.cover * edge(r - 0.86f + thick * 0.5f, pixel);
+            out.tone = 0.3f * out.cover;
+            break;
+        }
+
         case SpriteShape::Bean: {
             // A jelly bean: a gently curved capsule with a long shine.
             const float by = y + 0.28f * x * x - 0.06f;
@@ -482,7 +536,8 @@ const char* shapeName(SpriteShape shape) {
     static const char* names[kSpriteShapeCount] = {
         "soft", "disc", "ring", "bubble", "sparkle", "star", "smoke", "square", "diamond",
         "heart", "streak", "flame", "puff", "burst", "crescent", "orb", "glint", "blaze",
-        "candy", "shard", "drop", "splat", "shockwave", "twinkle", "flare", "rays", "swirl", "bean", "bolt"};
+        "candy", "shard", "drop", "splat", "shockwave", "twinkle", "flare", "rays", "swirl", "bean", "bolt",
+        "starflash", "sliver", "shardring"};
     const auto i = static_cast<int>(shape);
     return i >= 0 && i < kSpriteShapeCount ? names[i] : "soft";
 }

@@ -113,6 +113,24 @@ float boltDistance(vec2 p) {
     return best;
 }
 
+// The hard white part of a star flash: an uneven core and nine spikes.
+float starflashDistance(vec2 p) {
+    float angle[9] = float[9](0.20, 0.90, 1.50, 2.30, 2.90, 3.60, 4.30, 5.00, 5.70);
+    float len[9] = float[9](0.95, 0.55, 0.80, 0.45, 0.90, 0.60, 0.85, 0.50, 0.70);
+    float wid[9] = float[9](0.08, 0.06, 0.07, 0.05, 0.08, 0.06, 0.07, 0.05, 0.06);
+    float d = length(p) - (0.20 + 0.04 * sin(5.0 * atan(p.y, p.x)));
+    for (int k = 0; k < 9; ++k) {
+        float c = cos(angle[k]);
+        float s = sin(angle[k]);
+        float along = p.x * c + p.y * s;
+        float across = abs(-p.x * s + p.y * c);
+        if (along > 0.0 && along < len[k]) {
+            d = min(d, (across - wid[k] * (1.0 - along / len[k])) * 0.9);
+        }
+    }
+    return d;
+}
+
 // A rounded square: the outline of a gumdrop or jelly candy.
 float squircle(vec2 p, float radius) {
     vec2 a = pow(abs(p) + vec2(1e-6), vec2(2.6));
@@ -159,7 +177,7 @@ float splatShape(vec2 p) {
 void main() {
     // Across the particle from -1 to 1, with y pointing up.
     vec2 p = vec2(vTexCoord.x * 2.0 - 1.0, 1.0 - vTexCoord.y * 2.0);
-    int shape = int(vShape.x + 0.5);
+    int shape = int(floor(vShape.x + 0.5));
     float pixel = max(max(vShape.y, vShape.z), 0.0001);
     float r2 = dot(p, p);
     float r = sqrt(r2);
@@ -168,7 +186,12 @@ void main() {
     float tone = 0.0;
     float shine = 0.0;
 
-    if (shape == 0) {            // soft
+    if (shape == -2) {           // a trail ribbon: u along, v across
+        float c = abs(vTexCoord.y * 2.0 - 1.0);
+        cover = clamp((1.0 - c) * 2.2, 0.0, 1.0);
+        float head = 1.0 - vTexCoord.x;
+        shine = max(1.0 - c * 2.5, 0.0) * head * head * head;
+    } else if (shape == 0) {     // soft
         cover = sq(clamp(1.0 - r2, 0.0, 1.0));
     } else if (shape == 1) {     // disc
         cover = edge(r - 0.9, pixel);
@@ -337,6 +360,28 @@ void main() {
         float glow = 0.75 * sq(clamp(1.0 - d / 0.2, 0.0, 1.0)) * thin;
         cover = clamp(max(core, glow), 0.0, 1.0);
         shine = core;
+    } else if (shape == 29) {    // starflash
+        float hard = edge(starflashDistance(p), pixel);
+        float halo = 0.5 * sq(clamp(1.0 - r2 / (0.85 * 0.85), 0.0, 1.0));
+        cover = max(hard, halo);
+        shine = hard;
+    } else if (shape == 30) {    // sliver
+        cover = edge((abs(p.x) / 0.88 + abs(p.y) / 0.09 - 1.0) * 0.09, pixel);
+        shine = 0.8 * edge(abs(p.y) - 0.02, pixel) * clamp(1.0 - abs(p.x), 0.0, 1.0);
+    } else if (shape == 31) {    // shardring
+        float angle = atan(p.y, p.x);
+        if (angle < 0.0) {
+            angle += 6.2831853;
+        }
+        float a = angle * 6.0 / 6.2831853;
+        float seg = fract(a);
+        float inPiece = clamp((seg - 0.08) / 0.84, 0.0, 1.0);
+        float taper = (seg > 0.08 && seg < 0.92) ? sin(3.14159265 * inPiece) : 0.0;
+        float jag = 0.03 * fract(a * 3.0);
+        float thick = (0.08 + jag) * taper;
+        cover = edge(max(r - 0.88, (0.88 - thick) - r), pixel);
+        shine = 0.5 * cover * edge(r - 0.86 + thick * 0.5, pixel);
+        tone = 0.3 * cover;
     } else if (shape == 27) {    // bean
         float by = p.y + 0.28 * p.x * p.x - 0.06;
         float body = length(vec2(max(abs(p.x) - 0.48, 0.0), by)) - 0.38;

@@ -108,9 +108,13 @@ namespace VFXForge.EditorTools
                     if (picture == null)
                         ctx.LogImportWarning("The picture " + picturePath + " is missing, so the layer \"" + child.name + "\" draws its shape. Export from VFX Forge again to restore it.");
                 }
-                Material material = BuildLayer(system, layer, duration, loop, shader, atlas, columns, rows, picture);
+                Material trailMaterial;
+                Material material = BuildLayer(system, layer, duration, loop, shader, atlas, columns, rows, picture,
+                                               out trailMaterial);
                 if (material != null)
                     ctx.AddObjectToAsset("material " + i, material);
+                if (trailMaterial != null)
+                    ctx.AddObjectToAsset("trail material " + i, trailMaterial);
                 child.SetActive(Bool(layer, "enabled", true));
             }
 
@@ -120,8 +124,9 @@ namespace VFXForge.EditorTools
 
         static Material BuildLayer(ParticleSystem system, Dictionary<string, object> layer, float duration,
                                    bool loop, Shader shader, Texture2D atlas, float columns, float rows,
-                                   Texture2D picture)
+                                   Texture2D picture, out Material trailMaterial)
         {
+            trailMaterial = null;
             // ---- main
             var main = system.main;
             main.duration = duration;
@@ -176,6 +181,7 @@ namespace VFXForge.EditorTools
             shape.angle = (float)Num(shapeInfo, "angle", 0);
             shape.scale = Vec(shapeInfo, "scale", Vector3.one);
             shape.rotation = Vec(shapeInfo, "rotation", Vector3.zero);
+            shape.position = Vec(shapeInfo, "position", Vector3.zero);
             shape.randomDirectionAmount = (float)Num(shapeInfo, "randomDirection", 0);
             shape.sphericalDirectionAmount = (float)Num(shapeInfo, "sphericalDirection", 0);
 
@@ -274,6 +280,35 @@ namespace VFXForge.EditorTools
                 sheet.frameOverTime = Curve(sheetInfo, "frameOverTime", 0);
                 sheet.startFrame = Curve(sheetInfo, "startFrame", 0);
                 sheet.cycleCount = Mathf.Max(1, (int)Num(sheetInfo, "cycles", 1));
+            }
+
+            // ---- a ribbon behind each particle, with Unity's own Trails module
+            var trailInfo = Obj(renderInfo, "trail");
+            var trails = system.trails;
+            trails.enabled = trailInfo != null && shader != null;
+            if (trails.enabled)
+            {
+                trails.mode = ParticleSystemTrailMode.PerParticle;
+                trails.ratio = 1f;
+                trails.lifetime = (float)Num(trailInfo, "ratio", 0.3);
+                trails.minVertexDistance = 0.05f;
+                trails.worldSpace = false;
+                trails.dieWithParticles = true;
+                trails.sizeAffectsWidth = true;
+                trails.inheritParticleColor = true;
+                trails.textureMode = ParticleSystemTrailTextureMode.Stretch;
+                trails.widthOverTrail = new ParticleSystem.MinMaxCurve((float)Num(trailInfo, "width", 0.6),
+                                                                       AnimationCurve.Linear(0f, 1f, 1f, 0f));
+                var fade = new Gradient();
+                fade.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                             new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
+                trails.colorOverTrail = new ParticleSystem.MinMaxGradient(fade);
+                trailMaterial = new Material(shader);
+                trailMaterial.name = system.gameObject.name + " trail";
+                trailMaterial.SetFloat("_Ribbon", 1f);
+                trailMaterial.SetFloat("_Glow", (float)Num(renderInfo, "glow", 1));
+                trailMaterial.SetFloat("_Additive", Bool(renderInfo, "additive", false) ? 1f : 0f);
+                renderer.trailMaterial = trailMaterial;
             }
 
             if (shader == null)

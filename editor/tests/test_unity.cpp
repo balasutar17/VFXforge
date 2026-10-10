@@ -470,3 +470,17 @@ TEST_CASE("the importer and shader know about pictures", "[unity][picture]") {
     CHECK(importer.find("Assets/VFXForge/Images/") != std::string::npos);
     CHECK(shader.find("_Picture") != std::string::npos);
 }
+
+TEST_CASE("trails become Unity trails, and layer positions carry over", "[unity][trail]") {
+    const J sparks = describe(preset("firework-sparks"));
+    const J& trail = layerNamed(sparks, "Sparks")["render"]["trail"];
+    // 0.35 s of a 0.9 to 1.4 s life.
+    CHECK(trail["ratio"].get<double>() == Catch::Approx(0.35 / 1.15).margin(1e-4));
+    CHECK(trail["width"].get<double>() == Catch::Approx(1.2));
+    CHECK_FALSE(layerNamed(sparks, "Flash")["render"].contains("trail"));
+
+    const J comets = describe(preset("stylized-comets"));
+    const J& first = comets["layers"][0];
+    CHECK(first["shape"]["position"] == J::array({-2.6, 2.4, 0.0}));
+    CHECK_FALSE(layerNamed(comets, "Sparkles")["shape"].contains("position"));
+}

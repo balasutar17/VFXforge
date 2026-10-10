@@ -28,6 +28,20 @@ struct ShapeSample {
 // by exactly one pixel.
 ShapeSample sampleShape(SpriteShape shape, float x, float y, float aaX, float aaY);
 
+// A trail ribbon at (along, across), each 0 to 1: solid in the middle,
+// soft at the edges, white-hot along its centre near the particle.
+inline ShapeSample ribbonSample(float along, float across) {
+    const float c = across * 2.0f - 1.0f;
+    const float d = c < 0.0f ? -c : c;
+    ShapeSample s;
+    const float body = (1.0f - d) * 2.2f;
+    s.cover = body < 0.0f ? 0.0f : (body > 1.0f ? 1.0f : body);
+    const float core = 1.0f - d * 2.5f;
+    const float head = 1.0f - along;
+    s.shine = (core > 0.0f ? core : 0.0f) * head * head * head;
+    return s;
+}
+
 // Just the coverage part.
 float shapeCoverage(SpriteShape shape, float x, float y, float aaX, float aaY);
 

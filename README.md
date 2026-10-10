@@ -21,6 +21,9 @@ What exists so far:
 - **your own pictures**: any layer can draw a picture or sprite sheet you
   painted instead of a built-in shape, played once per life, looped, or one
   random picture per particle; see [docs/pictures.md](docs/pictures.md)
+- **effects for casual and match-3 games**: glossy candy, starbursts, comets
+  with ribbon trails, lightning; see [docs/match3-and-light.md](docs/match3-and-light.md)
+  and [docs/trails-and-flashes.md](docs/trails-and-flashes.md)
 - **export to Unity**: a prefab built from Unity's Particle System, a
   `.unitypackage`, or animation frames and sprite sheets; see
   [docs/export.md](docs/export.md)

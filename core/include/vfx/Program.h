@@ -66,9 +66,10 @@ enum class Animate : std::uint8_t { Life, Loop, Random };
 enum class SpriteShape : std::uint8_t {
     Soft, Disc, Ring, Bubble, Sparkle, Star, Smoke, Square, Diamond, Heart, Streak, Flame,
     Puff, Burst, Crescent, Orb, Glint, Blaze,
-    Candy, Shard, Drop, Splat, Shockwave, Twinkle, Flare, Rays, Swirl, Bean, Bolt
+    Candy, Shard, Drop, Splat, Shockwave, Twinkle, Flare, Rays, Swirl, Bean, Bolt,
+    Starflash, Sliver, Shardring
 };
-inline constexpr int kSpriteShapeCount = 29;
+inline constexpr int kSpriteShapeCount = 32;
 
 struct EmitterProgram {
     Id layer;
@@ -94,6 +95,8 @@ struct EmitterProgram {
     float radius = 0;
     float sizeX = 0, sizeY = 0, sizeZ = 0;
     float coneAngle = 0;  // radians
+    float offsetX = 0, offsetY = 0, offsetZ = 0;  // where the shape sits
+    bool offset = false;                          // any of them is not zero
 
     // What each particle starts with. A curve reads across the layer's duration.
     ScalarF lifetime, speed, size, rotation;
@@ -130,6 +133,10 @@ struct EmitterProgram {
     Animate animate = Animate::Life;
     float fps = 12;
     bool randomStart = false;
+
+    // A ribbon behind each particle along the path it took. 0 means none.
+    float trail = 0;       // seconds
+    float trailWidth = 0;  // a share of the particle's size
 
     // Limits worked out at compile time, so stepping never allocates memory.
     double maxLifetime = 0;

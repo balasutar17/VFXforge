@@ -360,3 +360,60 @@ TEST_CASE("a picture particle shows its sprite-sheet cell, drawn by the picture 
         CHECK(std::abs(small.pixel(x, 300)[0] - 128) < 12);
     }
 }
+
+TEST_CASE("a trail follows the exact path the particle took", "[mesh][trail]") {
+    // Fly a particle forward with the simulation's own step rule.
+    const float h = 1.0f / 60.0f, gx = 0.5f, gy = -9.0f, drag = 1.3f;
+    float x = -1.0f, y = 0.5f, vx = 6.0f, vy = 4.0f;
+    const float startX = x, startY = y;
+    for (int i = 0; i < 30; ++i) {
+        const float damp = 1.0f / (1.0f + drag * h);
+        vx = (vx + gx * h) * damp;
+        vy = (vy + gy * h) * damp;
+        x += vx * h;
+        y += vy * h;
+    }
+    SpriteInstance p;
+    p.x = x;
+    p.y = y;
+    p.vx = vx;
+    p.vy = vy;
+    p.size = 0.4f;
+    p.age = 30 * h;
+    RenderFrame frame = oneParticle(p);
+    RenderBatch& b = frame.batches[0];
+    b.trail = 5.0f;  // longer than the particle has lived: stops at its birth
+    b.trailWidth = 1.0f;
+    b.gravityX = gx;
+    b.gravityY = gy;
+    b.drag = drag;
+    b.step = h;
+
+    SpriteMesh mesh;
+    buildSpriteMesh(frame, flatView(), mesh);
+    REQUIRE(mesh.vertices.size() > 8);
+    // Trail quads come first, then the particle itself.
+    CHECK(mesh.vertices.front().shape == kRibbonShape);
+    CHECK(mesh.vertices.back().shape == static_cast<float>(SpriteShape::Soft));
+    // The far end of the ribbon is where the particle was born.
+    const std::size_t trailVertices = mesh.vertices.size() - 4;
+    const SpriteVertex& endA = mesh.vertices[trailVertices - 2];
+    const SpriteVertex& endB = mesh.vertices[trailVertices - 1];
+    float sx = 0, sy = 0, scale = 0;
+    REQUIRE(projectPoint(flatView(), true, startX, startY, 0, sx, sy, scale));
+    CHECK(0.5f * (endA.x + endB.x) == Catch::Approx(sx).margin(0.05));
+    CHECK(0.5f * (endA.y + endB.y) == Catch::Approx(sy).margin(0.05));
+    CHECK(endA.u == Catch::Approx(1.0f));
+    // It narrows to nothing and fades out.
+    CHECK(std::abs(endA.x - endB.x) + std::abs(endA.y - endB.y) < 0.01f);
+    CHECK(endA.a == Catch::Approx(0.0f).margin(1e-5));
+
+    // No trail, or a particle just born, draws only itself.
+    b.trail = 0.0f;
+    buildSpriteMesh(frame, flatView(), mesh);
+    CHECK(mesh.vertices.size() == 4);
+    b.trail = 1.0f;
+    frame.instances[0].age = 0.0f;
+    buildSpriteMesh(frame, flatView(), mesh);
+    CHECK(mesh.vertices.size() == 4);
+}
