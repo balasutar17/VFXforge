@@ -1,0 +1,31 @@
+SELF-TEST VFX Forge 0.8.1
+graphics: 6 (QSGRendererInterface::GraphicsApi)
+shaders present: yes
+particles alive: 66
+frame: 69  time: 2.30892
+frames per second: 54
+presets in the library: 58
+picture of the starter effect: 1024x642, 1753 lit pixels in the middle
+preset: Rainbow Burst, 40 particles
+picture of a preset: 1024x642, 8184 lit pixels in the middle
+sample sheet and picture shader present: yes
+sound output: yes
+library sounds: 18
+picture effect: Toon Fire, 25 particles, 1 picture(s)
+picture of a painted sprite sheet: 1024x642, 7836 lit pixels in the middle
+export the sound (mixdown and to Unity): yes
+export to a Unity project: yes
+export a .unitypackage: yes
+export frames and a sheet: yes
+reference formats: Pictures: BMP, GIF, JPEG, JPG, PNG, WEBP. Clips: GIF, animated WebP, and MP4, WebM or MOV video.
+reference picture: reference-flash.png (256 × 256 pixels · a still picture); findings: 12
+built from the picture: reference-flash.png (256 × 256 pixels · a still picture); findings: 12; built: 3 layers, measured 94% alike
+rebuild is one undo step: yes
+picture of the reference workspace: 1024x642, 13259 lit pixels in the middle
+reference GIF: reference-burst.gif (256 × 256 pixels · 24 frames · 1.00 s · 24.0 frames a second); findings: 17
+built from the GIF: reference-burst.gif (256 × 256 pixels · 24 frames · 1.00 s · 24.0 frames a second); findings: 17; built: 4 layers, measured 76% alike
+picture of the reference workspace with a clip: 1024x642, 7885 lit pixels in the middle
+video reference-burst.mp4: read, vfxforge-selftest-reference-burst.mp4 (256 × 256 pixels · 24 frames · 1.00 s · 24.0 frames a second); findings: 17
+video reference-burst.webm: read, vfxforge-selftest-reference-burst.webm (256 × 256 pixels · 24 frames · 1.00 s · 24.0 frames a second); findings: 17
+picture of the library: 1024x642, 2115 lit pixels in the middle
+SELF-TEST PASS

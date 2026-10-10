@@ -1,0 +1,53 @@
+qt.multimedia.ffmpeg: Using Qt multimedia with FFmpeg version 7.1.2 LGPL version 2.1 or later
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/var/folders/36/tjdph2t965j8snz9_vkdnw0r0000gn/T/vfxforge-selftest-reference-burst.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.16.100
+  Duration: 00:00:01.00, start: 0.000000, bitrate: 103 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 256x256, 94 kb/s, 24 fps, 24 tbr, 12288 tbn (default)
+      Metadata:
+        handler_name    : VideoHandler
+        vendor_id       : [0][0][0][0]
+        encoder         : Lavc60.31.102 libx264
+IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver
+Input #0, matroska,webm, from '/var/folders/36/tjdph2t965j8snz9_vkdnw0r0000gn/T/vfxforge-selftest-reference-burst.webm':
+  Metadata:
+    ENCODER         : Lavf60.16.100
+  Duration: 00:00:01.00, start: 0.000000, bitrate: 154 kb/s
+  Stream #0:0: Video: vp9 (Profile 0), yuv420p(tv, progressive), 256x256, SAR 1:1 DAR 1:1, 24 fps, 24 tbr, 1k tbn
+      Metadata:
+        ENCODER         : Lavc60.31.102 libvpx-vp9
+        DURATION        : 00:00:01.000000000
+SELF-TEST VFX Forge 0.8.1
+graphics: 6 (QSGRendererInterface::GraphicsApi)
+shaders present: yes
+particles alive: 66
+frame: 69  time: 2.30892
+frames per second: 54
+presets in the library: 58
+picture of the starter effect: 1024x642, 1753 lit pixels in the middle
+preset: Rainbow Burst, 40 particles
+picture of a preset: 1024x642, 8184 lit pixels in the middle
+sample sheet and picture shader present: yes
+sound output: yes
+library sounds: 18
+picture effect: Toon Fire, 25 particles, 1 picture(s)
+picture of a painted sprite sheet: 1024x642, 7836 lit pixels in the middle
+export the sound (mixdown and to Unity): yes
+export to a Unity project: yes
+export a .unitypackage: yes
+export frames and a sheet: yes
+reference formats: Pictures: BMP, GIF, JPEG, JPG, PNG, WEBP. Clips: GIF, animated WebP, and MP4, WebM or MOV video.
+reference picture: reference-flash.png (256 × 256 pixels · a still picture); findings: 12
+built from the picture: reference-flash.png (256 × 256 pixels · a still picture); findings: 12; built: 3 layers, measured 94% alike
+rebuild is one undo step: yes
+picture of the reference workspace: 1024x642, 13259 lit pixels in the middle
+reference GIF: reference-burst.gif (256 × 256 pixels · 24 frames · 1.00 s · 24.0 frames a second); findings: 17
+built from the GIF: reference-burst.gif (256 × 256 pixels · 24 frames · 1.00 s · 24.0 frames a second); findings: 17; built: 4 layers, measured 76% alike
+picture of the reference workspace with a clip: 1024x642, 7885 lit pixels in the middle
+video reference-burst.mp4: read, vfxforge-selftest-reference-burst.mp4 (256 × 256 pixels · 24 frames · 1.00 s · 24.0 frames a second); findings: 17
+video reference-burst.webm: read, vfxforge-selftest-reference-burst.webm (256 × 256 pixels · 24 frames · 1.00 s · 24.0 frames a second); findings: 17
+picture of the library: 1024x642, 2115 lit pixels in the middle
+SELF-TEST PASS

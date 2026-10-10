@@ -1,0 +1,21 @@
+Coin Burst: 2d, 2 s, once, seed 1337, 1 layer simulated, step 1/60 s
+time    0.0000  step       0  particles       0  state 90d23d19ee6ec3d2  frame 30224f6f0431c444
+time    0.5000  step      30  particles      24  state 1ad023dec0c6bb34  frame f2e2fabb1bbd1f43
+time    1.0000  step      60  particles      15  state 92a9228aee86e130  frame 41763a5f4ddb7a31
+time    1.5000  step      90  particles       0  state 4609bc85027a6a45  frame e8618bbc4eaad3a0
+time    2.0000  step     120  particles       0  state a9c80028ef08925e  frame bf0752f268f34f12
+  Coins                      0 alive, room for 40
+Benchmark: 300 steps (5 s of the effect), 1 layer
+  particles alive   average 19999, peak 20000
+  simulate a step   average 0.1886 ms, worst 0.3751 ms
+  build frame data  average 0.2841 ms, worst 0.5286 ms
+  together          0.4728 ms, which is 2.8% of a 60 fps frame (16.67 ms)
+  Benchmark              19999 alive, room for 20185
+  final state       17e8c1aba8b5c4d4
+Benchmark: 300 steps (5 s of the effect), 1 layer
+  particles alive   average 19999, peak 20000
+  simulate a step   average 0.1890 ms, worst 0.3828 ms
+  build frame data  average 0.2922 ms, worst 0.5497 ms
+  together          0.4812 ms, which is 2.9% of a 60 fps frame (16.67 ms)
+  Benchmark              19999 alive, room for 20185
+  final state       4951bcc81c40f05d

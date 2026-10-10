@@ -1,0 +1,65 @@
+MSBuild version 18.10.1-1.26427.6+3cd27c13e for .NET Framework
+
+  1>Checking Build System
+  Running qmlimportscanner for vfxforge
+  Building Custom Rule D:/a/VFXforge/VFXforge/app/CMakeLists.txt
+  Building Custom Rule D:/a/VFXforge/VFXforge/core/CMakeLists.txt
+  Clock.cpp
+  CommandStack.cpp
+  Commands.cpp
+  Compile.cpp
+  DetMath.cpp
+  Document.cpp
+  Effect.cpp
+  FileIO.cpp
+  Id.cpp
+  JsonWriter.cpp
+  Metadata.cpp
+  Path.cpp
+  Serialize.cpp
+  Simulation.cpp
+  Templates.cpp
+  Value.cpp
+  Generating Code...
+  vfx_core.vcxproj -> D:\a\VFXforge\VFXforge\build\core\Release\vfx_core.lib
+  Building Custom Rule D:/a/VFXforge/VFXforge/editor/CMakeLists.txt
+  Archive.cpp
+  Audio.cpp
+  Frames.cpp
+  Image.cpp
+  Picture.cpp
+  Compare.cpp
+  EffectTools.cpp
+  Presets.cpp
+  Reconstruct.cpp
+  Refine.cpp
+  Reference.cpp
+  ReferenceStill.cpp
+  ReferenceTime.cpp
+  Session.cpp
+  Shapes.cpp
+  SoundLibrary.cpp
+  SpriteMesh.cpp
+  UnityExport.cpp
+  UnityFiles.cpp
+  Generating Code...
+  vfx_editor.vcxproj -> D:\a\VFXforge\VFXforge\build\editor\Release\vfx_editor.lib
+  1>Automatic MOC for target vfxforge
+  Running rcc for resource vfxforge_qml
+  Generating .qsb/shaders/image.frag.qsb
+  Generating .qsb/shaders/sprite.frag.qsb
+  Generating .qsb/shaders/sprite.vert.qsb
+  Building Custom Rule D:/a/VFXforge/VFXforge/app/CMakeLists.txt
+  Running rcc for resource vfxforge_shaders
+  main.cpp
+  AppController.cpp
+  AudioPlayer.cpp
+  PreviewItems.cpp
+  ReferenceController.cpp
+  SpriteNode.cpp
+  ViewportItem.cpp
+  qrc_vfxforge_qml.cpp
+  qrc_vfxforge_shaders.cpp
+  mocs_compilation_Release.cpp
+  Generating Code...
+  vfxforge.vcxproj -> D:\a\VFXforge\VFXforge\build\app\Release\VFX Forge.exe

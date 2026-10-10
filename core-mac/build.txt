@@ -1,0 +1,78 @@
+[  1%] Building CXX object tests/CMakeFiles/catch2_amalgamated.dir/__/third_party/catch2/catch_amalgamated.cpp.o
+[  2%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Clock.cpp.o
+[  4%] Building CXX object core/CMakeFiles/vfx_core.dir/src/CommandStack.cpp.o
+[  5%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Commands.cpp.o
+[  7%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Compile.cpp.o
+[  8%] Building CXX object core/CMakeFiles/vfx_core.dir/src/DetMath.cpp.o
+[ 10%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Document.cpp.o
+[ 11%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Effect.cpp.o
+[ 12%] Building CXX object core/CMakeFiles/vfx_core.dir/src/FileIO.cpp.o
+[ 14%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Id.cpp.o
+[ 15%] Building CXX object core/CMakeFiles/vfx_core.dir/src/JsonWriter.cpp.o
+[ 17%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Metadata.cpp.o
+[ 18%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Path.cpp.o
+[ 20%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Serialize.cpp.o
+[ 21%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Simulation.cpp.o
+[ 22%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Templates.cpp.o
+[ 24%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Value.cpp.o
+[ 25%] Linking CXX static library libvfx_core.a
+[ 25%] Built target vfx_core
+[ 27%] Building CXX object tools/vfxcli/CMakeFiles/vfxcli.dir/main.cpp.o
+[ 28%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Archive.cpp.o
+[ 30%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Audio.cpp.o
+[ 31%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Frames.cpp.o
+[ 32%] Linking CXX static library libcatch2_amalgamated.a
+[ 32%] Built target catch2_amalgamated
+[ 34%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Image.cpp.o
+[ 35%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Picture.cpp.o
+[ 37%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Compare.cpp.o
+[ 38%] Linking CXX executable vfxcli
+[ 38%] Built target vfxcli
+[ 40%] Building CXX object tests/CMakeFiles/vfx_tests.dir/test_clock.cpp.o
+[ 41%] Building CXX object tests/CMakeFiles/vfx_tests.dir/test_commands.cpp.o
+[ 42%] Building CXX object tests/CMakeFiles/vfx_tests.dir/test_compile.cpp.o
+[ 44%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/EffectTools.cpp.o
+[ 45%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Presets.cpp.o
+[ 47%] Building CXX object tests/CMakeFiles/vfx_tests.dir/test_detmath.cpp.o
+[ 48%] Building CXX object tests/CMakeFiles/vfx_tests.dir/test_determinism.cpp.o
+[ 50%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Reconstruct.cpp.o
+[ 51%] Building CXX object tests/CMakeFiles/vfx_tests.dir/test_fileio.cpp.o
+[ 52%] Building CXX object tests/CMakeFiles/vfx_tests.dir/test_fuzz.cpp.o
+[ 54%] Building CXX object tests/CMakeFiles/vfx_tests.dir/test_ids_paths.cpp.o
+[ 55%] Building CXX object tests/CMakeFiles/vfx_tests.dir/test_metadata.cpp.o
+[ 57%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Refine.cpp.o
+[ 58%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Reference.cpp.o
+[ 60%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ReferenceStill.cpp.o
+[ 61%] Building CXX object tests/CMakeFiles/vfx_tests.dir/test_random_edits.cpp.o
+[ 62%] Building CXX object tests/CMakeFiles/vfx_tests.dir/test_serialize.cpp.o
+[ 64%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ReferenceTime.cpp.o
+[ 65%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Session.cpp.o
+[ 67%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Shapes.cpp.o
+[ 68%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/SoundLibrary.cpp.o
+[ 70%] Building CXX object tests/CMakeFiles/vfx_tests.dir/test_simulation.cpp.o
+[ 71%] Building CXX object tests/CMakeFiles/vfx_tests.dir/test_stack.cpp.o
+[ 72%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/SpriteMesh.cpp.o
+[ 74%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/UnityExport.cpp.o
+[ 75%] Building CXX object editor/CMakeFiles/vfx_editor.dir/UnityFiles.cpp.o
+[ 77%] Linking CXX executable vfx_tests
+[ 77%] Built target vfx_tests
+[ 78%] Linking CXX static library libvfx_editor.a
+[ 78%] Built target vfx_editor
+[ 80%] Building CXX object tools/vfxshot/CMakeFiles/vfxshot.dir/main.cpp.o
+[ 81%] Building CXX object editor/tests/CMakeFiles/vfx_editor_tests.dir/test_archive.cpp.o
+[ 82%] Building CXX object editor/tests/CMakeFiles/vfx_editor_tests.dir/test_audio.cpp.o
+[ 84%] Building CXX object tools/vfxref/CMakeFiles/vfxref.dir/main.cpp.o
+[ 85%] Building CXX object editor/tests/CMakeFiles/vfx_editor_tests.dir/test_frames.cpp.o
+[ 87%] Linking CXX executable vfxshot
+[ 87%] Built target vfxshot
+[ 88%] Building CXX object editor/tests/CMakeFiles/vfx_editor_tests.dir/test_image.cpp.o
+[ 90%] Linking CXX executable vfxref
+[ 90%] Built target vfxref
+[ 91%] Building CXX object editor/tests/CMakeFiles/vfx_editor_tests.dir/test_presets.cpp.o
+[ 92%] Building CXX object editor/tests/CMakeFiles/vfx_editor_tests.dir/test_reference.cpp.o
+[ 94%] Building CXX object editor/tests/CMakeFiles/vfx_editor_tests.dir/test_session.cpp.o
+[ 95%] Building CXX object editor/tests/CMakeFiles/vfx_editor_tests.dir/test_shapes.cpp.o
+[ 97%] Building CXX object editor/tests/CMakeFiles/vfx_editor_tests.dir/test_sprite_mesh.cpp.o
+[ 98%] Building CXX object editor/tests/CMakeFiles/vfx_editor_tests.dir/test_unity.cpp.o
+[100%] Linking CXX executable vfx_editor_tests
+[100%] Built target vfx_editor_tests
