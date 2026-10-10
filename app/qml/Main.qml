@@ -502,13 +502,14 @@ ApplicationWindow {
                             tip: "Play or pause (Space)"
                             onClicked: app.togglePlay()
                         }
-                        VButton { text: "\u2039 Frame"; tip: "Back one frame (,)"; onClicked: app.stepFrames(-1) }
-                        VButton { text: "Frame \u203a"; tip: "Forward one frame (.)"; onClicked: app.stepFrames(1) }
+                        VButton { Layout.preferredWidth: 30; text: "\u2039"; tip: "Back one frame (,)"; onClicked: app.stepFrames(-1) }
+                        VButton { Layout.preferredWidth: 30; text: "\u203a"; tip: "Forward one frame (.)"; onClicked: app.stepFrames(1) }
 
                         Text {
                             Layout.fillWidth: true
                             Layout.leftMargin: 8
-                            text: app.time.toFixed(2) + " s    frame " + (app.frame + 1) + " of " + app.frameCount
+                            Layout.minimumWidth: 40
+                            text: app.time.toFixed(2) + " s  \u00b7  " + (app.frame + 1) + "/" + app.frameCount
                             color: theme.dim
                             font.pixelSize: theme.smallFontSize
                             elide: Text.ElideRight
