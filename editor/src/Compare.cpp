@@ -41,6 +41,18 @@ double effectTimeAt(const Reference& reference, const ReferenceOptions& options,
     return static_cast<double>(frame - first) / fps - placement.referenceStart;
 }
 
+double comparedTime(const ReferenceAnalysis& analysis, const Effect& effect, double effectTime) {
+    const TimeAnalysis& t = analysis.time;
+    if (!t.available || t.frames < 2 || !(effect.duration > 0.0)) {
+        return effectTime;
+    }
+    if (t.continuous || (t.loops && t.loopLength > 0.0)) {
+        const double wrapped = std::fmod(effectTime, effect.duration);
+        return wrapped < 0.0 ? wrapped + effect.duration : wrapped;
+    }
+    return effectTime >= effect.duration ? -1.0 : effectTime;
+}
+
 // ------------------------------------------------------------------ drawing
 
 namespace {
@@ -79,8 +91,15 @@ Picture drawLikeReference(const Effect& effect, const Placement& placement, cons
     if (loops) {
         time = effect.duration + std::fmod(effectTime, effect.duration);
     }
+    auto steps = static_cast<std::int64_t>(std::llround(time / kSimulationStep)) + 1;
+    if (loops) {
+        // The very end of a pass must not round over into the start of the
+        // next one, or the last moment would show the effect beginning again.
+        const auto passEnd = static_cast<std::int64_t>(std::floor(2.0 * effect.duration / kSimulationStep + 1e-9));
+        steps = std::min(steps, passEnd);
+    }
     Simulation simulation(compileEffect(effect));
-    simulation.seek(static_cast<std::int64_t>(std::llround(time / kSimulationStep)) + 1);
+    simulation.seek(steps);
     RenderFrame frame;
     simulation.extract(frame);
     View view = placement.view;
@@ -384,6 +403,7 @@ struct Yardstick {
     std::vector<Checkpoint> checkpoints;
     bool moving = false;
     bool steady = false;
+    const ReferenceAnalysis* analysis = nullptr;
 };
 
 Yardstick makeYardstick(const Reference& reference, const ReferenceOptions& options, const ReferenceAnalysis& analysis,
@@ -393,6 +413,7 @@ Yardstick makeYardstick(const Reference& reference, const ReferenceOptions& opti
     frameRange(reference, options, first, last);
     y.moving = analysis.time.available && reference.moving() && last > first;
     y.steady = y.moving && analysis.time.continuous;
+    y.analysis = &analysis;
     const BackdropRead backdrop = backdropOf(analysis.still);
     const auto add = [&](int frame, float weight) {
         frame = std::clamp(frame, first, last);
@@ -434,17 +455,7 @@ Yardstick makeYardstick(const Reference& reference, const ReferenceOptions& opti
 }
 
 double timeFor(const Yardstick& y, const Effect& effect, double effectTime) {
-    // A steady effect has no beginning to line up with: any moment of the
-    // loop will do, so the loop is simply wrapped.
-    if (y.steady && effect.duration > 0) {
-        return std::fmod(std::max(0.0, effectTime), effect.duration);
-    }
-    // A burst is compared once through: after it has played, there is
-    // nothing, even though the effect is set to repeat for watching.
-    if (y.moving && effectTime >= effect.duration) {
-        return -1.0;
-    }
-    return effectTime;
+    return y.analysis ? comparedTime(*y.analysis, effect, effectTime) : effectTime;
 }
 
 Moment measureAll(const Yardstick& y, const Effect& effect, const Placement& placement, const StillAnalysis& still,

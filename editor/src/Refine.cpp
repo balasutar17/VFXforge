@@ -94,6 +94,8 @@ Result<Effect> refine(const Effect& effect, Refine what, const ReferenceAnalysis
         // length, change together.
         each(any, [&](Layer& layer) { scaleTime(layer, factor); });
         out.duration = std::clamp(out.duration / factor, 0.05, 3600.0);
+        // A change of pace must not leave a whole-pass sprite a frame short.
+        tools::keepWholePass(out);
     };
 
     switch (what) {

@@ -1,7 +1,10 @@
 #include "EffectTools.h"
 
+#include "vfx/Program.h"
+
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace vfx::editor::tools {
 
@@ -179,6 +182,59 @@ void scaleBrightness(Layer& layer, double factor) {
         }
     } else {
         colour->a = std::clamp(level, 0.0, 1.0);
+    }
+}
+
+void keepWholePass(Effect& effect) {
+    if (effect.loop != "loop" || !(effect.duration > 0.0)) {
+        return;
+    }
+    const double step = kSimulationStep;
+    struct Found {
+        Scalar* life;
+        BurstList* bursts;
+    };
+    std::vector<Found> found;
+    for (Layer& layer : effect.layers) {
+        if (layer.locked || std::fabs(layer.start) > 0.5 * step) {
+            continue;
+        }
+        const Scalar* rate = property<Scalar>(layer, "emission", "rate");
+        BurstList* bursts = property<BurstList>(layer, "emission", "bursts");
+        Scalar* life = property<Scalar>(layer, "initial", "lifetime");
+        if (!bursts || !life || life->kind != Scalar::Kind::Constant) {
+            continue;
+        }
+        if (rate && !(rate->kind == Scalar::Kind::Constant && rate->a == 0.0)) {
+            continue;
+        }
+        if (bursts->items.size() != 1 || bursts->items[0].count != 1 || bursts->items[0].time < 0.0 ||
+            bursts->items[0].time > step) {
+            continue;
+        }
+        if (life->a >= effect.duration - step && life->a <= effect.duration + 1.5 * step) {
+            found.push_back(Found{life, bursts});
+        }
+    }
+    if (found.empty()) {
+        return;
+    }
+    // A sprite that lives exactly one pass goes at the very moment the next
+    // is born. When that moment falls on the boundary between two steps,
+    // rounding decides which side each lands on, and there is a frame with
+    // neither or with both. So the pass is made a whole number of steps and
+    // the birth is put in the middle of a step: half a step to spare on
+    // each side, every time round.
+    const double before = effect.duration;
+    effect.duration = std::max(2.0, std::round(effect.duration / step)) * step;
+    for (Layer& layer : effect.layers) {
+        if (!layer.locked && std::fabs(layer.duration - before) < step) {
+            layer.duration = effect.duration;
+        }
+    }
+    for (const Found& f : found) {
+        f.life->a = effect.duration;
+        f.bursts->items[0].time = 0.5 * step;
     }
 }
 

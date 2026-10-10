@@ -223,9 +223,20 @@ int main(int argc, char** argv) {
         std::printf("  note: %s\n", n.c_str());
     }
     const auto show = [](const char* title, const Similarity& s) {
-        std::printf("%s: overall %.0f%% | outline %.0f colour %.0f brightness %.0f pieces %.0f detail %.0f motion %.0f timing %.0f\n",
+        std::printf("%s: overall %.0f%% | outline %.0f colour %.0f brightness %.0f pieces %.0f detail %.0f",
                     title, s.overall * 100.0, s.silhouette * 100.0, s.colour * 100.0, s.brightness * 100.0,
-                    s.density * 100.0, s.detail * 100.0, s.motion * 100.0, s.timing * 100.0);
+                    s.density * 100.0, s.detail * 100.0);
+        // A still picture has no motion or timing to measure; say so rather than print a number.
+        const auto part = [](const char* name, float v) {
+            if (v >= 0.0f) {
+                std::printf(" %s %.0f", name, v * 100.0);
+            } else {
+                std::printf(" %s not measured", name);
+            }
+        };
+        part("motion", s.motion);
+        part("timing", s.timing);
+        std::printf("\n");
         for (const std::string& d : s.differences) {
             std::printf("    - %s\n", d.c_str());
         }
@@ -280,7 +291,9 @@ int main(int argc, char** argv) {
             const int frame = first + (last - first) * k / (cells - 1);
             paste(all, drawReference(reference, options, analysis.still, frame, cw, ch), k * (cw + 2), 0);
             paste(all, drawLikeReference(built.effect, placement, analysis.still, cw, ch,
-                                         effectTimeAt(reference, options, placement, frame), &pictures),
+                                         comparedTime(analysis, built.effect,
+                                                      effectTimeAt(reference, options, placement, frame)),
+                                         &pictures),
                   k * (cw + 2), ch + 2);
         }
         if (Status ok = writePng(pathFromUtf8(strip), all); !ok) {

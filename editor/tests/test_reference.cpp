@@ -4,13 +4,16 @@
 // analysis ought to find is known exactly.
 #include <catch2/catch_amalgamated.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <functional>
 #include <vector>
 
 #include "vfx/FileIO.h"
+#include "vfx/Program.h"
 #include "vfx/Serialize.h"
+#include "vfx/Simulation.h"
 #include "vfx/editor/Compare.h"
 #include "vfx/editor/Reconstruct.h"
 #include "vfx/editor/Reference.h"
@@ -1005,6 +1008,189 @@ TEST_CASE("the two clocks line up", "[reference][compare]") {
     CHECK(s.timing >= 0.0f);
     CHECK(s.timing > 0.5f);
     CHECK(s.motion > 0.5f);
+}
+
+TEST_CASE("a burst is shown once through; one the clip repeats comes round again", "[reference][compare]") {
+    const Reference clip = burstClip();
+    const auto analysed = analyzeReference(clip, {});
+    REQUIRE(analysed.ok());
+    IdGenerator ids(73);
+    const Reconstruction built = reconstruct(analysed.value(), {}, counting(ids));
+    const Placement placement = placementOf(built);
+    const double length = built.effect.duration;
+    REQUIRE(built.effect.loop == "loop");  // it repeats for watching...
+
+    // ...but beside the reference it plays once, and then there is nothing.
+    CHECK(comparedTime(analysed.value(), built.effect, 0.1) == Approx(0.1));
+    CHECK(comparedTime(analysed.value(), built.effect, length + 0.1) < 0.0);
+
+    const auto amount = [&](double time) {
+        const Picture p = drawLikeReference(built.effect, placement, analysed.value().still, 96, 96, time);
+        double sum = 0;
+        for (std::size_t i = 0; i < p.rgba.size(); i += 4) {
+            sum += p.rgba[i] + p.rgba[i + 1] + p.rgba[i + 2];
+        }
+        return sum;
+    };
+    // The last instants of the pass never show the next pass beginning.
+    const double peak = amount(built.peakTime);
+    REQUIRE(peak > 1000.0);
+    for (double before : {0.03, 0.017, 0.009, 0.004, 0.0005}) {
+        CAPTURE(before);
+        CHECK(amount(length - before) < 0.05 * peak);
+    }
+
+    // The same burst shown twice in one clip is a rhythm: the second time
+    // round is compared with the effect's second time round.
+    Reference twice = clip;
+    twice.frames.insert(twice.frames.end(), clip.frames.begin(), clip.frames.end());
+    const auto again = analyzeReference(twice, {});
+    REQUIRE(again.ok());
+    REQUIRE(again.value().time.loops);
+    REQUIRE_FALSE(again.value().time.continuous);
+    IdGenerator more(74);
+    const Reconstruction rhythm = reconstruct(again.value(), {}, counting(more));
+    CHECK(rhythm.effect.duration == Approx(1.0).margin(0.04));
+    CHECK(comparedTime(again.value(), rhythm.effect, rhythm.effect.duration + 0.1) == Approx(0.1).margin(1e-9));
+    const Similarity s = compareToReference(twice, {}, again.value(), rhythm.effect, placementOf(rhythm));
+    CHECK(s.timing > 0.7f);
+    for (const std::string& said : s.differences) {
+        CAPTURE(said);
+        CHECK(said.find("sooner") == std::string::npos);
+    }
+}
+
+TEST_CASE("a ring that thins as it widens fades, though the middle stays bright", "[reference][curves]") {
+    Reference clip;
+    clip.name = "ring";
+    clip.framesPerSecond = 30;
+    for (int f = 0; f < 30; ++f) {
+        Canvas canvas(160, 160);
+        if (f >= 2 && f < 22) {
+            const float u = static_cast<float>(f - 2) / 19.0f;  // 0 to 1 over its life
+            const float strength = 1.0f - 0.9f * u;
+            const std::function<float(float, float)> band = ring(0.5f, 0.5f, 0.17f + 0.23f * u, 0.03f);
+            canvas.light(0.4f, 0.5f, 1.0f, [&](float x, float y) { return strength * band(x, y); });
+            // A white middle, as bright at the end as at the start.
+            // (Large enough that the brightest twentieth of what is lit is all middle.)
+            canvas.light(1.0f, 1.0f, 1.0f, disc(0.5f, 0.5f, 0.05f));
+        }
+        clip.frames.push_back(canvas.image());
+    }
+    const auto analysed = analyzeReference(clip, {});
+    REQUIRE(analysed.ok());
+    IdGenerator ids(75);
+    const Reconstruction built = reconstruct(analysed.value(), {}, counting(ids));
+    const Layer* ringLayer = nullptr;
+    for (const Layer& layer : built.effect.layers) {
+        if (layer.role == "ring") {
+            ringLayer = &layer;
+        }
+    }
+    REQUIRE(ringLayer);
+    bool checked = false;
+    for (const Module& m : ringLayer->modules) {
+        if (m.type != "overLife") {
+            continue;
+        }
+        const Scalar opacity = std::get<Scalar>(*m.find("opacity"));
+        REQUIRE(opacity.kind == Scalar::Kind::Curve);
+        double top = 0.0;
+        for (const CurveKey& k : opacity.keys) {
+            top = std::max(top, k.v);
+        }
+        // Read between the keys, three quarters of the way through. (The
+        // last key is always zero, so it would prove nothing.)
+        const auto at = [&](double t) {
+            for (std::size_t i = 1; i < opacity.keys.size(); ++i) {
+                const CurveKey& a = opacity.keys[i - 1];
+                const CurveKey& b = opacity.keys[i];
+                if (t <= b.t) {
+                    return b.t > a.t ? a.v + (b.v - a.v) * (t - a.t) / (b.t - a.t) : b.v;
+                }
+            }
+            return opacity.keys.back().v;
+        };
+        CHECK(top <= 1.0);
+        // The painted ring is at a third of its strength by then. The middle
+        // that does not fade is measured along with it, so the curve is not
+        // that low, but it is well down.
+        CHECK(at(0.75) < 0.6 * top);
+        checked = true;
+    }
+    CHECK(checked);
+}
+
+TEST_CASE("what is meant to stay never blinks out between one pass and the next", "[reference][reconstruct]") {
+    // Counts the moments, over three passes, when a layer that had something
+    // on screen a frame before and a frame after has nothing; and, for a
+    // layer that is one sprite, the moments when there are two.
+    const auto blinks = [](const Effect& effect) {
+        int found = 0;
+        const int pass = static_cast<int>(std::lround(effect.duration / kSimulationStep));
+        for (const Layer& layer : effect.layers) {
+            Effect one = effect;
+            one.layers = {layer};
+            Simulation simulation(compileEffect(one));
+            std::vector<int> alive;
+            for (int step = pass; step <= 4 * pass + 2; ++step) {
+                simulation.seek(step);
+                alive.push_back(static_cast<int>(simulation.aliveCount()));
+            }
+            const bool single = std::count(alive.begin(), alive.end(), 1) * 2 > static_cast<std::ptrdiff_t>(alive.size());
+            for (std::size_t i = 1; i + 1 < alive.size(); ++i) {
+                if (alive[i] == 0 && alive[i - 1] > 0 && alive[i + 1] > 0) {
+                    ++found;
+                }
+                if (single && alive[i] > 1) {
+                    ++found;
+                }
+            }
+        }
+        return found;
+    };
+
+    // A steady glow, at loop lengths that land on either side of rounding.
+    for (int frames : {6, 8, 10, 12, 15}) {
+        CAPTURE(frames);
+        Reference clip;
+        clip.framesPerSecond = 30;
+        for (int f = 0; f < 4 * frames; ++f) {
+            Canvas canvas(128, 128);
+            const float pulse = 0.5f + 0.5f * std::sin(2.0f * kPi * static_cast<float>(f) / static_cast<float>(frames));
+            canvas.light(0.4f, 1.0f, 0.5f, glow(0.5f, 0.5f, 0.22f + 0.08f * pulse, 0.6f + 0.3f * pulse));
+            clip.frames.push_back(canvas.image());
+        }
+        const auto analysed = analyzeReference(clip, {});
+        REQUIRE(analysed.ok());
+        REQUIRE(analysed.value().time.continuous);
+        IdGenerator ids(81);
+        Reconstruction built = reconstruct(analysed.value(), {}, counting(ids));
+        REQUIRE(built.effect.loop == "loop");
+        CHECK(blinks(built.effect) == 0);
+
+        // Still so after the pace is changed.
+        for (Refine change : {Refine::Faster, Refine::Slower, Refine::Slower, Refine::Slower}) {
+            const auto next = refine(built.effect, change, &analysed.value(), counting(ids), nullptr);
+            REQUIRE(next.ok());
+            built.effect = next.value();
+            CHECK(blinks(built.effect) == 0);
+        }
+    }
+
+    // A head with a tail: the head is one sprite that stays.
+    Canvas canvas(240, 240);
+    for (int k = 0; k < 40; ++k) {
+        const float t = static_cast<float>(k) / 39.0f;
+        canvas.light(0.3f, 0.6f, 1.0f, glow(0.25f + 0.5f * t, 0.75f - 0.5f * t, 0.09f * (1.0f - 0.8f * t), 0.25f * (1.0f - t)));
+    }
+    canvas.light(1.0f, 1.0f, 1.0f, glow(0.25f, 0.75f, 0.07f));
+    const auto comet = analyzeReference(still(canvas.image()), {});
+    REQUIRE(comet.ok());
+    REQUIRE(comet.value().still.comet);
+    IdGenerator ids(82);
+    const Reconstruction built = reconstruct(comet.value(), {}, counting(ids));
+    CHECK(blinks(built.effect) == 0);
 }
 
 TEST_CASE("fitting brings a mis-sized effect back toward the reference", "[reference][fit]") {

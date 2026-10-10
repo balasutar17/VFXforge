@@ -64,6 +64,13 @@ int referenceFrameAt(const Reference& reference, const ReferenceOptions& options
 double effectTimeAt(const Reference& reference, const ReferenceOptions& options, const Placement& placement,
                     int frame);
 
+// The moment of the effect to put beside a moment of the reference. A
+// single burst is shown once through, and after it has played there is
+// nothing (a negative time), even though the effect is set to repeat for
+// watching. An effect that keeps going, or a burst the clip itself shows
+// coming round again, is wrapped onto its own length.
+double comparedTime(const ReferenceAnalysis& analysis, const Effect& effect, double effectTime);
+
 // Draws the effect as the reference frames it, over the reference's
 // background (or over nothing, for a see-through reference), at a size.
 Picture drawLikeReference(const Effect& effect, const Placement& placement, const StillAnalysis& still, int width,

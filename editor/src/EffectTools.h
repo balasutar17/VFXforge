@@ -53,6 +53,14 @@ void scaleCount(Layer& layer, double factor, std::int64_t least = 1);
 void scaleBrightness(Layer& layer, double factor);
 // Makes the layer play `factor` times as fast.
 void scaleTime(Layer& layer, double factor);
+// In a looping effect, a single sprite made to last the whole pass (one
+// burst of one at the start, living as long as the effect) must hand over
+// to the next pass's sprite without a frame of neither or of both. Exactly
+// the pass length leaves that to rounding, which shows as a blink every
+// time round. So the effect's length is made a whole number of simulation
+// steps (a change of under a hundredth of a second), such sprites live
+// exactly that long, and they are born half a step into the pass.
+void keepWholePass(Effect& effect);
 void setColour(Layer& layer, const Color& colour, bool keepOpacity);
 void setShape(Layer& layer, const char* shape);
 

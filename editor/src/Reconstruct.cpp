@@ -6,6 +6,7 @@
 #include "vfx/Program.h"
 #include "vfx/editor/Shapes.h"
 
+#include "EffectTools.h"
 #include "LayerMake.h"
 
 namespace vfx::editor {
@@ -195,6 +196,7 @@ struct Plan {
     double peak = 0.27;     // when the effect looks like the picture analysed
     double start = 0;       // seconds into the clip that the effect begins
     std::vector<CurveKey> grow, fade, flash;
+    std::vector<CurveKey> fadeRing;  // for an outline, which thins less than a filled shape as it widens
     std::vector<std::pair<double, double>> bursts;  // time, share of the main burst
     double drag = 3.5;
     double spin = 0;
@@ -245,7 +247,8 @@ Plan makePlan(const ReferenceAnalysis& a, const ReconstructOptions& o) {
         const int peakFrame = frameAt(t.main);
         const float baseRadius = std::max(1e-4f, t.radius[static_cast<std::size_t>(peakFrame)]);
         const float baseBright = std::max(1e-4f, t.brightness[static_cast<std::size_t>(peakFrame)]);
-        std::vector<CurveKey> size, bright;
+        const float baseAmount = std::max(1e-4f, t.energy[static_cast<std::size_t>(peakFrame)]);
+        std::vector<CurveKey> size, bright, brightRing;
         const Swatch& baseColour = t.colour[static_cast<std::size_t>(peakFrame)];
         std::vector<Tint> tint;
         float colourShift = 0.0f;
@@ -258,7 +261,21 @@ Plan makePlan(const ReferenceAnalysis& a, const ReconstructOptions& o) {
                 r = f < peakFrame ? t.radius[static_cast<std::size_t>(std::min(last, f + 1))] : 0.0f;
             }
             size.push_back(CurveKey{at, std::clamp<double>(r / baseRadius, 0.05, 4.0)});
-            bright.push_back(CurveKey{at, std::clamp<double>(t.brightness[i] / baseBright, 0.0, 4.0)});
+            double level = std::clamp<double>(t.brightness[i] / baseBright, 0.0, 4.0);
+            double levelRing = level;
+            if (!p.steady) {
+                // The brightest points alone cannot tell a fading shape from
+                // one that is still at full strength: a few sparks stay
+                // bright long after a glow or ring has thinned. How much
+                // there is, for how far it has spread, can. A filled shape's
+                // amount goes with its area, an outline's with its length.
+                const double amount = t.energy[i] / baseAmount;
+                const double wide = std::max(0.25, static_cast<double>(r) / baseRadius);
+                level = std::min(level, amount / (wide * wide));
+                levelRing = std::min(levelRing, amount / wide);
+            }
+            bright.push_back(CurveKey{at, level});
+            brightRing.push_back(CurveKey{at, levelRing});
             const Swatch& c = t.colour[i];
             const Color now = linear(c), base = linear(baseColour);
             if (t.energy[i] > 0.1f) {
@@ -273,6 +290,7 @@ Plan makePlan(const ReferenceAnalysis& a, const ReconstructOptions& o) {
             // A burst ends with nothing: the last key is zero.
             if (!bright.empty() && last < n - 1) {
                 bright.back().v = 0.0;
+                brightRing.back().v = 0.0;
             }
         } else {
             // A loop is steadier described about its average than about one frame.
@@ -292,22 +310,24 @@ Plan makePlan(const ReferenceAnalysis& a, const ReconstructOptions& o) {
                 size.back().v = size.front().v;
                 bright.back().v = bright.front().v;
             }
+            brightRing = bright;
         }
         // Opacity runs from 0 to 1, so the curve is measured against its
         // own brightest moment rather than the frame that was described.
-        {
+        for (std::vector<CurveKey>* curve : {&bright, &brightRing}) {
             double top = 0.0;
-            for (const CurveKey& k : bright) {
+            for (const CurveKey& k : *curve) {
                 top = std::max(top, k.v);
             }
             if (top > 1.0) {
-                for (CurveKey& k : bright) {
+                for (CurveKey& k : *curve) {
                     k.v /= top;
                 }
             }
         }
         p.grow = simplifyCurve(size, keys, 0.04);
         p.fade = simplifyCurve(bright, keys, 0.05);
+        p.fadeRing = simplifyCurve(brightRing, keys, 0.05);
         p.flash = p.fade;
         if (colourShift > 0.12f && tint.size() >= 3) {
             // Keep a handful of evenly spread colour keys.
@@ -452,6 +472,7 @@ public:
             flash.grow = {{0, 0.5}, {std::max(0.05, at), 1.0}, {1, 1.15}};
             flash.fade = {{0, 1}, {std::max(0.05, at), 1}, {1, 0}};
             flash.flash = flash.fade;
+            flash.fadeRing = flash.fade;
             flash.tinted = false;
             flash.bursts = {{0.0, 1.0}};
             Builder opening(a_, a_.early, o_, id_, flash);
@@ -722,7 +743,7 @@ private:
                 .colorLinear(linear(s_.additive ? bright(ring.colour) : ring.colour, std::clamp<double>(ring.strength * 1.6, 0.2, 1.0)))
                 .look(shapeName(shape));
             if (plan_.measured) {
-                m.sizeOver(plan_.grow).fade(plan_.fade);
+                m.sizeOver(plan_.grow).fade(plan_.fadeRing.empty() ? plan_.fade : plan_.fadeRing);
             } else if (plan_.steady) {
                 m.sizeOver({{0, 1}, {1, 1}}).solid();
             } else {
@@ -1132,6 +1153,7 @@ private:
             out.layers.push_back(b.note);
             effect.layers.push_back(std::move(b.layer));
         }
+        tools::keepWholePass(effect);
         out.effect = std::move(effect);
         out.particlesAtBusiest = particles;
         out.budget = budget;

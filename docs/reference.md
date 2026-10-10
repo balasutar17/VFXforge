@@ -51,8 +51,9 @@ For a picture (`editor/src/ReferenceStill.cpp`):
 | Centre, extent, long direction, left/right symmetry | Centre of mass, the radius holding 95% of the light, the spread's main axis |
 | Colours | Up to five by k-means, with their share |
 | Crisp or soft | The share of in-between values |
-| Glow (one or two) | The median brightness round each circle, fitted with one or two soft blobs |
-| White-hot middle | Clipped and colourless at the centre inside a coloured glow |
+| The round part | The lower quarter of the brightness round each circle (so rays and sparks do not lift it) |
+| Glow (one or two) | The round part fitted with one or two soft blobs. Where the picture is clipped to white, the true strength of the light is worked out from the colour channel that clipped least |
+| White core | Only when the middle is whiter than the glow's own colour, however strong, could make it |
 | Main shape | The largest solid, sharp-edged patch, compared by outline and by light/dark areas with each built-in shape at 48 turns |
 | Rays | What is left along each direction once the round part is taken away; the built-in flash shape and turn that fits |
 | Rings | A peak in brightness away from the centre that goes most of the way round; plain, soft or jagged |
@@ -109,6 +110,17 @@ life from the colour, each simplified to at most six or eight keys; spin
 from the turning; speed, direction and pull from the travel. Particles get
 their drag from the spreading and burst times from the bursts.
 
+The opacity of a burst is the lower of two readings: how bright the
+brightest parts are, and how much effect there is for how far it has
+spread (a filled shape's amount goes with its area, a ring's with its
+length). The second catches a glow or ring that thins out while a few
+sparks stay bright.
+
+In an effect that keeps going, a sprite that is there the whole time is
+made to hand over to its next self without a frame of neither or of both:
+the effect's length is rounded to a whole number of simulation steps
+(sixtieths of a second) and the sprite is born half a step in.
+
 - **Four modes:** Balanced (default), Shape and colour, Motion, Layered.
   They differ in how many layers are kept, how sparks are split, and for a
   still, how long the look is held.
@@ -120,8 +132,11 @@ their drag from the spreading and burst times from the bursts.
 - **One burst or keeps going** can be set by hand for a still.
 - **Cut-outs** (off unless turned on): rays and hand-drawn shapes no
   built-in shape matches are lifted out of the reference as a picture for
-  the layer to draw. Closer, but those are the reference's own pixels, so
-  the app says to use it only with art that is yours to use.
+  the layer to draw. For rays the cut-out is what the fitted glow leaves
+  undrawn, colour channel by colour channel, so glow and rays together add
+  back up to the reference. Closer, but those are the reference's own
+  pixels, so the app says to use it only with art that is yours to use.
+  Fitting leaves cut-out layers, and the glows under them, alone.
 - Each layer records its **role** (glow, core, body, rays, ring, sparks,
   streaks, bits, smoke, trail), how it is built, and whether its look and
   its motion were seen or assumed.
@@ -136,7 +151,10 @@ their drag from the spreading and burst times from the bursts.
 - **One timeline for both.** Scrub, play, or step frame by frame; the
   reference's frame and the effect's moment move together. Moments in the
   reference are marked above the bar, the effect's layer starts and bursts
-  below it.
+  below it. A single burst is shown once through, and then nothing, as the
+  clip shows it (the effect itself is set to repeat for watching). An
+  effect that keeps going, or a burst the clip shows more than once, comes
+  round again in step with the clip.
 - **Measured likeness**, in seven parts: outline, colour, brightness,
   number of pieces, fine detail, motion and timing (the last two only for a
   clip). The largest differences are put into words ("the outer edge is
@@ -184,8 +202,15 @@ and the device's limit. Work runs on a background thread and can be stopped.
   close to one plain colour, or the picture must have its own transparency.
   The report says so when it is not.
 - **One effect per reference.** A sheet of several must be cropped to one.
+  The crop is a box: when effects overlap or sit too close for a box to
+  separate them, a neighbour's edge comes along and the report says so.
 - **Only two moments of a burst are described**: the opening flash and the
   main part. Something else that shows briefly in between is missed.
+- **One growth and one fade for the whole burst.** The glow, shape, rays
+  and rings of a burst share the size and opacity curves measured from the
+  whole picture (a ring's fade allows for its being an outline). A part
+  that fades on its own schedule, such as a bright middle that stays while
+  a ring thins, or smoke that follows fire, is not followed separately.
 - **Not built:** heat haze and distortion, turbulence, beams and cones as
   meshes, depth, emitters that move along a path (a travelling effect's
   particle layers start from where it began).
@@ -212,10 +237,12 @@ vfxref build frames/ out.vfx --fps 30 --strip moments.png
 
 ## Tests
 
-`editor/tests/test_reference.cpp` (32 cases) paints its own references, so
+`editor/tests/test_reference.cpp` (36 cases) paints its own references, so
 what should be found is known: import checks, each background kind, glow,
 ring, sparks, rays, shape matching, head and tail, cropping, start/peak/end,
 trim and speed, loop, turning, travel, curve making, the clocks lining up,
+a burst shown once through and a repeated one coming round again, a ring
+that thins while the middle stays bright, nothing blinking between passes,
 comparison of an effect with its own picture, fitting (and locked layers,
 and stopping), cut-outs, every refinement, one-undo-step rebuilds, keeping
 the reference through save and reopen, and progress and cancelling.

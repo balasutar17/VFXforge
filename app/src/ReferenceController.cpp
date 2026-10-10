@@ -1569,12 +1569,9 @@ QImage ReferenceController::picture(const QString& kind) {
     } else if (kind == QStringLiteral("made")) {
         if (built_ && analysis_) {
             const vfx::Effect& effect = app_->session().effect();
-            double t = effectTimeNow();
-            if (steady() && effect.duration > 0) {
-                t = std::fmod(std::max(0.0, t), effect.duration);
-            } else if (moving() && t >= effect.duration) {
-                t = -1.0;  // a burst is shown once through, as the clip shows it
-            }
+            // A burst is shown once through, as the clip shows it; one that
+            // keeps going or comes round again is wrapped onto its length.
+            const double t = comparedTime(*analysis_, effect, effectTimeNow());
             const Picture p = drawLikeReference(effect, placement_, analysis_->still, width, height, t,
                                                 &app_->session().images());
             out = toQImage(p.width, p.height, p.rgba);
