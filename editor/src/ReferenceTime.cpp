@@ -693,7 +693,13 @@ void writeFindings(ReferenceAnalysis& a, bool moving) {
             0.75f, Basis::Observed);
     }
     if (s.hasCore) {
-        add("core", "White-hot middle", "Radius " + percent(s.coreRadius) + " of the height", 0.8f, Basis::Observed);
+        add("core", "White core", "A white light of its own at the centre, radius " + percent(0.5f * s.coreRadius), 0.75f,
+            Basis::Observed);
+    } else if (s.whiteHot > 0.01f) {
+        add("core", "White-hot middle",
+            "The glow is strong enough to burn white out to " + percent(s.whiteHot) + " of the height", 0.7f, Basis::Inferred,
+            "Where the picture is clipped to white, how strong the light really is has to be worked out from the "
+            "colour channel with the most room left.");
     }
     if (s.hasGlow) {
         std::string value = "Outer glow, " + colourName(s.glowOuterColour) + ", radius " + percent(s.glowOuter);

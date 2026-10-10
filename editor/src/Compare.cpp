@@ -736,10 +736,26 @@ FitResult fitToReference(Effect& effect, const Reference& reference, const Refer
                 0.5 * p.detail * (1.0 - m.detail)) / weight;
     };
 
+    // A piece cut from the reference was cut to fit the glow as it was
+    // built: what the glow does not draw, the piece does. Moving either
+    // afterwards would open a gap between them, so both are left alone.
+    bool cutOut = false;
+    for (const Layer& layer : effect.layers) {
+        const AssetRef* picture = tools::property<AssetRef>(layer, "sprite", "texture");
+        cutOut = cutOut || (picture && picture->id.valid() && layer.enabled);
+    }
     std::vector<Knob> knobs;
     for (std::size_t i = 0; i < effect.layers.size(); ++i) {
         const Layer& layer = effect.layers[i];
         if (layer.locked || !layer.enabled) {
+            continue;
+        }
+        if (cutOut && (layer.role == "glow" || layer.role == "core")) {
+            continue;
+        }
+        // A layer drawing a piece cut from the reference is already the
+        // size and brightness the reference showed.
+        if (const AssetRef* picture = tools::property<AssetRef>(layer, "sprite", "texture"); picture && picture->id.valid()) {
             continue;
         }
         knobs.push_back(Knob{i, KnobKind::Size});
@@ -781,6 +797,12 @@ FitResult fitToReference(Effect& effect, const Reference& reference, const Refer
                     if (knob.kind == KnobKind::Size && tools::roleOf(layer) == "ring") {
                         most = 1.2;
                         least = 0.85;
+                    }
+                    // Small pieces were measured one by one. Without this
+                    // they get blown up to stand in for a glow that is too dim.
+                    if (tools::isParticles(layer) && knob.kind != KnobKind::Reach) {
+                        most = std::min(most, 1.35);
+                        least = std::max(least, 0.7);
                     }
                     if (next > most || next < least) {
                         break;

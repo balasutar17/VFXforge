@@ -32,9 +32,9 @@ struct Radial {
     std::array<Swatch, kRadialSteps> colour{};
 };
 
-// Brightness from a centre outward: the mean round each circle, the median
-// (which ignores rays and sparks), how much of the circle is lit, and the
-// colour there.
+// Brightness from a centre outward: the mean round each circle, the level
+// reached nearly all the way round (which ignores rays and sparks), how much
+// of the circle is lit, and the colour there.
 Radial readRadial(const Matte& m, float cx, float cy, float limit) {
     Radial out;
     out.step = std::max(0.5f, limit / kRadialSteps);
@@ -70,7 +70,10 @@ Radial readRadial(const Matte& m, float cx, float cy, float limit) {
             continue;
         }
         out.mean[k] = std::accumulate(v.begin(), v.end(), 0.0f) / static_cast<float>(v.size());
-        const auto mid = v.begin() + static_cast<std::ptrdiff_t>(v.size() / 2);
+        // The level reached nearly all the way round: the lower quarter.
+        // (The median would count a star's arms as round wherever they
+        // cover more than half the circle.)
+        const auto mid = v.begin() + static_cast<std::ptrdiff_t>(v.size() / 4);
         std::nth_element(v.begin(), mid, v.end());
         out.middle[k] = *mid;
         int lit = 0, seen = 0;
@@ -252,43 +255,36 @@ std::vector<Swatch> readPalette(const Matte& m) {
     return out;
 }
 
-// Fits the round part of the picture with one or two soft glows of
-// different size, the way the effect will be rebuilt.
-void fitGlow(const Radial& radial, int firstBin, StillAnalysis& out, float gridHeight) {
-    const auto& p = radial.middle;
-    float edge = 0.0f, top = 0.0f;
-    for (int k = firstBin; k < kRadialSteps; ++k) {
-        top = std::max(top, p[static_cast<std::size_t>(k)]);
-    }
-    if (top < 0.05f) {
-        return;
-    }
-    for (int k = firstBin; k < kRadialSteps; ++k) {
-        if (p[static_cast<std::size_t>(k)] >= 0.04f) {
-            edge = (static_cast<float>(k) + 1.0f) * radial.step;
-        }
-    }
-    if (edge <= 0.0f) {
-        return;
-    }
+// The best one or two soft glows for a brightness profile: target[k] is
+// the level wanted at bin k, and known[k] says whether it was measured or
+// is only a floor (the picture was clipped there, so the true level is at
+// least that). Returns the mean error; levels may exceed 1.
+struct TwoGlows {
+    float inner = 0, innerLevel = 0;  // radius in grid points, and level
+    float outer = 0, outerLevel = 0;
+    float error = 1e9f;
+};
+TwoGlows fitTwo(const std::array<float, kRadialSteps>& target, const std::array<bool, kRadialSteps>& known,
+                int firstBin, float step, float edge, bool allowTwo) {
     static constexpr float kRatios[] = {0.0f, 0.12f, 0.18f, 0.26f, 0.36f, 0.48f, 0.62f};
-    float bestError = 1e9f, bestS1 = 0, bestA1 = 0, bestS2 = edge, bestA2 = 0;
-    for (int step = 0; step < 12; ++step) {
-        const float s2 = edge * (0.6f + 0.9f * static_cast<float>(step) / 11.0f);
+    TwoGlows best;
+    for (int size = 0; size < 12; ++size) {
+        const float s2 = edge * (0.6f + 0.9f * static_cast<float>(size) / 11.0f);
         for (float ratio : kRatios) {
+            if (ratio > 0.0f && !allowTwo) {
+                break;
+            }
             const float s1 = ratio * s2;
-            // Least squares for the two levels over the bins that are not
-            // clipped to full white.
             double a11 = 0, a12 = 0, a22 = 0, b1 = 0, b2 = 0;
             for (int k = firstBin; k < kRadialSteps; ++k) {
-                const float radius = (static_cast<float>(k) + 0.5f) * radial.step;
-                const float v = p[static_cast<std::size_t>(k)];
-                if (v >= 0.97f) {
+                if (!known[static_cast<std::size_t>(k)]) {
                     continue;
                 }
-                const double w = radius + 2.0f * radial.step;
+                const float radius = (static_cast<float>(k) + 0.5f) * step;
+                const double w = radius + 2.0f * step;
                 const double g1 = s1 > 0 ? softProfile(radius / s1) : 0.0f;
                 const double g2 = softProfile(radius / s2);
+                const double v = target[static_cast<std::size_t>(k)];
                 a11 += w * g1 * g1;
                 a12 += w * g1 * g2;
                 a22 += w * g2 * g2;
@@ -302,69 +298,197 @@ void fitGlow(const Radial& radial, int firstBin, StillAnalysis& out, float gridH
                 l2 = (a11 * b2 - a12 * b1) / det;
             }
             if (!(s1 > 0) || l1 <= 0 || l2 <= 0) {
-                // One glow only.
+                if (s1 > 0) {
+                    continue;  // the pair is no better than one glow
+                }
                 l1 = 0;
                 l2 = a22 > 1e-9 ? b2 / a22 : 0;
-                if (s1 > 0) {
-                    continue;
-                }
             }
-            // Where the picture is clipped to white, the light must reach at least 1.
+            // Where the picture was clipped, the glow must reach the floor.
             for (int k = firstBin; k < kRadialSteps; ++k) {
-                if (p[static_cast<std::size_t>(k)] < 0.97f) {
+                if (known[static_cast<std::size_t>(k)]) {
                     continue;
                 }
-                const float radius = (static_cast<float>(k) + 0.5f) * radial.step;
+                const float radius = (static_cast<float>(k) + 0.5f) * step;
                 const double g1 = s1 > 0 ? softProfile(radius / s1) : 0.0f;
                 const double g2 = softProfile(radius / s2);
-                const double have = l1 * g1 + l2 * g2;
-                if (have < 1.0) {
+                const double floor = target[static_cast<std::size_t>(k)];
+                if (l1 * g1 + l2 * g2 < floor) {
                     if (g1 > 0.1) {
-                        l1 = std::min(4.0, (1.0 - l2 * g2) / g1);
+                        l1 = std::min(6.0, (floor - l2 * g2) / g1);
                     } else if (g2 > 0.1 && !(s1 > 0)) {
-                        l2 = std::min(4.0, 1.0 / g2);
+                        l2 = std::min(6.0, floor / g2);
                     }
                 }
             }
-            double error = 0, weightSum = 0;
+            double error = 0, weight = 0;
             for (int k = firstBin; k < kRadialSteps; ++k) {
-                const float radius = (static_cast<float>(k) + 0.5f) * radial.step;
-                const double w = radius + 2.0f * radial.step;
+                const float radius = (static_cast<float>(k) + 0.5f) * step;
+                const double w = radius + 2.0f * step;
                 const double g1 = s1 > 0 ? softProfile(radius / s1) : 0.0f;
                 const double g2 = softProfile(radius / s2);
-                const double model = std::min(1.0, l1 * g1 + l2 * g2);
-                error += w * std::fabs(model - p[static_cast<std::size_t>(k)]);
-                weightSum += w;
+                const double model = l1 * g1 + l2 * g2;
+                const double v = target[static_cast<std::size_t>(k)];
+                // Above a floor is as good as on it.
+                error += w * (known[static_cast<std::size_t>(k)] ? std::fabs(model - v) : std::max(0.0, v - model));
+                weight += w;
             }
-            error /= std::max(1e-9, weightSum);
             // A second glow has to earn its place.
-            const float cost = static_cast<float>(error) + (s1 > 0 ? 0.004f : 0.0f);
-            if (cost < bestError) {
-                bestError = cost;
-                bestS1 = s1;
-                bestA1 = static_cast<float>(l1);
-                bestS2 = s2;
-                bestA2 = static_cast<float>(l2);
+            const float cost = static_cast<float>(error / std::max(1e-9, weight)) + (s1 > 0 ? 0.004f : 0.0f);
+            if (cost < best.error) {
+                best.error = cost;
+                best.inner = s1;
+                best.innerLevel = static_cast<float>(l1);
+                best.outer = s2;
+                best.outerLevel = static_cast<float>(l2);
             }
         }
     }
-    if (bestA2 < 0.03f && bestA1 < 0.03f) {
+    return best;
+}
+
+// Fits the round part of the picture with soft glows, the way the effect
+// will be rebuilt.
+//
+// Light on a dark background clips: a strong purple glow reads as white in
+// its middle because every channel has hit full. The channel with the most
+// room left shows how strong the light really is there, so the glow is
+// fitted to that true strength (which may be well over 1) in the glow's own
+// colour, and comes out white-hot in the middle by itself. Only white that
+// the colour cannot explain becomes a separate white core.
+void fitGlow(const Radial& radial, int firstBin, StillAnalysis& out, float gridHeight, bool additive) {
+    const auto& p = radial.middle;
+    float edge = 0.0f, top = 0.0f;
+    for (int k = firstBin; k < kRadialSteps; ++k) {
+        top = std::max(top, p[static_cast<std::size_t>(k)]);
+        if (p[static_cast<std::size_t>(k)] >= 0.04f) {
+            edge = (static_cast<float>(k) + 1.0f) * radial.step;
+        }
+    }
+    if (top < 0.05f || edge <= 0.0f) {
         return;
     }
-    out.hasGlow = true;
-    out.glowOuter = bestS2 / gridHeight;
-    out.glowOuterLevel = bestA2;
-    out.glowOuterColour = colourBetween(radial, 0.4f * bestS2, 0.8f * bestS2);
-    if (bestS1 > 0 && bestA1 >= 0.05f) {
-        out.glowInner = bestS1 / gridHeight;
-        out.glowInnerLevel = bestA1;
-        out.glowInnerColour = colourBetween(radial, 0.0f, 0.5f * bestS1);
-        // The middle of the inner glow is what the eye reads as its colour;
-        // take the plain average there rather than the most colourful bin.
-        const Swatch& centre = radial.colour[0];
-        if (radial.mean[0] > 0.3f) {
-            out.glowInnerColour = centre;
+    std::array<float, kRadialSteps> light{}, white{};
+    std::array<bool, kRadialSteps> lightKnown{}, whiteKnown{};
+    lightKnown.fill(true);
+    whiteKnown.fill(true);
+    Swatch hue = colourBetween(radial, 0.4f * edge, 0.8f * edge);
+    bool whiteCore = false;
+
+    if (!additive) {
+        // Paint, not light: nothing clips, and coverage is the whole story.
+        for (std::size_t k = 0; k < kRadialSteps; ++k) {
+            light[k] = p[k];
+            lightKnown[k] = p[k] < 0.97f;
         }
+    } else {
+        // The glow's own colour, from where it is not clipped.
+        {
+            double r = 0, g = 0, b = 0, w = 0;
+            for (int k = firstBin; k < kRadialSteps; ++k) {
+                const auto i = static_cast<std::size_t>(k);
+                if (p[i] > 0.05f && p[i] < 0.85f) {
+                    const double weight = static_cast<double>(p[i]) * (static_cast<double>(k) + 0.5);
+                    r += weight * radial.colour[i].r;
+                    g += weight * radial.colour[i].g;
+                    b += weight * radial.colour[i].b;
+                    w += weight;
+                }
+            }
+            if (w > 1e-9) {
+                hue = Swatch{static_cast<float>(r / w), static_cast<float>(g / w), static_cast<float>(b / w), 0};
+            }
+            const float most = std::max({hue.r, hue.g, hue.b, 1e-3f});
+            hue.r /= most;
+            hue.g /= most;
+            hue.b /= most;
+        }
+        const float h[3] = {hue.r, hue.g, hue.b};
+        // Channels in order of how much room they have before clipping.
+        int order[3] = {0, 1, 2};
+        std::sort(order, order + 3, [&](int x, int y) { return h[x] < h[y]; });
+        const int weakest = order[0];
+        for (int k = firstBin; k < kRadialSteps; ++k) {
+            const auto i = static_cast<std::size_t>(k);
+            const float channel[3] = {p[i] * radial.colour[i].r, p[i] * radial.colour[i].g, p[i] * radial.colour[i].b};
+            float strength = 0.0f;
+            bool known = false;
+            for (int c : order) {
+                if (h[c] < 0.2f) {
+                    continue;  // too little of this channel in the colour to judge by
+                }
+                if (channel[c] < 0.97f) {
+                    strength = channel[c] / h[c];
+                    known = true;
+                    break;
+                }
+                strength = std::max(strength, 1.0f / h[c]);  // clipped: at least this
+            }
+            light[i] = strength;
+            lightKnown[i] = known;
+            // White the colour cannot account for.
+            if (h[weakest] < 0.2f) {
+                white[i] = std::max(0.0f, channel[weakest] - h[weakest] * std::min(strength, 1.0f));
+                whiteKnown[i] = channel[weakest] < 0.97f;
+                whiteCore = whiteCore || white[i] > 0.15f;
+            }
+        }
+        if (whiteCore) {
+            // The white is its own light; the colour is what is left of the
+            // strongest channel once the white is taken away.
+            const int strongest = order[2];
+            for (int k = firstBin; k < kRadialSteps; ++k) {
+                const auto i = static_cast<std::size_t>(k);
+                const float channel = p[i] * (strongest == 0 ? radial.colour[i].r : (strongest == 1 ? radial.colour[i].g : radial.colour[i].b));
+                light[i] = std::max(0.0f, channel - white[i]);
+                lightKnown[i] = channel < 0.97f;
+            }
+        }
+    }
+
+    const bool two = !whiteCore;  // a white core takes the place of the inner glow
+    const TwoGlows glow = fitTwo(light, lightKnown, firstBin, radial.step, edge, two);
+    if (glow.outerLevel >= 0.03f || glow.innerLevel >= 0.03f) {
+        out.hasGlow = true;
+        out.glowOuter = glow.outer / gridHeight;
+        out.glowOuterLevel = std::min(glow.outerLevel, 6.0f);
+        out.glowOuterColour = hue;
+        if (glow.inner > 0 && glow.innerLevel >= 0.05f) {
+            out.glowInner = glow.inner / gridHeight;
+            out.glowInnerLevel = std::min(glow.innerLevel, 6.0f);
+            out.glowInnerColour = additive ? hue : colourBetween(radial, 0.0f, 0.5f * glow.inner);
+        }
+    }
+    if (whiteCore) {
+        float whiteEdge = radial.step;
+        for (int k = firstBin; k < kRadialSteps; ++k) {
+            if (white[static_cast<std::size_t>(k)] >= 0.04f) {
+                whiteEdge = (static_cast<float>(k) + 1.0f) * radial.step;
+            }
+        }
+        const TwoGlows core = fitTwo(white, whiteKnown, firstBin, radial.step, whiteEdge, false);
+        if (core.outerLevel >= 0.1f) {
+            out.hasCore = true;
+            out.coreRadius = core.outer / gridHeight;
+            out.coreLevel = std::min(core.outerLevel, 6.0f);
+            out.coreColour = Swatch{1, 1, 1, 0};
+            out.hasGlow = true;
+        }
+    } else if (additive && out.hasGlow) {
+        // Say so when the glow itself burns white in the middle.
+        const float least = std::min({hue.r, hue.g, hue.b});
+        float burning = 0.0f;
+        for (int k = firstBin; k < kRadialSteps; ++k) {
+            const float radius = (static_cast<float>(k) + 0.5f) * radial.step;
+            float level = out.glowOuterLevel * softProfile(radius / std::max(1e-3f, glow.outer));
+            if (glow.inner > 0) {
+                level += out.glowInnerLevel * softProfile(radius / glow.inner);
+            }
+            if (level * std::max(least, 0.05f) >= 0.9f) {
+                burning = radius;
+            }
+        }
+        out.whiteHot = burning / gridHeight;
     }
 }
 
@@ -653,13 +777,13 @@ void describeGroup(const Matte& m, const std::vector<float>& detail, const std::
     // When the pieces come in clearly different colours, say which.
     {
         struct Hue {
-            float r, g, b, mass;
+            float r, g, b, mass, size;
         };
         std::vector<Hue> hues;
-        for (const Patch* p : patches) {
-            Swatch c = meanColour(m, p->points, &detail);
+        for (std::size_t i = 0; i < patches.size(); ++i) {
+            Swatch c = meanColour(m, patches[i]->points, &detail);
             const float top = std::max({c.r, c.g, c.b, 1e-3f});
-            hues.push_back(Hue{c.r / top, c.g / top, c.b / top, 1.0f});
+            hues.push_back(Hue{c.r / top, c.g / top, c.b / top, 1.0f, sizes[i]});
         }
         std::vector<Hue> centres;
         for (const Hue& hue : hues) {
@@ -671,6 +795,7 @@ void describeGroup(const Matte& m, const std::vector<float>& detail, const std::
                     c.r += hue.r;
                     c.g += hue.g;
                     c.b += hue.b;
+                    c.size += hue.size;
                     c.mass += 1.0f;
                     placed = true;
                     break;
@@ -685,10 +810,12 @@ void describeGroup(const Matte& m, const std::vector<float>& detail, const std::
             for (const Hue& c : centres) {
                 if (c.mass >= 0.15f * n && out.colours.size() < 3) {
                     out.colours.push_back(Swatch{c.r / c.mass, c.g / c.mass, c.b / c.mass, c.mass / n});
+                    out.colourSizes.push_back(c.size / c.mass);
                 }
             }
             if (out.colours.size() < 2) {
                 out.colours.clear();
+                out.colourSizes.clear();
             }
         }
     }
@@ -758,6 +885,7 @@ int openingRadius(float extent) { return std::clamp(static_cast<int>(std::lround
 Pieces sortPieces(const std::vector<Patch>& patches, const std::vector<float>& opened, const Matte& m, float cx,
                   float cy, float extent) {
     Pieces out;
+    std::vector<char> mark(m.cover.size(), 0);
     for (const Patch& p : patches) {
         if (p.area < 2 && p.peak < 0.4f) {
             continue;  // a single faint point is noise
@@ -821,12 +949,39 @@ Pieces sortPieces(const std::vector<Patch>& patches, const std::vector<float>& o
             out.sparks.push_back(&p);
             continue;
         }
-        // Larger: a loose bit only when it stands apart from the main body.
-        double under = 0;
+        // Larger: a loose bit only when it stands apart from the main body
+        // and is an island, with little around it. (A broad soft ray or a
+        // lump in a glow is brighter than its surroundings without being a
+        // separate thing.)
+        double under = 0, inside = 0;
         for (int at : p.points) {
             under += opened[static_cast<std::size_t>(at)];
+            inside += m.cover[static_cast<std::size_t>(at)];
+            mark[static_cast<std::size_t>(at)] = 1;
         }
-        if (under / static_cast<double>(p.area) < 0.15) {
+        double around = 0;
+        int rim = 0;
+        for (int at : p.points) {
+            const int x = at % m.width, y = at / m.width;
+            static constexpr int kStep[4][2] = {{2, 0}, {-2, 0}, {0, 2}, {0, -2}};
+            for (const auto& step : kStep) {
+                const int nx = x + step[0], ny = y + step[1];
+                if (nx < 0 || ny < 0 || nx >= m.width || ny >= m.height) {
+                    continue;
+                }
+                const std::size_t next = m.at(nx, ny);
+                if (!mark[next]) {
+                    around += m.cover[next];
+                    ++rim;
+                }
+            }
+        }
+        for (int at : p.points) {
+            mark[static_cast<std::size_t>(at)] = 0;
+        }
+        const double insideMean = inside / static_cast<double>(p.area);
+        const bool island = rim > 0 && around / rim < 0.35 * insideMean;
+        if (under / static_cast<double>(p.area) < 0.15 && island) {
             out.bits.push_back(&p);
         }
     }
@@ -962,7 +1117,9 @@ StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
         if (body && (static_cast<float>(body->area) < std::max(12.0f, 0.06f * static_cast<float>(lit)) ||
                      static_cast<float>(body->area) < 0.3f * static_cast<float>(allSolid) || alike >= 4)) {
             body = nullptr;  // too small, or one of many pieces of similar size
-            manySolids = solids.size() >= 3;
+            // Coins, confetti, gems: several solid pieces of much the same size.
+            // (In a soft glowing picture, bright lumps are not pieces.)
+            manySolids = alike >= 4 && out.hardness > 0.5f;
         }
         if (body) {
             std::vector<float> near(m.cover.size(), 0.0f), far;
@@ -993,7 +1150,7 @@ StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
     }
     // A long soft shape (a beam, a slash) also counts as a main shape.
     std::vector<Patch> longs;
-    if (!body && elongated) {
+    if (!body && elongated && !manySolids && out.hardness < 0.5f) {
         longs = findPatches(m.cover, m.width, m.height, 0.5f);
         for (const Patch& p : longs) {
             if (!body || p.area > body->area) {
@@ -1194,6 +1351,23 @@ StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
                 out.tailColours.push_back(out.tailColours.back());
             }
         }
+        // The brightest area is smeared toward the tail by the tail's own
+        // light. The head's true middle is half a head-width in from the
+        // end of the shape that is away from the tail.
+        {
+            float back = 0.0f;
+            while (back < 0.5f * length &&
+                   readAt(plain, m.width, m.height, cx - axisX * (back + 1.0f), cy - axisY * (back + 1.0f)) > 0.5f) {
+                back += 1.0f;
+            }
+            const float headHalf = 0.5f * std::max(width[0], 2.0f);
+            const float hx = cx - axisX * back + axisX * std::min(headHalf, 0.5f * (back + headHalf));
+            const float hy = cy - axisY * back + axisY * std::min(headHalf, 0.5f * (back + headHalf));
+            cx = hx;
+            cy = hy;
+            out.centreX = cx / w;
+            out.centreY = cy / h;
+        }
         out.headX = cx / w;
         out.headY = cy / h;
         out.tailHeading = degrees(std::atan2(-axisY, axisX));
@@ -1205,6 +1379,25 @@ StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
         out.tailWidthEnd = std::max(width[kStations - 1], 1.0f) / h;
         out.headRadius = 0.5f * out.tailWidthStart;
         return out;
+    }
+
+    // A "main shape" that is really a clump of the same crisp pieces that
+    // lie loose around it (coins, confetti) is counted as that many more
+    // pieces instead.
+    if (body && longs.empty() && static_cast<int>(pieces.sparks.size()) >= 6 && out.sparks.softness < 0.5f) {
+        std::vector<int> areas;
+        for (const Patch* p : pieces.sparks) {
+            areas.push_back(p->area);
+        }
+        std::sort(areas.begin(), areas.end());
+        const float typical = static_cast<float>(std::max(2, areas[areas.size() / 2]));
+        const float across = 2.0f * std::sqrt(typical / kPi);
+        const float many = static_cast<float>(body->area) / typical;
+        if (many < 40.0f && across >= 0.15f * body->minor) {
+            out.sparks.count += static_cast<int>(std::lround(many));
+            out.sparks.nearest = std::min(out.sparks.nearest, 0.02f);
+            body = nullptr;
+        }
     }
 
     // ---- a crisp or long main shape
@@ -1236,7 +1429,7 @@ StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
                 }
             }
         }
-        float best = -2.0f, bestTurn = 0.0f;
+        float best = -2.0f, bestTurn = 0.0f, bestOverlap = 0.0f;
         SpriteShape bestShape = SpriteShape::Disc;
         const bool crisp = !longs.size();
         for (int i = 0; i < kSpriteShapeCount; ++i) {
@@ -1250,34 +1443,39 @@ StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
                                    shape == SpriteShape::Rays || shape == SpriteShape::Twinkle ||
                                    shape == SpriteShape::Sparkle || shape == SpriteShape::Streak ||
                                    shape == SpriteShape::Flame;
-            float turn = 0.0f, score = 0.0f;
+            float turn = 0.0f, score = 0.0f, overlap = 0.0f;
             if (crisp) {
                 // A crisp shape is judged by its outline, among crisp shapes.
                 if (softShape) {
                     continue;
                 }
                 for (const float grow : {0.92f, 1.0f, 1.1f}) {
-                    float t = 0.0f;
+                    float t = 0.0f, o = 0.0f;
                     const float sc = matchOutline(only, cx, cy, grow * bodyReach / std::max(0.3f, measureShape(shape).extent),
-                                                  shape, &t);
+                                                  shape, &t, &o);
                     if (sc > score) {
                         score = sc;
                         turn = t;
+                        overlap = o;
                     }
                 }
                 // The plainest shapes win a tie.
                 score += shape == SpriteShape::Disc ? 0.02f : (shape == SpriteShape::Puff ? 0.01f : 0.0f);
             } else {
                 score = matchShape(only, cx, cy, bodyReach / std::max(0.3f, measureShape(shape).extent), shape, &turn);
+                overlap = score;
             }
             if (score > best) {
                 best = score;
                 bestTurn = turn;
                 bestShape = shape;
+                bestOverlap = overlap;
             }
         }
         out.bodyShape = shapeName(bestShape);
-        out.bodyMatch = clamp01(best);
+        // How alike is said by outline alone; light and dark only chose
+        // between shapes with the same outline.
+        out.bodyMatch = clamp01(bestOverlap);
         out.bodyTurn = bestTurn;
     }
 
@@ -1348,51 +1546,18 @@ StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
 
     // ---- the round, soft part
     if (!out.hasBody) {
-        fitGlow(radial, 0, out, h);
+        fitGlow(radial, 0, out, h, out.additive);
     } else {
         // A halo round a crisp body: only what lies beyond the body counts.
         const int firstBin = std::min(kRadialSteps - 1, static_cast<int>(1.15f * out.bodyRadius * h / radial.step));
         StillAnalysis halo;
-        fitGlow(radial, firstBin, halo, h);
+        fitGlow(radial, firstBin, halo, h, out.additive);
         if (halo.hasGlow && halo.glowOuterLevel > 0.08f && halo.glowOuter > 1.25f * out.bodyRadius) {
             out.hasGlow = true;
             out.glowOuter = halo.glowOuter;
             out.glowOuterLevel = halo.glowOuterLevel;
             out.glowOuterColour = halo.glowOuterColour;
         }
-    }
-
-    // A white-hot middle inside a coloured glow.
-    {
-        const Swatch& centre = radial.colour[0];
-        const Swatch outer = colourBetween(radial, 0.4f * extent, 0.9f * extent);
-        const float satCentre = saturation(centre.r, centre.g, centre.b);
-        const float satOuter = saturation(outer.r, outer.g, outer.b);
-        if (radial.middle[0] > 0.75f && satCentre < 0.3f && satOuter > satCentre + 0.2f) {
-            out.hasCore = true;
-            out.coreColour = centre;
-            float edge = radial.step;
-            for (int k = 0; k < kRadialSteps; ++k) {
-                const Swatch& c = radial.colour[static_cast<std::size_t>(k)];
-                if (radial.middle[static_cast<std::size_t>(k)] < 0.6f ||
-                    saturation(c.r, c.g, c.b) > satCentre + 0.5f * (satOuter - satCentre)) {
-                    break;
-                }
-                edge = (static_cast<float>(k) + 1.0f) * radial.step;
-            }
-            out.coreRadius = edge / h;
-        }
-    }
-    // A white-hot middle has to come out white: the inner glow alone must
-    // reach full brightness across it, whatever colour lies behind.
-    if (out.hasCore && out.hasGlow && !out.hasBody) {
-        if (!(out.glowInnerLevel > 0.0f) || out.glowInner < 1.2f * out.coreRadius) {
-            out.glowInner = std::max(out.glowInner, 1.9f * out.coreRadius);
-            out.glowInnerLevel = std::max(out.glowInnerLevel, 1.0f);
-        }
-        const float need = 1.0f / std::max(0.2f, softProfile(0.85f * out.coreRadius / out.glowInner));
-        out.glowInnerLevel = std::clamp(std::max(out.glowInnerLevel, need), 0.0f, 4.0f);
-        out.glowInnerColour = out.coreColour;
     }
 
     // ---- smoke: grey and soft, where the picture can show such a thing
@@ -1456,7 +1621,12 @@ std::vector<Cutout> makeCutouts(const Reference& reference, const ReferenceOptio
         }
     }
 
-    const auto lift = [&](const char* part, float half, const std::vector<float>& alpha) {
+    // Lifts a square round the centre out as a picture. With `light`
+    // given (three planes of extra light, one per channel), the picture's
+    // colour and see-through channel are made from it; otherwise the
+    // reference's own colour is used with the alpha given.
+    const auto lift = [&](const char* part, float half, const std::vector<float>& alpha,
+                          const std::array<std::vector<float>, 3>* light = nullptr) {
         Cutout cut;
         cut.part = part;
         cut.centreX = s.centreX;
@@ -1474,12 +1644,29 @@ std::vector<Cutout> makeCutouts(const Reference& reference, const ReferenceOptio
                 // Fade to nothing at the rim, so the square never shows.
                 const float dx = (px - cx) / half, dy = (py - cy) / half;
                 const float rim = clamp01((1.0f - std::sqrt(dx * dx + dy * dy)) / 0.08f);
-                const float a = clamp01(readAt(alpha, m.width, m.height, px, py)) * rim;
+                float r = 0, g = 0, b = 0, a = 0;
+                if (light) {
+                    r = clamp01(readAt((*light)[0], m.width, m.height, px, py));
+                    g = clamp01(readAt((*light)[1], m.width, m.height, px, py));
+                    b = clamp01(readAt((*light)[2], m.width, m.height, px, py));
+                    a = std::max({r, g, b});
+                    if (a > 1e-4f) {
+                        r /= a;
+                        g /= a;
+                        b /= a;
+                    }
+                } else {
+                    r = clamp01(readAt(m.r, m.width, m.height, px, py));
+                    g = clamp01(readAt(m.g, m.width, m.height, px, py));
+                    b = clamp01(readAt(m.b, m.width, m.height, px, py));
+                    a = clamp01(readAt(alpha, m.width, m.height, px, py));
+                }
+                a *= rim;
                 std::uint8_t* d = &cut.image.rgba[(static_cast<std::size_t>(y) * static_cast<std::size_t>(side) +
                                                    static_cast<std::size_t>(x)) * 4u];
-                d[0] = static_cast<std::uint8_t>(std::lround(clamp01(readAt(m.r, m.width, m.height, px, py)) * 255.0f));
-                d[1] = static_cast<std::uint8_t>(std::lround(clamp01(readAt(m.g, m.width, m.height, px, py)) * 255.0f));
-                d[2] = static_cast<std::uint8_t>(std::lround(clamp01(readAt(m.b, m.width, m.height, px, py)) * 255.0f));
+                d[0] = static_cast<std::uint8_t>(std::lround(r * 255.0f));
+                d[1] = static_cast<std::uint8_t>(std::lround(g * 255.0f));
+                d[2] = static_cast<std::uint8_t>(std::lround(b * 255.0f));
                 d[3] = static_cast<std::uint8_t>(std::lround(a * 255.0f));
                 most = std::max(most, a);
             }
@@ -1507,9 +1694,24 @@ std::vector<Cutout> makeCutouts(const Reference& reference, const ReferenceOptio
         std::vector<float> round(static_cast<std::size_t>(steps), 0.0f);
         for (std::size_t k = 0; k < rings.size(); ++k) {
             if (!rings[k].empty()) {
-                const auto mid = rings[k].begin() + static_cast<std::ptrdiff_t>(rings[k].size() / 2);
+                const auto mid = rings[k].begin() + static_cast<std::ptrdiff_t>(rings[k].size() / 4);
                 std::nth_element(rings[k].begin(), mid, rings[k].end());
                 round[k] = *mid;
+            }
+        }
+        // When the glow was fitted, what the glow layers will draw is what
+        // is taken away, so glow and cut-out together give the reference back.
+        if (s.hasGlow) {
+            for (std::size_t k = 0; k < round.size(); ++k) {
+                const float away = (static_cast<float>(k) + 0.5f) / h;
+                float level = s.glowOuterLevel * softProfile(away / std::max(1e-4f, s.glowOuter));
+                if (s.glowInnerLevel > 0.0f && s.glowInner > 0.0f) {
+                    level += s.glowInnerLevel * softProfile(away / s.glowInner);
+                }
+                if (s.hasCore && s.coreRadius > 0.0f) {
+                    level += s.coreLevel * softProfile(away / s.coreRadius);
+                }
+                round[k] = std::min(1.0f, level);
             }
         }
         std::vector<float> alpha(plain.size(), 0.0f);
@@ -1525,7 +1727,37 @@ std::vector<Cutout> makeCutouts(const Reference& reference, const ReferenceOptio
                 }
             }
         }
-        lift("rays", std::max(8.0f, limit), alpha);
+        if (s.additive && s.hasGlow) {
+            // Light adds up channel by channel. A white ray across a bright
+            // purple glow adds little to the brightest channel and a lot to
+            // the others, so what the glow leaves undrawn is worked out for
+            // each channel on its own.
+            std::array<std::vector<float>, 3> light;
+            for (auto& plane : light) {
+                plane.assign(plain.size(), 0.0f);
+            }
+            const float hue[3] = {s.glowOuterColour.r, s.glowOuterColour.g, s.glowOuterColour.b};
+            for (int y = 0; y < m.height; ++y) {
+                for (int x = 0; x < m.width; ++x) {
+                    const float dx = static_cast<float>(x) - cx, dy = static_cast<float>(y) - cy;
+                    const float away = std::sqrt(dx * dx + dy * dy) / h;
+                    float coloured = s.glowOuterLevel * softProfile(away / std::max(1e-4f, s.glowOuter));
+                    if (s.glowInnerLevel > 0.0f && s.glowInner > 0.0f) {
+                        coloured += s.glowInnerLevel * softProfile(away / s.glowInner);
+                    }
+                    const float white = s.hasCore && s.coreRadius > 0.0f ? s.coreLevel * softProfile(away / s.coreRadius) : 0.0f;
+                    const std::size_t i = m.at(x, y);
+                    const float seen[3] = {plain[i] * m.r[i], plain[i] * m.g[i], plain[i] * m.b[i]};
+                    for (std::size_t c = 0; c < 3; ++c) {
+                        const float drawn = std::min(1.0f, hue[c] * coloured + white);
+                        light[c][i] = std::max(0.0f, seen[c] - drawn);
+                    }
+                }
+            }
+            lift("rays", std::max(8.0f, limit), alpha, &light);
+        } else {
+            lift("rays", std::max(8.0f, limit), alpha);
+        }
     }
     if (wantBody) {
         // The main shape, as crisp as it was drawn, without its halo.

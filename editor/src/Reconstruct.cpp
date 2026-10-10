@@ -258,7 +258,7 @@ Plan makePlan(const ReferenceAnalysis& a, const ReconstructOptions& o) {
                 r = f < peakFrame ? t.radius[static_cast<std::size_t>(std::min(last, f + 1))] : 0.0f;
             }
             size.push_back(CurveKey{at, std::clamp<double>(r / baseRadius, 0.05, 4.0)});
-            bright.push_back(CurveKey{at, std::clamp<double>(t.brightness[i] / baseBright, 0.0, 1.5)});
+            bright.push_back(CurveKey{at, std::clamp<double>(t.brightness[i] / baseBright, 0.0, 4.0)});
             const Swatch& c = t.colour[i];
             const Color now = linear(c), base = linear(baseColour);
             if (t.energy[i] > 0.1f) {
@@ -291,6 +291,19 @@ Plan makePlan(const ReferenceAnalysis& a, const ReconstructOptions& o) {
             if (size.size() > 1) {
                 size.back().v = size.front().v;
                 bright.back().v = bright.front().v;
+            }
+        }
+        // Opacity runs from 0 to 1, so the curve is measured against its
+        // own brightest moment rather than the frame that was described.
+        {
+            double top = 0.0;
+            for (const CurveKey& k : bright) {
+                top = std::max(top, k.v);
+            }
+            if (top > 1.0) {
+                for (CurveKey& k : bright) {
+                    k.v /= top;
+                }
             }
         }
         p.grow = simplifyCurve(size, keys, 0.04);
@@ -570,7 +583,7 @@ private:
         const bool additive = s_.additive;
         const bool two = s_.glowInnerLevel > 0.0f && o_.variation != Variation::Performance &&
                          o_.mode != MatchMode::Motion;
-        {
+        if (s_.glowOuterLevel >= 0.03f) {
             Make m(id_, "Outer glow");
             oneShot(m, false);
             const double level = s_.glowOuterLevel;
@@ -587,6 +600,17 @@ private:
             }
             push(m, "glow", "One large soft sprite", "glow", Basis::Observed, 1, 1, timingNote());
         }
+        if (s_.hasCore && s_.coreLevel > 0.0f) {
+            // White light at the centre that the glow's colour cannot make.
+            Make m(id_, "White core");
+            oneShot(m, false);
+            const double level = s_.coreLevel;
+            const double one = 2.0 * s_.coreRadius * kU;
+            m.size(one, one).colorLinear(linear(s_.coreColour, std::clamp(level, 0.05, 1.0))).sizeOver(plan_.grow)
+                .fade(plan_.fade).look("soft");
+            blend(m, additive, level);
+            push(m, "core", "One small white soft sprite", "core", Basis::Observed, 3, 1, timingNote());
+        }
         if (two) {
             Make m(id_, "Inner glow");
             oneShot(m, false);
@@ -599,7 +623,7 @@ private:
                 .fade(plan_.fade)
                 .look("soft");
             blend(m, additive, level);
-            push(m, "core", "One small bright soft sprite", "glow", Basis::Observed, 3, 1, timingNote());
+            push(m, "glow", "One small bright soft sprite", "glow", Basis::Observed, 3, 1, timingNote());
         }
     }
 
@@ -794,6 +818,10 @@ private:
             shape = all.softness > 0.6f ? SpriteShape::Streak : SpriteShape::Sliver;
         } else if (!all.shape.empty()) {
             shape = shapeFrom(all.shape, SpriteShape::Disc);
+            // Crisp-edged pieces are discs, however round and plain they look.
+            if (shape == SpriteShape::Soft && all.softness < 0.4f) {
+                shape = SpriteShape::Disc;
+            }
         } else if (all.softness > 0.5f || (additive && all.sizeHigh < 0.03f)) {
             shape = SpriteShape::Soft;
         } else if (std::string(role) == "bits") {
@@ -892,6 +920,12 @@ private:
             for (std::size_t i = 0; i < colourLayers; ++i) {
                 PieceGroup one = all;
                 one.colour = all.colours[i];
+                // Each colour's pieces at their own size: small white glints
+                // among large gold coins stay small.
+                if (i < all.colourSizes.size() && all.colourSizes[i] > 0.0f && !streaks) {
+                    one.sizeLow = 0.75f * all.colourSizes[i];
+                    one.sizeHigh = 1.25f * all.colourSizes[i];
+                }
                 const std::string layerName = std::string(name) + ", " + colourName(all.colours[i]);
                 const int n = std::max(2, static_cast<int>(std::lround(count * all.colours[i].share / std::max(0.01f, shares))));
                 buildColour(layerName.c_str(), n, one);
@@ -928,14 +962,22 @@ private:
         // changing colour as they go.
         {
             const double life = 0.6;
-            const double speed = length / life;
-            const double width = std::max(0.02f, s_.tailWidthStart) * kU * 1.3;
-            const double rate = std::clamp(4.0 * speed / width, 20.0, 150.0) * scale_;
+            // The last part of each particle's flight is too faint to see,
+            // so they are sent a little further than the tail is long.
+            const double speed = 1.25 * length / life;
+            // A soft blob looks about three quarters as wide as its particle.
+            const double width = std::max(0.02f, s_.tailWidthStart) * kU / 0.75;
+            // Close enough together to read as one streak, not a row of dots.
+            const double rate = std::clamp(8.0 * speed / width, 30.0, 240.0) * scale_;
+            const double overlap = std::max(1.0, 0.6 * width * std::max(8.0, rate) / speed);
+            const double level = std::clamp(2.2 / overlap, 0.08, 1.0);
             Make m(id_, "Tail");
             const double taper = s_.tailWidthStart > 1e-4f ? std::clamp<double>(s_.tailWidthEnd / s_.tailWidthStart, 0.05, 1.5) : 0.3;
-            m.rate(std::max(8.0, rate)).life(life * 0.85, life).speed(speed * 0.9, speed * 1.1)
-                .aim(s_.tailHeading, 3.0).size(width * 0.85, width * 1.15).drag(0.0).gravity(0, 0)
-                .colorLinear(linear(additive ? bright(headColour) : headColour, 0.8))
+            // Every particle alike and evenly spaced: any randomness here
+            // shows as lumps travelling down the tail.
+            m.rate(std::max(8.0, rate)).life(life, life).speed(speed, speed)
+                .aim(s_.tailHeading, 0.0).size(width, width).drag(0.0).gravity(0, 0)
+                .colorLinear(linear(additive ? bright(headColour) : headColour, level))
                 .sizeOver({{0, 1}, {1, taper}}).fade({{0, 1}, {0.5, 0.75}, {1, 0}}).look("soft");
             if (colours.size() >= 2) {
                 std::vector<Tint> tint;

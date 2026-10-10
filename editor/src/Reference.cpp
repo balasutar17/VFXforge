@@ -739,7 +739,8 @@ struct ShapeTile {
     ShapeMeasure measure;
 };
 
-// Takes the median round each circle away from a tile, leaving what is not round.
+// Takes away from a tile the level reached nearly all the way round each
+// circle (its lower quarter), leaving what is not round.
 void removeRound(std::array<float, kTile * kTile>& tile) {
     constexpr int kRings = kTile;  // half-point steps out to the corner
     std::array<std::vector<float>, kRings> rings;
@@ -755,7 +756,7 @@ void removeRound(std::array<float, kTile * kTile>& tile) {
     std::array<float, kRings> middle{};
     for (std::size_t r = 0; r < kRings; ++r) {
         if (!rings[r].empty()) {
-            const auto mid = rings[r].begin() + static_cast<std::ptrdiff_t>(rings[r].size() / 2);
+            const auto mid = rings[r].begin() + static_cast<std::ptrdiff_t>(rings[r].size() / 4);
             std::nth_element(rings[r].begin(), mid, rings[r].end());
             middle[r] = *mid;
         }
@@ -940,7 +941,8 @@ float matchShape(const Matte& matte, float cx, float cy, float halfSize, SpriteS
     return best < -1.0f ? -1.0f : best;
 }
 
-float matchOutline(const Matte& matte, float cx, float cy, float halfSize, SpriteShape shape, float* bestTurn) {
+float matchOutline(const Matte& matte, float cx, float cy, float halfSize, SpriteShape shape, float* bestTurn,
+                   float* overlapOut) {
     const ShapeTile& tile = tileOf(shape);
     if (!(halfSize > 0.5f)) {
         return 0.0f;
@@ -976,6 +978,9 @@ float matchOutline(const Matte& matte, float cx, float cy, float halfSize, Sprit
             best = overlap;
             bestAngle = angle;
         }
+    }
+    if (overlapOut) {
+        *overlapOut = best;
     }
     // Light and dark in the same places, at the turn that fitted best.
     {

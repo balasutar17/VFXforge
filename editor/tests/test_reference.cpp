@@ -1331,6 +1331,58 @@ TEST_CASE("a rebuilt effect goes into the session as one undo step", "[reference
     CHECK(session.particleCount() > 0);
 }
 
+TEST_CASE("every kind of rebuilt effect is accepted by the session", "[reference][session]") {
+    // The session checks every value against the limits its property
+    // allows, which reading a file back does not.
+    const auto checkAll = [](const ReferenceAnalysis& analysis) {
+        for (MatchMode mode : {MatchMode::Balanced, MatchMode::ShapeColour, MatchMode::Motion, MatchMode::Layered}) {
+            for (Variation variation : {Variation::Closest, Variation::Performance, Variation::Enhanced}) {
+                for (Pace pace : {Pace::Auto, Pace::Burst, Pace::Steady}) {
+                    Session session;
+                    Document& doc = session.document();
+                    const IdSource newId = [&doc]() { return doc.newId(); };
+                    ReconstructOptions options;
+                    options.mode = mode;
+                    options.variation = variation;
+                    options.pace = pace;
+                    const Reconstruction built = reconstruct(analysis, options, newId);
+                    const Status applied = session.applyEffect(built.effect, "Rebuild");
+                    INFO(matchModeName(mode) << " / " << variationName(variation) << ": "
+                                             << (applied.ok() ? std::string() : applied.error().message + " " + applied.error().detail));
+                    REQUIRE(applied.ok());
+                    // Every refinement of it is accepted too.
+                    for (const RefineInfo& info : refinements()) {
+                        auto changed = refine(session.effect(), info.id, &analysis, newId);
+                        if (changed) {
+                            const Status again = session.applyEffect(changed.value(), info.label);
+                            INFO(info.key << ": " << (again.ok() ? std::string() : again.error().message + " " + again.error().detail));
+                            REQUIRE(again.ok());
+                        }
+                    }
+                }
+            }
+        }
+    };
+    checkAll(busyAnalysis());
+    checkAll(analyzeReference(burstClip(), {}).value());
+
+    // A clip that flares far brighter at its start than at the moment
+    // described must still give opacity curves that stay within 0 to 1.
+    Reference flare;
+    flare.framesPerSecond = 30;
+    for (int f = 0; f < 30; ++f) {
+        Canvas canvas(128, 128);
+        const float t = static_cast<float>(f) / 30.0f;
+        if (f >= 2 && f < 26) {
+            canvas.light(1.0f, 0.6f, 0.2f, glow(0.5f, 0.5f, 0.1f + 0.25f * t, f < 5 ? 1.0f : 0.25f * (1.0f - t)));
+        }
+        flare.frames.push_back(canvas.image());
+    }
+    const auto flared = analyzeReference(flare, {});
+    REQUIRE(flared.ok());
+    checkAll(flared.value());
+}
+
 TEST_CASE("the original reference is kept with the project, untouched", "[reference][session]") {
     const auto folder = std::filesystem::temp_directory_path() / "vfxforge_reference_test";
     std::filesystem::remove_all(folder);

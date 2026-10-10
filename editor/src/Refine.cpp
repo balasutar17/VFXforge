@@ -282,6 +282,8 @@ Result<Effect> refine(const Effect& effect, Refine what, const ReferenceAnalysis
                 const Swatch* colour = nullptr;
                 if (role == "glow" && s.hasGlow) {
                     colour = &s.glowOuterColour;
+                } else if (role == "core" && s.hasCore) {
+                    colour = &s.coreColour;
                 } else if (role == "core" && s.glowInnerLevel > 0) {
                     colour = &s.glowInnerColour;
                 } else if (role == "body" && s.hasBody) {

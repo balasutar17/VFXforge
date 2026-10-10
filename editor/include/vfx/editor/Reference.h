@@ -127,6 +127,7 @@ struct PieceGroup {
     float nearest = 0, farthest = 0;  // distance from the centre
     Swatch colour;
     std::vector<Swatch> colours;  // when they come in clearly different colours: each, with its share
+    std::vector<float> colourSizes;  // and how large the pieces of each colour typically are
     float softness = 0;       // 0 crisp, 1 soft
     bool radial = true;       // pointing away from the centre (streaks)
     float heading = 90;       // where they sit or point, degrees, 0 right, 90 up
@@ -160,9 +161,14 @@ struct StillAnalysis {
     std::vector<Swatch> palette;  // most-used first
 
     // The round part, read from the centre outward.
+    // White at the centre that the glow's colour cannot explain: a white
+    // light of its own. (A coloured glow strong enough to burn white in the
+    // middle needs none; whiteHot is how far out that reaches.)
     bool hasCore = false;
-    float coreRadius = 0;
+    float coreRadius = 0;   // the radius its soft sprite fades out at
+    float coreLevel = 0;
     Swatch coreColour;
+    float whiteHot = 0;
     bool hasGlow = false;
     float glowInner = 0, glowOuter = 0;        // the two radii a glow is fitted with
     float glowInnerLevel = 0, glowOuterLevel = 0;  // their brightness, 0 to 1 and above
@@ -343,7 +349,8 @@ float matchShape(const Matte& matte, float cx, float cy, float halfSize, SpriteS
 // overlap of the two silhouettes (0 to 1) at the best turn, plus a little
 // for lighter and darker areas falling in the same places (a highlight, a
 // shaded side). For crisp, flat-coloured shapes.
+// `overlap` receives the outline overlap alone.
 float matchOutline(const Matte& matte, float cx, float cy, float halfSize, SpriteShape shape,
-                   float* bestTurn = nullptr);
+                   float* bestTurn = nullptr, float* overlap = nullptr);
 
 }  // namespace vfx::editor

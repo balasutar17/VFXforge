@@ -310,7 +310,7 @@ int main(int argc, char* argv[]) {
                 QFile::setPermissions(temp, QFile::ReadOwner | QFile::WriteOwner);
                 ref.loadPath(temp);
                 ref.waitUntilIdle(30000);
-                const bool read = ref.moving() && ref.frameCount() >= 8 && ref.name() == QString::fromLatin1(name);
+                const bool read = ref.moving() && ref.frameCount() >= 8 && ref.name().endsWith(QString::fromLatin1(name));
                 out << "video " << name << ": " << (read ? "read, " : "NOT READ, ") << ref.report() << "\n";
                 QFile::remove(temp);
             }
