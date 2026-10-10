@@ -322,11 +322,27 @@ Matte matteFromGrid(const Grid& grid, const BackdropRead& backdrop) {
         const float pixel[3] = {grid.r[i], grid.g[i], grid.b[i]};
         float amount = 0.0f;
         for (int c = 0; c < 3; ++c) {
+            // A background has only so much light to lose, or room to gain.
+            // Where it has almost none (pure black under a nearly black
+            // background, pure white on an off-white one) the difference
+            // cannot be seen, and must not count as a shape: dividing a
+            // tiny difference by a tiny range would call it fully covered.
+            // So a difference has to clear a small tolerance, which is
+            // nothing where the background has the whole range to give,
+            // and the range it is measured against is never taken as tiny.
             float need = 0.0f;
             if (pixel[c] > back[c]) {
-                need = (pixel[c] - back[c]) / std::max(1e-3f, 1.0f - back[c]);
+                const float tolerance = 0.06f * back[c];
+                const float gain = pixel[c] - back[c] - tolerance;
+                if (gain > 0.0f) {
+                    need = gain / std::max(0.2f, 1.0f - back[c] - tolerance);
+                }
             } else if (pixel[c] < back[c]) {
-                need = (back[c] - pixel[c]) / std::max(1e-3f, back[c]);
+                const float tolerance = 0.06f * (1.0f - back[c]);
+                const float loss = back[c] - pixel[c] - tolerance;
+                if (loss > 0.0f) {
+                    need = loss / std::max(0.2f, back[c] - tolerance);
+                }
             }
             amount = std::max(amount, need);
         }

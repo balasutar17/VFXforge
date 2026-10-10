@@ -313,6 +313,67 @@ TEST_CASE("the background is worked out, or taken as told", "[reference][matte]"
 
 // ------------------------------------------------------------ still analysis
 
+TEST_CASE("a background that is nearly black, or nearly white, does not turn into a shape", "[reference][matte]") {
+    // A wide picture, as saved from the web: the background is the faintest
+    // blue rather than true black, except for a band down the left side that
+    // is true black. Nobody can see the difference, and it is not an effect.
+    {
+        Canvas canvas(280, 178, 0.0f, 0.0f, 2.0f / 255.0f);
+        canvas.paint(0.0f, 0.0f, 0.0f, [](float x, float) { return x < 0.45f ? 1.0f : 0.0f; });
+        canvas.light(0.2f, 0.8f, 1.0f, glow(0.9f, 0.6f, 0.25f));
+        const auto analysed = analyzeReference(still(canvas.image()), {});
+        REQUIRE(analysed.ok());
+        const StillAnalysis& s = analysed.value().still;
+        CHECK(s.backdrop == Backdrop::Dark);
+        // The effect is the glow, where the glow is.
+        CHECK(s.centreX == Approx(0.9f * 178.0f / 280.0f).margin(0.03f));
+        CHECK(s.centreY == Approx(0.6f).margin(0.03f));
+        CHECK(s.hasGlow);
+        CHECK_FALSE(s.hasBody);
+        CHECK(s.sparks.count == 0);
+        CHECK(s.streaks.count == 0);
+        REQUIRE_FALSE(s.palette.empty());
+        for (const Swatch& colour : s.palette) {
+            CHECK(std::max({colour.r, colour.g, colour.b}) > 0.5f);  // no "black" in a picture of light
+        }
+        // And nothing is counted in the black band.
+        const auto matte = makeMatte(canvas.image(), {});
+        REQUIRE(matte.ok());
+        double band = 0;
+        for (int y = 0; y < matte.value().height; ++y) {
+            for (int x = 0; x < matte.value().width / 5; ++x) {
+                band += matte.value().cover[matte.value().at(x, y)];
+            }
+        }
+        CHECK(band == Approx(0.0).margin(1e-6));
+    }
+    // The same the other way up: off-white paper with a true-white band.
+    {
+        Canvas canvas(280, 178, 250.0f / 255.0f, 250.0f / 255.0f, 248.0f / 255.0f);
+        canvas.paint(1.0f, 1.0f, 1.0f, [](float x, float) { return x < 0.45f ? 1.0f : 0.0f; });
+        canvas.paint(0.8f, 0.1f, 0.1f, disc(0.9f, 0.6f, 0.2f));
+        const auto analysed = analyzeReference(still(canvas.image()), {});
+        REQUIRE(analysed.ok());
+        const StillAnalysis& s = analysed.value().still;
+        CHECK(s.backdrop == Backdrop::Light);
+        CHECK(s.centreX == Approx(0.9f * 178.0f / 280.0f).margin(0.03f));
+        CHECK(s.centreY == Approx(0.6f).margin(0.03f));
+        REQUIRE_FALSE(s.palette.empty());
+        CHECK(s.palette[0].r > 0.6f);
+        CHECK(s.palette[0].g < 0.3f);
+    }
+    // A real shape darker than a mid-grey background still counts in full.
+    {
+        Canvas canvas(200, 200, 0.5f, 0.5f, 0.5f);
+        canvas.paint(0.0f, 0.0f, 0.0f, disc(0.5f, 0.5f, 0.2f));
+        const auto matte = makeMatte(canvas.image(), {});
+        REQUIRE(matte.ok());
+        const Matte& m = matte.value();
+        CHECK(m.cover[m.at(m.width / 2, m.height / 2)] > 0.9f);
+        CHECK(m.cover[m.at(2, 2)] == Approx(0.0f).margin(1e-6f));
+    }
+}
+
 TEST_CASE("a glow is found where it is, as large as it is, in its colour", "[reference][still]") {
     Canvas canvas(240, 180);
     canvas.light(0.3f, 0.5f, 1.0f, glow(0.8f, 0.4f, 0.3f, 0.8f));  // x is in heights: 0.8 of 1.333

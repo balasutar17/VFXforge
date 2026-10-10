@@ -1,4 +1,4 @@
-# Reference to VFX (0.8)
+# Reference to VFX (0.8.1)
 
 Bring a picture, a GIF or a short video of an effect. VFX Forge studies it,
 builds an **editable effect** from what it finds, and shows the two side by
@@ -35,7 +35,10 @@ This page says what works, how, and where it stops.
 - **Background:** worked out (see-through, dark or light, from the picture's
   edge), or told, or a colour picked by clicking the picture. The effect is
   separated from it by "colour to alpha": the least amount of some colour
-  that, over that background, gives the pixel seen.
+  that, over that background, gives the pixel seen. A difference too small
+  to see (true black beside a nearly black background, true white on
+  off-white paper) is not counted. (Until 0.8.1 it was, and a picture
+  saved from the web could be read as one large black shape.)
 - **Crop** by dragging a box on the picture. **Trim** a clip's start and end,
   and set its **playback speed**. **Cut-off:** how faint still counts.
   **Detail:** the analysis grid, 128 / 192 / 256 points on the longest side.
@@ -237,7 +240,7 @@ vfxref build frames/ out.vfx --fps 30 --strip moments.png
 
 ## Tests
 
-`editor/tests/test_reference.cpp` (36 cases) paints its own references, so
+`editor/tests/test_reference.cpp` (37 cases) paints its own references, so
 what should be found is known: import checks, each background kind, glow,
 ring, sparks, rays, shape matching, head and tail, cropping, start/peak/end,
 trim and speed, loop, turning, travel, curve making, the clocks lining up,
