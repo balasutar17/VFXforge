@@ -1,5 +1,6 @@
 add_executable(vfx_editor_tests
     test_archive.cpp
+    test_audio.cpp
     test_frames.cpp
     test_image.cpp
     test_presets.cpp

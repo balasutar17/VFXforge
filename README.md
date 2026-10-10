@@ -24,6 +24,8 @@ What exists so far:
 - **effects for casual and match-3 games**: glossy candy, starbursts, comets
   with ribbon trails, lightning; see [docs/match3-and-light.md](docs/match3-and-light.md)
   and [docs/trails-and-flashes.md](docs/trails-and-flashes.md)
+- **sound**: layers play sounds in exact step with their particles, from a
+  built-in library or your own files; see [docs/sound.md](docs/sound.md)
 - **export to Unity**: a prefab built from Unity's Particle System, a
   `.unitypackage`, or animation frames and sprite sheets; see
   [docs/export.md](docs/export.md)

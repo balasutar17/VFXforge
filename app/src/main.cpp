@@ -204,6 +204,15 @@ int main(int argc, char* argv[]) {
             const bool frames = controller.exportFrames(QUrl::fromLocalFile(scratch), 128, true, true, view);
             const bool sheet = QFile::exists(scratch + QLatin1Char('/') + controller.effectName() +
                                              QStringLiteral(" sheet.png"));
+            const bool mixdown = QFile::exists(scratch + QLatin1Char('/') + controller.effectName() +
+                                               QStringLiteral(" sound.wav"));
+            const bool unitySound = QDir(scratch + QStringLiteral("/Unity Project/Assets/VFXForge/Sounds"))
+                                        .entryList(QDir::Files).size() > 0;
+            out << "export the sound (mixdown and to Unity): " << (mixdown && unitySound ? "yes" : "NO") << "\n";
+            if (!mixdown || !unitySound) {
+                out << "FAIL: the sound was not exported\n";
+                selfTest.result = 1;
+            }
             out << "export to a Unity project: " << (unity && prefabFile ? "yes" : "NO") << "\n";
             out << "export a .unitypackage: " << (package ? "yes" : "NO") << "\n";
             out << "export frames and a sheet: " << (frames && sheet ? "yes" : "NO") << "\n";
@@ -264,6 +273,12 @@ int main(int argc, char* argv[]) {
             controller.selectLayer(0);
             if (!controller.useSamplePicture()) {
                 out << "FAIL: the sample sprite sheet could not be used: " << controller.message() << "\n";
+                selfTest.result = 1;
+            }
+            out << "sound output: " << (controller.soundAvailable() ? "yes" : "none on this machine") << "\n";
+            out << "library sounds: " << controller.librarySounds().size() << "\n";
+            if (!controller.useLibrarySound(QStringLiteral("fire-loop"))) {
+                out << "FAIL: a library sound could not be added: " << controller.message() << "\n";
                 selfTest.result = 1;
             }
             QTimer::singleShot(1500, &application, picture);

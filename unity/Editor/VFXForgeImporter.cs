@@ -19,7 +19,7 @@ using UnityEngine;
 
 namespace VFXForge.EditorTools
 {
-    [ScriptedImporter(2, "vfxforge")]
+    [ScriptedImporter(3, "vfxforge")]
     public class VFXForgeImporter : ScriptedImporter
     {
         public const string ShaderPath = "Assets/VFXForge/Shaders/VFXForgeParticle.shader";
@@ -115,6 +115,38 @@ namespace VFXForge.EditorTools
                     ctx.AddObjectToAsset("material " + i, material);
                 if (trailMaterial != null)
                     ctx.AddObjectToAsset("trail material " + i, trailMaterial);
+
+                // The layer's sound, played in step by VFXForgeSound.
+                var soundInfo = Obj(layer, "sound");
+                if (soundInfo != null)
+                {
+                    string clipPath = Str(soundInfo, "clip", "");
+                    ctx.DependsOnArtifact(clipPath);
+                    var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(clipPath);
+                    if (clip == null)
+                    {
+                        ctx.LogImportWarning("The sound " + clipPath + " is missing, so the layer \"" + child.name + "\" is silent. Export from VFX Forge again to restore it.");
+                    }
+                    else
+                    {
+                        var player = child.AddComponent<VFXForge.VFXForgeSound>();
+                        player.timer = topSystem;
+                        player.clip = clip;
+                        player.times = Floats(soundInfo, "times");
+                        player.skips = Floats(soundInfo, "skips");
+                        player.volume = (float)Num(soundInfo, "volume", 1);
+                        player.pitch = (float)Num(soundInfo, "pitch", 0);
+                        player.pan = (float)Num(soundInfo, "pan", 0);
+                        player.randomPitch = (float)Num(soundInfo, "randomPitch", 0);
+                        player.randomVolume = (float)Num(soundInfo, "randomVolume", 0);
+                        player.fadeIn = (float)Num(soundInfo, "fadeIn", 0);
+                        player.fadeOut = (float)Num(soundInfo, "fadeOut", 0);
+                        player.trimStart = (float)Num(soundInfo, "trimStart", 0);
+                        player.length = (float)Num(soundInfo, "length", 0);
+                        player.loop = Bool(soundInfo, "loop", false);
+                        player.loopEnd = (float)Num(soundInfo, "loopEnd", 0);
+                    }
+                }
                 child.SetActive(Bool(layer, "enabled", true));
             }
 
@@ -377,6 +409,15 @@ namespace VFXForge.EditorTools
             if (c == null || c.Count < 4)
                 return Color.white;
             return new Color((float)(double)c[0], (float)(double)c[1], (float)(double)c[2], (float)(double)c[3]);
+        }
+
+        static float[] Floats(Dictionary<string, object> from, string key)
+        {
+            var list = List(from, key);
+            var result = new float[list.Count];
+            for (int k = 0; k < list.Count; k++)
+                result[k] = list[k] is double ? (float)(double)list[k] : 0f;
+            return result;
         }
 
         static Vector3 Vec(Dictionary<string, object> from, string key, Vector3 fallback)

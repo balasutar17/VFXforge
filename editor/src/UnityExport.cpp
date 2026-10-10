@@ -11,7 +11,9 @@
 
 #include "vfx/FileIO.h"
 #include "vfx/Program.h"
+#include "vfx/editor/Audio.h"
 #include "vfx/editor/Image.h"
+#include "vfx/editor/SoundLibrary.h"
 #include "vfx/editor/Session.h"
 #include "vfx/editor/Shapes.h"
 #include "vfx/editor/UnityFiles.h"
@@ -365,8 +367,73 @@ J sheetJson(const EmitterProgram& e) {
     return sheet;
 }
 
+// When, in each pass, a layer's sound plays, for the runtime player.
+J soundJson(const Effect& effect, const Layer& layer, const std::vector<UnityPicture>& sounds) {
+    const Module* m = nullptr;
+    for (const Module& candidate : layer.modules) {
+        if (candidate.type == "sound") {
+            m = &candidate;
+        }
+    }
+    if (!m) {
+        return nullptr;
+    }
+    const auto* ref = std::get_if<AssetRef>(m->find("sound"));
+    const UnityPicture* clip = ref ? pictureFor(sounds, ref->id) : nullptr;
+    if (!clip) {
+        return nullptr;
+    }
+    const double duration = effect.duration > 0.01 ? effect.duration : 0.01;
+    const bool loopEffect = effect.loop == "loop";
+    J times = J::array(), skips = J::array();
+    SoundEvent sample;
+    bool any = false;
+    for (const SoundEvent& e : soundEvents(effect, 0)) {
+        if (e.layer != layer.id) {
+            continue;
+        }
+        double t = e.time, skip = 0.0;
+        if (loopEffect) {
+            t = std::fmod(t, duration);
+            if (t < 0.0) {
+                t += duration;  // early enough to belong to the pass before
+            }
+        } else if (t < 0.0) {
+            skip = -t;
+            t = 0.0;
+        }
+        times.push_back(round6(t));
+        skips.push_back(round6(skip));
+        sample = e;
+        any = true;
+    }
+    if (!any) {
+        return nullptr;
+    }
+    auto num = [&](const char* key, double fallback) {
+        const auto* v = std::get_if<double>(m->find(key));
+        return v && std::isfinite(*v) ? *v : fallback;
+    };
+    J s = J::object();
+    s["clip"] = clip->path;
+    s["times"] = std::move(times);
+    s["skips"] = std::move(skips);
+    s["volume"] = round6(num("volume", 1.0));
+    s["pitch"] = round6(num("pitch", 0.0));
+    s["pan"] = round6(num("pan", 0.0));
+    s["randomPitch"] = round6(num("randomPitch", 0.0));
+    s["randomVolume"] = round6(num("randomVolume", 0.0));
+    s["fadeIn"] = round6(num("fadeIn", 0.0));
+    s["fadeOut"] = round6(num("fadeOut", 0.0));
+    s["trimStart"] = round6(num("trimStart", 0.0));
+    s["length"] = round6(num("length", 0.0));
+    s["loop"] = sample.loop;
+    s["loopEnd"] = sample.loop ? round6(std::min(sample.stop, duration)) : 0.0;
+    return s;
+}
+
 J layerJson(const Effect& effect, const Layer& layer, int order,
-            const std::vector<UnityPicture>& pictures) {
+            const std::vector<UnityPicture>& pictures, const std::vector<UnityPicture>& sounds) {
     const std::shared_ptr<const EmitterProgram> program = compileLayer(effect, layer);
     const EmitterProgram& e = *program;
     const double total = effect.duration > 0.0 ? effect.duration : 0.01;
@@ -559,6 +626,9 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
     render["glow"] = round6(glow);
     render["order"] = order;
     out["render"] = std::move(render);
+    if (J sound = soundJson(effect, layer, sounds); !sound.is_null()) {
+        out["sound"] = std::move(sound);
+    }
     return out;
 }
 
@@ -602,7 +672,33 @@ std::vector<UnityPicture> unityPictures(const Effect& effect, const std::filesys
     return out;
 }
 
-std::string unityDescription(const Effect& effect, const std::vector<UnityPicture>& pictures) {
+std::vector<UnityPicture> unitySounds(const Effect& effect, const std::filesystem::path& folder) {
+    std::vector<UnityPicture> out;
+    for (const Asset& asset : effect.assets) {
+        if (asset.kind != "sound" || !isAssetReferenced(effect, asset.id)) {
+            continue;
+        }
+        std::string bytes;
+        auto read = folder.empty() ? Result<std::string>(makeError("no folder"))
+                                   : readFile(folder / pathFromUtf8(asset.path));
+        if (read.ok() && decodeSound(read.value()).ok()) {
+            bytes = std::move(read.value());
+        } else if (const std::string id = librarySoundId(asset.path); !id.empty()) {
+            if (auto made = makeLibrarySound(id)) {
+                bytes = encodeWav(made.value());
+            }
+        }
+        if (bytes.empty()) {
+            continue;
+        }
+        std::string file = asset.path.substr(asset.path.find_last_of('/') + 1);
+        out.push_back(UnityPicture{asset.id, "Assets/VFXForge/Sounds/" + file, std::move(bytes)});
+    }
+    return out;
+}
+
+std::string unityDescription(const Effect& effect, const std::vector<UnityPicture>& pictures,
+                             const std::vector<UnityPicture>& sounds) {
     J root = J::object();
     root["format"] = "vfxforge.unity";
     root["formatVersion"] = kUnityFormatVersion;
@@ -618,7 +714,7 @@ std::string unityDescription(const Effect& effect, const std::vector<UnityPictur
     J layers = J::array();
     int order = 0;
     for (const Layer& layer : effect.layers) {
-        layers.push_back(layerJson(effect, layer, order++, pictures));
+        layers.push_back(layerJson(effect, layer, order++, pictures, sounds));
     }
     root["layers"] = std::move(layers);
     return root.dump(2) + "\n";
@@ -672,12 +768,17 @@ std::vector<TarEntry> unityExportFiles(const Effect& effect, const std::filesyst
     }
     files.push_back(TarEntry{"Assets/VFXForge/Textures/VFXForgeShapes.png", unityShapeAtlasPng()});
     const std::vector<UnityPicture> pictures = unityPictures(effect, pictureFolder);
-    // Pictures before the effect, so Unity has them when it builds the prefab.
+    const std::vector<UnityPicture> sounds = unitySounds(effect, pictureFolder);
+    // Pictures and sounds before the effect, so Unity has them when it
+    // builds the prefab.
     for (const UnityPicture& p : pictures) {
         files.push_back(TarEntry{p.path, p.png});
     }
+    for (const UnityPicture& s : sounds) {
+        files.push_back(TarEntry{s.path, s.png});
+    }
     files.push_back(TarEntry{"Assets/VFXForge/Effects/" + unityFileStem(effect) + ".vfxforge",
-                             unityDescription(effect, pictures)});
+                             unityDescription(effect, pictures, sounds)});
     return files;
 }
 

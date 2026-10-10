@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <map>
 #include <system_error>
 #include <utility>
 
@@ -11,6 +12,7 @@
 #include "vfx/Metadata.h"
 #include "vfx/Path.h"
 #include "vfx/editor/Presets.h"
+#include "vfx/editor/SoundLibrary.h"
 
 namespace vfx::editor {
 
@@ -95,6 +97,8 @@ void Session::adopt(Effect effect) {
     ++generation_;
     images_.clear();
     images_.retryFailed();
+    sounds_.clear();
+    sounds_.retryFailed();
 }
 
 std::filesystem::path Session::projectFolder() const {
@@ -106,6 +110,145 @@ std::filesystem::path Session::projectFolder() const {
 
 void Session::syncImages() {
     imageProblems_ = images_.sync(effect(), projectFolder());
+    soundProblems_ = sounds_.sync(effect(), projectFolder());
+}
+
+void Session::ensureScratch() {
+    if (path_.empty() && scratch_.empty()) {
+        std::error_code error;
+        const auto base = std::filesystem::temp_directory_path(error);
+        if (error) {
+            return;
+        }
+        IdGenerator ids = IdGenerator::fromEntropy();
+        char name[40];
+        std::snprintf(name, sizeof name, "unsaved-%016llx",
+                      static_cast<unsigned long long>(ids.next().value));
+        scratch_ = base / "VFX Forge" / name;
+    }
+}
+
+Status Session::attachSound(Id layerId, const std::string& relative) {
+    const Layer* layer = findLayer(effect(), layerId);
+    if (!layer) {
+        return makeError("That layer no longer exists.");
+    }
+    Id asset;
+    for (const Asset& a : effect().assets) {
+        if (a.kind == "sound" && a.path == relative) {
+            asset = a.id;
+        }
+    }
+    std::vector<CommandPtr> steps;
+    if (!asset.valid()) {
+        Asset added;
+        added.id = state_->document.newId();
+        added.kind = "sound";
+        added.path = relative;
+        asset = added.id;
+        steps.push_back(std::make_unique<AddAssetCommand>(std::move(added)));
+    }
+    const Module* existing = nullptr;
+    for (const Module& m : layer->modules) {
+        if (m.type == "sound") {
+            existing = &m;
+        }
+    }
+    Id previous;
+    if (existing) {
+        if (const auto* ref = std::get_if<AssetRef>(existing->find("sound"))) {
+            previous = ref->id;
+        }
+        if (previous == asset && steps.empty()) {
+            return {};
+        }
+        steps.push_back(std::make_unique<SetPropertyCommand>(
+            Path::property(layerId, existing->id, "sound"), Value(AssetRef{asset})));
+    } else {
+        Module module = makeModule(*Registry::builtin().findModule("sound"), state_->document.newId());
+        *module.find("sound") = AssetRef{asset};
+        steps.push_back(std::make_unique<AddModuleCommand>(layerId, std::move(module)));
+    }
+    if (previous.valid() && previous != asset) {
+        int users = 0;
+        for (const Layer& l : effect().layers) {
+            for (const Module& m : l.modules) {
+                if (const auto* ref = m.type == "sound" ? std::get_if<AssetRef>(m.find("sound")) : nullptr) {
+                    users += ref->id == previous ? 1 : 0;
+                }
+            }
+        }
+        if (users <= 1) {
+            steps.push_back(std::make_unique<RemoveAssetCommand>(previous));
+        }
+    }
+    Status pushed = state_->commands.push(std::make_unique<CompositeCommand>("Use Sound", std::move(steps)));
+    syncImages();
+    return pushed;
+}
+
+Status Session::useSound(Id layerId, std::string_view originalName, std::string_view wavBytes) {
+    if (!findLayer(effect(), layerId)) {
+        return makeError("That layer no longer exists.");
+    }
+    auto decoded = decodeSound(wavBytes);
+    if (!decoded) {
+        return decoded.error();
+    }
+    ensureScratch();
+    const std::string relative = soundAssetPath(originalName, wavBytes);
+    const std::filesystem::path target = projectFolder() / pathFromUtf8(relative);
+    std::error_code error;
+    if (!std::filesystem::exists(target, error)) {
+        std::filesystem::create_directories(target.parent_path(), error);
+        if (Status written = writeFileAtomic(target, wavBytes); !written) {
+            return written;
+        }
+    }
+    return attachSound(layerId, relative);
+}
+
+Status Session::useLibrarySound(Id layerId, std::string_view soundId) {
+    if (!findLibrarySound(soundId)) {
+        return makeError("There is no library sound called \"" + std::string(soundId) + "\".");
+    }
+    ensureScratch();
+    // The file is made on the next sync, from the library itself.
+    return attachSound(layerId, librarySoundPath(soundId));
+}
+
+Status Session::clearSound(Id layerId) {
+    const Layer* layer = findLayer(effect(), layerId);
+    if (!layer) {
+        return makeError("That layer no longer exists.");
+    }
+    const Module* sound = nullptr;
+    for (const Module& m : layer->modules) {
+        if (m.type == "sound") {
+            sound = &m;
+        }
+    }
+    if (!sound) {
+        return {};
+    }
+    std::vector<CommandPtr> steps;
+    steps.push_back(std::make_unique<RemoveModuleCommand>(layerId, sound->id));
+    if (const auto* ref = std::get_if<AssetRef>(sound->find("sound")); ref && ref->id.valid()) {
+        int users = 0;
+        for (const Layer& l : effect().layers) {
+            for (const Module& m : l.modules) {
+                if (const auto* r = m.type == "sound" ? std::get_if<AssetRef>(m.find("sound")) : nullptr) {
+                    users += r->id == ref->id ? 1 : 0;
+                }
+            }
+        }
+        if (users <= 1) {
+            steps.push_back(std::make_unique<RemoveAssetCommand>(ref->id));
+        }
+    }
+    Status pushed = state_->commands.push(std::make_unique<CompositeCommand>("Remove Sound", std::move(steps)));
+    syncImages();
+    return pushed;
 }
 
 namespace {
@@ -292,12 +435,22 @@ Status Session::saveAs(const std::filesystem::path& path) {
     // Pictures travel with the effect: copy any the new folder lacks.
     const std::filesystem::path from = projectFolder();
     const std::filesystem::path to = path.parent_path();
-    if (!from.empty() && from != to) {
+    if (from != to) {
         for (const Asset& asset : effect().assets) {
             const auto source = from / pathFromUtf8(asset.path);
             const auto target = to / pathFromUtf8(asset.path);
             std::error_code error;
-            if (std::filesystem::exists(target, error) || !std::filesystem::exists(source, error)) {
+            if (std::filesystem::exists(target, error)) {
+                continue;
+            }
+            if (from.empty() || !std::filesystem::exists(source, error)) {
+                // A library sound is made again rather than copied.
+                if (const std::string id = librarySoundId(asset.path); !id.empty()) {
+                    if (auto made = makeLibrarySound(id)) {
+                        std::filesystem::create_directories(target.parent_path(), error);
+                        (void)writeFileAtomic(target, encodeWav(made.value()));
+                    }
+                }
                 continue;
             }
             auto bytes = readFile(source);
@@ -317,6 +470,7 @@ Status Session::saveAs(const std::filesystem::path& path) {
     }
     path_ = path;
     images_.retryFailed();
+    sounds_.retryFailed();
     readOnly_ = false;
     state_->commands.markSaved();
     return {};
@@ -359,10 +513,36 @@ Status Session::addPreset(std::string_view presetId, int* added) {
     }
     const PresetInfo* info = findPreset(presetId);
     std::vector<CommandPtr> steps;
-    for (Layer& layer : made.value().layers) {
-        steps.push_back(std::make_unique<AddLayerCommand>(std::move(layer)));
+    // The preset's sounds and pictures come too; one this effect already has
+    // (the same file) is used again rather than added twice.
+    std::map<std::uint64_t, Id> same;
+    for (const Asset& asset : made.value().assets) {
+        Id existing;
+        for (const Asset& a : effect().assets) {
+            if (a.path == asset.path && a.kind == asset.kind) {
+                existing = a.id;
+            }
+        }
+        if (existing.valid()) {
+            same[asset.id.value] = existing;
+        } else {
+            steps.push_back(std::make_unique<AddAssetCommand>(asset));
+        }
     }
-    const int count = static_cast<int>(steps.size());
+    int count = 0;
+    for (Layer& layer : made.value().layers) {
+        for (Module& m : layer.modules) {
+            for (Value& v : m.values) {
+                if (auto* ref = std::get_if<AssetRef>(&v)) {
+                    if (const auto it = same.find(ref->id.value); it != same.end()) {
+                        ref->id = it->second;
+                    }
+                }
+            }
+        }
+        steps.push_back(std::make_unique<AddLayerCommand>(std::move(layer)));
+        ++count;
+    }
     Status pushed = state_->commands.push(std::make_unique<CompositeCommand>(
         "Add " + (info ? info->name : std::string("Preset")), std::move(steps)));
     if (pushed && added) {

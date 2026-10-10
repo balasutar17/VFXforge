@@ -23,6 +23,7 @@
 #include "vfx/Simulation.h"
 #include "vfx/Templates.h"
 #include "vfx/Value.h"
+#include "vfx/editor/Audio.h"
 #include "vfx/editor/Image.h"
 
 namespace vfx::editor {
@@ -104,6 +105,20 @@ public:
     // Pictures the effect refers to that could not be loaded.
     const std::vector<std::string>& imageProblems() const { return imageProblems_; }
 
+    // ------------------------------------------------------------ sound
+    // Gives the layer a sound (adding its Sound module if it has none), as
+    // one undo step. The WAV is copied into the project's sounds folder.
+    Status useSound(Id layer, std::string_view originalName, std::string_view wavBytes);
+    // The same with a sound from the built-in library.
+    Status useLibrarySound(Id layer, std::string_view soundId);
+    // Takes the layer's Sound module away; the sound is dropped from the
+    // effect when nothing else uses it.
+    Status clearSound(Id layer);
+
+    // The decoded sounds, kept in step with the effect on every tick.
+    const SoundSet& sounds() const { return sounds_; }
+    const std::vector<std::string>& soundProblems() const { return soundProblems_; }
+
     Status undo();
     Status redo();
 
@@ -150,6 +165,11 @@ private:
     std::uint64_t generation_ = 0;
     ImageSet images_;
     std::vector<std::string> imageProblems_;
+    SoundSet sounds_;
+    std::vector<std::string> soundProblems_;
+
+    Status attachSound(Id layer, const std::string& relativePath);
+    void ensureScratch();
     std::filesystem::path scratch_;  // created on first use, removed with the session
 
     void syncImages();

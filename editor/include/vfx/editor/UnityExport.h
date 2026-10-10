@@ -48,8 +48,14 @@ struct UnityPicture {
 // left out, and its layer is exported with its Shape instead.
 std::vector<UnityPicture> unityPictures(const Effect& effect, const std::filesystem::path& folder);
 
+// The sounds the effect's layers play, read from the project folder (library
+// sounds are made again if missing), as "Assets/VFXForge/Sounds/<file>.wav".
+// They use the same structure as pictures.
+std::vector<UnityPicture> unitySounds(const Effect& effect, const std::filesystem::path& folder);
+
 // The effect, translated into Unity Particle System terms, as JSON text.
-std::string unityDescription(const Effect& effect, const std::vector<UnityPicture>& pictures = {});
+std::string unityDescription(const Effect& effect, const std::vector<UnityPicture>& pictures = {},
+                             const std::vector<UnityPicture>& sounds = {});
 
 // A file name for an effect: its name with anything awkward replaced.
 std::string unityFileStem(const Effect& effect);

@@ -14,6 +14,7 @@
 #include <QUrl>
 #include <QVariantList>
 
+#include "AudioPlayer.h"
 #include "vfx/editor/Session.h"
 
 class AppController : public QObject {
@@ -79,6 +80,12 @@ class AppController : public QObject {
     Q_PROPERTY(QString lastUnityProject READ lastUnityProject NOTIFY exportsChanged)
     Q_PROPERTY(QString lastUnityProjectName READ lastUnityProjectName NOTIFY exportsChanged)
     Q_PROPERTY(int exportFrameCount READ exportFrameCount NOTIFY documentChanged)
+
+    // Sound.
+    Q_PROPERTY(bool soundOn READ soundOn WRITE setSoundOn NOTIFY soundOnChanged)
+    Q_PROPERTY(bool soundAvailable READ soundAvailable CONSTANT)
+    Q_PROPERTY(QVariantList librarySounds READ librarySounds CONSTANT)
+    Q_PROPERTY(bool importingSound READ importingSound NOTIFY importingSoundChanged)
 
 public:
     explicit AppController(QObject* parent = nullptr);
@@ -195,6 +202,27 @@ public:
     Q_INVOKABLE void setControlDirection(int index, double heading, double tilt);
     Q_INVOKABLE void setControlChoice(int index, const QString& option);
 
+    // ------------------------------------------------------------- sound
+    bool soundOn() const { return soundOn_; }
+    void setSoundOn(bool on);
+    bool soundAvailable() const;
+    QVariantList librarySounds() const;
+    bool importingSound() const { return importingSound_; }
+
+    // WAV and AIFF are read here; MP3, OGG, FLAC and others are converted to
+    // WAV first by the system's decoder, which takes a moment.
+    Q_INVOKABLE bool useSoundFile(const QUrl& file);
+    Q_INVOKABLE bool useSoundPath(const QString& path);
+    Q_INVOKABLE bool useLibrarySound(const QString& id);
+    Q_INVOKABLE void clearSound();
+    Q_INVOKABLE void previewLibrarySound(const QString& id);
+    Q_INVOKABLE void previewLayerSound();
+    Q_INVOKABLE void stopPreview();
+    // Sound module settings of the selected layer.
+    Q_INVOKABLE void setSoundNumber(const QString& key, double value);
+    Q_INVOKABLE void setSoundChoice(const QString& key, const QString& value);
+    Q_INVOKABLE void setSoundFlag(const QString& key, bool value);
+
     // ----------------------------------------------- the artist's pictures
     // Any picture Qt can read (PNG, JPEG, WebP, TIFF...) becomes a PNG copy
     // next to the effect, drawn by the selected layer instead of its Shape.
@@ -235,6 +263,8 @@ signals:
     void backdropChanged();
     void exportOpenChanged();
     void exportsChanged();
+    void soundOnChanged();
+    void importingSoundChanged();
     // The viewport should show this part of the world: the point in the
     // middle and how many units fit top to bottom. Zero height means "reset".
     void viewSuggested(double x, double y, double unitsHigh);
@@ -251,6 +281,9 @@ private:
     vfx::Id selectedLayerId() const;
     bool control(int index, vfx::editor::ControlView& out) const;
     QVariantMap pictureInfo() const;
+    QVariantMap soundInfo() const;
+    vfx::Id soundModuleId() const;
+    bool useSoundBytes(const std::string& wav, const QString& name);
     bool usePictureImage(const QImage& image, const QString& name);
     vfx::Id spriteModuleId() const;
     void applyControl(int index, const vfx::Value& value);
@@ -278,6 +311,10 @@ private:
     double fpsWindow_ = 0.0;
     int fpsFrames_ = 0;
     bool wasPlaying_ = false;
+
+    AudioPlayer* audio_ = nullptr;
+    bool soundOn_ = true;
+    bool importingSound_ = false;
 
     QString message_;
     bool messageIsError_ = false;

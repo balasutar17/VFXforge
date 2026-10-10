@@ -10,7 +10,10 @@
 #include <variant>
 #include <vector>
 
+#include <QAudioBuffer>
+#include <QAudioDecoder>
 #include <QCoreApplication>
+#include <QFile>
 #include <QFileInfo>
 #include <QImageReader>
 #include <QRegularExpression>
@@ -24,7 +27,9 @@
 #include "vfx/Path.h"
 #include "vfx/Metadata.h"
 #include "vfx/editor/Frames.h"
+#include "vfx/editor/Audio.h"
 #include "vfx/editor/Image.h"
+#include "vfx/editor/SoundLibrary.h"
 #include "vfx/editor/Presets.h"
 #include "vfx/editor/UnityExport.h"
 
@@ -67,6 +72,8 @@ double clampTo(const vfx::PropertyDesc& desc, double v) {
 }  // namespace
 
 AppController::AppController(QObject* parent) : QObject(parent) {
+    audio_ = new AudioPlayer(this);
+    soundOn_ = QSettings().value(QStringLiteral("sound/on"), true).toBool();
     rebuildLayers();
     rebuildControls();
     loadBackdrop();
@@ -233,6 +240,12 @@ void AppController::rebuildControls() {
             row.insert(QStringLiteral("kind"), kind);
             list.push_back(row);
         }
+        // The layer's sound, if it has one, or the offer of one.
+        QVariantMap sound;
+        sound.insert(QStringLiteral("kind"), QStringLiteral("sound"));
+        sound.insert(QStringLiteral("label"), QStringLiteral("Sound"));
+        sound.insert(QStringLiteral("sound"), soundInfo());
+        list.push_back(sound);
     }
     controls_ = std::move(list);
 }
@@ -588,6 +601,275 @@ void AppController::setControlChoice(int index, const QString& option) {
     }
     session_.endEdit();
     applyControl(index, vfx::Value(utf8(option)));
+}
+
+// ---------------------------------------------------------------- sound
+
+vfx::Id AppController::soundModuleId() const {
+    const vfx::Layer* layer = vfx::findLayer(session_.effect(), selectedLayerId());
+    if (!layer) {
+        return vfx::Id{};
+    }
+    for (const vfx::Module& m : layer->modules) {
+        if (m.type == "sound") {
+            return m.id;
+        }
+    }
+    return vfx::Id{};
+}
+
+QVariantMap AppController::soundInfo() const {
+    QVariantMap info;
+    info.insert(QStringLiteral("has"), false);
+    const vfx::Layer* layer = vfx::findLayer(session_.effect(), selectedLayerId());
+    const vfx::Module* m = nullptr;
+    if (layer) {
+        for (const vfx::Module& candidate : layer->modules) {
+            if (candidate.type == "sound") {
+                m = &candidate;
+            }
+        }
+    }
+    if (!m) {
+        return info;
+    }
+    auto number = [&](const char* key, double fallback) {
+        const vfx::Value* v = m->find(key);
+        const auto* d = v ? std::get_if<double>(v) : nullptr;
+        return d ? *d : fallback;
+    };
+    auto flag = [&](const char* key) {
+        const vfx::Value* v = m->find(key);
+        return v && std::holds_alternative<bool>(*v) && std::get<bool>(*v);
+    };
+    for (const char* key : {"delay", "volume", "pitch", "pan", "fadeIn", "fadeOut", "trimStart", "length",
+                            "randomPitch", "randomVolume"}) {
+        info.insert(QString::fromLatin1(key), number(key, std::string_view(key) == "volume" ? 1.0 : 0.0));
+    }
+    info.insert(QStringLiteral("loop"), flag("loop"));
+    info.insert(QStringLiteral("mute"), flag("mute"));
+    const vfx::Value* play = m->find("play");
+    info.insert(QStringLiteral("play"), play && std::holds_alternative<std::string>(*play)
+                                            ? text(std::get<std::string>(*play))
+                                            : QStringLiteral("start"));
+    const vfx::Value* ref = m->find("sound");
+    const auto* asset = ref ? std::get_if<vfx::AssetRef>(ref) : nullptr;
+    const vfx::Asset* file = asset ? vfx::findAsset(session_.effect(), asset->id) : nullptr;
+    if (!file) {
+        return info;
+    }
+    info.insert(QStringLiteral("has"), true);
+    QString name = text(file->path);
+    name = name.mid(name.lastIndexOf(QLatin1Char('/')) + 1);
+    if (const std::string id = vfx::editor::librarySoundId(file->path); !id.empty()) {
+        if (const auto* lib = vfx::editor::findLibrarySound(id)) {
+            name = text(lib->name) + QStringLiteral(" (library)");
+        }
+    }
+    info.insert(QStringLiteral("name"), name);
+    if (const vfx::editor::Sound* sound = session_.sounds().find(asset->id)) {
+        info.insert(QStringLiteral("seconds"), sound->seconds());
+        QVariantList peaks;
+        for (const float p : vfx::editor::soundPeaks(*sound, 120)) {
+            peaks.push_back(static_cast<double>(p));
+        }
+        info.insert(QStringLiteral("peaks"), peaks);
+        info.insert(QStringLiteral("problem"), QString());
+    } else {
+        info.insert(QStringLiteral("seconds"), 0.0);
+        info.insert(QStringLiteral("peaks"), QVariantList());
+        info.insert(QStringLiteral("problem"), QStringLiteral("Loading the sound…"));
+    }
+    return info;
+}
+
+void AppController::setSoundOn(bool on) {
+    if (on == soundOn_) {
+        return;
+    }
+    soundOn_ = on;
+    QSettings().setValue(QStringLiteral("sound/on"), on);
+    emit soundOnChanged();
+    say(on ? QStringLiteral("Sound on.") : QStringLiteral("Sound off: effects play silently."));
+}
+
+bool AppController::soundAvailable() const { return audio_ && audio_->available(); }
+
+QVariantList AppController::librarySounds() const {
+    QVariantList list;
+    for (const vfx::editor::LibrarySound& s : vfx::editor::librarySounds()) {
+        QVariantMap row;
+        row.insert(QStringLiteral("id"), text(s.id));
+        row.insert(QStringLiteral("name"), text(s.name));
+        row.insert(QStringLiteral("category"), text(s.category));
+        row.insert(QStringLiteral("description"), text(s.description));
+        row.insert(QStringLiteral("loops"), s.loops);
+        list.push_back(row);
+    }
+    return list;
+}
+
+bool AppController::useSoundBytes(const std::string& wav, const QString& name) {
+    const vfx::Id layer = selectedLayerId();
+    if (!layer.valid()) {
+        say(QStringLiteral("Pick a layer first."), true);
+        return false;
+    }
+    if (!report(session_.useSound(layer, utf8(name), wav))) {
+        return false;
+    }
+    session_.tick(0.0);  // load it now, so the panel can show its waveform
+    changed(Structure);
+    say(QStringLiteral("%1 plays when this layer starts. Choose \"Every burst\" to play it with each burst.")
+            .arg(name));
+    return true;
+}
+
+bool AppController::useSoundFile(const QUrl& file) { return useSoundPath(file.toLocalFile()); }
+
+bool AppController::useSoundPath(const QString& path) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        say(QStringLiteral("That sound could not be opened."), true);
+        return false;
+    }
+    const QByteArray raw = file.readAll();
+    const std::string bytes(raw.constData(), static_cast<std::size_t>(raw.size()));
+    const QString name = QFileInfo(path).fileName();
+    auto decoded = vfx::editor::decodeSound(bytes);
+    if (decoded.ok()) {
+        // Kept as it is, unless it is an AIFF: projects keep WAV.
+        const bool wav = bytes.size() >= 4 && bytes.compare(0, 4, "RIFF") == 0;
+        return useSoundBytes(wav ? bytes : vfx::editor::encodeWav(decoded.value()), name);
+    }
+
+    // Anything else: the system's decoder turns it into samples.
+    auto* decoder = new QAudioDecoder(this);
+    QAudioFormat format;
+    format.setSampleRate(48000);
+    format.setChannelCount(2);
+    format.setSampleFormat(QAudioFormat::Float);
+    decoder->setAudioFormat(format);
+    decoder->setSource(QUrl::fromLocalFile(path));
+    auto sound = std::make_shared<vfx::editor::Sound>();
+    sound->sampleRate = 0;
+    importingSound_ = true;
+    emit importingSoundChanged();
+    say(QStringLiteral("Reading %1…").arg(name));
+    connect(decoder, &QAudioDecoder::bufferReady, this, [decoder, sound]() {
+        const QAudioBuffer buffer = decoder->read();
+        const QAudioFormat f = buffer.format();
+        const int channels = f.channelCount();
+        if (!buffer.isValid() || channels <= 0) {
+            return;
+        }
+        if (sound->sampleRate == 0) {
+            sound->sampleRate = f.sampleRate();
+            sound->channels = channels >= 2 ? 2 : 1;
+        }
+        const qsizetype frames = buffer.frameCount();
+        for (qsizetype i = 0; i < frames; ++i) {
+            for (int c = 0; c < sound->channels; ++c) {
+                const qsizetype at = i * channels + c;
+                float v = 0.0f;
+                switch (f.sampleFormat()) {
+                    case QAudioFormat::Float: v = buffer.constData<float>()[at]; break;
+                    case QAudioFormat::Int16: v = buffer.constData<qint16>()[at] / 32768.0f; break;
+                    case QAudioFormat::Int32: v = static_cast<float>(buffer.constData<qint32>()[at] / 2147483648.0); break;
+                    case QAudioFormat::UInt8: v = (buffer.constData<quint8>()[at] - 128) / 128.0f; break;
+                    default: break;
+                }
+                sound->samples.push_back(v);
+            }
+        }
+    });
+    connect(decoder, &QAudioDecoder::finished, this, [this, decoder, sound, name]() {
+        importingSound_ = false;
+        emit importingSoundChanged();
+        decoder->deleteLater();
+        if (sound->samples.empty() || sound->sampleRate <= 0) {
+            say(QStringLiteral("%1 has no sound in it that can be read.").arg(name), true);
+            return;
+        }
+        useSoundBytes(vfx::editor::encodeWav(*sound), name);
+    });
+    connect(decoder, qOverload<QAudioDecoder::Error>(&QAudioDecoder::error), this,
+            [this, decoder, name](QAudioDecoder::Error) {
+                importingSound_ = false;
+                emit importingSoundChanged();
+                say(QStringLiteral("%1 could not be read: %2").arg(name, decoder->errorString()), true);
+                decoder->deleteLater();
+            });
+    decoder->start();
+    return true;
+}
+
+bool AppController::useLibrarySound(const QString& id) {
+    const vfx::Id layer = selectedLayerId();
+    if (!report(session_.useLibrarySound(layer, utf8(id)))) {
+        return false;
+    }
+    session_.tick(0.0);
+    changed(Structure);
+    const auto* lib = vfx::editor::findLibrarySound(utf8(id));
+    say(QStringLiteral("%1 added to this layer.").arg(lib ? text(lib->name) : id));
+    return true;
+}
+
+void AppController::clearSound() {
+    if (report(session_.clearSound(selectedLayerId()))) {
+        changed(Structure);
+        say(QStringLiteral("Sound removed from this layer."));
+    }
+}
+
+void AppController::previewLibrarySound(const QString& id) {
+    auto made = vfx::editor::makeLibrarySound(utf8(id));
+    if (made.ok()) {
+        audio_->preview(std::make_shared<const vfx::editor::Sound>(std::move(made.value())));
+    }
+}
+
+void AppController::previewLayerSound() {
+    const vfx::Layer* layer = vfx::findLayer(session_.effect(), selectedLayerId());
+    if (!layer) {
+        return;
+    }
+    for (const vfx::Module& m : layer->modules) {
+        if (const auto* ref = m.type == "sound" ? std::get_if<vfx::AssetRef>(m.find("sound")) : nullptr) {
+            audio_->preview(session_.sounds().shared(ref->id));
+        }
+    }
+}
+
+void AppController::stopPreview() { audio_->stopPreview(); }
+
+void AppController::setSoundNumber(const QString& key, double value) {
+    const vfx::Id module = soundModuleId();
+    const vfx::ModuleTypeDesc* desc = vfx::Registry::builtin().findModule("sound");
+    const vfx::PropertyDesc* p = desc ? desc->find(utf8(key)) : nullptr;
+    if (!module.valid() || !p) {
+        return;
+    }
+    if (report(session_.set(vfx::Path::property(selectedLayerId(), module, utf8(key)), vfx::Value(clampTo(*p, value))))) {
+        changed(Values);
+    }
+}
+
+void AppController::setSoundChoice(const QString& key, const QString& value) {
+    const vfx::Id module = soundModuleId();
+    if (module.valid() &&
+        report(session_.set(vfx::Path::property(selectedLayerId(), module, utf8(key)), vfx::Value(utf8(value))))) {
+        changed(Values);
+    }
+}
+
+void AppController::setSoundFlag(const QString& key, bool value) {
+    const vfx::Id module = soundModuleId();
+    if (module.valid() &&
+        report(session_.set(vfx::Path::property(selectedLayerId(), module, utf8(key)), vfx::Value(value)))) {
+        changed(Values);
+    }
 }
 
 // ------------------------------------------------------------- pictures
@@ -1091,9 +1373,16 @@ bool AppController::exportFrames(const QUrl& folder, int size, bool transparent,
         report(written.error());
         return false;
     }
-    say(QStringLiteral("Wrote %1 frames%2 to %3.")
+    // The sound of the same pass, mixed down, beside the frames.
+    bool withSound = false;
+    if (vfx::editor::hasSound(session_.effect())) {
+        const auto wav = toPath(path) / vfx::pathFromUtf8(stem + " sound.wav");
+        withSound = vfx::writeFileAtomic(wav, vfx::editor::mixdownWav(session_.effect(), session_.sounds())).ok();
+    }
+    say(QStringLiteral("Wrote %1 frames%2%3 to %4.")
             .arg(written.value().frames)
-            .arg(written.value().sheet.empty() ? QString() : QStringLiteral(" and a sprite sheet"))
+            .arg(written.value().sheet.empty() ? QString() : QStringLiteral(", a sprite sheet"))
+            .arg(withSound ? QStringLiteral(" and the sound") : QString())
             .arg(QFileInfo(path).fileName()));
     return true;
 }
@@ -1145,6 +1434,8 @@ void AppController::tick(double seconds) {
         seconds = 0.0;
     }
     session_.tick(seconds);
+    audio_->update(session_.effect(), session_.sounds(), session_.clock().time(), session_.clock().playing(),
+                   session_.clock().timeScale(), soundOn_);
 
     // A one-shot effect stops itself at its end.
     const bool nowPlaying = playing();
@@ -1168,6 +1459,8 @@ void AppController::tick(double seconds) {
         const auto capped = session_.cappedLayers();
         if (!session_.imageProblems().empty()) {
             warning = text(session_.imageProblems().front());
+        } else if (!session_.soundProblems().empty()) {
+            warning = text(session_.soundProblems().front());
         } else if (!capped.empty()) {
             const vfx::Layer* layer = vfx::findLayer(session_.effect(), capped.front());
             warning = QStringLiteral("%1 wants more particles than the safety limit of %2, so some are left out.")

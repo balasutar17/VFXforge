@@ -10,6 +10,10 @@ open effects made in VFX Forge.
               of a game build).
   Shaders/    the particle shader the effects are drawn with.
   Textures/   the picture that holds VFX Forge's built-in particle shapes.
+  Sounds/     the sounds the effects play: your own, and VFX Forge's
+              library sounds (made by VFX Forge, free to use in your game).
+  Runtime/    VFXForgeSound, which plays each layer's sound in step with
+              the effect, in the game as well as in the editor.
   Images/     your own pictures and sprite sheets, used by layers that draw
               them. A sprite sheet plays through Unity's Texture Sheet
               Animation module, set up for you.

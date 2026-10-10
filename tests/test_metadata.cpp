@@ -30,13 +30,13 @@ const PropertyDesc& prop(const char* module, const char* key) {
 
 }  // namespace
 
-TEST_CASE("Phase 1 ships the six module types the architecture names") {
+TEST_CASE("The six module types the architecture names, plus sound") {
     std::set<std::string> types;
     for (const auto& m : Registry::builtin().modules()) {
         types.insert(m.type);
     }
     CHECK(types == std::set<std::string>{"emission", "shape", "initial", "motion", "overLife",
-                                         "sprite"});
+                                         "sprite", "sound"});
     CHECK(Registry::builtin().findModule("turbulence") == nullptr);
 }
 

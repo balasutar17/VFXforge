@@ -7,6 +7,7 @@
 #include "vfx/Metadata.h"
 #include "vfx/Value.h"
 #include "vfx/editor/Session.h"
+#include "vfx/editor/SoundLibrary.h"
 
 namespace vfx::editor {
 
@@ -134,6 +135,58 @@ public:
         return *this;
     }
 
+    // A sound from the built-in library, played when the layer starts (or at
+    // each burst), with a delay and a volume.
+    Make& sound(const char* id, bool atBursts = false, double delay = 0.0, double volume = 1.0,
+                double randomPitch = 0.0) {
+        sound_ = id;
+        soundBursts_ = atBursts;
+        soundDelay_ = delay;
+        soundVolume_ = volume;
+        soundRandomPitch_ = randomPitch;
+        return *this;
+    }
+    Make& soundLoop() {
+        soundLoop_ = true;
+        return *this;
+    }
+    const std::string& soundId() const { return sound_; }
+
+    // Adds the layer's sound to the effect: the library sound as an asset
+    // (shared by every layer that uses it) and a Sound module.
+    void attachSound(Effect& effect) {
+        if (sound_.empty()) {
+            return;
+        }
+        const std::string path = librarySoundPath(sound_);
+        Id asset;
+        for (const Asset& a : effect.assets) {
+            if (a.path == path) {
+                asset = a.id;
+            }
+        }
+        if (!asset.valid()) {
+            Asset a;
+            a.id = newId_();
+            a.kind = "sound";
+            a.path = path;
+            asset = a.id;
+            effect.assets.push_back(a);
+        }
+        Module m = makeModule(*Registry::builtin().findModule("sound"), newId_());
+        *m.find("sound") = AssetRef{asset};
+        *m.find("play") = std::string(soundBursts_ ? "bursts" : "start");
+        *m.find("delay") = soundDelay_;
+        *m.find("volume") = soundVolume_;
+        *m.find("randomPitch") = soundRandomPitch_;
+        *m.find("loop") = soundLoop_;
+        if (soundLoop_) {
+            *m.find("fadeIn") = 0.3;
+            *m.find("fadeOut") = 0.4;
+        }
+        layer_.modules.push_back(std::move(m));
+    }
+
     Layer done(double effectDuration) {
         if (!timed_) {
             layer_.start = 0.0;
@@ -160,6 +213,10 @@ private:
 
     const IdSource& newId_;
     Layer layer_;
+    std::string sound_;
+    bool soundBursts_ = false;
+    double soundDelay_ = 0.0, soundVolume_ = 1.0, soundRandomPitch_ = 0.0;
+    bool soundLoop_ = false;
     BurstList bursts_;
     bool timed_ = false;
     bool rated_ = false;
@@ -173,7 +230,10 @@ Effect begin(const IdSource& newId, const char* name, double duration) {
     return effect;
 }
 
-void add(Effect& effect, Make& layer) { effect.layers.push_back(layer.done(effect.duration)); }
+void add(Effect& effect, Make& layer) {
+    layer.attachSound(effect);
+    effect.layers.push_back(layer.done(effect.duration));
+}
 
 // A gradient that means "white-hot, then your colour, then dark and gone".
 // Because it multiplies the layer's colour, changing that one colour re-hues
@@ -189,7 +249,7 @@ Effect toonPuff(const IdSource& id) {
     Effect e = begin(id, "Toon Puff", 1.6);
     add(e, Make(id, "Puffs").burst(9).circle(0.2).life(0.5, 0.85).speed(2.6, 5.2).aim(90, 180)
                .size(1.1, 1.7).turn(-30, 30).color(0xff6fcb).drag(4.6).gravity(0, 0)
-               .sizeOver({{0, 0.35}, {0.2, 1.0}, {0.65, 0.85}, {1, 0}}).solid().look("puff"));
+               .sizeOver({{0, 0.35}, {0.2, 1.0}, {0.65, 0.85}, {1, 0}}).solid().look("puff").sound("pop", true, 0.0, 0.9, 1.0));
     add(e, Make(id, "Small puffs").burst(9).circle(0.2).life(0.4, 0.7).speed(4.5, 7.5).aim(90, 180)
                .size(0.45, 0.8).turn(-40, 40).color(0xff9fdd).drag(4.2).gravity(0, 0)
                .sizeOver({{0, 0.4}, {0.25, 1.0}, {1, 0}}).solid().look("puff"));
@@ -208,7 +268,7 @@ Effect toonHit(const IdSource& id) {
                .look("ring"));
     add(e, Make(id, "Spikes").burst(1).life(0.24, 0.24).speed(0, 0).size(4.4, 4.4).turn(0, 36)
                .color(0xff8a14).gravity(0, 0).sizeOver({{0, 0.3}, {0.25, 1.0}, {0.6, 0.9}, {1, 0}})
-               .solid().look("burst"));
+               .solid().look("burst").sound("hit", true, 0.0, 1.0, 1.0));
     add(e, Make(id, "Shards").burst(10).life(0.2, 0.36).speed(8, 15).aim(90, 180).size(0.26, 0.42)
                .color(0xffd23f).drag(5).gravity(0, 0).sizeOver({{0, 1}, {0.5, 0.9}, {1, 0}}).solid()
                .look("diamond").streak(0.0));
@@ -230,7 +290,7 @@ Effect toonExplosion(const IdSource& id) {
                .sizeOver({{0, 0.5}, {0.25, 1.0}, {1, 0}}).solid().look("puff"));
     add(e, Make(id, "Flash").burst(1).life(0.16, 0.16).speed(0, 0).size(5.6, 5.6).turn(0, 36)
                .color(0xfff0b4).gravity(0, 0).sizeOver({{0, 0.3}, {0.4, 1.0}, {1, 0.6}})
-               .fade({{0, 1}, {0.6, 1}, {1, 0}}).look("burst"));
+               .fade({{0, 1}, {0.6, 1}, {1, 0}}).look("burst").sound("explosion", true));
     add(e, Make(id, "Bits").burst(14).life(0.5, 0.9).speed(5, 10).aim(90, 180).size(0.12, 0.22)
                .color(0xffb347).drag(2.6).gravity(0, -6).sizeOver({{0, 1}, {0.7, 0.8}, {1, 0}}).solid()
                .look("disc"));
@@ -305,7 +365,7 @@ Effect fireBlast(const IdSource& id) {
     add(e, Make(id, "Smoke").burst(14, 0.04).circle(0.3).life(0.9, 1.5).speed(1.2, 3.0).aim(90, 180)
                .size(1.0, 1.7).turn(0, 360).spin(-40, 40).color(0x4a4340, 0.75).drag(2.4).gravity(0, 1.0)
                .sizeOver({{0, 0.45}, {0.3, 1.0}, {1, 1.5}}).fade({{0, 0}, {0.12, 1}, {0.5, 0.7}, {1, 0}})
-               .look("smoke"));
+               .look("smoke").sound("explosion", true));
     add(e, Make(id, "Shockwave").burst(1).life(0.4, 0.4).speed(0, 0).size(6.2, 6.2).color(0xffb45c)
                .gravity(0, 0).sizeOver({{0, 0.1}, {0.35, 0.72}, {1, 1}}).fade({{0, 0.8}, {0.4, 0.3}, {1, 0}})
                .look("ring").additive().glow(1.2));
@@ -377,7 +437,7 @@ Effect campfire(const IdSource& id) {
     Effect e = begin(id, "Campfire", 4.0);
     add(e, Make(id, "Smoke").rate(6).circle(0.25).life(2.2, 3.0).speed(0.9, 1.5).aim(90, 10)
                .size(0.9, 1.4).turn(0, 360).spin(-25, 25).color(0x38322f, 0.6).gravity(0, 0.5)
-               .sizeOver({{0, 0.5}, {1, 1.7}}).fade({{0, 0}, {0.3, 0}, {0.55, 0.5}, {1, 0}}).look("smoke"));
+               .sizeOver({{0, 0.5}, {1, 1.7}}).fade({{0, 0}, {0.3, 0}, {0.55, 0.5}, {1, 0}}).look("smoke").sound("fire-loop", false, 0.0, 0.8).soundLoop());
     add(e, Make(id, "Flames").rate(42).circle(0.38).life(0.6, 1.05).speed(1.3, 2.5).aim(90, 9)
                .size(0.75, 1.25).color(0xff6412).gravity(0, 1.6).drag(0.4)
                .sizeOver({{0, 0.55}, {0.2, 1.0}, {1, 0.12}}).solid().tint(VFX_HOT_TO_DARK)
@@ -433,7 +493,7 @@ Effect bubbles(const IdSource& id) {
 Effect bubblePop(const IdSource& id) {
     Effect e = begin(id, "Bubble Pop", 1.4);
     add(e, Make(id, "Pop ring").burst(1).life(0.28, 0.28).speed(0, 0).size(3.0, 3.0).color(0xdff4ff)
-               .gravity(0, 0).sizeOver({{0, 0.3}, {1, 1}}).fade({{0, 0.9}, {1, 0}}).look("ring"));
+               .gravity(0, 0).sizeOver({{0, 0.3}, {1, 1}}).fade({{0, 0.9}, {1, 0}}).look("ring").sound("bubble", true));
     add(e, Make(id, "Droplets").burst(14).circle(0.5, true).life(0.35, 0.6).speed(3, 6).aim(90, 180)
                .size(0.1, 0.18).color(0xbfe9ff).drag(3).gravity(0, -6)
                .sizeOver({{0, 1}, {0.6, 0.8}, {1, 0}}).solid().look("disc"));
@@ -512,7 +572,7 @@ Effect levelUp(const IdSource& id) {
     Effect e = begin(id, "Level Up", 2.4);
     add(e, Make(id, "Ring").burst(1).life(0.7, 0.7).speed(0, 0).size(5.4, 5.4).color(0xffd95a)
                .gravity(0, 0).sizeOver({{0, 0.1}, {0.4, 0.75}, {1, 1}}).fade({{0, 1}, {0.5, 0.5}, {1, 0}})
-               .look("ring").additive().glow(1.3));
+               .look("ring").additive().glow(1.3).sound("level-up", true));
     add(e, Make(id, "Column glow").from(0, 1.2).rate(10).rect(1.2, 0.2).life(0.7, 1.0).speed(2.5, 4.0)
                .aim(90, 0).size(1.6, 2.2).color(0xffc233).gravity(0, 0)
                .fade({{0, 0}, {0.3, 0.3}, {1, 0}}).additive());
@@ -654,7 +714,7 @@ Effect coinBurst(const IdSource& id) {
     Effect e = begin(id, "Coin Burst", 2.2);
     add(e, Make(id, "Coins").burst(18).rect(0.5, 0.1).life(1.2, 1.7).speed(6.5, 10).aim(90, 26)
                .size(0.34, 0.44).color(0xffc531).gravity(0, -15)
-               .fade({{0, 1}, {0.85, 1}, {1, 0}}).look("disc"));
+               .fade({{0, 1}, {0.85, 1}, {1, 0}}).look("disc").sound("coin", true, 0.0, 0.9, 1.0));
     add(e, Make(id, "Glints").burst(12, 0.05).alsoRate(10).circle(1.2).life(0.4, 0.8).speed(1, 3)
                .aim(90, 60).size(0.3, 0.7).color(0xfff7cf).gravity(0, 0)
                .sizeOver({{0, 0.1}, {0.35, 1}, {1, 0.1}}).fade({{0, 0}, {0.3, 1}, {1, 0}})
@@ -733,7 +793,7 @@ Effect rain(const IdSource& id) {
     Effect e = begin(id, "Rain", 3.0);
     add(e, Make(id, "Far rain").rate(240).rect(12, 8).life(0.3, 0.45).speed(11, 14).aim(262, 1)
                .size(0.05, 0.08).color(0x9fc0ee, 0.8).gravity(0, 0)
-               .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).look("streak").streak(0.04));
+               .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).look("streak").streak(0.04).sound("rain-loop", false, 0.0, 0.7).soundLoop());
     add(e, Make(id, "Near rain").rate(100).rect(12, 8).life(0.28, 0.4).speed(16, 20).aim(262, 1)
                .size(0.08, 0.13).color(0xdbe9ff, 1.0).gravity(0, 0)
                .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).look("streak").streak(0.045));
@@ -776,7 +836,7 @@ Effect candyPop(const IdSource& id) {
                .look("ring").additive().glow(1.2));
     add(e, Make(id, "Candy").burst(7).circle(0.3).life(0.5, 0.75).speed(4.5, 7.5).aim(90, 180)
                .size(0.32, 0.48).turn(0, 360).spin(-500, 500).color(0xff2d55).gravity(0, -11).drag(0.8)
-               .sizeOver({{0, 0.6}, {0.1, 1}, {0.75, 1}, {1, 0}}).solid().look("candy"));
+               .sizeOver({{0, 0.6}, {0.1, 1}, {0.75, 1}, {1, 0}}).solid().look("candy").sound("pop", false, 0.0, 1.0, 2.0));
     add(e, Make(id, "Shards").burst(6).circle(0.3).life(0.45, 0.7).speed(5, 9).aim(90, 180)
                .size(0.22, 0.34).turn(0, 360).spin(-600, 600).color(0xff6b86).gravity(0, -11).drag(0.8)
                .sizeOver({{0, 1}, {0.75, 1}, {1, 0}}).solid().look("shard"));
@@ -792,7 +852,7 @@ Effect jellySplat(const IdSource& id) {
     Effect e = begin(id, "Jelly Splat", 1.2);
     add(e, Make(id, "Splat").burst(1).life(0.6, 0.6).speed(0, 0).size(2.8, 2.8).turn(0, 360)
                .color(0xff4fa0).gravity(0, 0).sizeOver({{0, 0.2}, {0.12, 1.08}, {0.25, 1}, {1, 0.95}})
-               .fade({{0, 1}, {0.55, 1}, {1, 0}}).look("splat"));
+               .fade({{0, 1}, {0.55, 1}, {1, 0}}).look("splat").sound("splat", false, 0.0, 1.0, 1.5));
     add(e, Make(id, "Drops").burst(10).circle(0.4).life(0.4, 0.65).speed(5, 9).aim(90, 180)
                .size(0.32, 0.55).color(0xff6fb5).gravity(0, -12)
                .sizeOver({{0, 1}, {0.8, 0.9}, {1, 0}}).solid().look("drop").streak(0.0));
@@ -810,7 +870,7 @@ Effect lineBlast(const IdSource& id, bool down) {
     const double a = down ? 90.0 : 0.0;
     add(e, Make(id, "Charge").burst(1).life(0.2, 0.2).speed(0, 0).size(3.0, 3.0).color(0xffffff)
                .gravity(0, 0).sizeOver({{0, 0.3}, {0.3, 1}, {1, 0.8}}).fade({{0, 1}, {1, 0}})
-               .additive().glow(1.6));
+               .additive().glow(1.6).sound("laser", true, 0.0, 0.8, 1.0));
     for (const double heading : {a, a + 180.0}) {
         add(e, Make(id, "Glow beam").burst(1).life(0.42, 0.42).speed(30, 30).aim(heading, 0)
                    .size(2.4, 2.4).color(0x4fc3ff).gravity(0, 0).fade({{0, 0.8}, {1, 0}})
@@ -853,10 +913,10 @@ Effect candyBomb(const IdSource& id) {
     }
     add(e, Make(id, "Burst").burst(1).life(0.3, 0.3).speed(0, 0).size(4.8, 4.8).turn(0, 36)
                .color(0xffd23f).gravity(0, 0).sizeOver({{0, 0.3}, {0.25, 1}, {0.6, 0.9}, {1, 0}}).solid()
-               .look("burst"));
+               .look("burst").sound("hit"));
     add(e, Make(id, "Puffs").burst(8, 0.35).circle(0.4).life(0.5, 0.8).speed(2.5, 5).aim(90, 180)
                .size(1.1, 1.7).turn(-30, 30).color(0xff9ac8).drag(4).gravity(0, 0)
-               .sizeOver({{0, 0.35}, {0.2, 1}, {0.65, 0.85}, {1, 0}}).solid().look("puff"));
+               .sizeOver({{0, 0.35}, {0.2, 1}, {0.65, 0.85}, {1, 0}}).solid().look("puff").sound("boom", true, 0.0, 0.9));
     const char* looks[4] = {"candy", "bean", "swirl", "star"};
     const unsigned colors[4] = {0xff2d55, 0x2ed46b, 0xff2d55, 0xffd21f};
     for (int i = 0; i < 4; ++i) {
@@ -879,10 +939,10 @@ Effect rainbowBurst(const IdSource& id) {
                .gravity(0, 0).sizeOver({{0, 0.5}, {0.3, 1.1}, {1, 1}}).fade({{0, 0.8}, {1, 0}})
                .additive());
     add(e, Make(id, "Orb").burst(1).life(0.55, 0.55).speed(0, 0).size(1.6, 1.6).color(0x8a4bff)
-               .gravity(0, 0).sizeOver({{0, 0.2}, {0.3, 1.15}, {0.6, 1}, {1, 0}}).solid().look("orb"));
+               .gravity(0, 0).sizeOver({{0, 0.2}, {0.3, 1.15}, {0.6, 1}, {1, 0}}).solid().look("orb").sound("shimmer"));
     add(e, Make(id, "Flare").burst(1, 0.1).life(0.4, 0.4).speed(0, 0).size(3.5, 3.5).turn(0, 30)
                .color(0xffffff).gravity(0, 0).sizeOver({{0, 0.3}, {0.25, 1}, {1, 0.7}})
-               .fade({{0, 1}, {1, 0}}).look("flare").additive().glow(1.6));
+               .fade({{0, 1}, {1, 0}}).look("flare").additive().glow(1.6).sound("sparkle", true));
     for (const unsigned c : kCandyColors) {
         add(e, Make(id, "Beams").burst(3, 0.12).life(0.3, 0.45).speed(18, 26).aim(90, 180).size(0.5, 0.7)
                    .color(c).gravity(0, 0).fade({{0, 1}, {0.6, 1}, {1, 0}}).look("streak").additive()
@@ -905,7 +965,7 @@ Effect sweetCelebration(const IdSource& id) {
     }
     add(e, Make(id, "Twinkles").rate(12).rect(10, 6).life(0.4, 0.7).speed(0, 0.3).aim(90, 180)
                .size(0.5, 1.0).turn(0, 45).color(0xfff2c8).gravity(0, 0)
-               .sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.4));
+               .sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.4).sound("level-up", false, 0.0, 0.9));
     for (const unsigned c : {0xff6fb5u, 0x4fc3ffu, 0xffd21fu}) {
         add(e, Make(id, "Flares").rate(1.2).rect(8, 5).life(0.35, 0.5).speed(0, 0).size(1.6, 2.6)
                    .turn(0, 30).color(c).gravity(0, 0).sizeOver({{0, 0.2}, {0.25, 1}, {1, 0.6}})
@@ -923,7 +983,7 @@ Effect collectSparkle(const IdSource& id) {
                .gravity(0, 0).sizeOver({{0, 0.4}, {0.3, 1}, {1, 0.9}}).fade({{0, 0.8}, {1, 0}}).additive());
     add(e, Make(id, "Twinkle").burst(1).life(0.4, 0.4).speed(0, 0).size(2.6, 2.6).color(0xffffff)
                .gravity(0, 0).sizeOver({{0, 0}, {0.25, 1.15}, {0.5, 1}, {1, 0}}).solid().look("twinkle")
-               .additive().glow(1.6));
+               .additive().glow(1.6).sound("collect", false, 0.0, 1.0, 1.0));
     add(e, Make(id, "Sparkles").burst(8).life(0.35, 0.55).speed(2.5, 4.5).aim(90, 180).size(0.35, 0.6)
                .turn(0, 45).color(0xffe27a).drag(3).gravity(0, 0).sizeOver({{0, 1}, {1, 0}}).solid()
                .look("twinkle").additive().glow(1.3));
@@ -952,7 +1012,7 @@ Effect starburstFlare(const IdSource& id) {
                .gravity(0, 0).sizeOver({{0, 0.3}, {0.2, 1}, {1, 1.1}}).fade({{0, 0.9}, {1, 0}}).additive());
     add(e, Make(id, "Flare").burst(1).life(0.5, 0.5).speed(0, 0).size(5, 5).turn(0, 30).color(0xbfe4ff)
                .gravity(0, 0).sizeOver({{0, 0.3}, {0.2, 1}, {1, 0.8}}).fade({{0, 1}, {0.4, 0.9}, {1, 0}})
-               .look("flare").additive().glow(1.6));
+               .look("flare").additive().glow(1.6).sound("sparkle", true, 0.0, 0.8));
     add(e, Make(id, "Twinkles").burst(6).circle(1.5).life(0.35, 0.6).speed(0.5, 2).aim(90, 180)
                .size(0.5, 0.9).turn(0, 45).color(0xdff1ff).gravity(0, 0)
                .sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.4));
@@ -962,7 +1022,7 @@ Effect starburstFlare(const IdSource& id) {
 Effect rewardRays(const IdSource& id) {
     Effect e = begin(id, "Reward Rays", 4.0);
     add(e, Make(id, "Glow").burst(1).life(4, 4).speed(0, 0).size(4.5, 4.5).color(0xffc94a)
-               .gravity(0, 0).fade({{0, 0}, {0.1, 0.7}, {0.9, 0.7}, {1, 0}}).additive());
+               .gravity(0, 0).fade({{0, 0}, {0.1, 0.7}, {0.9, 0.7}, {1, 0}}).additive().sound("shimmer", false, 0.0, 0.8));
     add(e, Make(id, "Rays").burst(1).life(4, 4).speed(0, 0).size(7, 7).color(0xffd75e).spin(20, 20)
                .gravity(0, 0).fade({{0, 0}, {0.15, 0.8}, {0.85, 0.8}, {1, 0}}).look("rays").additive()
                .glow(1.1));
@@ -1002,7 +1062,7 @@ Effect stylizedComets(const IdSource& id) {
                    .fade({{0, 0}, {0.06, 0.6}, {0.8, 0.6}, {1, 0}}).additive());
         add(e, Make(id, "Comet").burst(1, at).at(ox, oy).life(1.5, 1.5).speed(7, 7).aim(235, 0)
                    .size(0.9, 0.9).color(colors[i]).gravity(0, 0).fade({{0, 0}, {0.06, 1}, {0.8, 1}, {1, 0}})
-                   .look("drop").additive().glow(1.7).streak(0.0).trail(0.8, 0.85));
+                   .look("drop").additive().glow(1.7).streak(0.0).trail(0.8, 0.85).sound("whoosh", true, -0.05, 0.7, 2.0));
         add(e, Make(id, "Wisps").burst(3, at).at(ox, oy).circle(0.25).life(1.5, 1.5).speed(6.3, 6.9)
                    .aim(235, 2).size(0.3, 0.5).color(colors[i], 0.8).gravity(0, 0)
                    .fade({{0, 0}, {0.1, 0.8}, {0.7, 0.5}, {1, 0}}).look("soft").additive().glow(1.2)
@@ -1018,7 +1078,7 @@ Effect fireworkSparks(const IdSource& id) {
     Effect e = begin(id, "Firework Sparks", 2.0);
     add(e, Make(id, "Flash").burst(1).life(0.18, 0.18).speed(0, 0).size(3.5, 3.5).turn(0, 30)
                .color(0xfff0c8).gravity(0, 0).sizeOver({{0, 0.3}, {0.3, 1}, {1, 0.8}}).fade({{0, 1}, {1, 0}})
-               .look("flare").additive().glow(1.6));
+               .look("flare").additive().glow(1.6).sound("boom", true, 0.0, 0.6));
     for (const unsigned c : {0xffb347u, 0xff5ab4u, 0x6fd0ffu}) {
         add(e, Make(id, "Sparks").burst(14).life(0.9, 1.4).speed(6, 10).aim(90, 180).size(0.14, 0.22)
                    .color(c).gravity(0, -5).drag(1.4).fade({{0, 1}, {0.7, 0.8}, {1, 0}}).look("soft")
@@ -1036,7 +1096,7 @@ Effect lightningStrike(const IdSource& id) {
                    .glow(2.2));
     }
     add(e, Make(id, "Glow").burst(1).life(0.4, 0.4).speed(0, 0).size(5, 5).color(0x2f7dff)
-               .gravity(0, 0).fade({{0, 0.9}, {0.3, 0.4}, {0.4, 0.8}, {1, 0}}).additive());
+               .gravity(0, 0).fade({{0, 0.9}, {0.3, 0.4}, {0.4, 0.8}, {1, 0}}).additive().sound("thunder", true, 0.0, 1.0));
     add(e, Make(id, "Sparks").burst(14).rect(0.3, 5).life(0.2, 0.4).speed(1, 3).aim(90, 180)
                .size(0.3, 0.55).turn(0, 45).color(0xbfe6ff).gravity(0, 0)
                .sizeOver({{0, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.6));
@@ -1046,7 +1106,7 @@ Effect lightningStrike(const IdSource& id) {
 Effect electricOrb(const IdSource& id) {
     Effect e = begin(id, "Electric Orb", 2.0);
     add(e, Make(id, "Glow").rate(2).life(1.0, 1.0).speed(0, 0).size(3.6, 4.2).color(0x2f7dff)
-               .gravity(0, 0).fade({{0, 0}, {0.5, 0.6}, {1, 0}}).additive());
+               .gravity(0, 0).fade({{0, 0}, {0.5, 0.6}, {1, 0}}).additive().sound("electric-loop", false, 0.0, 0.6).soundLoop());
     add(e, Make(id, "Core").rate(4).life(0.5, 0.5).speed(0, 0).size(1.6, 1.9).turn(0, 30)
                .color(0xd8f0ff).gravity(0, 0).fade({{0, 0}, {0.5, 1}, {1, 0}}).look("flare").additive()
                .glow(1.6));
@@ -1066,10 +1126,10 @@ Effect flash(const IdSource& id, const char* name, unsigned halo, unsigned tint,
                .gravity(0, 0).sizeOver({{0, 0.4}, {0.2, 1}, {1, 1.1}}).fade({{0, 0.9}, {1, 0}}).additive());
     add(e, Make(id, "Flash").burst(1).life(0.35, 0.35).speed(0, 0).size(4.2, 4.2).turn(0, 360)
                .color(tint).gravity(0, 0).sizeOver({{0, 0.3}, {0.15, 1.05}, {0.5, 1}, {1, 0.6}})
-               .fade({{0, 1}, {0.5, 0.9}, {1, 0}}).look("starflash").additive().glow(1.6));
+               .fade({{0, 1}, {0.5, 0.9}, {1, 0}}).look("starflash").additive().glow(1.6).sound("hit", true, 0.0, 0.8, 1.5));
     add(e, Make(id, "Slivers").burst(12).circle(0.3).life(0.35, 0.6).speed(6, 11).aim(90, 180)
                .size(0.5, 0.9).color(tint).drag(4).gravity(0, 0).sizeOver({{0, 1}, {1, 0}}).solid()
-               .look("sliver").additive().glow(1.6).streak(0.0));
+               .look("sliver").additive().glow(1.6).streak(0.0).sound("sparkle", true, 0.03, 0.5, 2.0));
     add(e, Make(id, "Specks").burst(10).circle(0.6).life(0.3, 0.6).speed(2, 5).aim(90, 180)
                .size(0.25, 0.45).turn(0, 45).color(tint).drag(3).gravity(0, 0)
                .sizeOver({{0, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.3));

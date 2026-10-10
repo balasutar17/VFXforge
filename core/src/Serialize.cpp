@@ -761,6 +761,7 @@ const char* stageName(Stage stage) {
         case Stage::Spawn: return "spawn";
         case Stage::Update: return "update";
         case Stage::Render: return "render";
+        case Stage::Audio: return "audio";
     }
     return "update";
 }

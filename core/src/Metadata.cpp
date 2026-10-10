@@ -185,6 +185,46 @@ Registry::Registry() {
                   "to nothing at its end."),
     }));
 
+    modules_.push_back(module("sound", "Sound", Stage::Audio, {
+        P("sound", "Sound", ValueKind::Asset, AssetRef{})
+            .help("The sound this layer plays. Your own sound, or one from the library."),
+        P("play", "Play", ValueKind::Enum, text("start"))
+            .options({"start", "bursts"})
+            .help("Play once when the layer starts, or at every burst of this layer's particles."),
+        P("delay", "Delay", ValueKind::Float, num(0.0))
+            .unit("seconds").range(-10, 10).ui(-0.5, 1)
+            .help("When the sound starts, from the moment it is played for. Below zero it "
+                  "starts early: a whoosh before the hit."),
+        P("volume", "Volume", ValueKind::Float, num(1.0))
+            .range(0, 4).ui(0, 2),
+        P("pitch", "Pitch", ValueKind::Float, num(0.0))
+            .unit("semitones").range(-24, 24).ui(-12, 12)
+            .help("Higher or lower. 12 semitones is one octave."),
+        P("pan", "Pan", ValueKind::Float, num(0.0))
+            .range(-1, 1).ui(-1, 1)
+            .help("Left (-1) to right (1)."),
+        P("fadeIn", "Fade In", ValueKind::Float, num(0.0))
+            .unit("seconds").range(0, 60).ui(0, 2),
+        P("fadeOut", "Fade Out", ValueKind::Float, num(0.0))
+            .unit("seconds").range(0, 60).ui(0, 2),
+        P("loop", "Loop", ValueKind::Bool, Value(false))
+            .help("Repeat the sound until the layer ends."),
+        P("trimStart", "Trim Start", ValueKind::Float, num(0.0))
+            .unit("seconds").range(0, 3600).ui(0, 2)
+            .help("Skip this much of the start of the sound."),
+        P("length", "Length", ValueKind::Float, num(0.0))
+            .unit("seconds").range(0, 3600).ui(0, 5)
+            .help("How much of the sound to play. 0 plays it to the end."),
+        P("randomPitch", "Random Pitch", ValueKind::Float, num(0.0))
+            .unit("semitones").range(0, 12).ui(0, 4)
+            .help("Each time it plays, the pitch moves up or down by up to this much, so "
+                  "repeats never sound the same."),
+        P("randomVolume", "Random Volume", ValueKind::Float, num(0.0))
+            .range(0, 1).ui(0, 1)
+            .help("Each time it plays, it is up to this much quieter."),
+        P("mute", "Mute", ValueKind::Bool, Value(false)),
+    }));
+
     effect_ = module("effect", "Effect", Stage::Update, {
         P("name", "Name", ValueKind::Text, text("Untitled")),
         P("space", "Space", ValueKind::Enum, text("2d")).options({"2d", "3d"}),

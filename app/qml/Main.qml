@@ -519,6 +519,13 @@ ApplicationWindow {
                             checked: app.loop
                             onToggled: function(nowChecked) { app.setLoop(nowChecked) }
                         }
+                        VCheck {
+                            Layout.leftMargin: 6
+                            text: "Sound"
+                            checked: app.soundOn
+                            enabled: app.soundAvailable
+                            onToggled: function(nowChecked) { app.soundOn = nowChecked }
+                        }
                         VButton {
                             Layout.preferredWidth: 58
                             Layout.leftMargin: 6
@@ -603,6 +610,7 @@ ApplicationWindow {
                                              : kind === "range" ? "ControlRange.qml"
                                              : kind === "color" ? "ControlColor.qml"
                                              : kind === "direction" ? "ControlDirection.qml"
+                                             : kind === "sound" ? "ControlSound.qml"
                                              : "ControlNote.qml"
                                     setSource(Qt.resolvedUrl(file), { "info": modelData, "controlIndex": index })
                                 }

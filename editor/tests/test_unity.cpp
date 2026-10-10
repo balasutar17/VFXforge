@@ -13,6 +13,7 @@
 
 #include "vfx/FileIO.h"
 #include "vfx/Templates.h"
+#include "vfx/editor/Audio.h"
 #include "vfx/editor/Image.h"
 #include "vfx/editor/Presets.h"
 #include "vfx/editor/Session.h"
@@ -350,7 +351,7 @@ TEST_CASE("an export writes the helper, the atlas and the effect", "[unity][file
     std::filesystem::path written;
     REQUIRE(exportToUnityProject(effect, base, &written).ok());
     CHECK(written == base / "Assets/VFXForge/Effects/Spark.vfxforge");
-    CHECK(readText(written) == unityDescription(effect));
+    CHECK(readText(written) == unityDescription(effect, {}, unitySounds(effect, {})));
     CHECK(std::filesystem::exists(base / "Assets/VFXForge/Editor/VFXForgeJson.cs"));
     // Again, for the same effect: replaced in place, still one file.
     REQUIRE(exportToUnityProject(effect, base).ok());
@@ -473,7 +474,7 @@ TEST_CASE("the importer and shader know about pictures", "[unity][picture]") {
 
 TEST_CASE("trails become Unity trails, and layer positions carry over", "[unity][trail]") {
     const J sparks = describe(preset("firework-sparks"));
-    const J& trail = layerNamed(sparks, "Sparks")["render"]["trail"];
+    const J trail = layerNamed(sparks, "Sparks")["render"]["trail"];
     // 0.35 s of a 0.9 to 1.4 s life.
     CHECK(trail["ratio"].get<double>() == Catch::Approx(0.35 / 1.15).margin(1e-4));
     CHECK(trail["width"].get<double>() == Catch::Approx(1.2));
@@ -483,4 +484,37 @@ TEST_CASE("trails become Unity trails, and layer positions carry over", "[unity]
     const J& first = comets["layers"][0];
     CHECK(first["shape"]["position"] == J::array({-2.6, 2.4, 0.0}));
     CHECK_FALSE(layerNamed(comets, "Sparkles")["shape"].contains("position"));
+}
+
+TEST_CASE("sounds travel to Unity with the moments they play", "[unity][sound]") {
+    Effect effect = preset("candy-bomb");  // a hit at the start, a boom at the second blast
+    const auto sounds = unitySounds(effect, {});
+    REQUIRE(sounds.size() == 2);
+    for (const UnityPicture& s : sounds) {
+        CHECK(s.path.rfind("Assets/VFXForge/Sounds/lib-", 0) == 0);
+        CHECK(decodeWav(s.png).ok());
+    }
+    const J root = J::parse(unityDescription(effect, {}, sounds));
+    const J burst = layerNamed(root, "Burst")["sound"];
+    CHECK(burst["clip"] == "Assets/VFXForge/Sounds/lib-hit.wav");
+    CHECK(burst["times"] == J::array({0.0}));
+    const J puffs = layerNamed(root, "Puffs")["sound"];
+    CHECK(puffs["clip"] == "Assets/VFXForge/Sounds/lib-boom.wav");
+    CHECK(puffs["times"][0].get<double>() == Catch::Approx(0.35));
+    CHECK_FALSE(layerNamed(root, "Candy").contains("sound"));
+
+    // Every file is written, sounds before the effect that uses them.
+    const auto files = unityExportFiles(effect);
+    std::size_t boom = 0, effectAt = 0;
+    for (std::size_t i = 0; i < files.size(); ++i) {
+        if (files[i].path == "Assets/VFXForge/Sounds/lib-boom.wav") boom = i;
+        if (files[i].path.find("/Effects/") != std::string::npos) effectAt = i;
+    }
+    CHECK(boom > 0);
+    CHECK(effectAt > boom);
+    bool runtime = false;
+    for (const UnityFile& f : unityHelperSources()) {
+        runtime = runtime || std::string(f.path) == "Runtime/VFXForgeSound.cs";
+    }
+    CHECK(runtime);
 }

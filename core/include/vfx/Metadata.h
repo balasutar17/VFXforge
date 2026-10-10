@@ -18,7 +18,7 @@ namespace vfx {
 // Which editor level shows a property. Lower levels are always included.
 enum class Level { Simple, Advanced, Expert };
 
-enum class Stage { Spawn, Update, Render };
+enum class Stage { Spawn, Update, Render, Audio };
 
 struct PropertyDesc {
     // Name in files and property paths. "id" and "type" are reserved: every
