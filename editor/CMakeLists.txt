@@ -14,7 +14,14 @@ add_library(vfx_editor STATIC
     src/Frames.cpp
     src/Image.cpp
     src/Picture.cpp
+    src/Compare.cpp
+    src/EffectTools.cpp
     src/Presets.cpp
+    src/Reconstruct.cpp
+    src/Refine.cpp
+    src/Reference.cpp
+    src/ReferenceStill.cpp
+    src/ReferenceTime.cpp
     src/Session.cpp
     src/Shapes.cpp
     src/SoundLibrary.cpp

@@ -11,6 +11,7 @@
 #include "vfx/FileIO.h"
 #include "vfx/Metadata.h"
 #include "vfx/Path.h"
+#include "vfx/editor/Archive.h"
 #include "vfx/editor/Presets.h"
 #include "vfx/editor/SoundLibrary.h"
 
@@ -700,6 +701,261 @@ Vec3 directionFromHeading(const Heading& h) {
     auto tidy = [](double v) { return std::abs(v) < 1e-12 ? 0.0 : v; };
     return Vec3{tidy(std::cos(heading) * std::cos(tilt)), tidy(std::sin(heading) * std::cos(tilt)),
                 tidy(std::sin(tilt))};
+}
+
+}  // namespace vfx::editor
+
+// ------------------------------------------------ changing the whole effect
+
+namespace vfx::editor {
+
+namespace {
+
+// Lower-case letters, digits and dashes from a file name, and its extension.
+std::string referencePath(std::string_view originalName, std::string_view bytes) {
+    std::string stem, extension;
+    const std::size_t dot = originalName.find_last_of('.');
+    const std::string_view base = dot == std::string_view::npos ? originalName : originalName.substr(0, dot);
+    if (dot != std::string_view::npos) {
+        for (char c : originalName.substr(dot)) {
+            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.') {
+                extension.push_back(c);
+            } else if (c >= 'A' && c <= 'Z') {
+                extension.push_back(static_cast<char>(c - 'A' + 'a'));
+            }
+        }
+    }
+    for (char c : base) {
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+            stem.push_back(c);
+        } else if (c >= 'A' && c <= 'Z') {
+            stem.push_back(static_cast<char>(c - 'A' + 'a'));
+        } else if (!stem.empty() && stem.back() != '-') {
+            stem.push_back('-');
+        }
+    }
+    while (!stem.empty() && stem.back() == '-') {
+        stem.pop_back();
+    }
+    if (stem.empty()) {
+        stem = "reference";
+    }
+    if (stem.size() > 40) {
+        stem.resize(40);
+    }
+    char mark[16];
+    std::snprintf(mark, sizeof mark, "-%08x", static_cast<unsigned>(crc32(bytes)));
+    return std::string("reference/") + stem + mark + (extension.size() > 1 && extension.size() <= 6 ? extension : std::string());
+}
+
+bool usesAsset(const Layer& layer, Id asset) {
+    for (const Module& m : layer.modules) {
+        for (const Value& v : m.values) {
+            if (const auto* ref = std::get_if<AssetRef>(&v); ref && ref->id == asset) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+}  // namespace
+
+Status Session::applyEffect(const Effect& next, std::string stepName, const std::vector<PictureUse>* pictures) {
+    // The pictures first: a layer must never point at a file that is not there.
+    if (pictures && !pictures->empty()) {
+        ensureScratch();
+        for (const PictureUse& use : *pictures) {
+            const std::filesystem::path target = projectFolder() / pathFromUtf8(use.path);
+            std::error_code ec;
+            if (std::filesystem::exists(target, ec)) {
+                continue;
+            }
+            std::filesystem::create_directories(target.parent_path(), ec);
+            if (Status written = writeFileAtomic(target, use.png); !written) {
+                return makeError("A picture for the rebuilt effect could not be saved.", written.error().message);
+            }
+        }
+    }
+
+    std::vector<CommandPtr> steps;
+    for (const Layer& layer : effect().layers) {
+        steps.push_back(std::make_unique<RemoveLayerCommand>(layer.id));
+    }
+    // An asset the effect already has (the same file) is used again.
+    std::map<std::uint64_t, Id> same;
+    std::vector<Asset> added;
+    for (const Asset& asset : next.assets) {
+        if (findAsset(effect(), asset.id)) {
+            continue;
+        }
+        Id existing;
+        for (const Asset& a : effect().assets) {
+            if (a.path == asset.path && a.kind == asset.kind) {
+                existing = a.id;
+            }
+        }
+        if (existing.valid()) {
+            same[asset.id.value] = existing;
+        } else {
+            added.push_back(asset);
+        }
+    }
+    std::vector<Layer> layers = next.layers;
+    for (Layer& layer : layers) {
+        for (Module& m : layer.modules) {
+            for (Value& v : m.values) {
+                if (auto* ref = std::get_if<AssetRef>(&v)) {
+                    if (const auto it = same.find(ref->id.value); it != same.end()) {
+                        ref->id = it->second;
+                    }
+                }
+            }
+        }
+    }
+    // Cut-outs from an earlier rebuild that nothing draws any more are
+    // dropped from the list. (Their files stay.)
+    for (const Asset& asset : effect().assets) {
+        if (asset.kind != "texture" || asset.path.rfind(std::string(kImagesFolder) + "/reference-", 0) != 0) {
+            continue;
+        }
+        bool used = false;
+        for (const Layer& layer : layers) {
+            used = used || usesAsset(layer, asset.id);
+        }
+        if (!used) {
+            steps.push_back(std::make_unique<RemoveAssetCommand>(asset.id));
+        }
+    }
+    for (const Asset& asset : added) {
+        steps.push_back(std::make_unique<AddAssetCommand>(asset));
+    }
+    for (Layer& layer : layers) {
+        steps.push_back(std::make_unique<AddLayerCommand>(std::move(layer)));
+    }
+    if (next.duration != effect().duration) {
+        steps.push_back(std::make_unique<SetPropertyCommand>(Path::effect("duration"), Value(next.duration)));
+    }
+    if (next.loop != effect().loop) {
+        steps.push_back(std::make_unique<SetPropertyCommand>(Path::effect("loop"), Value(next.loop)));
+    }
+    if (next.frameRate != effect().frameRate) {
+        steps.push_back(std::make_unique<SetPropertyCommand>(Path::effect("frameRate"), Value(next.frameRate)));
+    }
+    Status pushed = state_->commands.push(std::make_unique<CompositeCommand>(std::move(stepName), std::move(steps)));
+    if (pushed) {
+        images_.retryFailed();
+    }
+    return pushed;
+}
+
+Status Session::moveLayer(Id layer, int newIndex) {
+    return state_->commands.push(std::make_unique<MoveLayerCommand>(layer, newIndex));
+}
+
+Status Session::duplicateLayer(Id layerId, Id* created) {
+    const Layer* source = findLayer(effect(), layerId);
+    if (!source) {
+        return makeError("That layer is no longer there.");
+    }
+    Document& doc = state_->document;
+    Layer copy = *source;
+    copy.id = doc.newId();
+    copy.name = source->name + " copy";
+    copy.locked = false;
+    std::map<std::uint64_t, Id> renamed;
+    for (Module& m : copy.modules) {
+        const Id fresh = doc.newId();
+        renamed[m.id.value] = fresh;
+        m.id = fresh;
+    }
+    for (SimpleControl& control : copy.controls) {
+        control.id = doc.newId();
+        for (ControlTarget& target : control.targets) {
+            if (const auto it = renamed.find(target.module.value); it != renamed.end()) {
+                target.module = it->second;
+            }
+        }
+    }
+    const Id id = copy.id;
+    const int index = layerIndex(effect(), layerId);
+    Status pushed = state_->commands.push(std::make_unique<AddLayerCommand>(std::move(copy), index + 1));
+    if (pushed && created) {
+        *created = id;
+    }
+    return pushed;
+}
+
+Status Session::keepReference(std::string_view originalName, std::string_view bytes, std::string_view notesJson) {
+    if (bytes.empty()) {
+        return makeError("The reference file is empty.");
+    }
+    ensureScratch();
+    const std::string relative = referencePath(originalName, bytes);
+    const std::filesystem::path target = projectFolder() / pathFromUtf8(relative);
+    std::error_code ec;
+    if (!std::filesystem::exists(target, ec)) {
+        std::filesystem::create_directories(target.parent_path(), ec);
+        if (Status written = writeFileAtomic(target, bytes); !written) {
+            return makeError("The reference could not be copied next to the effect.", written.error().message);
+        }
+    }
+    std::vector<CommandPtr> steps;
+    for (const Asset& a : effect().assets) {
+        if (a.kind == "reference") {
+            steps.push_back(std::make_unique<RemoveAssetCommand>(a.id));
+        }
+    }
+    Asset asset;
+    asset.id = state_->document.newId();
+    asset.kind = "reference";
+    asset.path = relative;
+    if (!notesJson.empty()) {
+        asset.extra.emplace_back("notes", std::string(notesJson));
+    }
+    steps.push_back(std::make_unique<AddAssetCommand>(std::move(asset)));
+    return state_->commands.push(std::make_unique<CompositeCommand>("Keep reference", std::move(steps)));
+}
+
+Status Session::setReferenceNotes(std::string_view notesJson) {
+    for (const Asset& a : effect().assets) {
+        if (a.kind != "reference") {
+            continue;
+        }
+        Asset changed = a;
+        changed.extra.clear();
+        for (const auto& entry : a.extra) {
+            if (entry.first != "notes") {
+                changed.extra.push_back(entry);
+            }
+        }
+        if (!notesJson.empty()) {
+            changed.extra.emplace_back("notes", std::string(notesJson));
+        }
+        std::vector<CommandPtr> steps;
+        steps.push_back(std::make_unique<RemoveAssetCommand>(a.id));
+        steps.push_back(std::make_unique<AddAssetCommand>(std::move(changed)));
+        return state_->commands.push(std::make_unique<CompositeCommand>("Reference settings", std::move(steps)));
+    }
+    return makeError("This effect has no reference kept with it.");
+}
+
+Session::KeptReference Session::keptReference() const {
+    KeptReference kept;
+    for (const Asset& a : effect().assets) {
+        if (a.kind != "reference") {
+            continue;
+        }
+        kept.found = true;
+        kept.file = projectFolder() / pathFromUtf8(a.path);
+        kept.name = pathToUtf8(kept.file.filename());
+        for (const auto& entry : a.extra) {
+            if (entry.first == "notes") {
+                kept.notes = entry.second;
+            }
+        }
+    }
+    return kept;
 }
 
 }  // namespace vfx::editor

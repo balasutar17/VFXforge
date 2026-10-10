@@ -49,6 +49,8 @@ bool visitLayerField(LayerT& l, std::string_view field, Fn&& fn) {
     if (field == "enabled") { fn(l.enabled); return true; }
     if (field == "start") { fn(l.start); return true; }
     if (field == "duration") { fn(l.duration); return true; }
+    if (field == "role") { fn(l.role); return true; }
+    if (field == "locked") { fn(l.locked); return true; }
     return false;
 }
 

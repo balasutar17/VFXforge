@@ -244,6 +244,10 @@ Registry::Registry() {
             .unit("seconds").range(0, 3600).ui(0, 10),
         P("duration", "Duration", ValueKind::Float, num(2.0))
             .unit("seconds").range(0.01, 3600).ui(0, 10),
+        P("role", "Role", ValueKind::Text, text(""))
+            .help("What the layer is for: glow, core, ring, sparks, streaks, body, smoke, trail."),
+        P("locked", "Locked", ValueKind::Bool, Value(false))
+            .help("A locked layer is left alone by Refine and by rebuilding from a reference."),
     });
 }
 

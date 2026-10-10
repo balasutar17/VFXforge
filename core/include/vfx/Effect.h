@@ -70,6 +70,12 @@ struct Layer {
     bool enabled = true;
     double start = 0.0;     // seconds from the effect's start
     double duration = 2.0;  // seconds
+    // What the layer is for, in one word ("glow", "sparks", "ring"...), when
+    // something knows. Tools that adjust an effect as a whole use it to tell
+    // the layers apart. Empty for a layer the artist built by hand.
+    std::string role;
+    // A locked layer is left alone by tools that adjust the whole effect.
+    bool locked = false;
     std::vector<SimpleControl> controls;
     std::vector<Module> modules;
     Extras extra;

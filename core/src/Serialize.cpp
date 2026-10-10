@@ -136,6 +136,14 @@ J effectToJson(const Effect& e) {
         lo["enabled"] = l.enabled;
         lo["start"] = l.start;
         lo["duration"] = l.duration;
+        // Written only when set, so files from before these existed read
+        // back and write out unchanged.
+        if (!l.role.empty()) {
+            lo["role"] = l.role;
+        }
+        if (l.locked) {
+            lo["locked"] = true;
+        }
 
         J controls = J::array();
         for (const auto& c : l.controls) {
@@ -563,6 +571,8 @@ struct Loader {
         l.enabled = fieldAs<bool>(j, fields, "enabled", where);
         l.start = fieldAs<double>(j, fields, "start", where);
         l.duration = fieldAs<double>(j, fields, "duration", where);
+        l.role = fieldAs<std::string>(j, fields, "role", where);
+        l.locked = fieldAs<bool>(j, fields, "locked", where);
 
         if (auto controls = j.find("controls"); controls != j.end()) {
             if (!controls.value().is_array()) {
@@ -608,7 +618,7 @@ struct Loader {
             }
         }
 
-        l.extra = extras(j, {"id", "name", "enabled", "start", "duration", "controls", "modules"});
+        l.extra = extras(j, {"id", "name", "enabled", "start", "duration", "role", "locked", "controls", "modules"});
         return l;
     }
 

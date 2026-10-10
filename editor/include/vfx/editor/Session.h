@@ -25,6 +25,7 @@
 #include "vfx/Value.h"
 #include "vfx/editor/Audio.h"
 #include "vfx/editor/Image.h"
+#include "vfx/editor/Reconstruct.h"
 
 namespace vfx::editor {
 
@@ -118,6 +119,33 @@ public:
     // The decoded sounds, kept in step with the effect on every tick.
     const SoundSet& sounds() const { return sounds_; }
     const std::vector<std::string>& soundProblems() const { return soundProblems_; }
+
+    // ------------------------------------------- changing the whole effect
+    // Replaces the open effect's layers, length and loop setting with
+    // another effect's, as one undo step. Pictures the new layers draw are
+    // written into the project folder first. Used when an effect is rebuilt
+    // from a reference, refined, or an earlier version is brought back.
+    Status applyEffect(const Effect& next, std::string stepName, const std::vector<PictureUse>* pictures = nullptr);
+
+    // Moves a layer to a place in the list, or copies it (the copy goes
+    // just above the original).
+    Status moveLayer(Id layer, int newIndex);
+    Status duplicateLayer(Id layer, Id* created = nullptr);
+
+    // Keeps the original reference file with the project, untouched: it is
+    // copied into the project's "reference" folder and listed with the
+    // effect, together with notes (the settings it was read with, as JSON
+    // text). An earlier reference is replaced in the list; its file stays.
+    Status keepReference(std::string_view originalName, std::string_view bytes, std::string_view notesJson);
+    // Updates just the notes of the kept reference.
+    Status setReferenceNotes(std::string_view notesJson);
+    struct KeptReference {
+        bool found = false;
+        std::filesystem::path file;  // where the copy is
+        std::string name;            // its file name
+        std::string notes;           // the JSON text kept with it
+    };
+    KeptReference keptReference() const;
 
     Status undo();
     Status redo();

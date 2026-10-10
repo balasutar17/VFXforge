@@ -472,3 +472,29 @@ TEST_CASE("This version has no migrations yet because version 1 is the first") {
     CHECK(kFormatVersion == 1);
     CHECK(detail::builtinMigrations().empty());
 }
+
+TEST_CASE("A layer's role and lock are saved only when set") {
+    Effect effect = sampleEffect();
+    REQUIRE_FALSE(effect.layers.empty());
+    // Files written before these existed read back and write out unchanged.
+    const std::string plain = writeEffect(effect);
+    CHECK(plain.find("\"role\"") == std::string::npos);
+    CHECK(plain.find("\"locked\"") == std::string::npos);
+    auto old = readEffect(plain);
+    REQUIRE(old.ok());
+    CHECK(old.value().effect.layers[0].role.empty());
+    CHECK_FALSE(old.value().effect.layers[0].locked);
+
+    effect.layers[0].role = "glow";
+    effect.layers[0].locked = true;
+    const std::string text = writeEffect(effect);
+    CHECK(text.find("\"role\": \"glow\"") != std::string::npos);
+    CHECK(text.find("\"locked\": true") != std::string::npos);
+    auto loaded = readEffect(text);
+    REQUIRE(loaded.ok());
+    CHECK(loaded.value().diagnostics.empty());
+    CHECK(loaded.value().effect.layers[0].role == "glow");
+    CHECK(loaded.value().effect.layers[0].locked);
+    CHECK(loaded.value().effect.layers[0].extra.empty());
+    CHECK(writeEffect(loaded.value().effect) == text);
+}
