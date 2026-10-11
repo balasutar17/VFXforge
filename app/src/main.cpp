@@ -712,6 +712,9 @@ int main(int argc, char* argv[]) {
                                                             QMetaObject::invokeMethod(panel, "showControl", Q_RETURN_ARG(QVariant, found),
                                                                                       Q_ARG(QVariant, QVariant(QStringLiteral("Shape"))));
                                                         }
+                                                        // From the start of its loop, so the picture is not
+                                                        // taken in the pause at the end of one.
+                                                        controller.restart();
                                                         QTimer::singleShot(600, &application, [&, window, software, third]() {
                                                             const int lit = capture(window, selfTest, QStringLiteral("-shape-edit"),
                                                                                     QStringLiteral("a changed shape and its sliders"));
