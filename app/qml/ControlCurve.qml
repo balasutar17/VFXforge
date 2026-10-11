@@ -350,7 +350,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width - addButton.width - 8
                 elide: Text.ElideRight
-                text: "Drag a point. Double-click to add one."
+                text: "Drag points. Double-click adds one."
                 color: theme.dim
                 font.pixelSize: theme.smallFontSize
             }
