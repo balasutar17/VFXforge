@@ -585,6 +585,39 @@ ApplicationWindow {
                     folded[section] = !(folded[section] === true)
                     foldedTick = foldedTick + 1
                 }
+                // The list is rebuilt when a value changes form (a number
+                // becomes a curve) or something is undone. It should not
+                // jump back to the top when that happens, so where it was
+                // scrolled to is noted before and put back after, once the
+                // new rows have been laid out and the list is tall enough.
+                property real savedY: 0
+                property real pendingY: -1
+                function settle() {
+                    if (pendingY < 0)
+                        return
+                    var furthest = Math.max(0, controlsScroll.contentHeight - controlsScroll.height)
+                    controlsScroll.contentY = Math.min(pendingY, furthest)
+                    if (furthest >= pendingY)
+                        pendingY = -1
+                }
+                Connections {
+                    target: app
+                    function onControlsAboutToChange() { controlsPanel.savedY = controlsScroll.contentY }
+                    function onControlsPlace(keep) {
+                        controlsPanel.pendingY = keep ? controlsPanel.savedY : 0
+                        controlsPanel.settle()
+                        settleTimer.restart()
+                    }
+                }
+                Timer {
+                    id: settleTimer
+                    interval: 150
+                    onTriggered: {
+                        controlsPanel.settle()
+                        controlsPanel.pendingY = -1
+                    }
+                }
+
                 // Scrolls the list so that a group's heading is at the top.
                 // True when there is such a group.
                 function showSection(section) {
@@ -662,6 +695,7 @@ ApplicationWindow {
                         id: controlsColumn
                         width: parent.width
                         spacing: 14
+                        onHeightChanged: controlsPanel.settle()
 
                         Repeater {
                             id: controlsRepeater

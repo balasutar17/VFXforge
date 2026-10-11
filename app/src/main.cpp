@@ -508,14 +508,17 @@ int main(int argc, char* argv[]) {
                                 adv << "FAIL: editing through the advanced view did not work\n";
                                 selfTest.result = 1;
                             }
-                            // Show the curve and gradient editors themselves.
+                            // Show the curve and gradient editors themselves, once
+                            // the rebuilt list has been laid out.
+                            QTimer::singleShot(500, &application, [&, window, third]() {
+                            QTextStream scrolled(&selfTest.report);
                             QObject* panel = window->findChild<QObject*>(QStringLiteral("controlsPanel"));
                             QVariant shown;
                             if (!panel ||
                                 !QMetaObject::invokeMethod(panel, "showSection", Q_RETURN_ARG(QVariant, shown),
                                                            Q_ARG(QVariant, QVariant(QStringLiteral("Over Lifetime")))) ||
                                 !shown.toBool()) {
-                                adv << "FAIL: the Over Lifetime group could not be scrolled to\n";
+                                scrolled << "FAIL: the Over Lifetime group could not be scrolled to\n";
                                 selfTest.result = 1;
                             }
                             QTimer::singleShot(900, &application, [&, window, third]() {
@@ -524,6 +527,7 @@ int main(int argc, char* argv[]) {
                                 controller.setAdvanced(false);
                                 controller.setLibraryOpen(true);
                                 QTimer::singleShot(2500, &application, third);
+                            });
                             });
                         });
                     });

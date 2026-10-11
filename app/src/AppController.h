@@ -294,6 +294,10 @@ signals:
     void layersChanged();
     void selectionChanged();
     void controlsChanged();
+    // Either side of the list of controls being rebuilt: first so that the
+    // panel can note where it is scrolled to, then whether to go back there.
+    void controlsAboutToChange();
+    void controlsPlace(bool keep);
     void playbackChanged();
     void frameChanged();
     void messageChanged();
@@ -316,6 +320,7 @@ private:
     void changed(Refresh what);
     void rebuildLayers();
     void rebuildControls();
+    void refreshControls();
     void say(const QString& text, bool error = false);
     bool report(const vfx::Status& status);
     vfx::Id selectedLayerId() const;
@@ -346,6 +351,8 @@ private:
     QVariantList controls_;
     int selected_ = 0;
     bool advanced_ = false;
+    vfx::Id shownLayer_;
+    bool shownAdvanced_ = false;
 
     double time_ = 0.0;
     int frame_ = 0;

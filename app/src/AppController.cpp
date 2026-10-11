@@ -287,14 +287,28 @@ std::vector<ControlView> AppController::views() const {
     return advanced_ ? session_.properties(layer) : session_.controls(layer);
 }
 
+// Rebuilds the list of controls and says whether the panel should stay
+// scrolled where it was: yes when it still shows the same layer in the same
+// view (a value changed form, something was undone), no when it shows
+// something else.
+void AppController::refreshControls() {
+    emit controlsAboutToChange();
+    const vfx::Id layer = selectedLayerId();
+    const bool same = layer.valid() && layer == shownLayer_ && advanced_ == shownAdvanced_;
+    rebuildControls();
+    shownLayer_ = layer;
+    shownAdvanced_ = advanced_;
+    emit controlsChanged();
+    emit controlsPlace(same);
+}
+
 void AppController::setAdvanced(bool advanced) {
     if (advanced == advanced_) {
         return;
     }
     session_.endEdit();
     advanced_ = advanced;
-    rebuildControls();
-    emit controlsChanged();
+    refreshControls();
 }
 
 QVariantList AppController::curveShapes() const {
@@ -462,8 +476,7 @@ void AppController::changed(Refresh what) {
         rebuildLayers();  // also keeps the selection on a layer that exists
         emit layersChanged();
         emit selectionChanged();
-        rebuildControls();
-        emit controlsChanged();
+        refreshControls();
     }
     emit documentChanged();
     emit redraw();
@@ -647,8 +660,7 @@ void AppController::selectLayer(int index) {
     session_.endEdit();
     selected_ = index;
     emit selectionChanged();
-    rebuildControls();
-    emit controlsChanged();
+    refreshControls();
 }
 
 void AppController::addLayer() {
@@ -827,8 +839,7 @@ void AppController::setControlRandom(int index, bool random) {
     }
     session_.endEdit();
     report(session_.setControl(c.layer, c.control, vfx::Value(next)));
-    rebuildControls();
-    emit controlsChanged();
+    refreshControls();
     changed(Values);
 }
 
@@ -913,8 +924,7 @@ void AppController::setControlMode(int index, const QString& mode) {
     }
     session_.endEdit();
     report(session_.setControl(c.layer, c.control, vfx::Value(next)));
-    rebuildControls();
-    emit controlsChanged();
+    refreshControls();
     changed(Values);
 }
 
