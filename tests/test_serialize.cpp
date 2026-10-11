@@ -401,6 +401,19 @@ TEST_CASE("Single values convert to text and back") {
     auto parsed = valueFromText(lifetime, "{\"curve\": [[0, 1], [1, 0.5]]}");
     REQUIRE(parsed.ok());
     CHECK(parsed.value() == Value(Scalar::curve({{0, 1}, {1, 0.5}})));
+
+    // A corner is written as it always was; a smooth point says so, and
+    // comes back smooth.
+    const Value bent(Scalar::curve({{0, 1, true}, {0.5, 0.25}, {1, 0.5, true}}));
+    CHECK(valueToText(bent) == "{\"curve\": [[0.0, 1.0, \"smooth\"], [0.5, 0.25], [1.0, 0.5, \"smooth\"]]}");
+    auto again = valueFromText(lifetime, valueToText(bent));
+    REQUIRE(again.ok());
+    CHECK(again.value() == bent);
+    CHECK(again.value() != Value(Scalar::curve({{0, 1}, {0.5, 0.25}, {1, 0.5}})));
+    // Anything else in the third place is refused.
+    CHECK_FALSE(valueFromText(lifetime, "{\"curve\": [[0, 1, \"wavy\"], [1, 0.5]]}").ok());
+    CHECK_FALSE(valueFromText(lifetime, "{\"curve\": [[0, 1, 1], [1, 0.5]]}").ok());
+    CHECK_FALSE(valueFromText(lifetime, "{\"curve\": [[0, 1, \"smooth\", 2], [1, 0.5]]}").ok());
 }
 
 TEST_CASE("The schema describes every module and is itself canonical JSON") {

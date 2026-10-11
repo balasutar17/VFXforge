@@ -120,9 +120,14 @@ ScalarF toScalar(const Scalar& s) {
                 break;
             }
             out.mode = ScalarF::Mode::Curve;
-            out.keys.reserve(s.keys.size());
-            for (const auto& k : s.keys) {
-                out.keys.push_back(CurveKeyF{f(k.t), f(k.v)});
+            {
+                // Smooth points are turned into short straight pieces here,
+                // so everything that plays a curve only ever meets corners.
+                const std::vector<CurveKey> flat = flattenCurve(s.keys);
+                out.keys.reserve(flat.size());
+                for (const auto& k : flat) {
+                    out.keys.push_back(CurveKeyF{f(k.t), f(k.v)});
+                }
             }
             break;
     }

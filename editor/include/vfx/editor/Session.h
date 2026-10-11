@@ -39,6 +39,13 @@ struct ControlView {
     // something that no longer exists; such a control is shown as broken.
     const PropertyDesc* desc = nullptr;
     Value value;
+
+    // Where the setting lives, for the Advanced view, which groups settings
+    // by this: "Timing" for the layer's own start and length, otherwise the
+    // module's name ("Emission", "Motion"...). moduleType is the module's
+    // type ("emission", "motion"...), empty for the layer's own fields.
+    std::string section;
+    std::string moduleType;
 };
 
 // A starting effect that looks like something: one warm, glowing fountain.
@@ -156,6 +163,11 @@ public:
 
     // ------------------------------------------------- Simple controls
     std::vector<ControlView> controls(Id layer) const;
+
+    // The Advanced view: every setting of the layer, grouped. The layer's
+    // own start and length first, then each module's settings in the order
+    // the module declares them. Each can be changed with setControl.
+    std::vector<ControlView> properties(Id layer) const;
 
     // Sets every property the control drives, as one undo step.
     Status setControl(Id layer, Id control, const Value& value);

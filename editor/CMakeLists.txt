@@ -15,6 +15,7 @@ add_library(vfx_editor STATIC
     src/Image.cpp
     src/Picture.cpp
     src/Compare.cpp
+    src/CurveTools.cpp
     src/EffectTools.cpp
     src/Presets.cpp
     src/Reconstruct.cpp

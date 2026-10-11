@@ -26,6 +26,102 @@ TEST_CASE("Curves are straight lines between keys and flat beyond the ends") {
     CHECK(evalCurve(keys, std::nanf("")) == 1.0f);  // nonsense in, something sane out
 }
 
+TEST_CASE("Smooth curve points bend the curve without swinging past them") {
+    // A curve of corners comes back exactly as it was.
+    const std::vector<CurveKey> corners{{0.0, 0.0}, {0.3, 1.0}, {1.0, 0.25}};
+    CHECK(flattenCurve(corners) == corners);
+    CHECK(flattenCurve({}).empty());
+    CHECK(flattenCurve({{0.4, 2.0, true}}) == std::vector<CurveKey>{{0.4, 2.0}});
+
+    const auto at = [](const std::vector<CurveKey>& flat, double x) {
+        std::vector<CurveKeyF> keys;
+        for (const CurveKey& k : flat) {
+            CHECK_FALSE(k.smooth);
+            keys.push_back(CurveKeyF{static_cast<float>(k.t), static_cast<float>(k.v)});
+        }
+        return static_cast<double>(evalCurve(keys, static_cast<float>(x)));
+    };
+
+    // Two smooth ends: slow out, slow in. Level at both ends, steepest in
+    // the middle, and the same shape turned over about its centre.
+    const auto ease = flattenCurve({{0.0, 0.0, true}, {1.0, 1.0, true}});
+    REQUIRE(ease.size() == static_cast<std::size_t>(kCurvePieces) + 1);
+    CHECK(ease.front() == CurveKey{0.0, 0.0});
+    CHECK(ease.back() == CurveKey{1.0, 1.0});
+    CHECK(at(ease, 0.5) == Catch::Approx(0.5));
+    CHECK(at(ease, 0.25) == Catch::Approx(0.15625).margin(0.01));  // 3t^2 - 2t^3
+    CHECK(at(ease, 0.1) < 0.05);
+    CHECK(at(ease, 0.9) > 0.95);
+    CHECK(at(ease, 0.3) + at(ease, 0.7) == Catch::Approx(1.0));
+
+    // A smooth start and a corner at the end: it gathers speed and arrives
+    // at full tilt. The other way round, it sets off at once and settles.
+    const auto in = flattenCurve({{0.0, 0.0, true}, {1.0, 1.0, false}});
+    const auto out = flattenCurve({{0.0, 0.0, false}, {1.0, 1.0, true}});
+    CHECK(at(in, 0.5) < 0.4);
+    CHECK(at(out, 0.5) > 0.6);
+    CHECK(at(in, 0.3) + at(out, 0.7) == Catch::Approx(1.0));
+    CHECK(at(in, 0.99) - at(in, 0.98) > 0.012);   // still moving fast at the end
+    CHECK(at(out, 0.99) - at(out, 0.98) < 0.002); // all but stopped
+
+    // A fade in, hold and out with every point smooth never leaves 0..1,
+    // and the hold really is level.
+    const auto fade = flattenCurve({{0.0, 0.0, true}, {0.2, 1.0, true}, {0.7, 1.0, true}, {1.0, 0.0, true}});
+    double previous = 0.0;
+    for (int i = 0; i <= 200; ++i) {
+        const double x = i / 200.0, v = at(fade, x);
+        CHECK(v >= 0.0);
+        CHECK(v <= 1.0);
+        if (x <= 0.2) {
+            CHECK(v >= previous - 1e-6);  // only ever rising
+        }
+        if (x >= 0.2 && x <= 0.7) {
+            CHECK(v == 1.0);
+        }
+        previous = v;
+    }
+
+    // On the way up, a smooth point is passed without a kink: the steepness
+    // just before and just after it agree.
+    const auto through = flattenCurve({{0.0, 0.0}, {0.5, 0.3, true}, {1.0, 1.0}});
+    const double before = (at(through, 0.5) - at(through, 0.49)) / 0.01;
+    const double after = (at(through, 0.51) - at(through, 0.5)) / 0.01;
+    CHECK(before == Catch::Approx(after).epsilon(0.15));
+    CHECK(before > 0.6);   // steeper than the first stretch as a straight line...
+    CHECK(after < 1.4);    // ...and gentler than the second
+    for (std::size_t i = 1; i < through.size(); ++i) {
+        CHECK(through[i].t > through[i - 1].t);
+        CHECK(through[i].v >= through[i - 1].v);
+    }
+
+    // A peak with smooth points overshoots only as far as its own point.
+    const auto pop = flattenCurve({{0.0, 0.0}, {0.3, 1.2, true}, {0.6, 0.95, true}, {1.0, 1.0, true}});
+    double top = 0.0;
+    for (const CurveKey& k : pop) {
+        top = std::max(top, k.v);
+    }
+    CHECK(top == 1.2);
+
+    // Points too close together to bend between are joined by a straight line.
+    const auto tight = flattenCurve({{0.5, 0.0, true}, {0.50001, 1.0, true}});
+    CHECK(tight.size() == 2);
+}
+
+TEST_CASE("A layer with a smooth curve plays the bent curve; a curve of corners is untouched") {
+    Effect bent = oneLayer();
+    Effect straight = bent;
+    put(bent.layers[0], "overLife", "opacity", Value(Scalar::curve({{0.0, 0.0, true}, {1.0, 1.0, true}})));
+    put(straight.layers[0], "overLife", "opacity", Value(Scalar::curve({{0.0, 0.0}, {1.0, 1.0}})));
+    const auto a = compileLayer(bent, bent.layers[0]);
+    const auto b = compileLayer(straight, straight.layers[0]);
+    REQUIRE(a);
+    REQUIRE(b);
+    CHECK(b->opacityOverLife.keys.size() == 2);
+    CHECK(a->opacityOverLife.keys.size() == static_cast<std::size_t>(kCurvePieces) + 1);
+    CHECK(evalCurve(a->opacityOverLife.keys, 0.2f) < evalCurve(b->opacityOverLife.keys, 0.2f));
+    CHECK(evalCurve(a->opacityOverLife.keys, 0.8f) > evalCurve(b->opacityOverLife.keys, 0.8f));
+}
+
 TEST_CASE("A scalar is sampled according to its form") {
     ScalarF constant;
     constant.a = 4.0f;

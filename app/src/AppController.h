@@ -45,6 +45,10 @@ class AppController : public QObject {
     Q_PROPERTY(int selectedLayer READ selectedLayer WRITE selectLayer NOTIFY selectionChanged)
     Q_PROPERTY(QString selectedLayerName READ selectedLayerName NOTIFY selectionChanged)
     Q_PROPERTY(QVariantList controls READ controls NOTIFY controlsChanged)
+    // Simple shows a handful of controls; Advanced shows every setting of
+    // the layer, grouped, with curve and gradient editors.
+    Q_PROPERTY(bool advanced READ advanced WRITE setAdvanced NOTIFY controlsChanged)
+    Q_PROPERTY(QVariantList curveShapes READ curveShapes CONSTANT)
 
     // Playback.
     Q_PROPERTY(bool playing READ playing NOTIFY playbackChanged)
@@ -115,6 +119,9 @@ public:
     int selectedLayer() const { return selected_; }
     QString selectedLayerName() const;
     QVariantList controls() const { return controls_; }
+    bool advanced() const { return advanced_; }
+    void setAdvanced(bool advanced);
+    QVariantList curveShapes() const;
 
     bool playing() const;
     double timeScale() const;
@@ -206,6 +213,29 @@ public:
     Q_INVOKABLE void setControlColor(int index, const QColor& color);
     Q_INVOKABLE void setControlDirection(int index, double heading, double tilt);
     Q_INVOKABLE void setControlChoice(int index, const QString& option);
+    Q_INVOKABLE void setControlFlag(int index, bool on);
+    Q_INVOKABLE void setControlVector(int index, double x, double y, double z);
+    // A value that is one number ("fixed"), a random range ("random") or a
+    // curve ("curve"): changes which, keeping the look as close as it can.
+    Q_INVOKABLE void setControlMode(int index, const QString& mode);
+    // Curves. The editor in the window holds a list of points, each
+    // {t, v, smooth}; these take such a list and give back the list as it
+    // was accepted (in order, within the limits), so the two never differ.
+    Q_INVOKABLE QVariantList setControlCurve(int index, const QVariantList& keys);
+    Q_INVOKABLE QVariantList applyCurveShape(int index, const QString& shape);
+    // The curve between its points, bends included, as the simulation plays
+    // it: a list of {t, v} joined by straight lines.
+    Q_INVOKABLE QVariantList curveLine(int index, const QVariantList& keys) const;
+    // Colour gradients. Stops are {t, color, bright, alpha}: a screen
+    // colour, how many times brighter than that it is (1 or more: fire is
+    // white-hot at 2 or 3), and its opacity.
+    Q_INVOKABLE QVariantList setControlGradient(int index, const QVariantList& stops);
+    // The gradient drawn as that many colours side by side (alpha is each
+    // one's opacity), and the stop that would sit at one moment.
+    Q_INVOKABLE QVariantList gradientStrip(const QVariantList& stops, int count) const;
+    Q_INVOKABLE QVariantMap gradientStopAt(const QVariantList& stops, double t) const;
+    // Bursts: a list of {time, count}.
+    Q_INVOKABLE QVariantList setControlBursts(int index, const QVariantList& items);
 
     // ------------------------------------------------------------- sound
     bool soundOn() const { return soundOn_; }
@@ -290,6 +320,8 @@ private:
     bool report(const vfx::Status& status);
     vfx::Id selectedLayerId() const;
     bool control(int index, vfx::editor::ControlView& out) const;
+    // The settings shown now: the Simple controls, or every setting.
+    std::vector<vfx::editor::ControlView> views() const;
     QVariantMap pictureInfo() const;
     QVariantMap soundInfo() const;
     vfx::Id soundModuleId() const;
@@ -313,6 +345,7 @@ private:
     QVariantList layers_;
     QVariantList controls_;
     int selected_ = 0;
+    bool advanced_ = false;
 
     double time_ = 0.0;
     int frame_ = 0;

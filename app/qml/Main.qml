@@ -163,7 +163,7 @@ ApplicationWindow {
                 Item { Layout.fillWidth: true }
 
                 Text {
-                    text: "Advanced and Expert views: NOT IMPLEMENTED yet"
+                    text: "Expert view (node graph): NOT IMPLEMENTED yet"
                     color: theme.faint
                     font.pixelSize: theme.smallFontSize
                 }
@@ -565,20 +565,69 @@ ApplicationWindow {
             }
             Rectangle { Layout.preferredWidth: 1; Layout.fillHeight: true; color: theme.line }
 
-            // ---- right: the Simple controls of the selected layer
+            // ---- right: the controls of the selected layer. Simple shows a
+            // handful; Advanced shows every setting, in groups that fold away.
             Rectangle {
+                id: controlsPanel
+                objectName: "controlsPanel"
                 Layout.preferredWidth: 320
                 Layout.fillHeight: true
                 color: theme.panel
 
+                // Which groups of the Advanced view are folded away. Kept
+                // here so it survives the list being rebuilt.
+                property var folded: ({})
+                property int foldedTick: 0
+                function isFolded(section) {
+                    return foldedTick >= 0 && section !== undefined && section.length > 0 && folded[section] === true
+                }
+                function toggleFolded(section) {
+                    folded[section] = !(folded[section] === true)
+                    foldedTick = foldedTick + 1
+                }
+                // Scrolls the list so that a group's heading is at the top.
+                // True when there is such a group.
+                function showSection(section) {
+                    for (var i = 0; i < controlsRepeater.count; ++i) {
+                        var row = controlsRepeater.itemAt(i)
+                        if (row && row.heading && row.modelData.section === section) {
+                            var furthest = Math.max(0, controlsScroll.contentHeight - controlsScroll.height)
+                            controlsScroll.contentY = Math.min(row.y, furthest)
+                            return true
+                        }
+                    }
+                    return false
+                }
+
                 PanelTitle {
                     id: controlsTitle
                     anchors.left: parent.left
-                    anchors.right: parent.right
+                    anchors.right: viewSwitch.left
                     anchors.top: parent.top
                     anchors.margins: 12
                     text: "Controls"
                     detail: app.selectedLayerName
+                }
+                Row {
+                    id: viewSwitch
+                    anchors.right: parent.right
+                    anchors.rightMargin: 12
+                    anchors.verticalCenter: controlsTitle.verticalCenter
+                    spacing: 4
+                    VButton {
+                        height: 24
+                        text: "Simple"
+                        tip: "The handful of controls that matter most"
+                        checked: !app.advanced
+                        onClicked: app.advanced = false
+                    }
+                    VButton {
+                        height: 24
+                        text: "Advanced"
+                        tip: "Every setting of this layer, with curve and colour-gradient editors"
+                        checked: app.advanced
+                        onClicked: app.advanced = true
+                    }
                 }
 
                 Text {
@@ -592,7 +641,7 @@ ApplicationWindow {
                     font.pixelSize: theme.fontSize
                     text: app.layers.length === 0
                           ? "This effect has no layers. Add one on the left to begin."
-                          : "This layer has no Simple controls."
+                          : "This layer has no controls."
                 }
 
                 Flickable {
@@ -615,6 +664,7 @@ ApplicationWindow {
                         spacing: 14
 
                         Repeater {
+                            id: controlsRepeater
                             model: app.controls
 
                             delegate: Loader {
@@ -622,6 +672,9 @@ ApplicationWindow {
                                 required property var modelData
                                 required property int index
                                 width: controlsColumn.width
+                                readonly property bool heading: modelData.kind === "section"
+                                // A folded group shows only its heading.
+                                visible: heading || !controlsPanel.isFolded(modelData.section)
 
                                 // The editor is created with its values already in
                                 // place, so nothing in it ever sees a missing one.
@@ -634,8 +687,27 @@ ApplicationWindow {
                                              : kind === "color" ? "ControlColor.qml"
                                              : kind === "direction" ? "ControlDirection.qml"
                                              : kind === "sound" ? "ControlSound.qml"
+                                             : kind === "curve" ? "ControlCurve.qml"
+                                             : kind === "gradient" ? "ControlGradient.qml"
+                                             : kind === "bursts" ? "ControlBursts.qml"
+                                             : kind === "vector" ? "ControlVector.qml"
+                                             : kind === "flag" ? "ControlFlag.qml"
+                                             : kind === "section" ? "ControlSection.qml"
                                              : "ControlNote.qml"
-                                    setSource(Qt.resolvedUrl(file), { "info": modelData, "controlIndex": index })
+                                    // Which setting this row changes: its place in the
+                                    // list of settings, which headings are not part of.
+                                    setSource(Qt.resolvedUrl(file), { "info": modelData, "controlIndex": modelData.control })
+                                }
+                                Binding {
+                                    target: slot.item
+                                    property: "folded"
+                                    value: controlsPanel.isFolded(slot.modelData.section)
+                                    when: slot.heading && slot.item !== null
+                                }
+                                Connections {
+                                    target: slot.heading ? slot.item : null
+                                    ignoreUnknownSignals: true
+                                    function onToggled() { controlsPanel.toggleFolded(slot.modelData.section) }
                                 }
                             }
                         }

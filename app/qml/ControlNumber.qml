@@ -7,13 +7,13 @@ Item {
     property var info
     property int controlIndex: -1
     property real value: info.value
-    readonly property int decimals: info.uiMax >= 100 ? 0 : (info.uiMax >= 10 ? 1 : 2)
+    readonly property int decimals: info.whole === true ? 0 : (info.uiMax >= 100 ? 0 : (info.uiMax >= 10 ? 1 : 2))
 
     implicitHeight: column.implicitHeight
 
     function tidy(v) {
         v = Math.max(info.hardMin, Math.min(info.hardMax, v))
-        return Number(v.toFixed(decimals + 1))
+        return info.whole === true ? Math.round(v) : Number(v.toFixed(decimals + 1))
     }
     function apply(v) {
         root.value = tidy(v)
@@ -32,6 +32,9 @@ Item {
             canBeRandom: root.info.canBeRandom
             random: false
             onRandomToggled: function(on) { app.setControlRandom(root.controlIndex, on) }
+            canBeCurve: root.info.canBeCurve === true
+            mode: "fixed"
+            onModeChosen: function(mode) { app.setControlMode(root.controlIndex, mode) }
         }
         Item {
             width: parent.width

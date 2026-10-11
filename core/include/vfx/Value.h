@@ -22,13 +22,28 @@ struct Color {
 };
 
 struct CurveKey {
-    double t = 0;  // 0..1 across the particle's life
+    double t = 0;  // 0..1 across the particle's life (or the layer's time)
     double v = 0;
+    // A corner (false) or a smooth point (true). The curve runs straight
+    // between two corners. Through a smooth point it bends: it eases to a
+    // stop where the point is a peak, a dip or an end of the curve, and
+    // passes through without a kink where it is on the way up or down. It
+    // never swings past the values of the points themselves, so a fade
+    // between 0 and 1 stays between 0 and 1.
+    bool smooth = false;
     bool operator==(const CurveKey&) const = default;
 };
 
+// How many straight pieces stand in for one bent stretch of a curve.
+inline constexpr int kCurvePieces = 12;
+
+// The same curve drawn with corners only: every bent stretch is replaced by
+// kCurvePieces short straight ones. A curve of corners comes back as it is.
+// The simulation, the picture exports and the curve editor all use this one
+// function, so what is drawn is exactly what plays.
+std::vector<CurveKey> flattenCurve(const std::vector<CurveKey>& keys, int pieces = kCurvePieces);
+
 // A number that may be fixed, random per particle, or change over life.
-// Phase 1 evaluates curves linearly; tangents arrive with the curve editor.
 struct Scalar {
     enum class Kind { Constant, Random, Curve };
 

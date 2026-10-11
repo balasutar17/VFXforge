@@ -609,3 +609,23 @@ TEST_CASE("turbulence and dissolve are handed to Unity", "[unity][turbulence][di
         CHECK(shader.find(piece) != std::string::npos);
     }
 }
+
+TEST_CASE("a curve with smooth points reaches Unity as the bent curve", "[unity][curves]") {
+    Effect effect = preset("soft-glow");
+    for (Module& m : effect.layers.front().modules) {
+        if (m.type == "overLife") {
+            *m.find("size") = Scalar::curve({{0.0, 0.0, true}, {1.0, 1.0, true}});
+        }
+    }
+    const J layer = describe(effect)["layers"][0];
+    const J& keys = layer["sizeOverLife"]["keys"];
+    // Unity is given the same short straight pieces the preview plays.
+    REQUIRE(keys.size() == static_cast<std::size_t>(kCurvePieces) + 1);
+    CHECK(keys[0][0].get<double>() == 0.0);
+    CHECK(keys[0][1].get<double>() == 0.0);
+    CHECK(keys[kCurvePieces][1].get<double>() == Catch::Approx(1.0));
+    // Slow at both ends, quick in the middle.
+    const double early = keys[1][1].get<double>() - keys[0][1].get<double>();
+    const double middle = keys[kCurvePieces / 2 + 1][1].get<double>() - keys[kCurvePieces / 2][1].get<double>();
+    CHECK(middle > 4.0 * early);
+}

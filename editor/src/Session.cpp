@@ -615,6 +615,47 @@ std::vector<ImpliedControl> impliedControls(const Layer& layer) {
 
 }  // namespace
 
+std::vector<ControlView> Session::properties(Id layerId) const {
+    std::vector<ControlView> out;
+    const Layer* layer = findLayer(effect(), layerId);
+    if (!layer) {
+        return out;
+    }
+    const ModuleTypeDesc& fields = Registry::builtin().layerFields();
+    for (const char* key : {"start", "duration"}) {
+        const PropertyDesc* desc = fields.find(key);
+        if (!desc) {
+            continue;
+        }
+        ControlView view;
+        view.layer = layerId;
+        view.control = impliedId(layerId, key);
+        view.desc = desc;
+        view.label = std::string_view(key) == "start" ? "Starts At" : "Length";
+        view.value = std::string_view(key) == "start" ? layer->start : layer->duration;
+        view.section = "Timing";
+        out.push_back(std::move(view));
+    }
+    for (const Module& module : layer->modules) {
+        if (!module.known()) {
+            continue;
+        }
+        for (std::size_t i = 0; i < module.desc->properties.size(); ++i) {
+            const PropertyDesc& desc = module.desc->properties[i];
+            ControlView view;
+            view.layer = layerId;
+            view.control = impliedId(module.id, desc.key);
+            view.label = desc.label;
+            view.desc = &desc;
+            view.value = module.values[i];
+            view.section = module.desc->label;
+            view.moduleType = module.type;
+            out.push_back(std::move(view));
+        }
+    }
+    return out;
+}
+
 std::vector<ControlView> Session::controls(Id layerId) const {
     std::vector<ControlView> out;
     const Layer* layer = findLayer(effect(), layerId);
@@ -636,6 +677,8 @@ std::vector<ControlView> Session::controls(Id layerId) const {
             driven = target.module;
             const Module* module = findModule(*layer, target.module);
             if (module && module->known()) {
+                view.section = module->desc->label;
+                view.moduleType = module->type;
                 const int index = module->desc->indexOf(target.property);
                 if (index >= 0) {
                     const auto i = static_cast<std::size_t>(index);
@@ -654,6 +697,10 @@ std::vector<ControlView> Session::controls(Id layerId) const {
         view.label = implied.desc->label;
         view.desc = implied.desc;
         view.value = std::move(implied.value);
+        if (const Module* module = findModule(*layer, implied.module)) {
+            view.section = module->desc->label;
+            view.moduleType = module->type;
+        }
         // After the last control for the same module; at the end when there
         // is none.
         std::size_t at = out.size();
@@ -689,15 +736,30 @@ Status Session::setControl(Id layerId, Id controlId, const Value& value) {
         return state_->commands.push(
             std::make_unique<CompositeCommand>("Change " + control.label, std::move(children)));
     }
-    for (const ImpliedControl& implied : impliedControls(*layer)) {
-        if (implied.id != controlId) {
+    // Any setting at all can be changed by the ID worked out from where it
+    // lives: that is what the Advanced view and the implied controls use.
+    for (const char* key : {"start", "duration"}) {
+        if (impliedId(layerId, key) == controlId) {
+            std::vector<CommandPtr> children;
+            children.push_back(std::make_unique<SetPropertyCommand>(Path::layerField(layerId, key), value));
+            return state_->commands.push(std::make_unique<CompositeCommand>(
+                std::string_view(key) == "start" ? "Change Starts At" : "Change Length", std::move(children)));
+        }
+    }
+    for (const Module& module : layer->modules) {
+        if (!module.known()) {
             continue;
         }
-        std::vector<CommandPtr> children;
-        children.push_back(std::make_unique<SetPropertyCommand>(
-            Path::property(layerId, implied.module, implied.desc->key), value));
-        return state_->commands.push(
-            std::make_unique<CompositeCommand>("Change " + implied.desc->label, std::move(children)));
+        for (const PropertyDesc& desc : module.desc->properties) {
+            if (impliedId(module.id, desc.key) != controlId) {
+                continue;
+            }
+            std::vector<CommandPtr> children;
+            children.push_back(
+                std::make_unique<SetPropertyCommand>(Path::property(layerId, module.id, desc.key), value));
+            return state_->commands.push(
+                std::make_unique<CompositeCommand>("Change " + desc.label, std::move(children)));
+        }
     }
     return makeError("That control no longer exists.");
 }

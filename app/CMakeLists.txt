@@ -51,6 +51,12 @@ qt_add_resources(vfxforge "vfxforge_qml"
         qml/ControlDirection.qml
         qml/ControlNote.qml
         qml/ControlChoice.qml
+        qml/ControlCurve.qml
+        qml/ControlGradient.qml
+        qml/ControlBursts.qml
+        qml/ControlVector.qml
+        qml/ControlFlag.qml
+        qml/ControlSection.qml
         qml/ControlShape.qml
         qml/Library.qml
         qml/ExportPanel.qml

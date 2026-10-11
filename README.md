@@ -32,6 +32,10 @@ What exists so far:
 - **effects on the ground**: any layer can lie flat (a magic circle, a
   portal, a shockwave across the floor) and still turn in its own plane, with
   shafts of light standing on it; see [docs/ground.md](docs/ground.md)
+- **the Advanced view**: every setting of a layer in folding groups, a
+  curve editor with corner and smooth points and fifteen ready-made shapes,
+  a colour-gradient editor, and a burst list; see
+  [docs/advanced.md](docs/advanced.md)
 - **turbulence and dissolve**: particles carried about by moving air, so
   smoke winds and embers wander; and particles eaten away in ragged patches
   as they die, softly like smoke or with a white-hot edge like burning

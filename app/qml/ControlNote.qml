@@ -25,9 +25,7 @@ Item {
             wrapMode: Text.WordWrap
             color: theme.dim
             font.pixelSize: theme.smallFontSize
-            text: root.info.kind === "curve"
-                  ? "This value changes over time. Editing curves is NOT IMPLEMENTED yet, so it is left as it is."
-                  : "This control is not connected to anything this version understands."
+            text: "This control is not connected to anything this version understands."
         }
     }
 }

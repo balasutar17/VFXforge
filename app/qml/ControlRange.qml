@@ -42,6 +42,9 @@ Item {
             canBeRandom: true
             random: true
             onRandomToggled: function(on) { app.setControlRandom(root.controlIndex, on) }
+            canBeCurve: root.info.canBeCurve === true
+            mode: "random"
+            onModeChosen: function(mode) { app.setControlMode(root.controlIndex, mode) }
         }
         Item {
             width: parent.width

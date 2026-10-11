@@ -53,7 +53,13 @@ J valueToJson(const Value& value) {
                 case Scalar::Kind::Curve: {
                     J keys = J::array();
                     for (const auto& k : v.keys) {
-                        keys.push_back(J::array({k.t, k.v}));
+                        // A corner is two numbers, as it always was; a
+                        // smooth point says so.
+                        J key = J::array({k.t, k.v});
+                        if (k.smooth) {
+                            key.push_back("smooth");
+                        }
+                        keys.push_back(std::move(key));
                     }
                     J o = J::object();
                     o["curve"] = std::move(keys);
@@ -298,9 +304,15 @@ bool readValue(const J& j, ValueKind kind, Value& out) {
                 parsed.reserve(keys.size());
                 for (const auto& k : keys) {
                     CurveKey key;
-                    if (!k.is_array() || k.size() != 2 || !readNumber(k[0], key.t) ||
+                    if (!k.is_array() || (k.size() != 2 && k.size() != 3) || !readNumber(k[0], key.t) ||
                         !readNumber(k[1], key.v)) {
                         return false;
+                    }
+                    if (k.size() == 3) {
+                        if (!k[2].is_string() || k[2].get<std::string>() != "smooth") {
+                            return false;
+                        }
+                        key.smooth = true;
                     }
                     parsed.push_back(key);
                 }

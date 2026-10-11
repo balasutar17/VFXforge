@@ -26,6 +26,7 @@
 #include "vfx/Id.h"
 #include "vfx/Path.h"
 #include "vfx/Metadata.h"
+#include "vfx/editor/CurveTools.h"
 #include "vfx/editor/Frames.h"
 #include "vfx/editor/Audio.h"
 #include "vfx/editor/Image.h"
@@ -54,6 +55,111 @@ QString optionLabel(const vfx::PropertyDesc& desc, const std::string& option) {
         label[0] = label[0].toUpper();
     }
     return label;
+}
+
+// ---- curves, gradients and bursts, to and from the window's lists
+
+QVariantList keysToList(const std::vector<vfx::CurveKey>& keys) {
+    QVariantList list;
+    for (const vfx::CurveKey& k : keys) {
+        QVariantMap point;
+        point.insert(QStringLiteral("t"), k.t);
+        point.insert(QStringLiteral("v"), k.v);
+        point.insert(QStringLiteral("smooth"), k.smooth);
+        list.push_back(point);
+    }
+    return list;
+}
+
+std::vector<vfx::CurveKey> keysFromList(const QVariantList& list) {
+    std::vector<vfx::CurveKey> keys;
+    for (const QVariant& item : list) {
+        const QVariantMap point = item.toMap();
+        keys.push_back(vfx::CurveKey{point.value(QStringLiteral("t")).toDouble(),
+                                     point.value(QStringLiteral("v")).toDouble(),
+                                     point.value(QStringLiteral("smooth")).toBool()});
+    }
+    return keys;
+}
+
+// A linear colour as the gradient editor shows it: a screen colour, and how
+// many times brighter than that the real one is.
+QVariantMap stopToMap(double t, const vfx::Color& c) {
+    const double most = std::max({c.r, c.g, c.b, 1.0});
+    QColor shown;
+    shown.setRgbF(static_cast<float>(std::clamp(vfx::editor::linearToSrgb(c.r / most), 0.0, 1.0)),
+                  static_cast<float>(std::clamp(vfx::editor::linearToSrgb(c.g / most), 0.0, 1.0)),
+                  static_cast<float>(std::clamp(vfx::editor::linearToSrgb(c.b / most), 0.0, 1.0)), 1.0f);
+    QVariantMap stop;
+    stop.insert(QStringLiteral("t"), t);
+    stop.insert(QStringLiteral("color"), shown);
+    stop.insert(QStringLiteral("bright"), most);
+    stop.insert(QStringLiteral("alpha"), std::clamp(c.a, 0.0, 1.0));
+    return stop;
+}
+
+vfx::Gradient gradientFromList(const QVariantList& list) {
+    vfx::Gradient gradient;
+    for (const QVariant& item : list) {
+        const QVariantMap stop = item.toMap();
+        const QColor shown = stop.value(QStringLiteral("color")).value<QColor>();
+        double bright = stop.value(QStringLiteral("bright"), 1.0).toDouble();
+        bright = std::isfinite(bright) ? std::clamp(bright, 1.0, 1000.0) : 1.0;
+        vfx::GradientKey key;
+        key.t = stop.value(QStringLiteral("t")).toDouble();
+        if (shown.isValid()) {
+            key.color.r = vfx::editor::srgbToLinear(static_cast<double>(shown.redF())) * bright;
+            key.color.g = vfx::editor::srgbToLinear(static_cast<double>(shown.greenF())) * bright;
+            key.color.b = vfx::editor::srgbToLinear(static_cast<double>(shown.blueF())) * bright;
+        }
+        key.color.a = stop.value(QStringLiteral("alpha"), 1.0).toDouble();
+        gradient.keys.push_back(key);
+    }
+    return vfx::editor::tidyGradient(std::move(gradient));
+}
+
+QVariantList gradientToList(const vfx::Gradient& gradient) {
+    QVariantList list;
+    for (const vfx::GradientKey& k : gradient.keys) {
+        list.push_back(stopToMap(k.t, k.color));
+    }
+    return list;
+}
+
+QVariantList burstsToList(const vfx::BurstList& bursts) {
+    QVariantList list;
+    for (const vfx::Burst& b : bursts.items) {
+        QVariantMap item;
+        item.insert(QStringLiteral("time"), b.time);
+        item.insert(QStringLiteral("count"), static_cast<double>(b.count));
+        list.push_back(item);
+    }
+    return list;
+}
+
+// What the three numbers of a vector setting are called.
+QStringList vectorLabels(const ControlView& c) {
+    if (c.moduleType == "shape" && c.desc->key == "size") {
+        return {QStringLiteral("Width"), QStringLiteral("Height"), QStringLiteral("Depth")};
+    }
+    return {QStringLiteral("Across"), QStringLiteral("Up"), QStringLiteral("Toward you")};
+}
+
+// Settings the Advanced list leaves out because a richer control already
+// looks after them: the picture and its sprite-sheet grid belong to the
+// Shape control, and the whole Sound module to the Sound control.
+bool handledElsewhere(const ControlView& c) {
+    if (c.moduleType == "sound") {
+        return true;
+    }
+    if (c.moduleType == "sprite") {
+        for (const char* key : {"texture", "columns", "rows", "frames", "animate", "fps", "randomStart"}) {
+            if (c.desc->key == key) {
+                return true;
+            }
+        }
+    }
+    return c.desc->kind == vfx::ValueKind::Asset;
 }
 
 double clampTo(const vfx::PropertyDesc& desc, double v) {
@@ -173,13 +279,62 @@ void AppController::rebuildLayers() {
     selected_ = count == 0 ? -1 : std::clamp(selected_, 0, count - 1);
 }
 
+std::vector<ControlView> AppController::views() const {
+    const vfx::Id layer = selectedLayerId();
+    if (!layer.valid()) {
+        return {};
+    }
+    return advanced_ ? session_.properties(layer) : session_.controls(layer);
+}
+
+void AppController::setAdvanced(bool advanced) {
+    if (advanced == advanced_) {
+        return;
+    }
+    session_.endEdit();
+    advanced_ = advanced;
+    rebuildControls();
+    emit controlsChanged();
+}
+
+QVariantList AppController::curveShapes() const {
+    QVariantList list;
+    for (const vfx::editor::CurveShape& shape : vfx::editor::curveShapes()) {
+        QVariantMap row;
+        row.insert(QStringLiteral("key"), QString::fromLatin1(shape.key));
+        row.insert(QStringLiteral("label"), QString::fromUtf8(shape.label));
+        row.insert(QStringLiteral("group"), QString::fromUtf8(shape.group));
+        row.insert(QStringLiteral("help"), QString::fromUtf8(shape.help));
+        list.push_back(row);
+    }
+    return list;
+}
+
 void AppController::rebuildControls() {
     QVariantList list;
     const vfx::Id layer = selectedLayerId();
     if (layer.valid()) {
-        for (const ControlView& c : session_.controls(layer)) {
+        const std::vector<ControlView> all = views();
+        const vfx::Layer* selected = vfx::findLayer(session_.effect(), layer);
+        std::string section;
+        for (std::size_t at = 0; at < all.size(); ++at) {
+            const ControlView& c = all[at];
+            if (advanced_ && c.desc && handledElsewhere(c)) {
+                continue;
+            }
+            if (advanced_ && c.section != section) {
+                section = c.section;
+                QVariantMap header;
+                header.insert(QStringLiteral("kind"), QStringLiteral("section"));
+                header.insert(QStringLiteral("label"), text(section));
+                header.insert(QStringLiteral("section"), text(section));
+                header.insert(QStringLiteral("control"), -1);
+                list.push_back(header);
+            }
             QVariantMap row;
             row.insert(QStringLiteral("label"), text(c.label));
+            row.insert(QStringLiteral("control"), static_cast<int>(at));
+            row.insert(QStringLiteral("section"), advanced_ ? text(c.section) : QString());
             QString kind = QStringLiteral("unsupported");
             if (c.desc) {
                 const vfx::PropertyDesc& d = *c.desc;
@@ -189,13 +344,26 @@ void AppController::rebuildControls() {
                 row.insert(QStringLiteral("uiMax"), d.uiMax.value_or(d.max.value_or(1.0)));
                 row.insert(QStringLiteral("hardMin"), d.min.value_or(-1e12));
                 row.insert(QStringLiteral("hardMax"), d.max.value_or(1e12));
+                row.insert(QStringLiteral("canBeCurve"), false);
+                row.insert(QStringLiteral("whole"), false);
 
                 if (const auto* number = std::get_if<double>(&c.value)) {
                     kind = QStringLiteral("number");
                     row.insert(QStringLiteral("value"), *number);
                     row.insert(QStringLiteral("canBeRandom"), false);
+                } else if (const auto* whole = std::get_if<std::int64_t>(&c.value)) {
+                    kind = QStringLiteral("number");
+                    row.insert(QStringLiteral("value"), static_cast<double>(*whole));
+                    row.insert(QStringLiteral("canBeRandom"), false);
+                    row.insert(QStringLiteral("whole"), true);
+                } else if (const auto* flag = std::get_if<bool>(&c.value)) {
+                    kind = QStringLiteral("flag");
+                    row.insert(QStringLiteral("value"), *flag);
                 } else if (const auto* scalar = std::get_if<vfx::Scalar>(&c.value)) {
                     row.insert(QStringLiteral("canBeRandom"), true);
+                    // Turning a number into a curve is an Advanced matter;
+                    // a value that already is one can be edited anywhere.
+                    row.insert(QStringLiteral("canBeCurve"), advanced_);
                     if (scalar->kind == vfx::Scalar::Kind::Constant) {
                         kind = QStringLiteral("number");
                         row.insert(QStringLiteral("value"), scalar->a);
@@ -205,6 +373,15 @@ void AppController::rebuildControls() {
                         row.insert(QStringLiteral("to"), scalar->b);
                     } else {
                         kind = QStringLiteral("curve");
+                        row.insert(QStringLiteral("keys"), keysToList(scalar->keys));
+                        // What the curve runs across: each particle's life,
+                        // or the layer's own time.
+                        const bool overLife = c.moduleType == "overLife" || (c.moduleType == "motion" && d.key == "spin");
+                        row.insert(QStringLiteral("axis"), overLife ? QStringLiteral("life") : QStringLiteral("layer"));
+                        // A setting that only runs from 0 to 1 is always
+                        // drawn on that whole range.
+                        row.insert(QStringLiteral("fixedRange"),
+                                   d.min && d.max && *d.min == 0.0 && *d.max == 1.0);
                     }
                 } else if (const auto* color = std::get_if<vfx::Color>(&c.value)) {
                     kind = QStringLiteral("color");
@@ -216,11 +393,20 @@ void AppController::rebuildControls() {
                                   static_cast<float>(std::min(1.0, vfx::editor::linearToSrgb(color->b))),
                                   static_cast<float>(std::clamp(color->a, 0.0, 1.0)));
                     row.insert(QStringLiteral("color"), shown);
+                } else if (const auto* gradient = std::get_if<vfx::Gradient>(&c.value)) {
+                    kind = QStringLiteral("gradient");
+                    row.insert(QStringLiteral("stops"), gradientToList(*gradient));
+                } else if (const auto* bursts = std::get_if<vfx::BurstList>(&c.value)) {
+                    kind = QStringLiteral("bursts");
+                    row.insert(QStringLiteral("items"), burstsToList(*bursts));
+                    row.insert(QStringLiteral("layerLength"), selected ? selected->duration : 0.0);
                 } else if (const auto* choice = std::get_if<std::string>(&c.value);
                            choice && d.kind == vfx::ValueKind::Enum) {
-                    // The shape picker shows pictures; any other choice shows words.
-                    kind = d.key == "shape" ? QStringLiteral("shape") : QStringLiteral("choice");
-                    if (d.key == "shape") {
+                    // The particle's shape is picked from pictures; any other
+                    // choice (where particles appear, how they blend) from words.
+                    const bool picture = d.key == "shape" && c.moduleType == "sprite";
+                    kind = picture ? QStringLiteral("shape") : QStringLiteral("choice");
+                    if (picture) {
                         row.insert(QStringLiteral("picture"), pictureInfo());
                     }
                     row.insert(QStringLiteral("value"), text(*choice));
@@ -232,11 +418,19 @@ void AppController::rebuildControls() {
                         options.push_back(entry);
                     }
                     row.insert(QStringLiteral("options"), options);
-                } else if (const auto* direction = std::get_if<vfx::Vec3>(&c.value)) {
-                    kind = QStringLiteral("direction");
-                    const vfx::editor::Heading h = vfx::editor::headingFromDirection(*direction);
-                    row.insert(QStringLiteral("heading"), h.heading);
-                    row.insert(QStringLiteral("tilt"), h.tilt);
+                } else if (const auto* vector = std::get_if<vfx::Vec3>(&c.value)) {
+                    if (d.key == "direction") {
+                        kind = QStringLiteral("direction");
+                        const vfx::editor::Heading h = vfx::editor::headingFromDirection(*vector);
+                        row.insert(QStringLiteral("heading"), h.heading);
+                        row.insert(QStringLiteral("tilt"), h.tilt);
+                    } else {
+                        kind = QStringLiteral("vector");
+                        row.insert(QStringLiteral("x"), vector->x);
+                        row.insert(QStringLiteral("y"), vector->y);
+                        row.insert(QStringLiteral("z"), vector->z);
+                        row.insert(QStringLiteral("names"), vectorLabels(c));
+                    }
                     row.insert(QStringLiteral("threeD"), threeD());
                 }
             }
@@ -244,10 +438,20 @@ void AppController::rebuildControls() {
             list.push_back(row);
         }
         // The layer's sound, if it has one, or the offer of one.
+        if (advanced_) {
+            QVariantMap header;
+            header.insert(QStringLiteral("kind"), QStringLiteral("section"));
+            header.insert(QStringLiteral("label"), QStringLiteral("Sound"));
+            header.insert(QStringLiteral("section"), QStringLiteral("Sound"));
+            header.insert(QStringLiteral("control"), -1);
+            list.push_back(header);
+        }
         QVariantMap sound;
         sound.insert(QStringLiteral("kind"), QStringLiteral("sound"));
         sound.insert(QStringLiteral("label"), QStringLiteral("Sound"));
         sound.insert(QStringLiteral("sound"), soundInfo());
+        sound.insert(QStringLiteral("control"), -1);
+        sound.insert(QStringLiteral("section"), advanced_ ? QStringLiteral("Sound") : QString());
         list.push_back(sound);
     }
     controls_ = std::move(list);
@@ -556,7 +760,7 @@ bool AppController::control(int index, ControlView& out) const {
     if (!layer.valid()) {
         return false;
     }
-    std::vector<ControlView> all = session_.controls(layer);
+    std::vector<ControlView> all = views();
     if (index < 0 || index >= static_cast<int>(all.size()) ||
         !all[static_cast<std::size_t>(index)].desc) {
         return false;
@@ -586,6 +790,8 @@ void AppController::setControlNumber(int index, double value) {
         applyControl(index, vfx::Value(vfx::Scalar::constant(value)));
     } else if (c.desc->kind == vfx::ValueKind::Float) {
         applyControl(index, vfx::Value(value));
+    } else if (c.desc->kind == vfx::ValueKind::Int) {
+        applyControl(index, vfx::Value(static_cast<std::int64_t>(std::llround(value))));
     }
 }
 
@@ -658,6 +864,148 @@ void AppController::setControlChoice(int index, const QString& option) {
     }
     session_.endEdit();
     applyControl(index, vfx::Value(utf8(option)));
+}
+
+void AppController::setControlFlag(int index, bool on) {
+    ControlView c;
+    if (!control(index, c) || c.desc->kind != vfx::ValueKind::Bool) {
+        return;
+    }
+    session_.endEdit();
+    applyControl(index, vfx::Value(on));
+}
+
+void AppController::setControlVector(int index, double x, double y, double z) {
+    ControlView c;
+    if (!control(index, c) || c.desc->kind != vfx::ValueKind::Vec3) {
+        return;
+    }
+    applyControl(index, vfx::Value(vfx::Vec3{clampTo(*c.desc, x), clampTo(*c.desc, y), clampTo(*c.desc, z)}));
+}
+
+void AppController::setControlMode(int index, const QString& mode) {
+    ControlView c;
+    if (!control(index, c) || c.desc->kind != vfx::ValueKind::Scalar) {
+        return;
+    }
+    const auto& now = std::get<vfx::Scalar>(c.value);
+    // The one number that best stands for what is there now.
+    const std::vector<vfx::CurveKey> line = vfx::editor::curveFrom(now);
+    double level = line.front().v;
+    if (now.kind == vfx::Scalar::Kind::Curve) {
+        // A curve's highest point (by size), with its sign.
+        for (const vfx::CurveKey& k : line) {
+            if (std::fabs(k.v) > std::fabs(level)) {
+                level = k.v;
+            }
+        }
+    }
+    vfx::Scalar next = now;
+    if (mode == QStringLiteral("fixed") && now.kind != vfx::Scalar::Kind::Constant) {
+        next = vfx::Scalar::constant(clampTo(*c.desc, level));
+    } else if (mode == QStringLiteral("random") && now.kind != vfx::Scalar::Kind::Random) {
+        const double low = clampTo(*c.desc, level * 0.75), high = clampTo(*c.desc, level * 1.25);
+        next = vfx::Scalar::random(std::min(low, high), std::max(low, high));
+    } else if (mode == QStringLiteral("curve") && now.kind != vfx::Scalar::Kind::Curve) {
+        next = vfx::Scalar::curve(vfx::editor::tidyCurve(line, *c.desc));
+    } else {
+        return;
+    }
+    session_.endEdit();
+    report(session_.setControl(c.layer, c.control, vfx::Value(next)));
+    rebuildControls();
+    emit controlsChanged();
+    changed(Values);
+}
+
+QVariantList AppController::setControlCurve(int index, const QVariantList& keys) {
+    ControlView c;
+    if (!control(index, c) || c.desc->kind != vfx::ValueKind::Scalar) {
+        return keys;
+    }
+    const std::vector<vfx::CurveKey> tidy = vfx::editor::tidyCurve(keysFromList(keys), *c.desc);
+    applyControl(index, vfx::Value(vfx::Scalar::curve(tidy)));
+    return keysToList(tidy);
+}
+
+QVariantList AppController::applyCurveShape(int index, const QString& shape) {
+    ControlView c;
+    const vfx::editor::CurveShape* found = vfx::editor::findCurveShape(utf8(shape));
+    if (!control(index, c) || c.desc->kind != vfx::ValueKind::Scalar || !found) {
+        return {};
+    }
+    const vfx::Scalar next = vfx::editor::shaped(*found, std::get<vfx::Scalar>(c.value), *c.desc);
+    session_.endEdit();
+    applyControl(index, vfx::Value(next));
+    say(QStringLiteral("%1 now follows the shape \u201c%2\u201d.").arg(text(c.label), QString::fromUtf8(found->label)));
+    return keysToList(next.keys);
+}
+
+QVariantList AppController::curveLine(int index, const QVariantList& keys) const {
+    ControlView c;
+    std::vector<vfx::CurveKey> points = keysFromList(keys);
+    if (control(index, c) && c.desc->kind == vfx::ValueKind::Scalar) {
+        points = vfx::editor::tidyCurve(std::move(points), *c.desc);
+    }
+    QVariantList line;
+    for (const vfx::CurveKey& k : vfx::flattenCurve(points)) {
+        QVariantMap point;
+        point.insert(QStringLiteral("t"), k.t);
+        point.insert(QStringLiteral("v"), k.v);
+        line.push_back(point);
+    }
+    return line;
+}
+
+QVariantList AppController::setControlGradient(int index, const QVariantList& stops) {
+    ControlView c;
+    if (!control(index, c) || c.desc->kind != vfx::ValueKind::Gradient) {
+        return stops;
+    }
+    const vfx::Gradient gradient = gradientFromList(stops);
+    applyControl(index, vfx::Value(gradient));
+    return gradientToList(gradient);
+}
+
+QVariantList AppController::gradientStrip(const QVariantList& stops, int count) const {
+    const vfx::Gradient gradient = gradientFromList(stops);
+    count = std::clamp(count, 2, 256);
+    QVariantList strip;
+    for (int i = 0; i < count; ++i) {
+        const vfx::Color c = vfx::editor::gradientAt(gradient, (static_cast<double>(i) + 0.5) / count);
+        // As bright as the screen can show it: anything hotter is white.
+        QColor shown;
+        shown.setRgbF(static_cast<float>(std::clamp(vfx::editor::linearToSrgb(std::min(c.r, 1.0)), 0.0, 1.0)),
+                      static_cast<float>(std::clamp(vfx::editor::linearToSrgb(std::min(c.g, 1.0)), 0.0, 1.0)),
+                      static_cast<float>(std::clamp(vfx::editor::linearToSrgb(std::min(c.b, 1.0)), 0.0, 1.0)),
+                      static_cast<float>(std::clamp(c.a, 0.0, 1.0)));
+        strip.push_back(shown);
+    }
+    return strip;
+}
+
+QVariantMap AppController::gradientStopAt(const QVariantList& stops, double t) const {
+    t = std::isfinite(t) ? std::clamp(t, 0.0, 1.0) : 0.0;
+    return stopToMap(t, vfx::editor::gradientAt(gradientFromList(stops), t));
+}
+
+QVariantList AppController::setControlBursts(int index, const QVariantList& items) {
+    ControlView c;
+    if (!control(index, c) || c.desc->kind != vfx::ValueKind::Bursts) {
+        return items;
+    }
+    vfx::BurstList bursts;
+    for (const QVariant& item : items) {
+        const QVariantMap row = item.toMap();
+        const double count = row.value(QStringLiteral("count")).toDouble();
+        bursts.items.push_back(vfx::Burst{row.value(QStringLiteral("time")).toDouble(),
+                                          std::isfinite(count) ? static_cast<std::int64_t>(std::llround(count)) : 0});
+    }
+    const vfx::Layer* layer = vfx::findLayer(session_.effect(), c.layer);
+    bursts = vfx::editor::tidyBursts(std::move(bursts), layer ? layer->duration : 0.0);
+    session_.endEdit();
+    applyControl(index, vfx::Value(bursts));
+    return burstsToList(bursts);
 }
 
 // ---------------------------------------------------------------- sound

@@ -422,8 +422,110 @@ int main(int argc, char* argv[]) {
                             last << "FAIL: the turbulent preset shows nothing\n";
                             selfTest.result = 1;
                         }
-                        controller.setLibraryOpen(true);
-                        QTimer::singleShot(2500, &application, third);
+                        // The Advanced view: every setting of a layer, with
+                        // the curve and colour-gradient editors. Campfire's
+                        // flames have a size curve and a white-hot gradient.
+                        if (!controller.openPreset(QStringLiteral("campfire"))) {
+                            last << "FAIL: the Campfire preset could not be opened\n";
+                            selfTest.result = 1;
+                        }
+                        controller.selectLayer(1);
+                        controller.setAdvanced(true);
+                        QTimer::singleShot(900, &application, [&, window, third]() {
+                            QTextStream adv(&selfTest.report);
+                            const QVariantList rows = controller.controls();
+                            QStringList kinds;
+                            int sizeCurve = -1, speed = -1, gradient = -1, drag = -1;
+                            QString section;
+                            for (const QVariant& item : rows) {
+                                const QVariantMap row = item.toMap();
+                                const QString kind = row.value(QStringLiteral("kind")).toString();
+                                if (!kinds.contains(kind)) {
+                                    kinds.push_back(kind);
+                                }
+                                if (kind == QStringLiteral("section")) {
+                                    section = row.value(QStringLiteral("label")).toString();
+                                    continue;
+                                }
+                                const QString label = row.value(QStringLiteral("label")).toString();
+                                const int at = row.value(QStringLiteral("control")).toInt();
+                                if (section == QStringLiteral("Over Lifetime") && label == QStringLiteral("Size")) {
+                                    sizeCurve = at;
+                                } else if (section == QStringLiteral("Over Lifetime") && label == QStringLiteral("Color")) {
+                                    gradient = at;
+                                } else if (section == QStringLiteral("Initial State") && label == QStringLiteral("Speed")) {
+                                    speed = at;
+                                } else if (section == QStringLiteral("Motion") && label == QStringLiteral("Drag")) {
+                                    drag = at;
+                                }
+                            }
+                            adv << "advanced view: " << rows.size() << " rows; kinds: " << kinds.join(QStringLiteral(", "))
+                                << "\n";
+                            for (const char* wanted : {"section", "number", "range", "curve", "gradient", "bursts", "vector",
+                                                       "choice", "shape", "direction", "sound"}) {
+                                if (!kinds.contains(QString::fromLatin1(wanted))) {
+                                    adv << "FAIL: the advanced view has no " << wanted << " row\n";
+                                    selfTest.result = 1;
+                                }
+                            }
+                            if (kinds.contains(QStringLiteral("unsupported"))) {
+                                adv << "FAIL: the advanced view has a setting it cannot edit\n";
+                                selfTest.result = 1;
+                            }
+                            capture(window, selfTest, QStringLiteral("-advanced"), QStringLiteral("the advanced view"));
+
+                            // Edits through it, as the editors make them.
+                            const QVariantList popped = controller.applyCurveShape(sizeCurve, QStringLiteral("pop"));
+                            bool smooth = false;
+                            for (const QVariant& key : popped) {
+                                smooth = smooth || key.toMap().value(QStringLiteral("smooth")).toBool();
+                            }
+                            const int drawn = static_cast<int>(controller.curveLine(sizeCurve, popped).size());
+                            controller.setControlMode(speed, QStringLiteral("curve"));
+                            controller.setControlNumber(drag, 1.25);
+                            QVariantList stops;
+                            for (const QVariant& item : controller.controls()) {
+                                const QVariantMap row = item.toMap();
+                                if (row.value(QStringLiteral("control")).toInt() == gradient &&
+                                    row.value(QStringLiteral("kind")).toString() == QStringLiteral("gradient")) {
+                                    stops = row.value(QStringLiteral("stops")).toList();
+                                }
+                            }
+                            const int strip = static_cast<int>(controller.gradientStrip(stops, 48).size());
+                            bool speedIsCurve = false;
+                            for (const QVariant& item : controller.controls()) {
+                                const QVariantMap row = item.toMap();
+                                speedIsCurve = speedIsCurve ||
+                                               (row.value(QStringLiteral("control")).toInt() == speed &&
+                                                row.value(QStringLiteral("kind")).toString() == QStringLiteral("curve"));
+                            }
+                            adv << "curve shape applied: " << popped.size() << " points, smooth: " << (smooth ? "yes" : "NO")
+                                << ", drawn as " << drawn << " pieces; speed turned into a curve: "
+                                << (speedIsCurve ? "yes" : "NO") << "; gradient stops: " << stops.size() << ", strip "
+                                << strip << "\n";
+                            if (popped.size() < 3 || !smooth || drawn <= popped.size() || !speedIsCurve ||
+                                stops.size() < 2 || strip != 48) {
+                                adv << "FAIL: editing through the advanced view did not work\n";
+                                selfTest.result = 1;
+                            }
+                            // Show the curve and gradient editors themselves.
+                            QObject* panel = window->findChild<QObject*>(QStringLiteral("controlsPanel"));
+                            QVariant shown;
+                            if (!panel ||
+                                !QMetaObject::invokeMethod(panel, "showSection", Q_RETURN_ARG(QVariant, shown),
+                                                           Q_ARG(QVariant, QVariant(QStringLiteral("Over Lifetime")))) ||
+                                !shown.toBool()) {
+                                adv << "FAIL: the Over Lifetime group could not be scrolled to\n";
+                                selfTest.result = 1;
+                            }
+                            QTimer::singleShot(900, &application, [&, window, third]() {
+                                capture(window, selfTest, QStringLiteral("-curves"),
+                                        QStringLiteral("the curve and gradient editors"));
+                                controller.setAdvanced(false);
+                                controller.setLibraryOpen(true);
+                                QTimer::singleShot(2500, &application, third);
+                            });
+                        });
                     });
                 });
             });

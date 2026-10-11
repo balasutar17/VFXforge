@@ -1,7 +1,8 @@
 import QtQuick
 
 // The title line of one control: its name, its unit, and (for values that
-// can vary from particle to particle) a Random tick box.
+// can vary) how it varies. In the Simple view that is a Random tick box; in
+// the Advanced view a choice of Fixed, Random or Curve.
 Item {
     id: root
 
@@ -10,6 +11,11 @@ Item {
     property bool canBeRandom: false
     property bool random: false
     signal randomToggled(bool on)
+
+    // Advanced: "fixed", "random" or "curve".
+    property bool canBeCurve: false
+    property string mode: "fixed"
+    signal modeChosen(string mode)
 
     implicitHeight: 22
 
@@ -25,7 +31,7 @@ Item {
     Text {
         anchors.left: name.right
         anchors.leftMargin: 8
-        anchors.right: randomBox.visible ? randomBox.left : parent.right
+        anchors.right: modes.visible ? modes.left : (randomBox.visible ? randomBox.left : parent.right)
         anchors.rightMargin: 8
         anchors.baseline: name.baseline
         text: root.unit
@@ -35,11 +41,51 @@ Item {
     }
     VCheck {
         id: randomBox
-        visible: root.canBeRandom
+        visible: root.canBeRandom && !root.canBeCurve
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         text: "Random"
         checked: root.random
         onToggled: function(nowChecked) { root.randomToggled(nowChecked) }
+    }
+    Row {
+        id: modes
+        visible: root.canBeCurve
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 2
+
+        Repeater {
+            model: [
+                { "mode": "fixed", "label": "Fixed" },
+                { "mode": "random", "label": "Random" },
+                { "mode": "curve", "label": "Curve" }
+            ]
+            delegate: Rectangle {
+                id: chip
+                required property var modelData
+                readonly property bool current: root.mode === modelData.mode
+                width: word.implicitWidth + 12
+                height: 20
+                radius: 4
+                color: current ? theme.hover : (chipArea.containsMouse ? theme.raised : "transparent")
+                border.width: current ? 1 : 0
+                border.color: theme.accent
+
+                Text {
+                    id: word
+                    anchors.centerIn: parent
+                    text: chip.modelData.label
+                    color: chip.current ? theme.text : theme.dim
+                    font.pixelSize: theme.smallFontSize
+                }
+                MouseArea {
+                    id: chipArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: if (!chip.current) root.modeChosen(chip.modelData.mode)
+                }
+            }
+        }
     }
 }

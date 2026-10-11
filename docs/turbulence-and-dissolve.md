@@ -14,7 +14,7 @@ fireflies meander, ribbons trail in curls.
 | --- | --- | --- |
 | **Turbulence** | `motion.turbulence` | How hard the air pushes, in units per second. 0 is still air. |
 | **Swirl Size** | `motion.turbulenceSize` | How wide one swirl is, in units. Small swirls jitter; large ones drift and curl. |
-| (no control yet) | `motion.turbulenceChange` | How quickly the swirls are replaced by new ones, per second. 0 keeps them fixed, so every particle follows the same winding roads. Default 0.6. |
+| **Swirl Change** (Advanced view, from 0.11) | `motion.turbulenceChange` | How quickly the swirls are replaced by new ones, per second. 0 keeps them fixed, so every particle follows the same winding roads. Default 0.6. |
 
 How it works, for anyone who needs to know:
 
@@ -126,8 +126,6 @@ makes 66 presets.
 - The dissolve pattern is one built-in pattern at one scale. You cannot
   give it your own noise picture, and the glowing edge is always white-hot
   rather than a colour of your choosing.
-- No control yet for how fast the swirls change (`turbulenceChange`); the
-  presets set it.
 - Seen in pictures drawn by the picture renderer and in the app's own
   screenshots on the build machines. **No person has used them in the app
   yet.**
