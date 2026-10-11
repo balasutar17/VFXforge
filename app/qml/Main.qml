@@ -164,6 +164,7 @@ ApplicationWindow {
 
                     Popup {
                         id: motionMenu
+                        objectName: "motionMenu"
                         y: motionButton.height + 8
                         width: 372
                         padding: 12
@@ -678,6 +679,20 @@ ApplicationWindow {
                     for (var i = 0; i < controlsRepeater.count; ++i) {
                         var row = controlsRepeater.itemAt(i)
                         if (row && row.heading && row.modelData.section === section) {
+                            var furthest = Math.max(0, controlsScroll.contentHeight - controlsScroll.height)
+                            controlsScroll.contentY = Math.min(row.y, furthest)
+                            return true
+                        }
+                    }
+                    return false
+                }
+
+                // Scrolls the list so that one setting is at the top. True
+                // when the list has a setting of that name.
+                function showControl(label) {
+                    for (var i = 0; i < controlsRepeater.count; ++i) {
+                        var row = controlsRepeater.itemAt(i)
+                        if (row && !row.heading && row.modelData.label === label) {
                             var furthest = Math.max(0, controlsScroll.contentHeight - controlsScroll.height)
                             controlsScroll.contentY = Math.min(row.y, furthest)
                             return true

@@ -563,7 +563,10 @@ int main(int argc, char* argv[]) {
                                         motion << "FAIL: the squash and stretch preset shows nothing\n";
                                         selfTest.result = 1;
                                     }
-                                    // One click each, and the panel follows.
+                                    // A curve made for this setting alone, then one click
+                                    // each of two changes to the whole effect; the panel follows.
+                                    const QVariantList wobble = controller.applyCurveShape(
+                                        stretch.value(QStringLiteral("control")).toInt(), QStringLiteral("wobble"));
                                     const int offered = static_cast<int>(controller.motionChanges().size());
                                     controller.applyMotionChange(QStringLiteral("smooth-timing"));
                                     const double smooth = row(QStringLiteral("Hold Frames")).value(QStringLiteral("value")).toDouble();
@@ -571,8 +574,6 @@ int main(int argc, char* argv[]) {
                                     controller.applyMotionChange(QStringLiteral("on-twos"));
                                     const double twos = row(QStringLiteral("Hold Frames")).value(QStringLiteral("value")).toDouble();
                                     const QString said = controller.message();
-                                    const QVariantList wobble = controller.applyCurveShape(
-                                        stretch.value(QStringLiteral("control")).toInt(), QStringLiteral("wobble"));
                                     motion << "one-click changes: " << offered << " offered; Smooth gave Hold Frames " << smooth
                                            << ", On twos gave " << twos << " (\"" << said << "\"); Wobble has "
                                            << wobble.size() << " points\n";
@@ -580,8 +581,34 @@ int main(int argc, char* argv[]) {
                                         motion << "FAIL: the one-click motion changes did not work\n";
                                         selfTest.result = 1;
                                     }
-                                    controller.setLibraryOpen(true);
-                                    QTimer::singleShot(2500, &application, third);
+                                    // The curve editor on Squash and Stretch, and the
+                                    // Motion menu open over the window.
+                                    QObject* panel = window->findChild<QObject*>(QStringLiteral("controlsPanel"));
+                                    QObject* menu = window->findChild<QObject*>(QStringLiteral("motionMenu"));
+                                    QTimer::singleShot(500, &application, [&, window, third, panel, menu]() {
+                                        QTextStream opened(&selfTest.report);
+                                        QVariant found;
+                                        if (!panel ||
+                                            !QMetaObject::invokeMethod(panel, "showControl", Q_RETURN_ARG(QVariant, found),
+                                                                       Q_ARG(QVariant, QVariant(QStringLiteral("Squash and Stretch")))) ||
+                                            !found.toBool()) {
+                                            opened << "FAIL: the Squash and Stretch control could not be scrolled to\n";
+                                            selfTest.result = 1;
+                                        }
+                                        if (!menu || !QMetaObject::invokeMethod(menu, "open")) {
+                                            opened << "FAIL: the Motion menu could not be opened\n";
+                                            selfTest.result = 1;
+                                        }
+                                        QTimer::singleShot(700, &application, [&, window, third, menu]() {
+                                            capture(window, selfTest, QStringLiteral("-motion-menu"),
+                                                    QStringLiteral("the Motion menu and the stretch curve"));
+                                            if (menu) {
+                                                QMetaObject::invokeMethod(menu, "close");
+                                            }
+                                            controller.setLibraryOpen(true);
+                                            QTimer::singleShot(2500, &application, third);
+                                        });
+                                    });
                                 });
                             });
                             });
