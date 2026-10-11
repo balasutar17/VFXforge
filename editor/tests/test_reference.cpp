@@ -1493,8 +1493,9 @@ TEST_CASE("a turning base is followed through a clip, and rebuilt lying flat and
             CHECK(note.motion == Basis::Observed);
             CHECK(note.note.find("measured from the clip") != std::string::npos);
         }
-        if (note.name == "Beams") {
-            CHECK(note.motion == Basis::Inferred);
+        if (note.name == "Beams" || note.name == "Core" || note.name == "Inner vortex") {
+            CAPTURE(note.name);
+            CHECK(note.motion == Basis::Inferred);  // how they come and go, pulse or turn faster is assumed
         }
     }
     // It is honest about being a flat shape leaned back.

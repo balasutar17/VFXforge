@@ -1230,6 +1230,9 @@ private:
                 push(m, "body", "One soft sprite, lying flat", "ground", Basis::Observed, 0, 1,
                      flatNote + " No pattern could be made out on it, so it is plain light; allow cut-outs to keep "
                                 "what is drawn there.");
+                if (stays && !plan_.measured) {
+                    built_.back().note.motion = Basis::Inferred;
+                }
             }
             {
                 Make m(id_, "Rim");
@@ -1260,6 +1263,9 @@ private:
             blend(m, additive, 4.0);
             push(m, "core", "One small bright soft sprite, lying flat", "ground", Basis::Observed, 2, 1,
                  stays ? "Its slow pulse is assumed." : "");
+            if (stays) {
+                built_.back().note.motion = Basis::Inferred;
+            }
         }
 
         // Shafts of light standing on the base.
