@@ -41,6 +41,11 @@ What exists so far:
   every layer, with ready-made curves, one-click changes for a whole
   effect (Motion… on the top bar) and four presets that show them; see
   [docs/animation-principles.md](docs/animation-principles.md)
+- **the shape library**: 143 particle shapes in nine groups (figures,
+  stars, clouds, fire, nature, treasure, magic, debris, symbols), found by
+  name in the picker, each written once and drawn the same in the app, in
+  exported frames and in Unity; see
+  [docs/shape-library.md](docs/shape-library.md)
 - **turbulence and dissolve**: particles carried about by moving air, so
   smoke winds and embers wander; and particles eaten away in ragged patches
   as they die, softly like smoke or with a white-hot edge like burning

@@ -1,5 +1,6 @@
 #include "PreviewItems.h"
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 
@@ -8,6 +9,7 @@
 #include "vfx/Metadata.h"
 #include "vfx/Program.h"
 #include "vfx/editor/Session.h"
+#include "vfx/editor/ShapeLibrary.h"
 
 // ---------------------------------------------------------- PresetPreview
 
@@ -91,7 +93,8 @@ QSGNode* PresetPreview::updatePaintNode(QSGNode* old, UpdatePaintNodeData*) {
         view.unitsHigh = info_.viewHeight;
         vfx::editor::buildSpriteMesh(frame_, view, mesh_);
     }
-    return updateSpriteNode(old, mesh_);
+    // A card is small: shapes from the library are drawn from small pictures.
+    return updateSpriteNode(old, mesh_, nullptr, window(), 128);
 }
 
 // -------------------------------------------------------------- ShapeIcon
@@ -129,15 +132,7 @@ QSGNode* ShapeIcon::updatePaintNode(QSGNode* old, UpdatePaintNodeData*) {
     mesh_.drawn = 0;
     if (width() > 0 && height() > 0) {
         // The shape's number is its place in the property's list of options.
-        int number = 0;
-        const auto& options =
-            vfx::Registry::builtin().findModule("sprite")->find("shape")->options;
-        const std::string wanted = shape_.toStdString();
-        for (std::size_t i = 0; i < options.size(); ++i) {
-            if (options[i] == wanted) {
-                number = static_cast<int>(i);
-            }
-        }
+        const int number = std::max(0, vfx::editor::shapeNumber(shape_.toStdString()));
 
         vfx::RenderFrame frame;
         frame.flat = true;
@@ -161,5 +156,6 @@ QSGNode* ShapeIcon::updatePaintNode(QSGNode* old, UpdatePaintNodeData*) {
         view.unitsHigh = 2.0f;
         vfx::editor::buildSpriteMesh(frame, view, mesh_);
     }
-    return updateSpriteNode(old, mesh_);
+    // An icon is tiny: a shape from the library is drawn from a tiny picture.
+    return updateSpriteNode(old, mesh_, nullptr, window(), 64);
 }

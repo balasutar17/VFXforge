@@ -19,12 +19,13 @@ using UnityEngine;
 
 namespace VFXForge.EditorTools
 {
-    [ScriptedImporter(4, "vfxforge")]
+    [ScriptedImporter(5, "vfxforge")]
     public class VFXForgeImporter : ScriptedImporter
     {
         public const string ShaderPath = "Assets/VFXForge/Shaders/VFXForgeParticle.shader";
         public const string AtlasPath = "Assets/VFXForge/Textures/VFXForgeShapes.png";
         public const string ImagesFolder = "Assets/VFXForge/Images/";
+        public const string ShapesFolder = "Assets/VFXForge/Shapes/";
 
         // How streak shapes line up with a stretched billboard's texture.
         // 0: the shape's head is along the texture's U axis.
@@ -108,9 +109,27 @@ namespace VFXForge.EditorTools
                     if (picture == null)
                         ctx.LogImportWarning("The picture " + picturePath + " is missing, so the layer \"" + child.name + "\" draws its shape. Export from VFX Forge again to restore it.");
                 }
+                // A shape from the library comes as a picture of its own,
+                // laid out like one tile of the atlas.
+                Texture2D layerAtlas = atlas;
+                float layerColumns = columns, layerRows = rows;
+                string shapePath = Str(Obj(layer, "render"), "shapePicture", "");
+                if (shapePath.Length > 0)
+                {
+                    ctx.DependsOnArtifact(shapePath);
+                    Texture2D shapePicture = AssetDatabase.LoadAssetAtPath<Texture2D>(shapePath);
+                    if (shapePicture != null)
+                    {
+                        layerAtlas = shapePicture;
+                        layerColumns = 1f;
+                        layerRows = 1f;
+                    }
+                    else
+                        ctx.LogImportWarning("The shape picture " + shapePath + " is missing, so the layer \"" + child.name + "\" draws a soft dot. Export from VFX Forge again to restore it.");
+                }
                 Material trailMaterial;
-                Material material = BuildLayer(system, layer, duration, loop, shader, atlas, columns, rows, picture,
-                                               out trailMaterial);
+                Material material = BuildLayer(system, layer, duration, loop, shader, layerAtlas, layerColumns, layerRows,
+                                               picture, out trailMaterial);
                 if (material != null)
                     ctx.AddObjectToAsset("material " + i, material);
                 if (trailMaterial != null)
@@ -585,8 +604,9 @@ namespace VFXForge.EditorTools
         }
     }
 
-    // The shape picture holds shapes, not colours: it must be read exactly
-    // as stored, without colour correction or compression. The artist's own
+    // The shape picture, and the pictures of shapes from the library, hold
+    // shapes, not colours: they must be read exactly as stored, without
+    // colour correction or compression. The artist's own
     // pictures are colours: kept sharp and uncompressed, as painted.
     public class VFXForgeTextureSettings : AssetPostprocessor
     {
@@ -607,7 +627,8 @@ namespace VFXForge.EditorTools
                 picture.maxTextureSize = 8192;
                 return;
             }
-            if (assetPath != VFXForgeImporter.AtlasPath)
+            if (assetPath != VFXForgeImporter.AtlasPath &&
+                !assetPath.StartsWith(VFXForgeImporter.ShapesFolder, StringComparison.Ordinal))
                 return;
             var importer = (TextureImporter)assetImporter;
             importer.textureType = TextureImporterType.Default;

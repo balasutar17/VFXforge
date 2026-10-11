@@ -7,6 +7,7 @@
 
 #include "vfx/editor/Image.h"
 #include "vfx/editor/Session.h"
+#include "vfx/editor/ShapeLibrary.h"
 
 namespace vfx::editor {
 
@@ -445,7 +446,11 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
         if (runEnd == runStart) {
             continue;
         }
-        const Id texture = picture ? batch.texture : Id{};
+        // A library shape is drawn from its own picture, which stands in
+        // the list under an ID of its own (see ShapeLibrary.h).
+        const Id texture = picture ? batch.texture
+                           : isLibraryShape(static_cast<int>(batch.shape)) ? shapeTextureId(static_cast<int>(batch.shape))
+                                                                           : Id{};
         if (!mesh.runs.empty() && mesh.runs.back().texture == texture) {
             mesh.runs.back().indexCount += runEnd - runStart;
         } else {

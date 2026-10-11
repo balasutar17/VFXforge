@@ -333,7 +333,7 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
 
         const std::string picture = sprite.get<std::string>("shape");
         const auto& options = Registry::builtin().findModule("sprite")->find("shape")->options;
-        for (std::size_t i = 0; i < options.size() && i < static_cast<std::size_t>(kSpriteShapeCount); ++i) {
+        for (std::size_t i = 0; i < options.size() && i < static_cast<std::size_t>(kMaxSpriteShapes); ++i) {
             if (options[i] == picture) {
                 e->spriteShape = static_cast<SpriteShape>(i);
             }

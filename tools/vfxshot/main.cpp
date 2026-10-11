@@ -10,6 +10,7 @@
 #include "vfx/Simulation.h"
 #include "vfx/editor/Picture.h"
 #include "vfx/editor/Presets.h"
+#include "vfx/editor/ShapeLibrary.h"
 #include "vfx/editor/Shapes.h"
 #include "vfx/editor/SpriteMesh.h"
 
@@ -28,6 +29,9 @@ const char* kUsage =
     "      Draw every preset (or one category) at four moments, one row each.\n"
     "  vfxshot shapes <out.png>\n"
     "      Draw every built-in particle shape, large and small.\n"
+    "  vfxshot library <out.png> [--category name] [--cell N] [--columns N]\n"
+    "      Draw every shape there is (or one category), formula shapes and\n"
+    "      library shapes alike, each large with a row of small ones under it.\n"
     "  vfxshot file <effect.vfx> <out.png> [--time s] [--size WxH] [--view x,y,height]\n"
     "      Draw a saved effect at one moment.\n";
 
@@ -203,6 +207,75 @@ int main(int argc, char** argv) {
                 paste(sheet, drawPicture(mesh, cell, cell), gap + i * (cell + gap), gap + row * (cell + gap));
             }
             std::printf("column %2d  %s\n", i + 1, shapeName(static_cast<SpriteShape>(i)));
+        }
+        return save(args[0], sheet);
+    }
+
+    if (command == "library" && !args.empty()) {
+        const std::string category = option(args, "--category", "");
+        const int cell = std::atoi(option(args, "--cell", "128").c_str());
+        const int columns = std::atoi(option(args, "--columns", "10").c_str());
+        if (cell < 16 || cell > 1024 || columns < 1 || columns > 64) {
+            std::fputs(kUsage, stderr);
+            return 2;
+        }
+        std::vector<int> wanted;
+        for (int i = 0; i < shapeCount(); ++i) {
+            if (category.empty() || category == shapeInfo(i).category) {
+                wanted.push_back(i);
+            }
+        }
+        if (wanted.empty()) {
+            std::fprintf(stderr, "No shapes in a category called \"%s\".\n", category.c_str());
+            return 1;
+        }
+        const int gap = 4, strip = cell / 3;
+        const int rows = (static_cast<int>(wanted.size()) + columns - 1) / columns;
+        Picture sheet;
+        sheet.width = columns * (cell + gap) + gap;
+        sheet.height = rows * (cell + strip + gap) + gap;
+        sheet.rgba.assign(static_cast<std::size_t>(sheet.width) * static_cast<std::size_t>(sheet.height) * 4u, 60);
+        for (std::size_t n = 0; n < wanted.size(); ++n) {
+            const int left = gap + static_cast<int>(n % static_cast<std::size_t>(columns)) * (cell + gap);
+            const int top = gap + static_cast<int>(n / static_cast<std::size_t>(columns)) * (cell + strip + gap);
+            // Large, in a warm colour; then three small ones in a cool one,
+            // where the softening of edges matters most.
+            for (int part = 0; part < 2; ++part) {
+                RenderFrame frame;
+                frame.flat = true;
+                RenderBatch batch;
+                batch.shape = static_cast<SpriteShape>(wanted[n]);
+                View view;
+                view.width = static_cast<float>(cell);
+                view.height = static_cast<float>(part == 0 ? cell : strip);
+                view.centerX = view.centerY = 0;
+                view.unitsHigh = part == 0 ? 2.0f : 2.0f * static_cast<float>(strip) / static_cast<float>(cell);
+                if (part == 0) {
+                    SpriteInstance p;
+                    p.size = 1.8f;
+                    p.r = 1.0f;
+                    p.g = 0.5f;
+                    p.b = 0.1f;
+                    frame.instances.push_back(p);
+                } else {
+                    for (int k = 0; k < 3; ++k) {
+                        SpriteInstance p;
+                        p.x = -0.62f + 0.62f * static_cast<float>(k);
+                        p.size = 0.22f + 0.14f * static_cast<float>(k);
+                        p.r = 0.45f;
+                        p.g = 0.78f;
+                        p.b = 1.0f;
+                        frame.instances.push_back(p);
+                    }
+                }
+                batch.count = static_cast<std::uint32_t>(frame.instances.size());
+                frame.batches.push_back(batch);
+                SpriteMesh mesh;
+                buildSpriteMesh(frame, view, mesh);
+                paste(sheet, drawPicture(mesh, cell, part == 0 ? cell : strip), left, top + (part == 0 ? 0 : cell));
+            }
+            std::printf("%3zu  %-12s %-18s %s\n", n + 1, shapeInfo(wanted[n]).name, shapeInfo(wanted[n]).label,
+                        shapeInfo(wanted[n]).category);
         }
         return save(args[0], sheet);
     }

@@ -15,6 +15,7 @@
 #include "vfx/editor/Image.h"
 #include "vfx/editor/SoundLibrary.h"
 #include "vfx/editor/Session.h"
+#include "vfx/editor/ShapeLibrary.h"
 #include "vfx/editor/Shapes.h"
 #include "vfx/editor/UnityFiles.h"
 
@@ -719,13 +720,18 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
             render["tilt"] = round6(e.tilt);
         }
     }
-    render["shape"] = static_cast<int>(e.spriteShape);
+    const int shapeNumber = static_cast<int>(e.spriteShape);
+    render["shape"] = isLibraryShape(shapeNumber) ? 0 : shapeNumber;
     render["shapeName"] = shapeName(e.spriteShape);
     if (const UnityPicture* picture = e.texture.valid() ? pictureFor(pictures, e.texture) : nullptr) {
         render["picture"] = picture->path;
         if (e.columns * e.rows > 1) {
             render["sheet"] = sheetJson(e);
         }
+    } else if (isLibraryShape(shapeNumber)) {
+        // A shape from the library is not in the atlas: it comes as a
+        // picture of its own, which Unity draws as an atlas of one tile.
+        render["shapePicture"] = unityShapePicturePath(shapeNumber);
     }
     if (e.trail > 0.0f && e.trailWidth > 0.0f) {
         // Unity measures a trail in shares of the particle's life.
@@ -883,12 +889,48 @@ std::string unityShapeAtlasPng() {
     return encodePngImage(width, height, 4, pixels);
 }
 
+std::string unityShapePicturePath(int shape) {
+    return std::string("Assets/VFXForge/Shapes/") + shapeInfo(shape).name + ".png";
+}
+
+std::string unityShapePicturePng(int shape) {
+    const std::shared_ptr<const Image> picture = shapePicture(shape);
+    const int size = picture->width;
+    std::string pixels(static_cast<std::size_t>(size) * static_cast<std::size_t>(size) * 4u, '\0');
+    // The library keeps tone, shine and coverage in red, green and blue;
+    // the atlas wants the tone in red and blue and the coverage in alpha.
+    for (std::size_t i = 0; i < pixels.size(); i += 4) {
+        pixels[i] = static_cast<char>(picture->rgba[i]);
+        pixels[i + 1] = static_cast<char>(picture->rgba[i + 1]);
+        pixels[i + 2] = static_cast<char>(picture->rgba[i]);
+        pixels[i + 3] = static_cast<char>(picture->rgba[i + 2]);
+    }
+    return encodePngImage(size, size, 4, pixels);
+}
+
+std::vector<int> unityLibraryShapes(const Effect& effect) {
+    std::vector<int> used;
+    for (const Layer& layer : effect.layers) {
+        const std::shared_ptr<const EmitterProgram> program = compileLayer(effect, layer);
+        const int shape = static_cast<int>(program->spriteShape);
+        if (program->drawn && isLibraryShape(shape) &&
+            std::find(used.begin(), used.end(), shape) == used.end()) {
+            used.push_back(shape);
+        }
+    }
+    std::sort(used.begin(), used.end());
+    return used;
+}
+
 std::vector<TarEntry> unityExportFiles(const Effect& effect, const std::filesystem::path& pictureFolder) {
     std::vector<TarEntry> files;
     for (const UnityFile& f : unityHelperSources()) {
         files.push_back(TarEntry{std::string("Assets/VFXForge/") + f.path, std::string(f.text)});
     }
     files.push_back(TarEntry{"Assets/VFXForge/Textures/VFXForgeShapes.png", unityShapeAtlasPng()});
+    for (const int shape : unityLibraryShapes(effect)) {
+        files.push_back(TarEntry{unityShapePicturePath(shape), unityShapePicturePng(shape)});
+    }
     const std::vector<UnityPicture> pictures = unityPictures(effect, pictureFolder);
     const std::vector<UnityPicture> sounds = unitySounds(effect, pictureFolder);
     // Pictures and sounds before the effect, so Unity has them when it

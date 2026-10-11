@@ -60,7 +60,9 @@ struct View {
 };
 
 // A stretch of the index list drawn with one picture, in drawing order. An
-// invalid texture means the built-in shapes.
+// invalid texture means the shapes drawn from formulas. A shape from the
+// library is drawn from a picture too: its run carries shapeTextureId (see
+// ShapeLibrary.h), and its corners carry the shape's number as usual.
 struct SpriteRun {
     Id texture;
     std::uint32_t firstIndex = 0;

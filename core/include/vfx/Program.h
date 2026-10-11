@@ -85,7 +85,12 @@ enum class SpriteShape : std::uint8_t {
     Starflash, Sliver, Shardring,
     Vortex, Sigil, Beam
 };
+// How many of them there are. The "shape" property lists more after these:
+// the shape library, which the editor layer draws from pictures instead of
+// formulas. A shape's number is its place in that list either way, so a
+// SpriteShape may hold a number from kSpriteShapeCount up.
 inline constexpr int kSpriteShapeCount = 35;
+inline constexpr int kMaxSpriteShapes = 250;
 
 struct EmitterProgram {
     Id layer;

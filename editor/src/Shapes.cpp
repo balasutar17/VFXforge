@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "vfx/editor/ShapeLibrary.h"
+
 namespace vfx::editor {
 
 namespace {
@@ -188,6 +190,10 @@ float splatShape(float x, float y) {
 }  // namespace
 
 ShapeSample sampleShape(SpriteShape shape, float x, float y, float aaX, float aaY) {
+    if (static_cast<int>(shape) >= kSpriteShapeCount) {
+        // One of the library's shapes, which are written once, over there.
+        return sampleLibraryShape(static_cast<int>(shape), x, y, aaX, aaY);
+    }
     const float pixel = std::max(std::max(aaX, aaY), 1e-4f);
     const float r2 = x * x + y * y;
     const float r = std::sqrt(r2);
@@ -595,13 +601,8 @@ float shapeCoverage(SpriteShape shape, float x, float y, float aaX, float aaY) {
 }
 
 const char* shapeName(SpriteShape shape) {
-    static const char* names[kSpriteShapeCount] = {
-        "soft", "disc", "ring", "bubble", "sparkle", "star", "smoke", "square", "diamond",
-        "heart", "streak", "flame", "puff", "burst", "crescent", "orb", "glint", "blaze",
-        "candy", "shard", "drop", "splat", "shockwave", "twinkle", "flare", "rays", "swirl", "bean", "bolt",
-        "starflash", "sliver", "shardring", "vortex", "sigil", "beam"};
     const auto i = static_cast<int>(shape);
-    return i >= 0 && i < kSpriteShapeCount ? names[i] : "soft";
+    return shapeInfo(i >= 0 && i < shapeCount() ? i : 0).name;
 }
 
 }  // namespace vfx::editor

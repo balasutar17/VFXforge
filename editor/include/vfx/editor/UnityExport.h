@@ -30,7 +30,7 @@ namespace vfx::editor {
 
 inline constexpr int kUnityFormatVersion = 1;
 
-// The atlas: every built-in shape in a grid. Coverage in alpha, toon tone in
+// The atlas: each of the first thirty-five shapes in a grid. Coverage in alpha, toon tone in
 // red (and blue; 0.5 means no tone), gloss in green.
 inline constexpr int kAtlasColumns = 8;
 inline constexpr int kAtlasRows = 5;
@@ -62,6 +62,13 @@ std::string unityFileStem(const Effect& effect);
 
 // The shape atlas as a PNG.
 std::string unityShapeAtlasPng();
+
+// A shape from the library travels as a picture of its own, laid out like
+// one tile of the atlas, and only the ones an effect uses are sent.
+std::string unityShapePicturePath(int shape);  // "Assets/VFXForge/Shapes/<name>.png"
+std::string unityShapePicturePng(int shape);
+// The library shapes an effect's drawn layers use, in order of number.
+std::vector<int> unityLibraryShapes(const Effect& effect);
 
 // Every file an export writes, with paths relative to the Unity project
 // folder (each starts with "Assets/VFXForge/").

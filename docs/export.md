@@ -10,7 +10,8 @@ Choose the Unity project's folder once; VFX Forge remembers it. It writes:
 Assets/VFXForge/Editor/VFXForgeImporter.cs   builds prefabs from .vfxforge files
 Assets/VFXForge/Editor/VFXForgeJson.cs       reads them
 Assets/VFXForge/Shaders/VFXForgeParticle.shader
-Assets/VFXForge/Textures/VFXForgeShapes.png  every built-in shape, in a grid
+Assets/VFXForge/Textures/VFXForgeShapes.png  the first 35 shapes, in a grid
+Assets/VFXForge/Shapes/<shape>.png           each shape from the shape library the effect uses
 Assets/VFXForge/Effects/<name>.vfxforge      the effect
 Assets/VFXForge/README.txt
 ```

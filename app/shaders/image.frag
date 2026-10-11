@@ -1,9 +1,16 @@
 #version 440
 
-// Draws the artist's own pictures. The texture arrives premultiplied, and so
-// does the particle's colour, so one multiply tints the picture and fades it,
-// and additive particles (alpha 0) add the picture as light. The picture
-// renderer in editor/src/Picture.cpp does the same sums.
+// Draws from a picture: the artist's own, or a shape from the shape library.
+//
+// The artist's picture arrives premultiplied, and so does the particle's
+// colour, so one multiply tints the picture and fades it, and additive
+// particles (alpha 0) add the picture as light. The picture renderer in
+// editor/src/Picture.cpp does the same sums.
+//
+// A library shape's picture is not colours but a map (see ShapeLibrary.h):
+// red is the toon tone (128 for none), green the shine, blue how much of the
+// pixel the shape covers. It is coloured here exactly as sprite.frag colours
+// the shapes it works out from formulas.
 
 layout(location = 0) in vec2 vTexCoord;  // where in the picture
 layout(location = 1) in vec4 vColor;
@@ -74,6 +81,39 @@ void main() {
         return;
     }
     vec4 t = texture(picture, vTexCoord);
+    if (vShape.x > -0.5) {
+        // A shape from the library.
+        float tone = clamp((t.r * 255.0 - 128.0) / 127.0, -1.0, 1.0);
+        float shine = t.g;
+        float cover = t.b;
+        if (vExtra.z > 0.0) {
+            vec2 eaten = dissolveAt(vExtra.xy, vExtra.z, vExtra.w, vSoft, vShape.w);
+            cover *= eaten.x;
+            shine = max(shine, eaten.y);
+        }
+        // Toon shading: a highlight moves toward white at the particle's own
+        // brightness; a shadow dims.
+        vec3 lit = vColor.rgb;
+        if (tone > 0.004) {
+            float most = max(lit.r, max(lit.g, lit.b));
+            lit = (lit + (vec3(most) - lit) * (0.5 * tone)) * (1.0 + 0.3 * tone);
+        } else if (tone < -0.004) {
+            lit *= 1.0 + 0.5 * tone;
+        }
+        // Gloss: toward white at the particle's own brightness.
+        if (shine > 0.0) {
+            float white = max(vColor.a, max(lit.r, max(lit.g, lit.b)));
+            lit += (vec3(white) - lit) * shine;
+        }
+        vec4 result = vec4(lit, vColor.a) * (cover * qt_Opacity);
+        // A nudge of less than one colour step hides the bands a faint,
+        // wide glow would otherwise show.
+        vec2 where = gl_FragCoord.xy + vTexCoord * 61.0;
+        float noise = fract(52.9829189 * fract(dot(where, vec2(0.06711056, 0.00583715)))) - 0.5;
+        result.rgb = max(result.rgb + vec3(noise / 255.0) * clamp(cover * 40.0, 0.0, 1.0), vec3(0.0));
+        fragColor = result;
+        return;
+    }
     vec3 rgb = vColor.rgb * t.rgb;
     float alpha = vColor.a * t.a;
     float keep = 1.0;

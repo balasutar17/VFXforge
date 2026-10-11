@@ -9,7 +9,12 @@ open effects made in VFX Forge.
   Editor/     the importer that builds the prefabs (editor only, not part
               of a game build).
   Shaders/    the particle shader the effects are drawn with.
-  Textures/   the picture that holds VFX Forge's built-in particle shapes.
+  Textures/   the picture that holds VFX Forge's first thirty-five
+              particle shapes.
+  Shapes/     one picture for each shape from the shape library that an
+              exported effect uses (a leaf, a trophy, a rune...). Like the
+              picture in Textures/, these hold a shape, not colours: leave
+              their import settings as they are.
   Sounds/     the sounds the effects play: your own, and VFX Forge's
               library sounds (made by VFX Forge, free to use in your game).
   Runtime/    VFXForgeSound, which plays each layer's sound in step with

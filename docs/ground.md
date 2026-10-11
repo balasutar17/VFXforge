@@ -36,7 +36,9 @@ Property: `sprite.tilt`, degrees.
 - **sigil**: a magic circle: rings, tick marks and a six-pointed star.
 - **beam**: a shaft of light with a white-hot thread down its middle.
 
-That makes 35 built-in shapes. Each is drawn three ways that must agree: by
+That makes 35 built-in shapes (the shape library, from 0.13, adds 108
+more that are written once; see [shape-library.md](shape-library.md)).
+Each of the 35 is drawn three ways that must agree: by
 the graphics card in the app (`app/shaders/sprite.frag`), by the picture
 renderer (`editor/src/Shapes.cpp`), and in the atlas sent to Unity (now
 eight columns by five rows).

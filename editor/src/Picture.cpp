@@ -6,6 +6,7 @@
 #include "vfx/FileIO.h"
 #include "vfx/editor/Archive.h"
 #include "vfx/editor/Image.h"
+#include "vfx/editor/ShapeLibrary.h"
 #include "vfx/editor/Shapes.h"
 
 namespace vfx::editor {
@@ -197,8 +198,7 @@ Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor backgr
             const SpriteVertex& v1 = mesh.vertices[mesh.indices[i + t * 3 + 1]];
             const SpriteVertex& v2 = mesh.vertices[mesh.indices[i + t * 3 + 2]];
             const int number = static_cast<int>(std::lround(v0.shape));
-            const auto shape = static_cast<SpriteShape>(
-                number >= 0 && number < kSpriteShapeCount ? number : 0);
+            const auto shape = static_cast<SpriteShape>(number >= 0 && number < shapeCount() ? number : 0);
             drawTriangle(canvas, out.width, out.height, v0, v1, v2, shape, taken, stamp,
                          transparent, picture);
         }

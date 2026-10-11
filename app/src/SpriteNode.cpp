@@ -4,6 +4,7 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <set>
 
 #include <QByteArray>
 #include <QImage>
@@ -16,7 +17,9 @@
 #include <QSGRendererInterface>
 #include <QSGTexture>
 
+#include "vfx/Program.h"
 #include "vfx/editor/Image.h"
+#include "vfx/editor/ShapeLibrary.h"
 
 using vfx::editor::SpriteVertex;
 
@@ -69,7 +72,7 @@ public:
     int compare(const QSGMaterial*) const override { return 0; }
 };
 
-// One of the artist's pictures.
+// One of the artist's pictures, or one shape from the shape library.
 class ImageMaterial;
 
 class ImageShader : public QSGMaterialShader {
@@ -156,12 +159,20 @@ public:
     std::map<std::uint64_t, Uploaded> textures;
 };
 
+// How many library shapes' pictures a node keeps on the graphics card
+// before it starts letting go of the ones not on screen.
+constexpr std::size_t kShapeTexturesKept = 24;
+
 QSGTexture* textureFor(SpriteRoot& root, vfx::Id id, const vfx::editor::ImageSet* images,
-                       QQuickWindow* window) {
-    if (!images || !window) {
+                       QQuickWindow* window, int shapePixels) {
+    if (!window) {
         return nullptr;
     }
-    std::shared_ptr<const vfx::editor::Image> image = images->shared(id);
+    // A shape from the library brings its own picture; anything else is one
+    // of the artist's.
+    const int shape = vfx::editor::shapeFromTextureId(id);
+    std::shared_ptr<const vfx::editor::Image> image =
+        shape >= 0 ? vfx::editor::shapePicture(shape, shapePixels) : images ? images->shared(id) : nullptr;
     if (!image || image->width <= 0 || image->height <= 0) {
         return nullptr;
     }
@@ -169,7 +180,8 @@ QSGTexture* textureFor(SpriteRoot& root, vfx::Id id, const vfx::editor::ImageSet
     if (slot.image != image || !slot.texture) {
         QImage pixels(image->rgba.data(), image->width, image->height, image->width * 4,
                       QImage::Format_RGBA8888);
-        // Premultiplied, so smoothing between pixels never darkens edges.
+        // Premultiplied, so smoothing between pixels never darkens edges. (A
+        // shape's picture is opaque everywhere, so this leaves it as it is.)
         const QImage ready = pixels.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
         QQuickWindow::CreateTextureOptions options;
         options |= QQuickWindow::TextureHasAlphaChannel;
@@ -204,16 +216,48 @@ QSGGeometryNode* makeRunNode() {
 }  // namespace
 
 QSGNode* updateSpriteNode(QSGNode* old, const vfx::editor::SpriteMesh& mesh,
-                          const vfx::editor::ImageSet* images, QQuickWindow* window) {
+                          const vfx::editor::ImageSet* images, QQuickWindow* window, int shapePixels) {
     auto* root = static_cast<SpriteRoot*>(old);
     if (!root) {
         root = new SpriteRoot;
     }
 
-    // Pictures that are gone, or have changed, are let go.
+    // The artist's pictures that are gone, or have changed, are let go. A
+    // library shape's picture never changes; those are kept from frame to
+    // frame (a burst that is between two of its bursts will want its shape
+    // again in a moment) and let go only once there are many, and then only
+    // the ones nothing on screen is using.
+    std::set<std::uint64_t> wanted;
+    std::size_t shapesKept = 0;
+    for (const auto& run : mesh.runs) {
+        wanted.insert(run.texture.value);
+    }
+    for (const auto& kept : root->textures) {
+        shapesKept += vfx::editor::shapeFromTextureId(vfx::Id{kept.first}) >= 0 ? 1 : 0;
+    }
+    bool letGo = false;
     for (auto it = root->textures.begin(); it != root->textures.end();) {
-        const auto now = images ? images->shared(vfx::Id{it->first}) : nullptr;
-        it = now == it->second.image ? std::next(it) : root->textures.erase(it);
+        bool keep = false;
+        if (vfx::editor::shapeFromTextureId(vfx::Id{it->first}) >= 0) {
+            keep = shapesKept <= kShapeTexturesKept || wanted.count(it->first) > 0;
+        } else {
+            keep = images && images->shared(vfx::Id{it->first}) == it->second.image;
+        }
+        if (keep) {
+            ++it;
+        } else {
+            it = root->textures.erase(it);
+            letGo = true;
+        }
+    }
+    if (letGo) {
+        // No material may go on pointing at a picture that has been let go:
+        // each is given its picture afresh below.
+        for (QSGNode* node = root->firstChild(); node; node = node->nextSibling()) {
+            if (auto* image = dynamic_cast<ImageMaterial*>(static_cast<QSGGeometryNode*>(node)->material())) {
+                image->texture = nullptr;
+            }
+        }
     }
 
     // The runs, drawn in order. A run with no picture, or whose picture could
@@ -240,7 +284,7 @@ QSGNode* updateSpriteNode(QSGNode* old, const vfx::editor::SpriteMesh& mesh,
     auto* child = static_cast<QSGGeometryNode*>(root->firstChild());
     for (const auto& run : runs) {
         QSGTexture* texture =
-            run.texture.valid() ? textureFor(*root, run.texture, images, window) : nullptr;
+            run.texture.valid() ? textureFor(*root, run.texture, images, window, shapePixels) : nullptr;
 
         // Swap the material when the run changes between shape and picture.
         auto* image = dynamic_cast<ImageMaterial*>(child->material());
@@ -272,6 +316,8 @@ QSGNode* updateSpriteNode(QSGNode* old, const vfx::editor::SpriteMesh& mesh,
                     vertices[i].shape = 0.0f;
                     vertices[i].u = (i % 4 == 1 || i % 4 == 2) ? 1.0f : 0.0f;
                     vertices[i].v = (i % 4 == 2 || i % 4 == 3) ? 0.0f : 1.0f;
+                } else if (vertices[i].shape >= static_cast<float>(vfx::kSpriteShapeCount)) {
+                    vertices[i].shape = 0.0f;  // a library shape: its corners are already laid out right
                 }
             }
         }

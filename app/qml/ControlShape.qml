@@ -3,8 +3,8 @@ import QtQuick.Controls.Basic
 import QtQuick.Dialogs
 import VfxForge 1.0
 
-// What each particle looks like: one of the built-in shapes, or the artist's
-// own picture or sprite sheet.
+// What each particle looks like: a shape from the shape library, or the
+// artist's own picture or sprite sheet.
 Item {
     id: root
 
@@ -23,7 +23,34 @@ Item {
     readonly property int cells: Math.max(1, columns * rows)
     readonly property int pictures: frames > 0 ? Math.min(frames, cells) : cells
 
+    // The shapes are sorted into groups, one of which shows at a time:
+    // to begin with, the one the layer's own shape is in. Typing in the
+    // search box looks through every group instead.
+    property string category: ""
+    property string find: ""
+    readonly property bool finding: find.trim().length > 0
+    readonly property var shown: {
+        var out = []
+        var words = find.trim().toLowerCase()
+        for (var i = 0; i < info.options.length; ++i) {
+            var o = info.options[i]
+            if (words.length > 0
+                    ? (o.label.toLowerCase().indexOf(words) >= 0 || o.value.indexOf(words) >= 0)
+                    : o.category === category)
+                out.push(o)
+        }
+        return out
+    }
+
     implicitHeight: column.implicitHeight
+
+    Component.onCompleted: {
+        for (var i = 0; i < info.options.length; ++i)
+            if (info.options[i].value === value)
+                category = info.options[i].category
+        if (category === "" && info.categories && info.categories.length > 0)
+            category = info.categories[0]
+    }
 
     function labelOf(value) {
         for (var i = 0; i < info.options.length; ++i)
@@ -336,7 +363,7 @@ Item {
             }
         }
 
-        // ---- the built-in shapes
+        // ---- the shapes
         Text {
             visible: root.picture.has
             width: parent.width
@@ -345,43 +372,151 @@ Item {
             color: theme.faint
             font.pixelSize: theme.smallFontSize
         }
-        Flow {
+        Column {
             width: parent.width
-            spacing: 4
+            spacing: 6
             opacity: root.picture.has ? 0.45 : 1.0
 
-            Repeater {
-                model: root.info.options
-                delegate: Rectangle {
-                    id: tile
-                    required property var modelData
-                    readonly property bool chosen: root.value === modelData.value
+            // Find a shape by its name, in every group at once.
+            Rectangle {
+                width: parent.width
+                height: 26
+                radius: 4
+                color: theme.field
+                border.width: 1
+                border.color: findInput.activeFocus ? theme.accent : theme.line
 
-                    width: 38
-                    height: 38
-                    radius: 5
-                    color: chosen ? theme.hover : (tileArea.containsMouse ? theme.raised : theme.field)
-                    border.width: 1
-                    border.color: chosen ? theme.accent : theme.line
-
-                    ShapeIcon {
-                        anchors.fill: parent
-                        anchors.margins: 5
-                        shape: tile.modelData.value
-                        color: tile.chosen ? theme.accent : "#c9ced8"
+                TextInput {
+                    id: findInput
+                    objectName: "shapeFind"
+                    anchors.fill: parent
+                    anchors.leftMargin: 7
+                    anchors.rightMargin: 26
+                    verticalAlignment: TextInput.AlignVCenter
+                    color: theme.text
+                    selectionColor: theme.accent
+                    selectedTextColor: theme.accentText
+                    font.pixelSize: theme.fontSize
+                    selectByMouse: true
+                    clip: true
+                    maximumLength: 40
+                    onTextChanged: root.find = text
+                    Keys.onEscapePressed: {
+                        text = ""
+                        focus = false
                     }
+                    Keys.onReturnPressed: focus = false
+                    Keys.onEnterPressed: focus = false
+                }
+                Text {
+                    anchors.fill: findInput
+                    verticalAlignment: Text.AlignVCenter
+                    visible: findInput.text.length === 0 && !findInput.activeFocus
+                    text: "Find a shape… (" + root.info.options.length + " to choose from)"
+                    color: theme.faint
+                    font.pixelSize: theme.fontSize
+                    elide: Text.ElideRight
+                }
+                Text {
+                    visible: findInput.text.length > 0
+                    anchors.right: parent.right
+                    anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "×"
+                    color: clearArea.containsMouse ? theme.text : theme.faint
+                    font.pixelSize: theme.fontSize + 3
                     MouseArea {
-                        id: tileArea
+                        id: clearArea
                         anchors.fill: parent
+                        anchors.margins: -6
                         hoverEnabled: true
-                        onClicked: {
-                            root.value = tile.modelData.value
-                            app.setControlChoice(root.controlIndex, tile.modelData.value)
+                        onClicked: findInput.text = ""
+                    }
+                }
+            }
+
+            // The groups the shapes are sorted into.
+            Flow {
+                width: parent.width
+                spacing: 4
+                visible: !root.finding
+
+                Repeater {
+                    model: root.info.categories || []
+                    delegate: Rectangle {
+                        id: chip
+                        required property var modelData
+                        readonly property bool chosen: root.category === modelData
+
+                        width: chipLabel.implicitWidth + 16
+                        height: 22
+                        radius: 11
+                        color: chosen ? theme.accent : (chipArea.containsMouse ? theme.hover : theme.raised)
+
+                        Text {
+                            id: chipLabel
+                            anchors.centerIn: parent
+                            text: chip.modelData
+                            color: chip.chosen ? theme.accentText : theme.text
+                            font.pixelSize: theme.smallFontSize
+                        }
+                        MouseArea {
+                            id: chipArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: root.category = chip.modelData
                         }
                     }
-                    ToolTip.visible: tileArea.containsMouse
-                    ToolTip.delay: 500
-                    ToolTip.text: tile.modelData.label
+                }
+            }
+            Text {
+                visible: root.finding
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: root.shown.length === 0 ? "No shape has that in its name."
+                    : root.shown.length === 1 ? "1 shape"
+                    : root.shown.length + " shapes"
+                color: theme.faint
+                font.pixelSize: theme.smallFontSize
+            }
+
+            Flow {
+                width: parent.width
+                spacing: 4
+
+                Repeater {
+                    model: root.shown
+                    delegate: Rectangle {
+                        id: tile
+                        required property var modelData
+                        readonly property bool chosen: root.value === modelData.value
+
+                        width: 38
+                        height: 38
+                        radius: 5
+                        color: chosen ? theme.hover : (tileArea.containsMouse ? theme.raised : theme.field)
+                        border.width: 1
+                        border.color: chosen ? theme.accent : theme.line
+
+                        ShapeIcon {
+                            anchors.fill: parent
+                            anchors.margins: 5
+                            shape: tile.modelData.value
+                            color: tile.chosen ? theme.accent : "#c9ced8"
+                        }
+                        MouseArea {
+                            id: tileArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                root.value = tile.modelData.value
+                                app.setControlChoice(root.controlIndex, tile.modelData.value)
+                            }
+                        }
+                        ToolTip.visible: tileArea.containsMouse
+                        ToolTip.delay: 500
+                        ToolTip.text: tile.modelData.label
+                    }
                 }
             }
         }

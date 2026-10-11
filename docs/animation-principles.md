@@ -149,8 +149,8 @@ A new category, **Cartoon motion**:
 
 And the hand-drawn presets are now shown on twos: Toon Puff, Toon Hit, Toon
 Explosion, Slash, Toon Fire and Cartoon Pop. Set Hold Frames to 0 on a
-layer, or press Motion… > Smooth, to have them as they were. That makes 70
-presets.
+layer, or press Motion… > Smooth, to have them as they were. That made 70
+presets (78 from 0.13).
 
 ## Trails, streaks and the rest
 

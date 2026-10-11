@@ -515,7 +515,9 @@ TEST_CASE("Compile: every sprite shape, alignment and stretch") {
 
     // The enum follows the order the property lists its options in.
     const auto& options = Registry::builtin().findModule("sprite")->find("shape")->options;
-    REQUIRE(options.size() == static_cast<std::size_t>(kSpriteShapeCount));
+    // The formula shapes come first; the shape library carries on after them.
+    REQUIRE(options.size() > static_cast<std::size_t>(kSpriteShapeCount));
+    REQUIRE(options.size() <= static_cast<std::size_t>(kMaxSpriteShapes));
     CHECK(options.front() == "soft");
     CHECK(options[static_cast<std::size_t>(SpriteShape::Bubble)] == "bubble");
     CHECK(options[static_cast<std::size_t>(SpriteShape::Heart)] == "heart");
@@ -526,7 +528,17 @@ TEST_CASE("Compile: every sprite shape, alignment and stretch") {
     CHECK(options[static_cast<std::size_t>(SpriteShape::Candy)] == "candy");
     CHECK(options[static_cast<std::size_t>(SpriteShape::Twinkle)] == "twinkle");
     CHECK(options[static_cast<std::size_t>(SpriteShape::Bolt)] == "bolt");
-    CHECK(options.back() == "beam");
+    CHECK(options[static_cast<std::size_t>(kSpriteShapeCount) - 1] == "beam");
+    CHECK(options[static_cast<std::size_t>(kSpriteShapeCount)] == "triangle");
+    // No name is listed twice, and each is lower-case letters only.
+    for (std::size_t i = 0; i < options.size(); ++i) {
+        for (const char c : options[i]) {
+            CHECK((c >= 'a' && c <= 'z'));
+        }
+        for (std::size_t j = i + 1; j < options.size(); ++j) {
+            CHECK(options[i] != options[j]);
+        }
+    }
     for (std::size_t i = 0; i < options.size(); ++i) {
         put(layer, "sprite", "shape", text(options[i].c_str()));
         CHECK(static_cast<std::size_t>(compileLayer(effect, layer)->spriteShape) == i);

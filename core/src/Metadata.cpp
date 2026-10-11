@@ -187,7 +187,24 @@ Registry::Registry() {
                       "diamond", "heart", "streak", "flame", "puff", "burst", "crescent", "orb",
                       "glint", "blaze", "candy", "shard", "drop", "splat", "shockwave",
                       "twinkle", "flare", "rays", "swirl", "bean", "bolt",
-                      "starflash", "sliver", "shardring", "vortex", "sigil", "beam"})
+                      "starflash", "sliver", "shardring", "vortex", "sigil", "beam",
+                      // The shape library (drawn from pictures; see the editor's
+                      // ShapeLibrary.h). New shapes go at the end.
+                      "triangle", "pentagon", "hexagon", "octagon", "oval", "capsule", "halfdisc",
+                      "wedge", "plus", "cross", "frame", "hexframe", "arc", "dashring",
+                      "doublering", "softring", "starfour", "starsix", "stareight", "starfat",
+                      "starline", "pinwheel", "sunburst", "pow", "bang", "speedlines",
+                      "crossflare", "bokeh", "glowdiamond", "cloud", "puffball", "dustcloud",
+                      "wisp", "smokering", "steam", "fireball", "ember", "flametongue", "spark",
+                      "zigzag", "lightcone", "halo", "glowbar", "droplet", "splash", "ripple",
+                      "wave", "leaf", "petal", "flower", "clover", "snowflake", "feather",
+                      "pebble", "raindash", "coin", "gem", "emerald", "crystal", "crown", "trophy",
+                      "key", "gift", "ribbon", "confetti", "balloon", "donut", "bonbon", "medal",
+                      "note", "cherry", "pentacle", "triad", "spiral", "hexshield", "eye", "moon",
+                      "wing", "skull", "octagram", "portalring", "crosshair", "yinyang", "runea",
+                      "runeb", "runec", "slash", "claw", "crack", "impact", "rock", "splinter",
+                      "glass", "gear", "bone", "brick", "arrow", "chevron", "check", "exclaim",
+                      "question", "lightning", "shield", "sword", "paw", "zed", "infinity", "lock"})
             .help("What each particle looks like when it has no texture."),
         P("align", "Align", ValueKind::Enum, text("none"))
             .options({"none", "movement"})

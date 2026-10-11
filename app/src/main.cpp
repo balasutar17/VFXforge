@@ -585,7 +585,7 @@ int main(int argc, char* argv[]) {
                                     // Motion menu open over the window.
                                     QObject* panel = window->findChild<QObject*>(QStringLiteral("controlsPanel"));
                                     QObject* menu = window->findChild<QObject*>(QStringLiteral("motionMenu"));
-                                    QTimer::singleShot(500, &application, [&, window, third, panel, menu]() {
+                                    QTimer::singleShot(500, &application, [&, window, software, third, panel, menu]() {
                                         QTextStream opened(&selfTest.report);
                                         QVariant found;
                                         if (!panel ||
@@ -599,14 +599,66 @@ int main(int argc, char* argv[]) {
                                             opened << "FAIL: the Motion menu could not be opened\n";
                                             selfTest.result = 1;
                                         }
-                                        QTimer::singleShot(700, &application, [&, window, third, menu]() {
+                                        QTimer::singleShot(700, &application, [&, window, software, third, panel, menu]() {
                                             capture(window, selfTest, QStringLiteral("-motion-menu"),
                                                     QStringLiteral("the Motion menu and the stretch curve"));
                                             if (menu) {
                                                 QMetaObject::invokeMethod(menu, "close");
                                             }
-                                            controller.setLibraryOpen(true);
-                                            QTimer::singleShot(2500, &application, third);
+                                            // The shape library: a preset made with it, whose
+                                            // shapes the graphics card draws from their pictures,
+                                            // and the picker with its groups.
+                                            if (!controller.openPreset(QStringLiteral("trophy-win"))) {
+                                                QTextStream(&selfTest.report) << "FAIL: the Trophy Win preset could not be opened\n";
+                                                selfTest.result = 1;
+                                            }
+                                            controller.selectLayer(1);
+                                            QTimer::singleShot(900, &application, [&, window, software, third, panel]() {
+                                                QTextStream shapes(&selfTest.report);
+                                                QVariantMap shapeRow;
+                                                for (const QVariant& item : controller.controls()) {
+                                                    const QVariantMap found = item.toMap();
+                                                    if (found.value(QStringLiteral("kind")).toString() == QStringLiteral("shape")) {
+                                                        shapeRow = found;
+                                                    }
+                                                }
+                                                const QVariantList offered = shapeRow.value(QStringLiteral("options")).toList();
+                                                const int groups = static_cast<int>(shapeRow.value(QStringLiteral("categories")).toList().size());
+                                                const QString drawn = shapeRow.value(QStringLiteral("value")).toString();
+                                                int grouped = 0;
+                                                for (const QVariant& option : offered) {
+                                                    grouped += option.toMap().value(QStringLiteral("category")).toString().isEmpty() ? 0 : 1;
+                                                }
+                                                shapes << "shape library: " << offered.size() << " shapes, " << grouped << " of them in one of "
+                                                       << groups << " groups; the selected layer draws \"" << drawn << "\"\n";
+                                                if (offered.size() < 135 || grouped != offered.size() || groups < 8 ||
+                                                    drawn != QStringLiteral("trophy")) {
+                                                    shapes << "FAIL: the shape library is not what the panel shows\n";
+                                                    selfTest.result = 1;
+                                                }
+                                                QVariant found;
+                                                if (!panel ||
+                                                    !QMetaObject::invokeMethod(panel, "showControl", Q_RETURN_ARG(QVariant, found),
+                                                                               Q_ARG(QVariant, QVariant(QStringLiteral("Shape")))) ||
+                                                    !found.toBool()) {
+                                                    shapes << "FAIL: the Shape control could not be scrolled to\n";
+                                                    selfTest.result = 1;
+                                                }
+                                                const int lit = capture(window, selfTest, QStringLiteral("-shapes"),
+                                                                        QStringLiteral("a preset made with library shapes"));
+                                                if (!software && lit < 500) {
+                                                    shapes << "FAIL: the preset made with library shapes shows nothing\n";
+                                                    selfTest.result = 1;
+                                                }
+                                                // A moment later, so the picker's own small
+                                                // pictures have been drawn too.
+                                                QTimer::singleShot(600, &application, [&, window, third]() {
+                                                    capture(window, selfTest, QStringLiteral("-shape-picker"),
+                                                            QStringLiteral("the shape picker"));
+                                                    controller.setLibraryOpen(true);
+                                                    QTimer::singleShot(2500, &application, third);
+                                                });
+                                            });
                                         });
                                     });
                                 });

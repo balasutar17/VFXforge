@@ -357,6 +357,10 @@ Effect healingAura(const IdSource& id) {
                .size(0.12, 0.26).color(0x8dffb8).gravity(0, 0.8)
                .sizeOver({{0, 0.3}, {0.3, 1}, {1, 0.2}}).fade({{0, 0}, {0.2, 1}, {0.7, 1}, {1, 0}})
                .additive().glow(1.8));
+    add(e, Make(id, "Crosses").rate(4).rect(2.4, 0.4).life(1.0, 1.5).speed(1.2, 2.0).aim(90, 4)
+               .size(0.24, 0.4).color(0xb6ffcf).gravity(0, 0)
+               .sizeOver({{0, 0.2}, {0.2, 1.1, true}, {0.35, 1.0, true}, {1, 0.8}})
+               .fade({{0, 0}, {0.15, 1}, {0.7, 1}, {1, 0}}).look("plus"));
     add(e, Make(id, "Glints").rate(7).rect(2.8, 2.0).life(0.6, 1.0).speed(0.4, 1.0).aim(90, 10)
                .size(0.3, 0.6).color(0xe6ffe9).gravity(0, 0)
                .sizeOver({{0, 0.1}, {0.35, 1}, {1, 0.1}}).fade({{0, 0}, {0.3, 1}, {1, 0}})
@@ -375,6 +379,10 @@ Effect levelUp(const IdSource& id) {
     add(e, Make(id, "Rising light").from(0, 1.3).rate(60).rect(1.8, 0.2).life(0.5, 0.9).speed(4, 8.5)
                .aim(90, 0).size(0.12, 0.22).color(0xffe9a0).gravity(0, 0)
                .fade({{0, 0}, {0.2, 1}, {0.7, 1}, {1, 0}}).look("streak").additive().glow(2.0).streak(0.09));
+    add(e, Make(id, "Arrows").from(0.05, 0.7).rate(9).rect(2.0, 0.2).life(0.7, 1.0).speed(3.0, 4.5).aim(90, 0)
+               .size(0.5, 0.8).turn(90, 90).color(0xffe07a).gravity(0, 0)
+               .pace({{0, 2.6}, {0.3, 0.5, true}, {1, 0.05, true}})
+               .fade({{0, 0}, {0.15, 1}, {0.7, 1}, {1, 0}}).look("chevron"));
     add(e, Make(id, "Stars").burst(9, 0.1).life(0.9, 1.3).speed(3.5, 6.5).aim(90, 70).size(0.36, 0.6)
                .turn(0, 360).spin(-200, 200).color(0xffd23f).drag(1.8).gravity(0, -4)
                .sizeOver({{0, 0.2}, {0.2, 1}, {0.8, 1}, {1, 0}}).solid().look("star"));
@@ -509,8 +517,8 @@ Effect shootingStars(const IdSource& id) {
 Effect coinBurst(const IdSource& id) {
     Effect e = begin(id, "Coin Burst", 2.2);
     add(e, Make(id, "Coins").burst(18).rect(0.5, 0.1).life(1.2, 1.7).speed(6.5, 10).aim(90, 26)
-               .size(0.34, 0.44).color(0xffc531).gravity(0, -15)
-               .fade({{0, 1}, {0.85, 1}, {1, 0}}).look("disc").sound("coin", true, 0.0, 0.9, 1.0));
+               .size(0.44, 0.58).color(0xffc531).gravity(0, -15)
+               .fade({{0, 1}, {0.85, 1}, {1, 0}}).look("coin").sound("coin", true, 0.0, 0.9, 1.0));
     add(e, Make(id, "Glints").burst(12, 0.05).alsoRate(10).circle(1.2).life(0.4, 0.8).speed(1, 3)
                .aim(90, 60).size(0.3, 0.7).color(0xfff7cf).gravity(0, 0)
                .sizeOver({{0, 0.1}, {0.35, 1}, {1, 0.1}}).fade({{0, 0}, {0.3, 1}, {1, 0}})
@@ -526,8 +534,8 @@ Effect confetti(const IdSource& id) {
     const char* names[5] = {"Red", "Yellow", "Green", "Blue", "Purple"};
     for (int i = 0; i < 5; ++i) {
         add(e, Make(id, names[i]).burst(16).rect(0.6, 0.1).life(1.9, 2.8).speed(6, 12).aim(90, 30)
-                   .size(0.22, 0.36).turn(0, 360).spin(-420, 420).color(colors[i]).gravity(0, -6)
-                   .drag(1.7).fade({{0, 1}, {0.85, 1}, {1, 0}}).look(i % 2 == 0 ? "square" : "diamond")
+                   .size(0.28, 0.46).turn(0, 360).spin(-420, 420).color(colors[i]).gravity(0, -6)
+                   .drag(1.7).fade({{0, 1}, {0.85, 1}, {1, 0}}).look(i % 2 == 0 ? "confetti" : "ribbon")
                    .turbulence(1.1, 1.3, 0.6));
     }
     return e;
@@ -573,7 +581,7 @@ Effect gemShatter(const IdSource& id) {
                .gravity(0, 0).sizeOver({{0, 0.4}, {1, 1}}).fade({{0, 1}, {1, 0}}).additive().glow(1.3));
     add(e, Make(id, "Shards").burst(16).circle(0.3).life(0.8, 1.3).speed(3.5, 8).aim(90, 180)
                .size(0.22, 0.46).turn(0, 360).spin(-360, 360).color(0x36b8ff).drag(1.6).gravity(0, -10)
-               .sizeOver({{0, 1}, {0.7, 1}, {1, 0}}).solid().look("diamond"));
+               .sizeOver({{0, 1}, {0.7, 1}, {1, 0}}).solid().look("glass"));
     add(e, Make(id, "Small shards").burst(10).circle(0.3).life(0.7, 1.1).speed(4, 8.5).aim(90, 180)
                .size(0.12, 0.22).turn(0, 360).spin(-360, 360).color(0xd9f3ff).drag(1.6).gravity(0, -10)
                .sizeOver({{0, 1}, {0.7, 1}, {1, 0}}).solid().look("diamond"));
@@ -603,8 +611,8 @@ Effect snow(const IdSource& id) {
                .size(0.06, 0.11).color(0xdfeaff, 0.7).gravity(0, 0)
                .fade({{0, 0}, {0.15, 1}, {0.85, 1}, {1, 0}}).turbulence(0.35, 2.4, 0.3));
     add(e, Make(id, "Near flakes").rate(22).rect(12, 8).life(2.6, 3.8).speed(0.7, 1.3).aim(262, 16)
-               .size(0.14, 0.26).color(0xffffff, 0.9).gravity(0, 0)
-               .fade({{0, 0}, {0.15, 1}, {0.85, 1}, {1, 0}}).turbulence(0.55, 2.0, 0.3));
+               .size(0.2, 0.38).turn(0, 60).spin(-40, 40).color(0xffffff, 0.9).gravity(0, 0)
+               .fade({{0, 0}, {0.15, 1}, {0.85, 1}, {1, 0}}).look("snowflake").turbulence(0.55, 2.0, 0.3));
     return e;
 }
 
@@ -1221,6 +1229,166 @@ Effect springyPoof(const IdSource& id) {
     return e;
 }
 
+// ------------------------------------------------- with the shape library
+// Effects built on shapes from the library: leaves, trophies, runes, and
+// the marks that float over a character's head.
+
+Effect fallingLeaves(const IdSource& id) {
+    Effect e = begin(id, "Falling Leaves", 6.0);
+    const unsigned colors[3] = {0xe8742a, 0xd9a321, 0xb5452a};
+    const char* names[3] = {"Orange leaves", "Yellow leaves", "Red leaves"};
+    for (int i = 0; i < 3; ++i) {
+        // Each leaf turns over and back as it falls: squashed thin, then
+        // full again, twice on the way down.
+        add(e, Make(id, names[i]).rate(4).rect(12, 6).at(0, 3).life(4.0, 5.4).speed(0.6, 1.2).aim(264, 18)
+                   .size(0.4, 0.7).turn(0, 360).spin(-90, 90).color(colors[i]).gravity(0, -0.2)
+                   .squash({{0, 0, true}, {0.2, -0.6, true}, {0.4, 0, true}, {0.6, -0.6, true}, {0.8, 0, true}, {1, -0.4}})
+                   .fade({{0, 0}, {0.1, 1}, {0.88, 1}, {1, 0}}).look("leaf").turbulence(0.9, 2.2, 0.4));
+    }
+    return e;
+}
+
+Effect trophyWin(const IdSource& id) {
+    Effect e = begin(id, "Trophy Win", 3.0);
+    add(e, Make(id, "Rays").burst(1).life(2.6, 2.6).speed(0, 0).size(7.6, 7.6).color(0xffc531).gravity(0, 0)
+               .spin(24, 24).sizeOver({{0, 0.2}, {0.15, 1.0, true}, {1, 1.05}})
+               .fade({{0, 0}, {0.12, 0.6}, {0.8, 0.5}, {1, 0}}).look("rays").additive());
+    add(e, Make(id, "Trophy").burst(1).life(2.6, 2.6).speed(0, 0).size(3.2, 3.2).color(0xffc531).gravity(0, 0)
+               .sizeOver({{0, 0.0}, {0.08, 1.15, true}, {0.16, 0.95, true}, {0.3, 1.0, true}, {0.92, 1.0}, {1, 0}})
+               .squash({{0, 0.6}, {0.08, -0.35, true}, {0.16, 0.2, true}, {0.24, -0.08, true}, {0.34, 0, true}, {1, 0}})
+               .solid().look("trophy").hold(12).sound("level-up", true, 0.0, 0.9));
+    const unsigned colors[3] = {0xff4d6d, 0x3ddc97, 0x3aa0ff};
+    const char* names[3] = {"Red paper", "Green paper", "Blue paper"};
+    for (int i = 0; i < 3; ++i) {
+        add(e, Make(id, names[i]).burst(12, 0.1).rect(1.2, 0.1).at(0, -1.2).life(1.8, 2.5).speed(7, 12).aim(90, 34)
+                   .size(0.28, 0.44).turn(0, 360).spin(-420, 420).color(colors[i]).gravity(0, -6).drag(1.8)
+                   .fade({{0, 1}, {0.85, 1}, {1, 0}}).look(i == 1 ? "ribbon" : "confetti").turbulence(1.0, 1.3, 0.6));
+    }
+    add(e, Make(id, "Stars").burst(8, 0.08).life(0.9, 1.3).speed(6, 9).aim(90, 180).size(0.36, 0.6)
+               .turn(-20, 20).color(0xfff1a8).gravity(0, 0)
+               .pace({{0, 3.0}, {0.14, 0.9, true}, {0.26, -0.75, true}, {0.42, 0.12, true}, {0.6, 0, true}, {1, 0}})
+               .sizeOver({{0, 0.2}, {0.2, 1.1, true}, {0.4, 1.0, true}, {0.8, 1.0}, {1, 0}}).solid().look("starfat")
+               .hold(12));
+    return e;
+}
+
+Effect runeWard(const IdSource& id) {
+    Effect e = begin(id, "Rune Ward", 4.0);
+    add(e, Make(id, "Glow").rate(2).life(1.6, 1.6).speed(0, 0).size(6.4, 6.4).color(0x7a4dff).gravity(0, 0)
+               .fade({{0, 0}, {0.5, 0.22}, {1, 0}}).additive().lieFlat(64));
+    add(e, Make(id, "Outer circle").burst(1).life(4.0, 4.0).speed(0, 0).size(5.6, 5.6).color(0xb79cff).gravity(0, 0)
+               .spin(20, 20).solid().look("triad").additive().glow(1.5).lieFlat(64));
+    add(e, Make(id, "Inner circle").burst(1).life(4.0, 4.0).speed(0, 0).size(2.9, 2.9).color(0xe2d6ff).gravity(0, 0)
+               .spin(-40, -40).solid().look("pentacle").additive().glow(1.5).lieFlat(64));
+    const char* runes[3] = {"runea", "runeb", "runec"};
+    const char* names[3] = {"Runes of arms", "Runes of the lozenge", "Runes of the stroke"};
+    for (int i = 0; i < 3; ++i) {
+        add(e, Make(id, names[i]).rate(1.1).rect(4.2, 0.6).at(0, 0.3).life(1.5, 2.0).speed(0.7, 1.2).aim(90, 0)
+                   .size(0.62, 0.92).color(0xd9c8ff).gravity(0, 0)
+                   .sizeOver({{0, 0.6}, {0.2, 1.0, true}, {1, 1.0}}).fade({{0, 0}, {0.2, 1}, {0.7, 1}, {1, 0}})
+                   .look(runes[i]).additive().glow(1.4));
+    }
+    add(e, Make(id, "Wall").rate(0.75).at(0, 1.5).life(1.3, 1.3).speed(0, 0).size(4.4, 4.4).color(0x9f86ff)
+               .gravity(0, 0).sizeOver({{0, 0.85}, {1, 1.05}}).fade({{0, 0}, {0.2, 0.42}, {1, 0}})
+               .look("hexshield").additive());
+    add(e, Make(id, "Motes").rate(14).rect(4.4, 0.6).life(0.9, 1.5).speed(0.8, 1.8).aim(90, 6).size(0.06, 0.12)
+               .color(0xcbb8ff).gravity(0, 0).fade({{0, 0}, {0.2, 1}, {0.7, 1}, {1, 0}}).additive().glow(2.0)
+               .turbulence(0.6, 1.2, 0.6));
+    tools::keepWholePass(e);
+    return e;
+}
+
+Effect buffUp(const IdSource& id) {
+    Effect e = begin(id, "Buff Up", 1.8);
+    add(e, Make(id, "Ground ring").burst(1).life(0.6, 0.6).speed(0, 0).size(4.4, 4.4).color(0x5dff8a).gravity(0, 0)
+               .sizeOver({{0, 0.2}, {0.5, 0.85, true}, {1, 1.0, true}}).fade({{0, 0.9}, {0.5, 0.6}, {1, 0}})
+               .look("shockwave").additive().lieFlat(66));
+    add(e, Make(id, "Column").from(0, 0.8).rate(10).rect(1.6, 0.2).life(0.6, 0.9).speed(2.5, 3.5).aim(90, 0)
+               .size(1.6, 2.2).color(0x2fe37a).gravity(0, 0).fade({{0, 0}, {0.3, 0.25}, {1, 0}}).additive());
+    // The arrows shoot up and coast: off at once, slowing to a stop.
+    add(e, Make(id, "Arrows").from(0.05, 0.75).rate(12).rect(2.0, 0.3).life(0.8, 1.1).speed(3.0, 4.4).aim(90, 0)
+               .size(0.55, 0.85).turn(90, 90).color(0x8dffb0).gravity(0, 0)
+               .pace({{0, 2.6}, {0.3, 0.5, true}, {1, 0.05, true}})
+               .squash({{0, 0.5}, {0.3, 0.0, true}, {1, 0}})
+               .fade({{0, 0}, {0.12, 1}, {0.7, 1}, {1, 0}}).look("chevron").hold(12)
+               .sound("level-up", false, 0.0, 0.7));
+    add(e, Make(id, "Plus signs").burst(7, 0.1).rect(2.4, 1.2).at(0, 0.8).life(0.8, 1.2).speed(0.8, 1.6).aim(90, 20)
+               .size(0.2, 0.36).color(0xd6ffe2).gravity(0, 0)
+               .sizeOver({{0, 0.0}, {0.2, 1.15, true}, {0.35, 1.0, true}, {1, 0.7}})
+               .fade({{0, 1}, {0.7, 1}, {1, 0}}).look("plus").hold(12));
+    return e;
+}
+
+Effect sleepZs(const IdSource& id) {
+    Effect e = begin(id, "Sleep", 3.0);
+    add(e, Make(id, "Zs").rate(1.1).at(0.2, 0.2).life(2.2, 2.4).speed(0.8, 1.0).aim(64, 6).size(0.9, 1.1)
+               .turn(-8, 8).color(0xbfd4ff).gravity(0, 0)
+               .sizeOver({{0, 0.25}, {0.3, 0.8, true}, {1, 1.2, true}})
+               .squash({{0, -0.12, true}, {0.25, 0.12, true}, {0.5, -0.12, true}, {0.75, 0.12, true}, {1, -0.12, true}})
+               .fade({{0, 0}, {0.15, 1}, {0.7, 1}, {1, 0}}).look("zed").hold(8).turbulence(0.25, 1.6, 0.3));
+    add(e, Make(id, "Bubble").rate(0.5).at(-0.5, -0.2).life(1.8, 1.8).speed(0.2, 0.3).aim(110, 5).size(0.5, 0.6)
+               .color(0xdbe7ff).gravity(0, 0).sizeOver({{0, 0.2}, {0.8, 1.0, true}, {0.9, 1.25}, {1, 0}})
+               .fade({{0, 0}, {0.2, 0.9}, {0.9, 0.9}, {1, 0}}).look("bubble"));
+    return e;
+}
+
+Effect poisoned(const IdSource& id) {
+    Effect e = begin(id, "Poisoned", 3.0);
+    add(e, Make(id, "Fumes").rate(5).circle(0.6).life(1.2, 1.8).speed(0.5, 1.1).aim(90, 25).size(0.9, 1.4)
+               .turn(-30, 30).color(0x5a9a2a, 0.75).gravity(0, 0.3).sizeOver({{0, 0.4}, {0.4, 1.0, true}, {1, 1.15}})
+               .fade({{0, 0}, {0.2, 1}, {1, 0.4}}).look("puffball").dissolve(0.6, 0.0, 0.5).turbulence(0.5, 1.4, 0.5)
+               .hold(12));
+    add(e, Make(id, "Skull").rate(0.75).at(0, 0.3).life(1.2, 1.2).speed(0.5, 0.6).aim(90, 0).size(1.3, 1.5)
+               .color(0xb9f25e).gravity(0, 0)
+               .sizeOver({{0, 0.0}, {0.14, 1.15, true}, {0.26, 0.96, true}, {0.4, 1.0, true}, {1, 1.0}})
+               .squash({{0, 0.4}, {0.14, -0.25, true}, {0.26, 0.1, true}, {0.4, 0, true}, {1, 0}})
+               .fade({{0, 1}, {0.7, 1}, {1, 0}}).look("skull").hold(12));
+    add(e, Make(id, "Bubbles").rate(9).circle(0.8).life(0.7, 1.2).speed(0.8, 1.8).aim(90, 14).size(0.14, 0.3)
+               .color(0xcaf78a).gravity(0, 0.4).sizeOver({{0, 0.3}, {0.85, 1.0}, {0.9, 1.3}, {1, 0}}).solid()
+               .look("bubble").turbulence(0.4, 0.9, 0.6));
+    add(e, Make(id, "Drips").rate(4).rect(1.6, 0.2).at(0, 0.2).life(0.5, 0.8).speed(0.2, 0.6).aim(270, 6)
+               .size(0.2, 0.32).color(0x8fdc3c).gravity(0, -7).sizeOver({{0, 0.4}, {0.3, 1.0}, {1, 0.8}})
+               .squash({{0, 0.0}, {1, 0.5}}).fade({{0, 1}, {0.8, 1}, {1, 0}}).look("droplet"));
+    return e;
+}
+
+Effect stunned(const IdSource& id) {
+    Effect e = begin(id, "Stunned", 2.4);
+    // Five stars going round and round. Each pops out of the middle, is
+    // carried once round by Orbit and is gone as the next one arrives, so
+    // they sit a fifth of a turn apart however long the effect plays.
+    add(e, Make(id, "Stars").burst(1, 0.0).burst(1, 0.48).burst(1, 0.96).burst(1, 1.44).burst(1, 1.92)
+               .life(2.4, 2.4).speed(2.3, 2.3).aim(0, 0).size(0.6, 0.6).color(0xffd84a).gravity(0, 0)
+               .orbit(150).spin(-180, -180)
+               .pace({{0, 14}, {0.07, -1.2, true}, {0.14, 0, true}, {1, 0}})
+               .sizeOver({{0, 0.0}, {0.06, 1.2, true}, {0.14, 1.0, true}, {0.92, 1.0}, {1, 0}})
+               .squash({{0, 0.15, true}, {0.125, -0.15, true}, {0.25, 0.15, true}, {0.375, -0.15, true},
+                        {0.5, 0.15, true}, {0.625, -0.15, true}, {0.75, 0.15, true}, {0.875, -0.15, true}, {1, 0.15, true}})
+               .solid().look("starfat"));
+    add(e, Make(id, "Dizzy").burst(1).life(2.4, 2.4).speed(0, 0).size(1.5, 1.5).color(0xfff2b0).gravity(0, 0)
+               .spin(300, 300).solid().look("spiral").additive().glow(1.3));
+    add(e, Make(id, "Trail dots").rate(22).circle(1.25, true).life(0.35, 0.55).speed(0, 0).size(0.08, 0.16)
+               .color(0xfff6cf).gravity(0, 0).orbit(150).sizeOver({{0, 1}, {1, 0}}).solid().look("disc"));
+    tools::keepWholePass(e);
+    return e;
+}
+
+Effect alert(const IdSource& id) {
+    Effect e = begin(id, "Alert", 1.5);
+    add(e, Make(id, "Lines").burst(1).life(0.24, 0.24).speed(0, 0).size(5.4, 5.4).turn(0, 30).color(0xfff0c4)
+               .gravity(0, 0).sizeOver({{0, 0.5}, {1, 1.0}}).fade({{0, 1}, {0.6, 1}, {1, 0}}).look("impact")
+               .hold(12));
+    add(e, Make(id, "Bang").burst(1).life(0.3, 0.3).speed(0, 0).size(4.2, 4.2).color(0xffd23f).gravity(0, 0)
+               .sizeOver({{0, 0.3}, {0.4, 1.0, true}, {1, 1.1}}).fade({{0, 1}, {0.6, 1}, {1, 0}}).look("pow")
+               .hold(12));
+    // The mark lands flat, springs up past itself and settles.
+    add(e, Make(id, "Mark").burst(1, 0.04).life(1.2, 1.2).speed(0, 0).size(2.6, 2.6).color(0xff4d4d).gravity(0, 0)
+               .sizeOver({{0, 0.2}, {0.1, 1.15, true}, {0.2, 0.95, true}, {0.32, 1.0, true}, {0.88, 1.0}, {1, 0}})
+               .squash({{0, -0.5}, {0.1, 0.35, true}, {0.2, -0.15, true}, {0.3, 0.06, true}, {0.4, 0, true}, {1, 0}})
+               .solid().look("exclaim").hold(12).sound("hit", true, 0.0, 0.8, 1.0));
+    return e;
+}
+
 struct Entry {
     PresetInfo info;
     Effect (*build)(const IdSource&);
@@ -1283,10 +1451,12 @@ const std::vector<Entry>& table() {
         {describe("star-burst", "Star Burst", "Rewards", "Stars flying out for a win or a reward.", 0, 0, 6, 0.3), starBurst},
         {describe("hearts", "Hearts", "Rewards", "Hearts floating upward.", 0, 1.6f, 5.5f, 2.2), hearts},
         {describe("gem-shatter", "Gem Shatter", "Rewards", "A gem breaking into shards.", 0, -0.3f, 6, 0.25), gemShatter},
+        {describe("trophy-win", "Trophy Win", "Rewards", "A trophy bouncing in on golden rays, with paper and stars.", 0, 0.3f, 7.4f, 0.5), trophyWin},
 
         {describe("rain", "Rain", "Weather", "Rain across the whole scene.", 0, 0, 6, 1.5), rain},
         {describe("snow", "Snow", "Weather", "Snow drifting down.", 0, 0, 6, 4.0), snow},
         {describe("fireflies", "Fireflies", "Weather", "Small lights wandering and blinking.", 0, 0, 5, 3.6), fireflies},
+        {describe("falling-leaves", "Falling Leaves", "Weather", "Autumn leaves turning over as they drift down.", 0, 0, 6, 3.6), fallingLeaves},
 
         {describe("candy-pop", "Candy Pop", "Match-3", "A candy clearing: glossy pieces, a pop ring and twinkles.", 0, 0, 5.4f, 0.12), candyPop},
         {describe("jelly-splat", "Jelly Splat", "Match-3", "Jelly breaking: a wet splat and flying drops.", 0, 0, 5.4f, 0.12), jellySplat},
@@ -1309,6 +1479,7 @@ const std::vector<Entry>& table() {
         {describe("magic-circle", "Magic Circle", "Ground and portals", "A turning circle of runes on the floor, with light rising from it.", 0, 0.9f, 6.6f, 2.0), magicCircle},
         {describe("vortex-portal", "Vortex Portal", "Ground and portals", "A whirlpool of light lying on the ground, with beams and sparks.", 0, 0.9f, 6.8f, 2.0), vortexPortal},
         {describe("ground-slam", "Ground Slam", "Ground and portals", "A shockwave racing across the floor, with dust and chips.", 0, 0.8f, 7.0f, 0.18), groundSlam},
+        {describe("rune-ward", "Rune Ward", "Ground and portals", "A turning seal on the floor with runes rising inside a shield.", 0, 1.0f, 6.8f, 2.0), runeWard},
 
         {describe("rising-smoke", "Rising Smoke", "Smoke and wind", "A column of smoke winding upward and thinning away.", 0, 0.4f, 7.0f, 4.0), risingSmoke},
         {describe("ground-mist", "Ground Mist", "Smoke and wind", "Low mist drifting across the scene.", 0, -0.8f, 6.5f, 5.0), groundMist},
@@ -1320,6 +1491,12 @@ const std::vector<Entry>& table() {
         {describe("wind-up-blast", "Wind-up Blast", "Cartoon motion", "Energy drawn in, a held breath, then the blast: anticipation.", 0, 0, 7.4f, 0.68), windUpBlast},
         {describe("spiral-burst", "Spiral Burst", "Cartoon motion", "Sparks that curl out in two spirals: arcs.", 0, 0, 6.6f, 0.45), spiralBurst},
         {describe("springy-poof", "Springy Poof", "Cartoon motion", "Puffs that shoot past, spring back and hang: overshoot and settle.", 0, 0, 6.0f, 0.3), springyPoof},
+
+        {describe("buff-up", "Buff Up", "Status", "Green arrows shooting up: stronger, faster, healed.", 0, 1.3f, 5.6f, 0.6), buffUp},
+        {describe("sleep", "Sleep", "Status", "Zs floating up from a sleeper.", 0.6f, 1.1f, 4.6f, 2.0), sleepZs},
+        {describe("poisoned", "Poisoned", "Status", "A skull in sickly fumes, with bubbles and drips.", 0, 0.7f, 4.8f, 1.6), poisoned},
+        {describe("stunned", "Stunned", "Status", "Stars circling a dizzy spiral.", 0, 0, 4.4f, 1.0), stunned},
+        {describe("alert", "Alert", "Status", "An exclamation mark that lands with a bang.", 0, 0, 5.6f, 0.2), alert},
 
         {describe("gold-flash", "Gold Flash", "Flashes", "A burst of white spikes in a golden glow.", 0, 0, 5.6f, 0.08), goldFlash},
         {describe("ice-flash", "Ice Flash", "Flashes", "A burst of white spikes in a blue glow.", 0, 0, 5.6f, 0.08), iceFlash},

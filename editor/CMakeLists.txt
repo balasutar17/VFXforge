@@ -25,6 +25,7 @@ add_library(vfx_editor STATIC
     src/ReferenceStill.cpp
     src/ReferenceTime.cpp
     src/Session.cpp
+    src/ShapeLibrary.cpp
     src/Shapes.cpp
     src/SoundLibrary.cpp
     src/SpriteMesh.cpp

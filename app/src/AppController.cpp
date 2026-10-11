@@ -33,6 +33,7 @@
 #include "vfx/editor/SoundLibrary.h"
 #include "vfx/editor/Presets.h"
 #include "vfx/editor/Refine.h"
+#include "vfx/editor/ShapeLibrary.h"
 #include "vfx/editor/UnityExport.h"
 
 using vfx::editor::ControlView;
@@ -498,9 +499,26 @@ void AppController::rebuildControls() {
                         QVariantMap entry;
                         entry.insert(QStringLiteral("value"), text(option));
                         entry.insert(QStringLiteral("label"), optionLabel(d, option));
+                        if (picture) {
+                            // There are many shapes: each has a name an
+                            // artist would use, and a group it is found in.
+                            const int number = vfx::editor::shapeNumber(option);
+                            if (number >= 0) {
+                                const vfx::editor::ShapeInfo& shape = vfx::editor::shapeInfo(number);
+                                entry.insert(QStringLiteral("label"), QString::fromUtf8(shape.label));
+                                entry.insert(QStringLiteral("category"), QString::fromUtf8(shape.category));
+                            }
+                        }
                         options.push_back(entry);
                     }
                     row.insert(QStringLiteral("options"), options);
+                    if (picture) {
+                        QVariantList categories;
+                        for (const std::string& category : vfx::editor::shapeCategories()) {
+                            categories.push_back(text(category));
+                        }
+                        row.insert(QStringLiteral("categories"), categories);
+                    }
                 } else if (const auto* vector = std::get_if<vfx::Vec3>(&c.value)) {
                     if (d.key == "direction") {
                         kind = QStringLiteral("direction");
