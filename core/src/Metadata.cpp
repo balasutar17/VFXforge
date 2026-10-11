@@ -129,6 +129,15 @@ Registry::Registry() {
             .unit("per second").range(0, 60).ui(0, 3)
             .help("How quickly the swirls are replaced by new ones. 0 keeps them where they are, "
                   "so particles follow the same winding paths."),
+        P("speedOverLife", "Speed over Life", ValueKind::Scalar, Scalar::constant(1.0))
+            .unit("multiplier").range(-20, 20).ui(0, 2)
+            .help("Speeds each particle up or slows it down along its own path, from birth to death: "
+                  "1 is its own speed, 0 stands still, below 0 goes backwards. As a curve this is "
+                  "slow in and slow out, a wind-up before the launch, or an overshoot that settles back."),
+        P("orbit", "Orbit", ValueKind::Float, num(0.0))
+            .unit("degrees per second").range(-3600, 3600).ui(-360, 360)
+            .help("Turns every particle about the layer's centre as it travels, so straight paths "
+                  "become arcs and spirals. Above 0 turns counter-clockwise, below 0 clockwise."),
     }));
 
     modules_.push_back(module("overLife", "Over Lifetime", Stage::Update, {
@@ -151,6 +160,12 @@ Registry::Registry() {
             .simple().range(0, 1).ui(0, 1)
             .help("How brightly the eaten edge glows, like paper burning: 0 not at all (smoke, "
                   "mist), 1 white-hot."),
+        P("stretch", "Squash and Stretch", ValueKind::Scalar, Scalar::constant(0.0))
+            .simple().range(-4, 4).ui(-0.6, 0.6)
+            .help("Above 0 each particle is drawn longer and thinner, below 0 shorter and wider, "
+                  "always keeping its area: 0.5 is half as long again. Along its own upright, or the "
+                  "way it is moving when Align is set to movement. As a curve it stretches a shape "
+                  "as it launches and squashes it as it lands."),
     }));
 
     modules_.push_back(module("sprite", "Sprite", Stage::Render, {
@@ -211,6 +226,11 @@ Registry::Registry() {
                   "angle: 0 faces you, higher is flatter. It still spins in its own plane, so a "
                   "turning ring stays a level oval. For magic circles, portals and shockwaves "
                   "on the floor. Not used when Align is set to movement."),
+        P("hold", "Hold Frames", ValueKind::Float, num(0.0))
+            .simple().unit("drawings per second").range(0, 60).ui(0, 24)
+            .help("Shows this layer the way hand-drawn animation is shown: this many drawings a "
+                  "second, each held still until the next. 12 is animating \"on twos\", 8 \"on "
+                  "threes\". 0 is smooth."),
     }));
 
     modules_.push_back(module("sound", "Sound", Stage::Audio, {

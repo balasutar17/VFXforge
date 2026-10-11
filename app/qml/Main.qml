@@ -154,6 +154,60 @@ ApplicationWindow {
                 VButton { text: "Save"; tip: "Save this effect"; enabled: app.dirty || !app.hasFile; onClicked: root.saveThen(null) }
                 VButton { text: "Save As…"; tip: "Save a copy under a new name"; onClicked: root.saveAsThen(null) }
                 VButton { text: "Export…"; tip: "To Unity, or as animation frames (Ctrl/Cmd+E)"; onClicked: app.exportOpen = true }
+                // One-click changes to the whole effect, built on the
+                // animation principles. Locked layers are left alone.
+                VButton {
+                    id: motionButton
+                    text: "Motion…"
+                    tip: "Cartoon motion for the whole effect: on twos, squash and stretch, anticipation, overshoot, curl"
+                    onClicked: motionMenu.open()
+
+                    Popup {
+                        id: motionMenu
+                        y: motionButton.height + 8
+                        width: 372
+                        padding: 12
+                        modal: true
+                        background: Rectangle { color: theme.panel; border.color: theme.line; radius: 8 }
+
+                        contentItem: Column {
+                            spacing: 8
+                            Text {
+                                width: parent.width
+                                text: "Changes every layer that is not locked. Each is one step to undo."
+                                color: theme.dim
+                                font.pixelSize: theme.smallFontSize
+                                wrapMode: Text.WordWrap
+                            }
+                            Repeater {
+                                model: app.motionChanges
+                                delegate: Item {
+                                    id: motionRow
+                                    required property var modelData
+                                    width: 348
+                                    height: Math.max(26, motionHelp.implicitHeight)
+                                    VButton {
+                                        id: motionApply
+                                        width: 138
+                                        height: 26
+                                        text: motionRow.modelData.label
+                                        onClicked: app.applyMotionChange(motionRow.modelData.key)
+                                    }
+                                    Text {
+                                        id: motionHelp
+                                        anchors.left: motionApply.right
+                                        anchors.leftMargin: 10
+                                        anchors.right: parent.right
+                                        text: motionRow.modelData.help
+                                        color: theme.dim
+                                        font.pixelSize: theme.smallFontSize
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 22; Layout.leftMargin: 6; Layout.rightMargin: 6; color: theme.line }
 

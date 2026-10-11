@@ -77,8 +77,10 @@ to a size that peaked at 1.6 gives a shape that peaks at 1.6:
 - **Life**: Pop and settle (overshoot), Wind up then go (anticipation),
   Swell, Pulse, Flicker.
 
-These are the first of the animation principles; the next version builds
-on them.
+These are the first of the animation principles. From 0.12, Squash and
+Stretch and Speed over Life also have curves of their own, listed first
+when one of those is being edited; see
+[animation-principles.md](animation-principles.md).
 
 ## The colour-gradient editor
 

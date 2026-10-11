@@ -13,7 +13,11 @@ open effects made in VFX Forge.
   Sounds/     the sounds the effects play: your own, and VFX Forge's
               library sounds (made by VFX Forge, free to use in your game).
   Runtime/    VFXForgeSound, which plays each layer's sound in step with
-              the effect, in the game as well as in the editor.
+              the effect, in the game as well as in the editor, and
+              VFXForgeHold, which shows a layer as held drawings ("on
+              twos") when Hold Frames is set in VFX Forge. Held drawings
+              show in Play mode and in a built game; the Scene view's own
+              particle preview stays smooth.
   Images/     your own pictures and sprite sheets, used by layers that draw
               them. A sprite sheet plays through Unity's Texture Sheet
               Animation module, set up for you.

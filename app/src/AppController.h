@@ -49,6 +49,9 @@ class AppController : public QObject {
     // the layer, grouped, with curve and gradient editors.
     Q_PROPERTY(bool advanced READ advanced WRITE setAdvanced NOTIFY controlsChanged)
     Q_PROPERTY(QVariantList curveShapes READ curveShapes CONSTANT)
+    // One-click changes to the whole effect built on the animation
+    // principles: on twos, squash and stretch, anticipation, overshoot, curl.
+    Q_PROPERTY(QVariantList motionChanges READ motionChanges CONSTANT)
 
     // Playback.
     Q_PROPERTY(bool playing READ playing NOTIFY playbackChanged)
@@ -122,6 +125,7 @@ public:
     bool advanced() const { return advanced_; }
     void setAdvanced(bool advanced);
     QVariantList curveShapes() const;
+    QVariantList motionChanges() const;
 
     bool playing() const;
     double timeScale() const;
@@ -195,6 +199,9 @@ public:
     Q_INVOKABLE void setFrameRate(double framesPerSecond);
     Q_INVOKABLE void setSeed(double seed);
     Q_INVOKABLE void newVariation();
+    // Makes one of motionChanges to every layer that is not locked, as one
+    // undo step, and says what it did.
+    Q_INVOKABLE void applyMotionChange(const QString& key);
 
     Q_INVOKABLE void selectLayer(int index);
     Q_INVOKABLE void addLayer();

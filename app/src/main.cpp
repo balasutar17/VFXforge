@@ -431,7 +431,7 @@ int main(int argc, char* argv[]) {
                         }
                         controller.selectLayer(1);
                         controller.setAdvanced(true);
-                        QTimer::singleShot(900, &application, [&, window, third]() {
+                        QTimer::singleShot(900, &application, [&, window, software, third]() {
                             QTextStream adv(&selfTest.report);
                             const QVariantList rows = controller.controls();
                             QStringList kinds;
@@ -510,7 +510,7 @@ int main(int argc, char* argv[]) {
                             }
                             // Show the curve and gradient editors themselves, once
                             // the rebuilt list has been laid out.
-                            QTimer::singleShot(500, &application, [&, window, third]() {
+                            QTimer::singleShot(500, &application, [&, window, software, third]() {
                             QTextStream scrolled(&selfTest.report);
                             QObject* panel = window->findChild<QObject*>(QStringLiteral("controlsPanel"));
                             QVariant shown;
@@ -521,12 +521,68 @@ int main(int argc, char* argv[]) {
                                 scrolled << "FAIL: the Over Lifetime group could not be scrolled to\n";
                                 selfTest.result = 1;
                             }
-                            QTimer::singleShot(900, &application, [&, window, third]() {
+                            QTimer::singleShot(900, &application, [&, window, software, third]() {
                                 capture(window, selfTest, QStringLiteral("-curves"),
                                         QStringLiteral("the curve and gradient editors"));
                                 controller.setAdvanced(false);
-                                controller.setLibraryOpen(true);
-                                QTimer::singleShot(2500, &application, third);
+                                // The animation principles: a preset that squashes
+                                // and stretches, shown on twos, with its curve in
+                                // the Simple view; then the one-click changes.
+                                if (!controller.openPreset(QStringLiteral("bouncy-pop"))) {
+                                    QTextStream(&selfTest.report) << "FAIL: the Bouncy Pop preset could not be opened\n";
+                                    selfTest.result = 1;
+                                }
+                                controller.selectLayer(0);
+                                QTimer::singleShot(500, &application, [&, window, software, third]() {
+                                    QTextStream motion(&selfTest.report);
+                                    // What the panel shows for one setting of the selected layer.
+                                    const auto row = [&](const QString& label) {
+                                        for (const QVariant& item : controller.controls()) {
+                                            const QVariantMap found = item.toMap();
+                                            if (found.value(QStringLiteral("label")).toString() == label) {
+                                                return found;
+                                            }
+                                        }
+                                        return QVariantMap();
+                                    };
+                                    const QVariantMap stretch = row(QStringLiteral("Squash and Stretch"));
+                                    const int ownShapes = static_cast<int>(stretch.value(QStringLiteral("shapes")).toList().size());
+                                    const bool isCurve = stretch.value(QStringLiteral("kind")).toString() == QStringLiteral("curve");
+                                    const double held = row(QStringLiteral("Hold Frames")).value(QStringLiteral("value")).toDouble();
+                                    motion << "cartoon motion preset: " << controller.effectName() << ", "
+                                           << controller.particleCount() << " particles; Squash and Stretch is "
+                                           << (isCurve ? "a curve" : "NOT a curve") << " with " << ownShapes
+                                           << " shapes on offer; Hold Frames " << held << "\n";
+                                    if (!isCurve || ownShapes <= static_cast<int>(controller.curveShapes().size()) || held != 12.0) {
+                                        motion << "FAIL: the Simple view does not show the principles of a Cartoon motion preset\n";
+                                        selfTest.result = 1;
+                                    }
+                                    const int shown = capture(window, selfTest, QStringLiteral("-motion"),
+                                                              QStringLiteral("a squash and stretch preset"));
+                                    if (!software && shown < 500) {
+                                        motion << "FAIL: the squash and stretch preset shows nothing\n";
+                                        selfTest.result = 1;
+                                    }
+                                    // One click each, and the panel follows.
+                                    const int offered = static_cast<int>(controller.motionChanges().size());
+                                    controller.applyMotionChange(QStringLiteral("smooth-timing"));
+                                    const double smooth = row(QStringLiteral("Hold Frames")).value(QStringLiteral("value")).toDouble();
+                                    const bool undoable = controller.canUndo();
+                                    controller.applyMotionChange(QStringLiteral("on-twos"));
+                                    const double twos = row(QStringLiteral("Hold Frames")).value(QStringLiteral("value")).toDouble();
+                                    const QString said = controller.message();
+                                    const QVariantList wobble = controller.applyCurveShape(
+                                        stretch.value(QStringLiteral("control")).toInt(), QStringLiteral("wobble"));
+                                    motion << "one-click changes: " << offered << " offered; Smooth gave Hold Frames " << smooth
+                                           << ", On twos gave " << twos << " (\"" << said << "\"); Wobble has "
+                                           << wobble.size() << " points\n";
+                                    if (offered != 6 || smooth != 0.0 || twos != 12.0 || !undoable || wobble.size() < 5) {
+                                        motion << "FAIL: the one-click motion changes did not work\n";
+                                        selfTest.result = 1;
+                                    }
+                                    controller.setLibraryOpen(true);
+                                    QTimer::singleShot(2500, &application, third);
+                                });
                             });
                             });
                         });

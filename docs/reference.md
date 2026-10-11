@@ -207,13 +207,16 @@ the effect's length is rounded to a whole number of simulation steps
   brightness of each unlocked layer are nudged, the effect is drawn again,
   and a change is kept only if the pictures measure closer. What was
   changed is listed. "Match again" and "Improve the outline" run it again.
-- **Twenty refinements**, each a plain edit to plain properties and one
+- **Twenty-six refinements**, each a plain edit to plain properties and one
   undo step: bigger, smaller, wider, tighter, more sparks, fewer sparks,
   more glow, less glow, faster, slower, sharper, softer, more stylized, add
   finer particles, lighter for mobile, more swirl, calmer, dissolve away,
+  on twos, smooth, squash and stretch, anticipation, overshoot, curl,
   reference colours again, reference length again. (More swirl, calmer and
   dissolve away came with 0.10; see
-  [turbulence-and-dissolve.md](turbulence-and-dissolve.md).)
+  [turbulence-and-dissolve.md](turbulence-and-dissolve.md). The six from on
+  twos to curl came with 0.12 and are also under Motion… in the main
+  window; see [animation-principles.md](animation-principles.md).)
 - **Versions:** every build and refinement is kept in a list while the
   window is open; clicking one brings it back (also one undo step).
 

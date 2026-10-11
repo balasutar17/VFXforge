@@ -54,6 +54,16 @@ inline std::uint64_t bits(double v) {
     return u;
 }
 
+// A second random number for a particle, from the one it was given at birth
+// for picking a sprite-sheet picture. Used for the settings that came later
+// (squash and stretch, speed over life), so that adding them did not add
+// anything to what is stored for each particle.
+inline float secondRandom(float pick, std::uint64_t salt) {
+    return det::unitFloat(det::mix64(static_cast<std::uint64_t>(bits(pick)) ^ salt));
+}
+constexpr std::uint64_t kSaltEase = 0x45415345ull;
+constexpr std::uint64_t kSaltStretch = 0x5351554153ull;
+
 struct Rgba {
     float r, g, b, a;
 };
@@ -100,11 +110,23 @@ struct Simulation::Emitter {
     std::int64_t step = 0;
     std::uint64_t dropped = 0;
 
+    // A held layer is shown as it was when its current drawing was taken
+    // (see heldDrawing), so that moment's particles are kept beside the
+    // live ones. Unused, and empty, in a layer that is not held.
+    std::uint32_t heldCount = 0;
+    std::int64_t heldStep = 0;
+    std::vector<float> held[kFieldCount];
+
     explicit Emitter(std::shared_ptr<const EmitterProgram> program) : p(std::move(program)) {
         for (auto& field : f) {
             field.assign(p->capacity, 0.0f);
         }
         survivors.assign(p->capacity, 0u);
+        if (p->hold > 0.0f) {
+            for (auto& field : held) {
+                field.assign(p->capacity, 0.0f);
+            }
+        }
     }
 
     void restart(std::int64_t fromPass, std::int64_t atStep) {
@@ -116,6 +138,8 @@ struct Simulation::Emitter {
         firstPass = fromPass;
         step = atStep;
         dropped = 0;
+        heldCount = 0;
+        heldStep = atStep;
     }
 
     void seek(std::int64_t target);
@@ -140,7 +164,10 @@ void Simulation::Emitter::seek(std::int64_t target) {
     if (e.loop && e.emits) {
         const double time = static_cast<double>(target) * e.step;
         const double margin = e.maxLifetime * 0.02 + 4.0 * e.step;
-        const double earliest = time - e.maxLifetime - margin;
+        // A held layer shows the particles of a moment up to one drawing
+        // back, so that moment must be exact too.
+        const double heldBack = e.hold > 0.0f ? 1.0 / static_cast<double>(e.hold) + e.step : 0.0;
+        const double earliest = time - e.maxLifetime - margin - heldBack;
         if (earliest > e.effectDuration) {
             fromPass = static_cast<std::int64_t>(std::floor(earliest / e.effectDuration));
             const double passStart = static_cast<double>(fromPass) * e.effectDuration;
@@ -239,22 +266,70 @@ void Simulation::Emitter::advance() {
             z[i] += w.z * e.turbulence * h;
         }
     }
-    for (std::uint32_t i = 0; i < n; ++i) {
-        const float a1 = age[i] + dt;
-        const float h = a1 < dt ? (a1 > 0.0f ? a1 : 0.0f) : dt;
-        // Gravity, then drag, then move. Drag divides rather than using an
-        // exponential: it is stable at any strength and needs no maths library.
-        const float damp = 1.0f / (1.0f + drag * h);
-        const float nvx = (vx[i] + gx * h) * damp;
-        const float nvy = (vy[i] + gy * h) * damp;
-        const float nvz = (vz[i] + gz * h) * damp;
-        vx[i] = nvx;
-        vy[i] = nvy;
-        vz[i] = nvz;
-        x[i] += nvx * h;
-        y[i] += nvy * h;
-        z[i] += nvz * h;
-        age[i] = a1;
+    if (!e.eases) {
+        for (std::uint32_t i = 0; i < n; ++i) {
+            const float a1 = age[i] + dt;
+            const float h = a1 < dt ? (a1 > 0.0f ? a1 : 0.0f) : dt;
+            // Gravity, then drag, then move. Drag divides rather than using an
+            // exponential: it is stable at any strength and needs no maths library.
+            const float damp = 1.0f / (1.0f + drag * h);
+            const float nvx = (vx[i] + gx * h) * damp;
+            const float nvy = (vy[i] + gy * h) * damp;
+            const float nvz = (vz[i] + gz * h) * damp;
+            vx[i] = nvx;
+            vy[i] = nvy;
+            vz[i] = nvz;
+            x[i] += nvx * h;
+            y[i] += nvy * h;
+            z[i] += nvz * h;
+            age[i] = a1;
+        }
+    } else {
+        // The same, with the distance covered multiplied by Speed over Life
+        // as it stands at the end of the step. The particle's speed itself
+        // is left alone, so gravity and drag act as they always do.
+        const float* pick = f[kPick].data();
+        const ScalarF& ease = e.speedOverLife;
+        for (std::uint32_t i = 0; i < n; ++i) {
+            const float a1 = age[i] + dt;
+            const float h = a1 < dt ? (a1 > 0.0f ? a1 : 0.0f) : dt;
+            const float damp = 1.0f / (1.0f + drag * h);
+            const float nvx = (vx[i] + gx * h) * damp;
+            const float nvy = (vy[i] + gy * h) * damp;
+            const float nvz = (vz[i] + gz * h) * damp;
+            vx[i] = nvx;
+            vy[i] = nvy;
+            vz[i] = nvz;
+            const float m = ease.isCurve() ? evalCurve(ease.keys, clamp01(a1 / life[i]))
+                                           : sample(ease, secondRandom(pick[i], kSaltEase), 0.0f);
+            const float go = m * h;
+            x[i] += nvx * go;
+            y[i] += nvy * go;
+            z[i] += nvz * go;
+            age[i] = a1;
+        }
+    }
+    if (e.orbit != 0.0f) {
+        // Turned about the layer's centre, position and heading together,
+        // after the particle's own movement. A whole step's turn was worked
+        // out once; a particle born part-way through the step turns less.
+        const float cx = e.offsetX, cy = e.offsetY;
+        for (std::uint32_t i = 0; i < n; ++i) {
+            const float a1 = age[i];
+            float sn = e.orbitSin, cs = e.orbitCos;
+            if (a1 < dt) {
+                double s = 0.0, c = 1.0;
+                det::sinCos(static_cast<double>(e.orbit) * static_cast<double>(a1 > 0.0f ? a1 : 0.0f), s, c);
+                sn = static_cast<float>(s);
+                cs = static_cast<float>(c);
+            }
+            const float rx = x[i] - cx, ry = y[i] - cy;
+            x[i] = cx + (rx * cs - ry * sn);
+            y[i] = cy + (rx * sn + ry * cs);
+            const float wx = vx[i], wy = vy[i];
+            vx[i] = wx * cs - wy * sn;
+            vy[i] = wx * sn + wy * cs;
+        }
     }
 
     // 3. Death. Survivors close up in order, so the oldest particle is always
@@ -282,6 +357,15 @@ void Simulation::Emitter::advance() {
     }
     count = kept;
     ++step;
+
+    // 4. A held layer keeps the first moment of each of its drawings.
+    if (e.hold > 0.0f && heldDrawing(e, step) != heldDrawing(e, step - 1)) {
+        for (std::size_t k = 0; count > 0 && k < kFieldCount; ++k) {
+            std::memcpy(held[k].data(), f[k].data(), static_cast<std::size_t>(count) * sizeof(float));
+        }
+        heldCount = count;
+        heldStep = step;
+    }
 }
 
 // Emits for the part [a, b) of one pass, measured in seconds from the pass's
@@ -649,10 +733,12 @@ void Simulation::extract(RenderFrame& frame) const {
     frame.flat = program_->flat;
     frame.batches.clear();
 
+    // A held layer is drawn from the particles kept when its current
+    // drawing was taken; every other layer from the live ones.
     std::size_t total = 0;
     for (const auto& e : emitters_) {
         if (e.p->drawn) {
-            total += e.count;
+            total += e.p->hold > 0.0f ? e.heldCount : e.count;
         }
     }
     frame.instances.resize(total);
@@ -689,31 +775,45 @@ void Simulation::extract(RenderFrame& frame) const {
         batch.turbulencePerUnit = e.turbulencePerUnit;
         batch.turbulenceChange = e.turbulenceChange;
         batch.turbulenceKey = e.turbulence > 0.0f ? det::mix64(e.key ^ 0x5457495354ull) : 0;
+        const bool isHeld = e.hold > 0.0f;
+        const auto& from = isHeld ? em.held : em.f;
+        const std::uint32_t shown = isHeld ? em.heldCount : em.count;
+        batch.squashStretches = e.hasOverLife && e.squashStretches;
+        batch.eases = e.eases;
+        batch.orbit = e.orbit;
+        batch.orbitSin = e.orbitSin;
+        batch.orbitCos = e.orbitCos;
+        batch.centerX = e.offsetX;
+        batch.centerY = e.offsetY;
+        batch.hold = e.hold;
+        batch.shownStep = isHeld ? em.heldStep : step_;
+        batch.program = em.p;
         batch.first = at;
-        batch.count = em.count;
-        frame.batches.push_back(batch);
+        batch.count = shown;
+        frame.batches.push_back(std::move(batch));
 
         const bool sizeCurve = e.hasOverLife && e.sizeOverLife.isCurve();
         const bool opacityCurve = e.hasOverLife && e.opacityOverLife.isCurve();
         const bool tint = !e.colorOverLife.empty();
-        const float* x = em.f[kX].data();
-        const float* y = em.f[kY].data();
-        const float* z = em.f[kZ].data();
-        const float* vx = em.f[kVX].data();
-        const float* vy = em.f[kVY].data();
-        const float* vz = em.f[kVZ].data();
-        const float* age = em.f[kAge].data();
-        const float* life = em.f[kLife].data();
-        const float* size = em.f[kSize].data();
-        const float* rot = em.f[kRot].data();
-        const float* r = em.f[kR].data();
-        const float* g = em.f[kG].data();
-        const float* b = em.f[kB].data();
-        const float* a = em.f[kA].data();
-        const float* pick = em.f[kPick].data();
+        const float* x = from[kX].data();
+        const float* y = from[kY].data();
+        const float* z = from[kZ].data();
+        const float* vx = from[kVX].data();
+        const float* vy = from[kVY].data();
+        const float* vz = from[kVZ].data();
+        const float* age = from[kAge].data();
+        const float* life = from[kLife].data();
+        const float* size = from[kSize].data();
+        const float* rot = from[kRot].data();
+        const float* r = from[kR].data();
+        const float* g = from[kG].data();
+        const float* b = from[kB].data();
+        const float* a = from[kA].data();
+        const float* pick = from[kPick].data();
+        const bool stretches = e.hasOverLife && e.squashStretches;
         const int frames = e.frames;
 
-        for (std::uint32_t i = 0; i < em.count; ++i) {
+        for (std::uint32_t i = 0; i < shown; ++i) {
             SpriteInstance& out = frame.instances[at + i];
             const float lived = clamp01(age[i] / life[i]);
             out.x = x[i];
@@ -767,8 +867,21 @@ void Simulation::extract(RenderFrame& frame) const {
                 out.dissolve = 0.0f;
                 out.seed = 0.0f;
             }
+            out.squashStretch =
+                !stretches ? 0.0f
+                : e.squashStretch.isCurve() ? evalCurve(e.squashStretch.keys, lived)
+                                            : sample(e.squashStretch, secondRandom(pick[i], kSaltStretch), 0.0f);
+            if (e.eases) {
+                out.ease = e.speedOverLife.isCurve()
+                               ? evalCurve(e.speedOverLife.keys, lived)
+                               : sample(e.speedOverLife, secondRandom(pick[i], kSaltEase), 0.0f);
+                out.life = life[i];
+            } else {
+                out.ease = 1.0f;
+                out.life = 0.0f;
+            }
         }
-        at += em.count;
+        at += shown;
     }
 }
 
@@ -820,6 +933,13 @@ std::uint64_t hashFrame(const RenderFrame& frame) {
             h = det::mix64(h ^ bits(b.turbulencePerUnit));
             h = det::mix64(h ^ bits(b.turbulenceChange));
         }
+        if (b.orbit != 0.0f) {
+            h = det::mix64(h ^ 0x4F524249ull ^ bits(b.orbit));
+        }
+        if (b.hold > 0.0f) {
+            h = det::mix64(h ^ 0x484F4C44ull ^ bits(b.hold));
+            h = det::mix64(h ^ static_cast<std::uint64_t>(b.shownStep));
+        }
         h = det::mix64(h ^ b.first);
         h = det::mix64(h ^ b.count);
     }
@@ -842,6 +962,22 @@ std::uint64_t hashFrame(const RenderFrame& frame) {
             const SpriteInstance& s = frame.instances[b.first + i];
             h = det::mix64(h ^ bits(s.dissolve));
             h = det::mix64(h ^ bits(s.seed));
+        }
+    }
+    // And likewise for layers that squash and stretch, or ease.
+    for (const auto& b : frame.batches) {
+        if (!b.squashStretches && !b.eases) {
+            continue;
+        }
+        h = det::mix64(h ^ 0x5052494Eull ^ b.first);
+        for (std::uint32_t i = 0; i < b.count; ++i) {
+            const SpriteInstance& s = frame.instances[b.first + i];
+            if (b.squashStretches) {
+                h = det::mix64(h ^ bits(s.squashStretch));
+            }
+            if (b.eases) {
+                h = det::mix64(h ^ bits(s.ease));
+            }
         }
     }
     return h;

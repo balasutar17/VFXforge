@@ -24,9 +24,20 @@ using namespace make;
 #define VFX_HOT_TO_DARK \
     {{0.0, 2.6, 2.2, 1.9, 1.0}, {0.25, 1.0, 1.0, 1.0, 1.0}, {0.7, 0.55, 0.3, 0.3, 0.8}, {1.0, 0.15, 0.08, 0.08, 0.0}}
 
+// Shown as hand-drawn animation is: twelve drawings a second, each held
+// until the next ("on twos").
+Effect onTwos(Effect e) {
+    for (Layer& layer : e.layers) {
+        if (double* hold = tools::property<double>(layer, "sprite", "hold")) {
+            *hold = 12.0;
+        }
+    }
+    return e;
+}
+
 // ------------------------------------------------------------------ toon
 // Hard-edged shapes with a lighter inner tone, in the manner of hand-drawn
-// 2D effects.
+// 2D effects, and shown on twos as hand-drawn effects are.
 
 Effect toonPuff(const IdSource& id) {
     Effect e = begin(id, "Toon Puff", 1.6);
@@ -41,7 +52,7 @@ Effect toonPuff(const IdSource& id) {
                .look("disc"));
     add(e, Make(id, "Glint").burst(1).life(0.24, 0.24).speed(0, 0).size(3.0, 3.0).color(0xffffff)
                .gravity(0, 0).sizeOver({{0, 0.25}, {0.35, 1.0}, {1, 0}}).solid().look("glint"));
-    return e;
+    return onTwos(std::move(e));
 }
 
 Effect toonHit(const IdSource& id) {
@@ -57,7 +68,7 @@ Effect toonHit(const IdSource& id) {
                .look("diamond").streak(0.0));
     add(e, Make(id, "Dots").burst(10).life(0.25, 0.45).speed(5, 10).aim(90, 180).size(0.1, 0.18)
                .color(0xfff0b0).drag(4).gravity(0, 0).sizeOver({{0, 1}, {1, 0}}).solid().look("disc"));
-    return e;
+    return onTwos(std::move(e));
 }
 
 Effect toonExplosion(const IdSource& id) {
@@ -77,7 +88,7 @@ Effect toonExplosion(const IdSource& id) {
     add(e, Make(id, "Bits").burst(14).life(0.5, 0.9).speed(5, 10).aim(90, 180).size(0.12, 0.22)
                .color(0xffb347).drag(2.6).gravity(0, -6).sizeOver({{0, 1}, {0.7, 0.8}, {1, 0}}).solid()
                .look("disc"));
-    return e;
+    return onTwos(std::move(e));
 }
 
 Effect slash(const IdSource& id) {
@@ -94,7 +105,7 @@ Effect slash(const IdSource& id) {
     add(e, Make(id, "Glints").burst(6, 0.04).circle(1.3).life(0.3, 0.55).speed(1, 4).aim(20, 40)
                .size(0.3, 0.6).color(0xffffff).drag(3).gravity(0, 0)
                .sizeOver({{0, 0.2}, {0.3, 1.0}, {1, 0}}).solid().look("glint"));
-    return e;
+    return onTwos(std::move(e));
 }
 
 Effect magicOrb(const IdSource& id) {
@@ -124,7 +135,7 @@ Effect toonFire(const IdSource& id) {
     add(e, Make(id, "Bits").rate(9).circle(0.5).life(0.7, 1.2).speed(2.2, 3.8).aim(90, 22)
                .size(0.08, 0.16).color(0xffb347).gravity(0, 0.6)
                .sizeOver({{0, 1}, {0.6, 0.8}, {1, 0}}).solid().look("disc"));
-    return e;
+    return onTwos(std::move(e));
 }
 
 Effect toonSparkles(const IdSource& id) {
@@ -178,7 +189,7 @@ Effect cartoonPop(const IdSource& id) {
     add(e, Make(id, "Stars").burst(7).life(0.6, 0.95).speed(4, 7.5).aim(90, 180).size(0.42, 0.66)
                .turn(0, 360).spin(-260, 260).color(0xffd23f).drag(2.6).gravity(0, -2)
                .sizeOver({{0, 0.2}, {0.2, 1.0}, {0.75, 1.0}, {1, 0}}).solid().look("star"));
-    return e;
+    return onTwos(std::move(e));
 }
 
 Effect arcaneBurst(const IdSource& id) {
@@ -1113,6 +1124,103 @@ Effect vanish(const IdSource& id) {
     return e;
 }
 
+// -------------------------------------------------------- cartoon motion
+// The animation principles at work: squash and stretch, anticipation,
+// overshoot and settle, arcs, and drawings held "on twos".
+
+Effect bouncyPop(const IdSource& id) {
+    Effect e = begin(id, "Bouncy Pop", 1.5);
+    // The blob arrives stretched tall, lands flat, wobbles and settles, then
+    // stretches away again as it goes.
+    add(e, Make(id, "Blob").burst(1).life(1.05, 1.05).speed(0, 0).size(2.5, 2.5).color(0xff5fa2).gravity(0, 0)
+               .sizeOver({{0, 0.15}, {0.1, 1.1, true}, {0.22, 0.96, true}, {0.8, 1.0, true}, {0.9, 1.08, true}, {1, 0}})
+               .squash({{0, 0.75}, {0.1, -0.42, true}, {0.2, 0.26, true}, {0.31, -0.14, true}, {0.43, 0.06, true},
+                        {0.55, 0, true}, {0.82, 0, true}, {0.9, -0.3, true}, {1, 0.9}})
+               .solid().look("candy").hold(12).sound("pop", true, 0.0, 0.9, 1.0));
+    add(e, Make(id, "Ring").burst(1, 0.08).life(0.3, 0.3).speed(0, 0).size(4.6, 4.6).color(0xffd1e6).gravity(0, 0)
+               .sizeOver({{0, 0.35}, {0.5, 0.9, true}, {1, 1.0, true}}).fade({{0, 1}, {0.5, 0.8}, {1, 0}})
+               .look("shockwave").hold(12));
+    // Drops thrown out: long and thin while they are fast, round as they slow.
+    add(e, Make(id, "Drops").burst(9, 0.08).life(0.45, 0.75).speed(4.5, 8.5).aim(90, 150).size(0.24, 0.42)
+               .color(0xff8fc0).drag(2.4).gravity(0, -9).sizeOver({{0, 1}, {0.7, 0.9}, {1, 0}})
+               .squash({{0, 0.9}, {0.5, 0.25, true}, {1, -0.1, true}}).solid().look("disc").streak(0.0).hold(12));
+    add(e, Make(id, "Twinkles").burst(5, 0.1).circle(1.5).life(0.3, 0.5).speed(0.3, 1.2).aim(90, 180)
+               .size(0.4, 0.7).color(0xffffff).gravity(0, 0).sizeOver({{0, 0.1}, {0.35, 1.0}, {1, 0}}).solid()
+               .look("glint").hold(12));
+    return e;
+}
+
+Effect windUpBlast(const IdSource& id) {
+    Effect e = begin(id, "Wind-up Blast", 1.9);
+    // Anticipation: motes are thrown out and drawn back in, and the core
+    // shrinks and flattens, before anything goes off.
+    add(e, Make(id, "Gather").burst(26).life(0.56, 0.62).speed(7.5, 12.0).aim(90, 180).size(0.14, 0.26)
+               .color(0x9fe8ff).gravity(0, 0)
+               .pace({{0, 2.2}, {0.3, 0.0, true}, {0.55, -0.25, true}, {1, -0.75}})
+               .sizeOver({{0, 0.4}, {0.3, 1.0}, {1, 0.5}}).fade({{0, 0}, {0.15, 1}, {0.9, 1}, {1, 0}})
+               .look("disc").additive().glow(1.8).trail(0.12, 0.8));
+    add(e, Make(id, "Core").burst(1).life(1.0, 1.0).speed(0, 0).size(1.9, 1.9).color(0x4fc3ff).gravity(0, 0)
+               .sizeOver({{0, 0.0}, {0.14, 0.7, true}, {0.42, 0.62, true}, {0.56, 0.34, true}, {0.62, 1.7}, {0.75, 1.15, true}, {1, 0}})
+               .squash({{0, 0}, {0.4, 0, true}, {0.56, -0.5, true}, {0.62, 0.55}, {0.72, -0.12, true}, {0.82, 0, true}, {1, 0}})
+               .solid().look("orb").hold(12));
+    add(e, Make(id, "Flash").burst(1, 0.6).life(0.2, 0.2).speed(0, 0).size(6.4, 6.4).turn(0, 30).color(0xe9fbff)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {0.35, 1.0}, {1, 0.7}}).fade({{0, 1}, {0.55, 1}, {1, 0}})
+               .look("starflash").additive().glow(1.6).hold(12).sound("zap", true, 0.0, 0.9));
+    add(e, Make(id, "Ring").burst(1, 0.62).life(0.42, 0.42).speed(0, 0).size(7.2, 7.2).color(0xbfefff)
+               .gravity(0, 0).sizeOver({{0, 0.15}, {0.4, 0.8, true}, {1, 1.0, true}}).fade({{0, 1}, {0.6, 0.7}, {1, 0}})
+               .look("shockwave").additive().hold(12));
+    // The blast itself: off at once, then coasting to a stop (slow in).
+    add(e, Make(id, "Shards").burst(14, 0.62).life(0.45, 0.75).speed(6, 11).aim(90, 180).size(0.42, 0.78)
+               .color(0x7fd8ff).gravity(0, 0).pace({{0, 2.6}, {0.3, 0.5, true}, {1, 0.05, true}})
+               .squash({{0, 1.2}, {0.4, 0.3, true}, {1, 0, true}})
+               .sizeOver({{0, 1}, {0.6, 0.9}, {1, 0}}).solid().look("shard").streak(0.0).hold(12));
+    return e;
+}
+
+Effect spiralBurst(const IdSource& id) {
+    Effect e = begin(id, "Spiral Burst", 1.8);
+    // Arcs: the same burst twice, turned opposite ways about the centre.
+    add(e, Make(id, "Glow").burst(1).life(0.5, 0.5).speed(0, 0).size(4.2, 4.2).color(0xffb347).gravity(0, 0)
+               .sizeOver({{0, 0.3}, {0.3, 1.0}, {1, 1.2}}).fade({{0, 0.8}, {1, 0}}).additive());
+    add(e, Make(id, "Arms").burst(12).life(0.9, 1.2).speed(2.6, 3.4).aim(90, 180).size(0.26, 0.4)
+               .color(0xffd76a).gravity(0, 0).orbit(210).pace({{0, 2.2}, {0.4, 0.7, true}, {1, 0.2, true}})
+               .sizeOver({{0, 0.6}, {0.2, 1.0}, {1, 0}}).solid().look("glint").additive().glow(1.8)
+               .trail(0.42, 0.9));
+    add(e, Make(id, "Counter arms").burst(8, 0.05).life(0.7, 1.0).speed(1.6, 2.4).aim(90, 180).size(0.16, 0.26)
+               .color(0xff8a5c).gravity(0, 0).orbit(-260).pace({{0, 2.2}, {0.4, 0.7, true}, {1, 0.2, true}})
+               .sizeOver({{0, 0.6}, {0.2, 1.0}, {1, 0}}).solid().look("disc").additive().glow(1.6)
+               .trail(0.34, 0.9));
+    add(e, Make(id, "Star").burst(1).life(0.34, 0.34).speed(0, 0).size(3.4, 3.4).color(0xfff3c2).gravity(0, 0)
+               .spin(180, 180).sizeOver({{0, 0.2}, {0.3, 1.0}, {1, 0}}).solid().look("starflash").additive()
+               .glow(1.5).sound("sparkle", true, 0.0, 0.8));
+    return e;
+}
+
+Effect springyPoof(const IdSource& id) {
+    Effect e = begin(id, "Springy Poof", 1.6);
+    // Overshoot and settle: the puffs fly past where they will rest, come
+    // back a little, and hang there before they tear away.
+    add(e, Make(id, "Puffs").burst(7).circle(0.15).life(0.9, 1.15).speed(4.2, 6.4).aim(90, 180).size(1.0, 1.5)
+               .turn(-30, 30).color(0xe9e4ff).gravity(0, 0.25)
+               .pace({{0, 3.0}, {0.14, 0.9, true}, {0.26, -0.75, true}, {0.42, 0.12, true}, {0.6, 0.02, true}, {1, 0.1}})
+               .sizeOver({{0, 0.3}, {0.14, 1.12, true}, {0.3, 0.94, true}, {0.6, 1.0, true}, {1, 0.85}})
+               .squash({{0, 0.5}, {0.14, -0.3, true}, {0.28, 0.14, true}, {0.42, 0, true}, {1, 0}})
+               .solid().look("puff").dissolve(0.45, 0.0, 0.05).hold(12).sound("pop", true, 0.0, 0.8, 1.0));
+    add(e, Make(id, "Small puffs").burst(8).circle(0.15).life(0.6, 0.9).speed(6.5, 9.5).aim(90, 180)
+               .size(0.45, 0.8).turn(-40, 40).color(0xc9bfff).gravity(0, 0.25)
+               .pace({{0, 3.0}, {0.16, 0.8, true}, {0.3, -0.6, true}, {0.46, 0.08, true}, {1, 0.05}})
+               .sizeOver({{0, 0.4}, {0.2, 1.0}, {1, 0.6}}).solid().look("puff").dissolve(0.5, 0.0, 0.05).hold(12));
+    add(e, Make(id, "Lines").burst(10).circle(0.6).life(0.16, 0.26).speed(9, 14).aim(90, 180).size(0.1, 0.16)
+               .color(0xffffff).drag(5).gravity(0, 0).fade({{0, 1}, {0.5, 1}, {1, 0}}).look("streak")
+               .streak(0.05).hold(12));
+    add(e, Make(id, "Stars").burst(6, 0.05).life(0.55, 0.85).speed(9, 13).aim(90, 180).size(0.36, 0.6)
+               .color(0xfff0a8).gravity(0, 0).spin(-200, 200)
+               .pace({{0, 2.6}, {0.2, 0.6, true}, {0.36, -0.4, true}, {0.55, 0, true}, {1, 0}})
+               .sizeOver({{0, 0.3}, {0.2, 1.1, true}, {0.4, 0.95, true}, {0.8, 1.0}, {1, 0}}).solid().look("star")
+               .hold(12));
+    return e;
+}
+
 struct Entry {
     PresetInfo info;
     Effect (*build)(const IdSource&);
@@ -1207,6 +1315,11 @@ const std::vector<Entry>& table() {
         {describe("spirit-wisps", "Spirit Wisps", "Smoke and wind", "Ribbons of light winding upward on moving air.", 0, 0.2f, 7.0f, 4.0), spiritWisps},
         {describe("burn-away", "Burn Away", "Smoke and wind", "A sheet burning through with white-hot edges, embers and smoke.", 0, 0.4f, 7.0f, 1.3), burnAway},
         {describe("vanish", "Vanish", "Smoke and wind", "A glowing shape breaking up and blowing away as dust.", 0, 0.2f, 6.0f, 0.75), vanish},
+
+        {describe("bouncy-pop", "Bouncy Pop", "Cartoon motion", "A candy blob that lands flat, wobbles and settles: squash and stretch.", 0, 0, 5.4f, 0.2), bouncyPop},
+        {describe("wind-up-blast", "Wind-up Blast", "Cartoon motion", "Energy drawn in, a held breath, then the blast: anticipation.", 0, 0, 7.4f, 0.68), windUpBlast},
+        {describe("spiral-burst", "Spiral Burst", "Cartoon motion", "Sparks that curl out in two spirals: arcs.", 0, 0, 6.6f, 0.45), spiralBurst},
+        {describe("springy-poof", "Springy Poof", "Cartoon motion", "Puffs that shoot past, spring back and hang: overshoot and settle.", 0, 0, 6.0f, 0.3), springyPoof},
 
         {describe("gold-flash", "Gold Flash", "Flashes", "A burst of white spikes in a golden glow.", 0, 0, 5.6f, 0.08), goldFlash},
         {describe("ice-flash", "Ice Flash", "Flashes", "A burst of white spikes in a blue glow.", 0, 0, 5.6f, 0.08), iceFlash},

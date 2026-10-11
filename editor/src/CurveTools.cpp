@@ -56,6 +56,38 @@ std::vector<CurveShape> makeShapes() {
          {{0, 0.55, S}, {0.25, 1, S}, {0.5, 0.55, S}, {0.75, 1, S}, {1, 0.55, S}}},
         {"flicker", "Flicker", "Life", "Jumps about unevenly and dies, like a flame or a failing light.",
          {{0, 1}, {0.1, 0.5}, {0.18, 0.9}, {0.3, 0.4}, {0.42, 1}, {0.55, 0.6}, {0.7, 0.95}, {0.82, 0.3}, {1, 0}}},
+
+        // ---- squash and stretch: above 0 longer and thinner, below 0 shorter and wider
+        {"stretch-settle", "Stretch, then settle", "Squash and stretch",
+         "Long and thin as it sets off, a small squash as it slows, then its own shape.",
+         {{0, 0.7}, {0.3, -0.12, S}, {0.5, 0, S}, {1, 0}}, "overLife.stretch"},
+        {"squash-spring", "Squash, then spring", "Squash and stretch",
+         "Lands flat, springs up past its own shape, and settles.",
+         {{0, -0.5}, {0.18, 0.3, S}, {0.36, -0.12, S}, {0.55, 0, S}, {1, 0}}, "overLife.stretch"},
+        {"wobble", "Wobble", "Squash and stretch", "Tall, flat, tall, flat, less each time, like jelly coming to rest.",
+         {{0, 0.4, S}, {0.17, -0.4, S}, {0.33, 0.25, S}, {0.5, -0.15, S}, {0.67, 0.08, S}, {0.83, 0, S}, {1, 0}},
+         "overLife.stretch"},
+        {"stretch-away", "Stretch away", "Squash and stretch", "Its own shape at first, longer and thinner the further it goes.",
+         {{0, 0, S}, {1, 0.9}}, "overLife.stretch"},
+        {"breathe", "Breathe", "Squash and stretch", "A slow, slight swell and sink, twice over: something alive and waiting.",
+         {{0, -0.12, S}, {0.25, 0.12, S}, {0.5, -0.12, S}, {0.75, 0.12, S}, {1, -0.12, S}}, "overLife.stretch"},
+
+        // ---- pace: 1 is the particle's own speed, 0 standing still, below 0 backwards
+        {"burst-coast", "Burst and coast", "Pace", "Off at once, then coasting to a stop (slow in).",
+         {{0, 2.6}, {0.3, 0.5, S}, {1, 0.05, S}}, "motion.speedOverLife"},
+        {"gather-speed", "Gather speed", "Pace", "From almost nothing to twice its speed (slow out).",
+         {{0, 0.05, S}, {1, 2.0}}, "motion.speedOverLife"},
+        {"slow-in-out", "Slow in and out", "Pace", "Eases away from rest, fastest in the middle, eases to rest.",
+         {{0, 0.1, S}, {0.5, 1.9, S}, {1, 0.1, S}}, "motion.speedOverLife"},
+        {"wind-up-go", "Back off, then go", "Pace", "Backs away first, then is off faster than it would have been (anticipation).",
+         {{0, -0.7}, {0.16, -0.5, S}, {0.24, 2.4}, {1, 0.6, S}}, "motion.speedOverLife"},
+        {"overshoot-settle", "Overshoot and settle", "Pace",
+         "Flies past where it will rest, comes back a little, and stays (follow-through).",
+         {{0, 3.0}, {0.14, 0.9, S}, {0.26, -0.75, S}, {0.42, 0.12, S}, {0.6, 0, S}, {1, 0}}, "motion.speedOverLife"},
+        {"out-and-back", "Out and back", "Pace", "Thrown out, slowed, and drawn back to where it began.",
+         {{0, 2.2}, {0.3, 0, S}, {0.55, -0.25, S}, {1, -0.75}}, "motion.speedOverLife"},
+        {"hit-pause", "Hit pause", "Pace", "Stops dead for a beat, then carries on: the held moment of an impact.",
+         {{0, 1.6}, {0.2, 1.6}, {0.21, 0}, {0.38, 0}, {0.39, 1.2}, {1, 0.8}}, "motion.speedOverLife"},
     };
 }
 
@@ -73,6 +105,22 @@ const CurveShape* findCurveShape(std::string_view key) {
         }
     }
     return nullptr;
+}
+
+std::vector<const CurveShape*> curveShapesFor(std::string_view moduleType, const PropertyDesc& desc) {
+    const std::string name = std::string(moduleType) + "." + desc.key;
+    std::vector<const CurveShape*> out;
+    for (const CurveShape& shape : curveShapes()) {
+        if (shape.only && name == shape.only) {
+            out.push_back(&shape);
+        }
+    }
+    for (const CurveShape& shape : curveShapes()) {
+        if (!shape.only) {
+            out.push_back(&shape);
+        }
+    }
+    return out;
 }
 
 double levelOf(const Scalar& value) {
@@ -101,6 +149,10 @@ std::vector<CurveKey> curveFrom(const Scalar& value) {
 }
 
 Scalar shaped(const CurveShape& shape, const Scalar& now, const PropertyDesc& desc) {
+    if (shape.only) {
+        // Made for this setting, in its own numbers.
+        return Scalar::curve(tidyCurve(shape.keys, desc));
+    }
     double level = levelOf(now);
     if (!(level > 1e-9)) {
         // Standing at nothing: go by the property's ordinary value, or by

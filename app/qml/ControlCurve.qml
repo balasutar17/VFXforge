@@ -430,13 +430,15 @@ Item {
             }
         }
 
-        // Ready-made shapes, each set to stand as high as the curve does now.
+        // Ready-made shapes. Those made for this setting alone come first
+        // and are used as they are; the rest are set to stand as high as
+        // the curve does now.
         Flow {
             width: parent.width
             spacing: 4
 
             Repeater {
-                model: app.curveShapes
+                model: root.info.shapes !== undefined ? root.info.shapes : app.curveShapes
                 delegate: VButton {
                     required property var modelData
                     height: 22

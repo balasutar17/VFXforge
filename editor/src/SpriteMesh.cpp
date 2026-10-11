@@ -101,6 +101,8 @@ float toScreen(float linear) { return static_cast<float>(linearToSrgb(static_cas
 void addTrail(SpriteMesh& mesh, const Camera& camera, bool flat, const RenderBatch& batch,
               const SpriteInstance& p, float glow, bool additive, std::int64_t frameStep) {
     const float h = batch.step;
+    // A held layer's particles are those of an earlier step.
+    const std::int64_t shownStep = batch.hold > 0.0f ? batch.shownStep : frameStep;
     const float back = std::min(batch.trail, p.age > 0.0f ? p.age : 0.0f);
     const int steps = static_cast<int>(back / h + 1e-3f);
     if (steps < 2) {
@@ -114,6 +116,12 @@ void addTrail(SpriteMesh& mesh, const Camera& camera, bool flat, const RenderBat
     int count = 0;
     float x = p.x, y = p.y, z = flat ? 0.0f : p.z;
     float vx = p.vx, vy = p.vy, vz = flat ? 0.0f : p.vz;
+    // A particle whose speed follows a curve covered, in each step, its
+    // speed times the curve as it stood at the end of that step.
+    const std::vector<CurveKeyF>* easeKeys =
+        batch.eases && batch.program && batch.program->speedOverLife.isCurve() && p.life > 0.0f
+            ? &batch.program->speedOverLife.keys
+            : nullptr;
     int next = 0;  // the next sample is taken this many steps back
     for (int s = 0; s <= steps && count <= samples; ++s) {
         if (s == next) {
@@ -124,16 +132,35 @@ void addTrail(SpriteMesh& mesh, const Camera& camera, bool flat, const RenderBat
             points[count++] = Point{px, py, sc};
             next = static_cast<int>(std::lround(static_cast<double>(count) * steps / samples));
         }
-        // Undo one step.
-        x -= vx * h;
-        y -= vy * h;
-        z -= vz * h;
+        // Undo one step: the turn about the layer's centre first, because
+        // it was made last.
+        if (batch.orbit != 0.0f) {
+            const float cs = batch.orbitCos, sn = batch.orbitSin;
+            const float rx = x - batch.centerX, ry = y - batch.centerY;
+            x = batch.centerX + (rx * cs + ry * sn);
+            y = batch.centerY + (ry * cs - rx * sn);
+            const float wx = vx, wy = vy;
+            vx = wx * cs + wy * sn;
+            vy = wy * cs - wx * sn;
+        }
+        float go = h;
+        if (batch.eases) {
+            float m = p.ease;
+            if (easeKeys) {
+                const float lived = (p.age - static_cast<float>(s) * h) / p.life;
+                m = evalCurve(*easeKeys, lived < 0.0f ? 0.0f : (lived > 1.0f ? 1.0f : lived));
+            }
+            go = m * h;
+        }
+        x -= vx * go;
+        y -= vy * go;
+        z -= vz * go;
         if (batch.turbulence > 0.0f) {
             // The step also carried the particle along the swirls as they
             // were, where it was, when the step began. Where it was is what
             // is being worked out, so it is closed in on: each guess gives
             // a better one, and three are plenty for so small a step.
-            const double began = static_cast<double>(frameStep - 1 - s) * static_cast<double>(h);
+            const double began = static_cast<double>(shownStep - 1 - s) * static_cast<double>(h);
             float ox = x, oy = y, oz = z;
             for (int guess = 0; guess < 3; ++guess) {
                 const det::Vec3f w = det::turbulence(batch.turbulenceKey, batch.turbulencePerUnit, batch.turbulenceChange,
@@ -276,17 +303,34 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
             float axX = cs * halfPx, axY = -sn * halfPx;
             float ayX = -sn * halfPx, ayY = -cs * halfPx;
 
+            // Squash and stretch: longer one way and thinner the other, by
+            // amounts that keep the area. `along` is the particle's own
+            // upright, or its direction of travel when it points that way.
+            float along = 1.0f, across = 1.0f;
+            if (batch.squashStretches && p.squashStretch != 0.0f && p.squashStretch > -64.0f &&
+                p.squashStretch < 64.0f) {
+                stretchFactors(p.squashStretch, along, across);
+            }
+
             if (batch.alongMotion && !onPlane) {
                 // Where it will be a moment from now says which way it is
                 // heading on screen, and how fast.
                 const float moment = 1.0f / 120.0f;
                 float qx = 0, qy = 0, qs = 1;
-                // Its own speed, and whatever the swirls are adding just now.
-                float goX = p.vx, goY = p.vy, goZ = p.vz;
+                // Its own speed (as fast as Speed over Life has it going
+                // just now), the turn about the layer's centre, and whatever
+                // the swirls are adding.
+                const float pace = batch.eases ? p.ease : 1.0f;
+                float goX = p.vx * pace, goY = p.vy * pace, goZ = p.vz * pace;
+                if (batch.orbit != 0.0f) {
+                    goX -= batch.orbit * (p.y - batch.centerY);
+                    goY += batch.orbit * (p.x - batch.centerX);
+                }
                 if (batch.turbulence > 0.0f) {
                     const det::Vec3f w = det::turbulence(batch.turbulenceKey, batch.turbulencePerUnit,
                                                          batch.turbulenceChange, frame.flat, p.x, p.y, z,
-                                                         static_cast<double>(frame.step) * static_cast<double>(batch.step));
+                                                         static_cast<double>(batch.hold > 0.0f ? batch.shownStep : frame.step) *
+                                                             static_cast<double>(batch.step));
                     goX += w.x * batch.turbulence;
                     goY += w.y * batch.turbulence;
                     goZ += w.z * batch.turbulence;
@@ -297,13 +341,20 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
                     const float speed = std::sqrt(sx * sx + sy * sy);
                     if (speed > 1e-3f) {
                         const float dx = sx / speed, dy = sy / speed;
-                        const float length = halfPx + 0.5f * batch.stretch * speed;
+                        const float length = halfPx * along + 0.5f * batch.stretch * speed;
                         axX = dx * length;
                         axY = dy * length;
-                        ayX = dy * halfPx;
-                        ayY = -dx * halfPx;
+                        ayX = dy * halfPx * across;
+                        ayY = -dx * halfPx * across;
+                        along = across = 1.0f;  // done
                     }
                 }
+            }
+            if (along != 1.0f || across != 1.0f) {
+                axX *= across;
+                axY *= across;
+                ayX *= along;
+                ayY *= along;
             }
 
             if (lean < 1.0f) {
@@ -345,12 +396,18 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
             }
             const auto base = static_cast<std::uint32_t>(mesh.vertices.size());
             bool visible = true;
+            float planeAlong = 1.0f, planeAcross = 1.0f;
+            if (onPlane && along != across) {
+                planeAlong = along;
+                planeAcross = across;
+            }
             for (int k = 0; k < 4; ++k) {
                 if (onPlane) {
                     // Lying flat on the effect's own plane: each corner is a
                     // real point in the world and is projected by itself.
-                    const float ox = (cornerX[k] * cs - cornerY[k] * sn) * half;
-                    const float oy = (cornerX[k] * sn + cornerY[k] * cs) * half;
+                    const float ownX = cornerX[k] * planeAcross, ownY = cornerY[k] * planeAlong;
+                    const float ox = (ownX * cs - ownY * sn) * half;
+                    const float oy = (ownX * sn + ownY * cs) * half;
                     float s = 1;
                     if (!project(camera, p.x + ox, p.y + oy, p.z, v.x, v.y, s)) {
                         visible = false;

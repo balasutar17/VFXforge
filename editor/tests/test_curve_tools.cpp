@@ -43,6 +43,9 @@ TEST_CASE("every ready-made curve shape is a legal curve that does what it says"
         CHECK(findCurveShape(shape.key) == &shape);
         CHECK_FALSE(std::string(shape.help).empty());
         CHECK_FALSE(std::string(shape.group).empty());
+        if (shape.only) {
+            continue;  // made for one setting, in its own numbers: see test_principles.cpp
+        }
         REQUIRE(shape.keys.size() >= 2);
         CHECK(shape.keys.front().t == 0.0);
         CHECK(shape.keys.back().t == 1.0);

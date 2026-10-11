@@ -16,6 +16,7 @@ add_executable(vfx_tests
     test_metadata.cpp
     test_random_edits.cpp
     test_serialize.cpp
+    test_principles.cpp
     test_simulation.cpp
     test_stack.cpp
 )

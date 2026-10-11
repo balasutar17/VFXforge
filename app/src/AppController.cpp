@@ -32,6 +32,7 @@
 #include "vfx/editor/Image.h"
 #include "vfx/editor/SoundLibrary.h"
 #include "vfx/editor/Presets.h"
+#include "vfx/editor/Refine.h"
 #include "vfx/editor/UnityExport.h"
 
 using vfx::editor::ControlView;
@@ -311,17 +312,75 @@ void AppController::setAdvanced(bool advanced) {
     refreshControls();
 }
 
+namespace {
+
+QVariantMap shapeRow(const vfx::editor::CurveShape& shape) {
+    QVariantMap row;
+    row.insert(QStringLiteral("key"), QString::fromLatin1(shape.key));
+    row.insert(QStringLiteral("label"), QString::fromUtf8(shape.label));
+    row.insert(QStringLiteral("group"), QString::fromUtf8(shape.group));
+    row.insert(QStringLiteral("help"), QString::fromUtf8(shape.help));
+    return row;
+}
+
+// The one-click changes the main window offers, by their keys in Refine.h.
+const char* const kMotionChanges[] = {"on-twos", "smooth-timing", "squash-stretch",
+                                      "anticipate", "overshoot", "curl"};
+
+}  // namespace
+
+// The shapes that suit any setting. (A curve's own row lists the ones
+// offered for it, which may include some made for that setting alone.)
 QVariantList AppController::curveShapes() const {
     QVariantList list;
     for (const vfx::editor::CurveShape& shape : vfx::editor::curveShapes()) {
-        QVariantMap row;
-        row.insert(QStringLiteral("key"), QString::fromLatin1(shape.key));
-        row.insert(QStringLiteral("label"), QString::fromUtf8(shape.label));
-        row.insert(QStringLiteral("group"), QString::fromUtf8(shape.group));
-        row.insert(QStringLiteral("help"), QString::fromUtf8(shape.help));
-        list.push_back(row);
+        if (!shape.only) {
+            list.push_back(shapeRow(shape));
+        }
     }
     return list;
+}
+
+QVariantList AppController::motionChanges() const {
+    QVariantList list;
+    for (const char* key : kMotionChanges) {
+        if (const vfx::editor::RefineInfo* info = vfx::editor::findRefinement(key)) {
+            QVariantMap row;
+            row.insert(QStringLiteral("key"), QString::fromLatin1(info->key));
+            row.insert(QStringLiteral("label"), QString::fromUtf8(info->label));
+            row.insert(QStringLiteral("help"), QString::fromUtf8(info->help));
+            list.push_back(row);
+        }
+    }
+    return list;
+}
+
+void AppController::applyMotionChange(const QString& key) {
+    const vfx::editor::RefineInfo* info = vfx::editor::findRefinement(utf8(key));
+    if (!info) {
+        return;
+    }
+    session_.endEdit();
+    vfx::Document& document = session_.document();
+    const vfx::IdSource newId = [&document]() { return document.newId(); };
+    std::string said;
+    const auto next = vfx::editor::refine(session_.effect(), info->id, nullptr, newId, &said);
+    if (!next) {
+        say(text(next.error().message), true);
+        return;
+    }
+    // Nothing to do (every layer locked, or none of the kind it changes):
+    // say so, and leave the undo history alone.
+    if (vfx::writeEffect(next.value()) == vfx::writeEffect(session_.effect())) {
+        say(text(said));
+        return;
+    }
+    if (!report(session_.applyEffect(next.value(), info->label))) {
+        return;
+    }
+    changed(Structure);
+    emit playbackChanged();
+    say(text(said));
 }
 
 void AppController::rebuildControls() {
@@ -390,12 +449,22 @@ void AppController::rebuildControls() {
                         row.insert(QStringLiteral("keys"), keysToList(scalar->keys));
                         // What the curve runs across: each particle's life,
                         // or the layer's own time.
-                        const bool overLife = c.moduleType == "overLife" || (c.moduleType == "motion" && d.key == "spin");
+                        const bool overLife =
+                            c.moduleType == "overLife" ||
+                            (c.moduleType == "motion" && (d.key == "spin" || d.key == "speedOverLife"));
                         row.insert(QStringLiteral("axis"), overLife ? QStringLiteral("life") : QStringLiteral("layer"));
                         // A setting that only runs from 0 to 1 is always
                         // drawn on that whole range.
                         row.insert(QStringLiteral("fixedRange"),
                                    d.min && d.max && *d.min == 0.0 && *d.max == 1.0);
+                        // The ready-made shapes for this setting: its own
+                        // first (a stretch that settles, a wind-up), then
+                        // the ones that suit anything.
+                        QVariantList shapes;
+                        for (const vfx::editor::CurveShape* shape : vfx::editor::curveShapesFor(c.moduleType, d)) {
+                            shapes.push_back(shapeRow(*shape));
+                        }
+                        row.insert(QStringLiteral("shapes"), shapes);
                     }
                 } else if (const auto* color = std::get_if<vfx::Color>(&c.value)) {
                     kind = QStringLiteral("color");

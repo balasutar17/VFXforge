@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "vfx/editor/CurveTools.h"
 #include "vfx/editor/Reconstruct.h"
 #include "vfx/editor/Session.h"
 
@@ -33,6 +34,12 @@ const std::vector<RefineInfo>& refinements() {
         {Refine::MoreSwirl, "more-swirl", "More swirl", "Small particles and smoke are carried about by moving air, winding as they go. Again for more."},
         {Refine::Calmer, "calmer", "Calmer", "Less swirling; none when it is already slight."},
         {Refine::DissolveAway, "dissolve-away", "Dissolve away", "Smoke and big shapes are eaten away in ragged patches as they go, instead of only fading."},
+        {Refine::OnTwos, "on-twos", "On twos", "Every layer is shown as hand-drawn animation is: twelve drawings a second, each held. Again for \"on threes\" (eight)."},
+        {Refine::SmoothTiming, "smooth-timing", "Smooth", "Every layer moves smoothly again: no held drawings."},
+        {Refine::SquashStretch, "squash-stretch", "Squash and stretch", "Big shapes land flat, spring up and settle; round flying pieces stretch along their flight."},
+        {Refine::Anticipate, "anticipate", "Anticipation", "Flying pieces back away before they go, and big shapes draw in a little before they grow."},
+        {Refine::Overshoot, "overshoot", "Overshoot", "Flying pieces go past where they will come to rest, and settle back."},
+        {Refine::Curl, "curl", "Curl", "Flying pieces curve round the centre instead of going straight out. Again for more."},
         {Refine::MatchColours, "match-colours", "Reference colours again", "Sets each layer back to the colour measured in the reference.", true, false},
         {Refine::MatchDuration, "match-duration", "Reference length again", "Stretches or squeezes the effect to last as long as the clip.", true, true},
     };
@@ -341,6 +348,143 @@ Result<Effect> refine(const Effect& effect, Refine what, const ReferenceAnalysis
             note = count(touched, "layer is", "layers are") + " now eaten away in patches at the end.";
             break;
         }
+        case Refine::OnTwos: {
+            // Twelve a second; a second press makes it eight.
+            bool allTwelve = true, any12 = false;
+            for (const Layer& l : out.layers) {
+                if (const double* hold = property<double>(l, "sprite", "hold"); hold && !l.locked) {
+                    allTwelve = allTwelve && *hold == 12.0;
+                    any12 = true;
+                }
+            }
+            const double rate = any12 && allTwelve ? 8.0 : 12.0;
+            each([](const Layer& l) { return property<double>(l, "sprite", "hold") != nullptr; },
+                 [&](Layer& l) { *property<double>(l, "sprite", "hold") = rate; });
+            note = count(touched, "layer is", "layers are") + " now shown " +
+                   (rate == 12.0 ? "on twos: twelve drawings a second." : "on threes: eight drawings a second.");
+            break;
+        }
+        case Refine::SmoothTiming:
+            each([](const Layer& l) {
+                     const double* hold = property<double>(l, "sprite", "hold");
+                     return hold && *hold > 0.0;
+                 },
+                 [](Layer& l) { *property<double>(l, "sprite", "hold") = 0.0; });
+            note = touched > 0 ? count(touched, "layer moves", "layers move") + " smoothly again."
+                               : std::string();
+            if (touched == 0 && locked == 0) {
+                note = "Every layer already moves smoothly.";
+                touched = -1;  // said its piece
+            }
+            break;
+        case Refine::SquashStretch: {
+            const std::vector<CurveKey>& spring = findCurveShape("squash-spring")->keys;
+            int shapes = 0, pieces = 0;
+            each([](const Layer& l) {
+                     if (!property<Scalar>(l, "overLife", "stretch")) {
+                         return false;
+                     }
+                     const std::string role = roleOf(l);
+                     const std::string shape = shapeOf(l);
+                     if (!isParticles(l)) {
+                         // A shape of its own, not a glow, a ring or a flash of rays.
+                         return role == "body" || role == "smoke";
+                     }
+                     // Flying pieces: those that already point the way they
+                     // go, and round ones, which can be made to. (A crowd of
+                     // particles that stay where they are is not flying.)
+                     const Scalar* speed = property<Scalar>(l, "initial", "speed");
+                     if (!speed || !(levelOf(*speed) > 0.05)) {
+                         return false;
+                     }
+                     const std::string* align = property<std::string>(l, "sprite", "align");
+                     return (align && *align == "movement") || shape == "disc" || shape == "soft";
+                 },
+                 [&](Layer& l) {
+                     Scalar* stretch = property<Scalar>(l, "overLife", "stretch");
+                     if (!isParticles(l)) {
+                         *stretch = Scalar::curve(spring);
+                         ++shapes;
+                         return;
+                     }
+                     if (std::string* align = property<std::string>(l, "sprite", "align"); align && *align != "movement") {
+                         *align = "movement";
+                         if (double* streak = property<double>(l, "sprite", "stretch")) {
+                             *streak = 0.0;
+                         }
+                     }
+                     // Long while it is fast, its own shape as it slows.
+                     *stretch = Scalar::curve({{0.0, 0.8}, {0.5, 0.25, true}, {1.0, 0.0, true}});
+                     ++pieces;
+                 });
+            note = count(shapes, "shape now lands flat and springs", "shapes now land flat and spring") + "; " +
+                   count(pieces, "layer of flying pieces stretches", "layers of flying pieces stretch") +
+                   " along the flight.";
+            break;
+        }
+        case Refine::Anticipate: {
+            const std::vector<CurveKey>& windUp = findCurveShape("wind-up-go")->keys;
+            each([](const Layer& l) {
+                     const std::string role = roleOf(l);
+                     return isParticles(l) ? property<Scalar>(l, "motion", "speedOverLife") != nullptr
+                                           : (role == "body" && property<Scalar>(l, "overLife", "size") != nullptr);
+                 },
+                 [&](Layer& l) {
+                     if (isParticles(l)) {
+                         *property<Scalar>(l, "motion", "speedOverLife") = Scalar::curve(windUp);
+                         return;
+                     }
+                     // Draws in to three quarters of where it starts, then
+                     // goes on as it was going to.
+                     Scalar* size = property<Scalar>(l, "overLife", "size");
+                     std::vector<CurveKey> keys = curveFrom(*size);
+                     const double first = keys.front().v;
+                     std::vector<CurveKey> next = {{0.0, first, true}, {0.1, first * 0.72, true}};
+                     for (const CurveKey& k : keys) {
+                         if (k.t > 0.16) {
+                             next.push_back(k);
+                         }
+                     }
+                     if (next.size() < 3) {
+                         next.push_back(CurveKey{1.0, keys.back().v, keys.back().smooth});
+                     }
+                     *size = Scalar::curve(std::move(next));
+                 });
+            note = count(touched, "layer now winds", "layers now wind") + " up before going.";
+            break;
+        }
+        case Refine::Overshoot: {
+            const std::vector<CurveKey>& overshoot = findCurveShape("overshoot-settle")->keys;
+            each([](const Layer& l) { return isParticles(l) && property<Scalar>(l, "motion", "speedOverLife"); },
+                 [&](Layer& l) { *property<Scalar>(l, "motion", "speedOverLife") = Scalar::curve(overshoot); });
+            note = "Flying pieces in " + count(touched, "layer", "layers") + " now go past their mark and settle back.";
+            break;
+        }
+        case Refine::Curl: {
+            int layerNumber = 0;
+            bool begun = false;
+            each([](const Layer& l) { return isParticles(l) && property<double>(l, "motion", "orbit"); },
+                 [&](Layer& l) {
+                     double* orbit = property<double>(l, "motion", "orbit");
+                     if (*orbit != 0.0) {
+                         *orbit = std::clamp(*orbit * 1.5, -3600.0, 3600.0);
+                     } else {
+                         // A third of a turn over a typical life, one layer
+                         // one way and the next the other.
+                         double life = 1.0;
+                         if (const Scalar* s = property<Scalar>(l, "initial", "lifetime")) {
+                             life = std::max(0.05, s->kind == Scalar::Kind::Random ? 0.5 * (s->a + s->b)
+                                                   : s->kind == Scalar::Kind::Curve ? levelOf(*s) : s->a);
+                         }
+                         *orbit = std::clamp(120.0 / life, 20.0, 720.0) * (layerNumber % 2 == 0 ? 1.0 : -1.0);
+                         begun = true;
+                     }
+                     ++layerNumber;
+                 });
+            note = begun ? "Flying pieces in " + count(touched, "layer", "layers") + " now curve round the centre."
+                         : "Half as much curl again in " + count(touched, "layer", "layers") + ".";
+            break;
+        }
         case Refine::MatchColours: {
             if (!analysis) {
                 return makeError("There is no reference to take colours from.");
@@ -408,11 +552,15 @@ Result<Effect> refine(const Effect& effect, Refine what, const ReferenceAnalysis
             break;
         }
     }
-    if (touched == 0 && note.empty()) {
-        note = "Nothing to change.";
-    }
-    if (touched == 0 && what != Refine::MatchDuration && what != Refine::Faster && what != Refine::Slower) {
-        note = locked > 0 ? "Every layer this would change is locked." : "No layer here is of the kind this changes.";
+    if (touched < 0) {
+        touched = 0;  // nothing changed, and the note already says why
+    } else {
+        if (touched == 0 && note.empty()) {
+            note = "Nothing to change.";
+        }
+        if (touched == 0 && what != Refine::MatchDuration && what != Refine::Faster && what != Refine::Slower) {
+            note = locked > 0 ? "Every layer this would change is locked." : "No layer here is of the kind this changes.";
+        }
     }
     if (locked > 0 && touched > 0) {
         note += " " + count(locked, "locked layer was", "locked layers were") + " left alone.";

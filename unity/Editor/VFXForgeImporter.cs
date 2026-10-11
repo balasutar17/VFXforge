@@ -19,7 +19,7 @@ using UnityEngine;
 
 namespace VFXForge.EditorTools
 {
-    [ScriptedImporter(3, "vfxforge")]
+    [ScriptedImporter(4, "vfxforge")]
     public class VFXForgeImporter : ScriptedImporter
     {
         public const string ShaderPath = "Assets/VFXForge/Shaders/VFXForgeParticle.shader";
@@ -147,6 +147,15 @@ namespace VFXForge.EditorTools
                         player.loopEnd = (float)Num(soundInfo, "loopEnd", 0);
                     }
                 }
+                // Held frames: VFXForgeHold moves this layer on only when a
+                // new drawing is due, so it plays "on twos" or "on threes".
+                float hold = (float)Num(layer, "hold", 0);
+                if (hold > 0f)
+                {
+                    var holder = child.AddComponent<VFXForge.VFXForgeHold>();
+                    holder.timer = topSystem;
+                    holder.drawingsPerSecond = hold;
+                }
                 child.SetActive(Bool(layer, "enabled", true));
             }
 
@@ -244,6 +253,32 @@ namespace VFXForge.EditorTools
                 rotation.enabled = true;
                 rotation.z = Curve(layer, "spin", 0);
             }
+            // Speed over Life and Orbit both live in Velocity over Lifetime.
+            bool eases = layer.ContainsKey("speedModifier") && layer["speedModifier"] != null;
+            var orbitInfo = Obj(layer, "orbit");
+            if (eases || orbitInfo != null)
+            {
+                var velocity = system.velocityOverLifetime;
+                velocity.enabled = true;
+                velocity.space = ParticleSystemSimulationSpace.Local;
+                velocity.x = 0f;
+                velocity.y = 0f;
+                velocity.z = 0f;
+                velocity.speedModifier = eases ? Curve(layer, "speedModifier", 1) : new ParticleSystem.MinMaxCurve(1f);
+                if (orbitInfo != null)
+                {
+                    // Turning about the axis that points at the viewer, round
+                    // the layer's own position.
+                    Vector3 center = Vec(orbitInfo, "center", Vector3.zero);
+                    velocity.orbitalX = 0f;
+                    velocity.orbitalY = 0f;
+                    velocity.orbitalZ = (float)Num(orbitInfo, "z", 0);
+                    velocity.orbitalOffsetX = center.x;
+                    velocity.orbitalOffsetY = center.y;
+                    velocity.orbitalOffsetZ = center.z;
+                    velocity.radial = 0f;
+                }
+            }
             var noiseInfo = Obj(layer, "noise");
             if (noiseInfo != null)
             {
@@ -268,7 +303,19 @@ namespace VFXForge.EditorTools
             }
 
             // ---- over each particle's life
-            if (layer.ContainsKey("sizeOverLife") && layer["sizeOverLife"] != null)
+            var squashInfo = Obj(layer, "squash");
+            if (squashInfo != null && squashInfo.ContainsKey("x"))
+            {
+                // Squash and stretch: width and height each follow their own
+                // curve, which already holds the size over life.
+                var size = system.sizeOverLifetime;
+                size.enabled = true;
+                size.separateAxes = true;
+                size.x = Curve(squashInfo, "x", 1);
+                size.y = Curve(squashInfo, "y", 1);
+                size.z = Curve(squashInfo, "z", 1);
+            }
+            else if (layer.ContainsKey("sizeOverLife") && layer["sizeOverLife"] != null)
             {
                 var size = system.sizeOverLifetime;
                 size.enabled = true;

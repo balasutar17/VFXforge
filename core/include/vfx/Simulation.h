@@ -31,6 +31,11 @@ struct SpriteInstance {
     // Both stay 0 in a layer that does not dissolve.
     float dissolve = 0;
     float seed = 0;
+    // The animation principles. All three keep their defaults in a layer
+    // that uses none of them.
+    float squashStretch = 0;  // squash and stretch now (see stretchFactors); 0 is neither
+    float ease = 1;     // how fast it is travelling its own path now, as a multiplier
+    float life = 0;     // seconds it lives in all (a trail needs it to retrace an eased path)
 };
 
 // A run of instances drawn with the same settings: one per drawn layer.
@@ -66,6 +71,22 @@ struct RenderBatch {
     float turbulencePerUnit = 1;
     float turbulenceChange = 0;
     std::uint64_t turbulenceKey = 0;
+
+    // The animation principles (see EmitterProgram for what each means).
+    bool squashStretches = false;  // its particles carry a squash and stretch
+    bool eases = false;      // its particles carry an ease and a life
+    float orbit = 0;         // radians per second about (centerX, centerY)
+    float orbitSin = 0, orbitCos = 1;  // of one whole step's turn
+    float centerX = 0, centerY = 0;
+    float hold = 0;          // drawings per second; 0 for every step
+    // The step its particles are shown at: the frame's own step, or for a
+    // held layer the step its current drawing was taken at.
+    std::int64_t shownStep = 0;
+    // The layer's program, for anything else a renderer needs to retrace a
+    // particle's path (the Speed over Life curve). May be null in a frame
+    // put together by hand.
+    std::shared_ptr<const EmitterProgram> program;
+
     std::uint32_t first = 0;
     std::uint32_t count = 0;
 };

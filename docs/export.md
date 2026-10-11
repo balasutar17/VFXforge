@@ -47,6 +47,10 @@ the Unity script only reads the numbers and sets fields.
 | Rectangle or circle with a direction | Box turned to face the direction; spread becomes Randomize Direction |
 | Rectangle outline | Box Edge with no depth |
 | Streak (align to movement, stretch) | Stretched Billboard: Speed Scale = stretch |
+| Speed over Life | Velocity over Lifetime: Speed Modifier |
+| Orbit | Velocity over Lifetime: Orbital Z, about the layer's Position (close, not exact) |
+| Squash and Stretch | Size over Lifetime with Separate Axes |
+| Hold Frames | The VFXForgeHold script, which moves the layer on one drawing at a time |
 | Shape, blend, glow | The VFX Forge particle shader: shape picture, shape number, Glow, Additive |
 | Layer order | Sorting Order |
 

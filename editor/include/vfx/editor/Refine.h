@@ -35,6 +35,12 @@ enum class Refine {
     MoreSwirl,      // small particles and smoke carried about by moving air
     Calmer,         // less of that
     DissolveAway,   // smoke and big shapes eaten away in patches as they go
+    OnTwos,         // every layer shown as held drawings, twelve a second
+    SmoothTiming,   // every step shown again
+    SquashStretch,  // shapes land flat and spring; flying pieces stretch along their flight
+    Anticipate,     // pieces back away before they fly; shapes draw in before they grow
+    Overshoot,      // flying pieces go past where they will rest and come back
+    Curl,           // flying pieces curve round the centre instead of going straight
     MatchColours,   // needs a reference: its colours again
     MatchDuration,  // needs a clip: its length again
 };

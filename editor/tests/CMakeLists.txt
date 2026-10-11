@@ -5,6 +5,7 @@ add_executable(vfx_editor_tests
     test_frames.cpp
     test_image.cpp
     test_presets.cpp
+    test_principles.cpp
     test_reference.cpp
     test_session.cpp
     test_shapes.cpp

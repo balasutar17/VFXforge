@@ -112,6 +112,55 @@ double meanOf(const ScalarF& s) {
     return 0.0;
 }
 
+// Squash and stretch for Unity: its Size over Lifetime, with width and
+// height on separate curves. Each is the size curve (or 1) times the
+// stretch rule's factor, read at every key of either curve and a few
+// places between, because the product of two straight lines is not one.
+struct SquashCurves {
+    std::vector<Key> across, along, plain;
+    bool exact = true;
+};
+
+SquashCurves squashCurves(const EmitterProgram& e) {
+    SquashCurves out;
+    const bool sized = e.hasOverLife && e.sizeOverLife.isCurve();
+    const ScalarF& squash = e.squashStretch;
+    // One amount each, picked at random: Unity cannot be told to pick the
+    // width and the height together, so every particle gets the middle one.
+    out.exact = squash.mode != ScalarF::Mode::Random;
+    std::vector<float> times = {0.0f, 1.0f};
+    if (sized) {
+        for (const CurveKeyF& k : e.sizeOverLife.keys) {
+            times.push_back(std::clamp(k.t, 0.0f, 1.0f));
+        }
+    }
+    if (squash.isCurve()) {
+        for (const CurveKeyF& k : squash.keys) {
+            times.push_back(std::clamp(k.t, 0.0f, 1.0f));
+        }
+    }
+    std::sort(times.begin(), times.end());
+    times.erase(std::unique(times.begin(), times.end(), [](float a, float b) { return b - a < 1e-4f; }), times.end());
+    const int between = squash.isCurve() ? 4 : 1;
+    for (std::size_t i = 0; i < times.size(); ++i) {
+        const int pieces = i + 1 < times.size() ? between : 1;
+        for (int j = 0; j < pieces; ++j) {
+            const float t = i + 1 < times.size()
+                                ? times[i] + (times[i + 1] - times[i]) * static_cast<float>(j) / static_cast<float>(between)
+                                : times[i];
+            const float size = sized ? evalCurve(e.sizeOverLife.keys, t) : 1.0f;
+            const float amount = squash.isCurve() ? evalCurve(squash.keys, t)
+                                 : squash.mode == ScalarF::Mode::Random ? 0.5f * (squash.a + squash.b) : squash.a;
+            float along = 1.0f, across = 1.0f;
+            stretchFactors(std::clamp(amount, -64.0f, 64.0f), along, across);
+            out.across.push_back(Key{t, size * across});
+            out.along.push_back(Key{t, size * along});
+            out.plain.push_back(Key{t, size});
+        }
+    }
+    return out;
+}
+
 // ------------------------------------------------------------- shape
 
 struct Rot {
@@ -557,9 +606,53 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
     }
     const bool spins = e.spin.mode != ScalarF::Mode::Constant || e.spin.a != 0.0f;
     out["spin"] = spins ? lifeCurve(e.spin, -1.0 / kDeg) : J(nullptr);
+    // Speed over Life is Unity's Speed Modifier (Velocity over Lifetime): a
+    // multiplier on how fast the particle travels, read across its life. A
+    // random range is one pick each, as here.
+    out["speedModifier"] = e.eases ? lifeCurve(e.speedOverLife, 1.0) : J(nullptr);
+    if (e.orbit != 0.0f) {
+        // Unity's Orbital velocity about Z, in radians a second, about the
+        // layer's own Position. Unity has its own way of mixing a turn with
+        // gravity and drag, so paths are alike rather than the same.
+        J orbit = J::object();
+        orbit["z"] = round6(e.orbit);
+        orbit["center"] = J::array({round6(e.offsetX), round6(e.offsetY), 0.0});
+        orbit["exact"] = false;
+        out["orbit"] = std::move(orbit);
+    } else {
+        out["orbit"] = nullptr;
+    }
+    // Hold Frames is done by the VFXForgeHold script, which moves the
+    // layer's Particle System on only when a new drawing is due.
+    out["hold"] = e.hold > 0.0f ? J(round6(e.hold)) : J(nullptr);
 
     // ---- over life
     out["sizeOverLife"] = e.hasOverLife && e.sizeOverLife.isCurve() ? lifeCurve(e.sizeOverLife, 1.0) : J(nullptr);
+    const bool onPlaneForSquash = !e.flat && e.facing == Facing::Plane;
+    const bool streaked = e.alongMotion && !onPlaneForSquash;
+    double streakLength = 1.0;
+    if (e.hasOverLife && e.squashStretches && !streaked) {
+        // Width and height on separate curves; these replace sizeOverLife.
+        const SquashCurves curves = squashCurves(e);
+        J squash = J::object();
+        squash["x"] = curveValue(curves.across);
+        squash["y"] = curveValue(curves.along);
+        squash["z"] = curveValue(curves.plain);
+        squash["exact"] = curves.exact;
+        out["squash"] = std::move(squash);
+    } else if (e.hasOverLife && e.squashStretches) {
+        // A streak in Unity has one length for its whole life: the middle
+        // of what the particle goes through here.
+        float along = 1.0f, across = 1.0f;
+        stretchFactors(std::clamp(static_cast<float>(meanOf(e.squashStretch)), -64.0f, 64.0f), along, across);
+        streakLength = static_cast<double>(along) / static_cast<double>(across);
+        J squash = J::object();
+        squash["lengthScale"] = round6(streakLength);
+        squash["exact"] = false;
+        out["squash"] = std::move(squash);
+    } else {
+        out["squash"] = nullptr;
+    }
 
     double glow = e.glow;
     const bool tints = !e.colorOverLife.empty();
@@ -617,7 +710,7 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
     if (e.alongMotion && !onPlane) {
         render["mode"] = "stretched";
         render["velocityScale"] = round6(e.stretch);
-        render["lengthScale"] = 1.0;
+        render["lengthScale"] = round6(streakLength);
     } else {
         render["mode"] = onPlane ? "plane" : "billboard";
         if (e.flat && e.tilt > 0.0f) {

@@ -71,10 +71,10 @@ TEST_CASE("the starter effect offers its Simple controls", "[session]") {
     Session s;
     const Id layer = s.effect().layers[0].id;
     const auto controls = s.controls(layer);
-    REQUIRE(controls.size() == 16);
+    REQUIRE(controls.size() == 18);
     for (const char* label : {"Size", "Speed", "Amount", "Lifetime", "Color", "Glow", "Spread",
                               "Direction", "Shape", "Blend", "Lie Flat", "Turbulence", "Swirl Size", "Dissolve",
-                              "Dissolve Softness", "Dissolve Edge Glow"}) {
+                              "Dissolve Softness", "Dissolve Edge Glow", "Squash and Stretch", "Hold Frames"}) {
         const ControlView* c = find(controls, label);
         REQUIRE(c != nullptr);
         REQUIRE(c->desc != nullptr);
@@ -91,7 +91,8 @@ TEST_CASE("the starter effect offers its Simple controls", "[session]") {
     }
     CHECK(labels == std::vector<std::string>{"Shape", "Color", "Blend", "Glow", "Size", "Amount", "Lifetime",
                                              "Speed", "Spread", "Direction", "Turbulence", "Swirl Size",
-                                             "Dissolve", "Dissolve Softness", "Dissolve Edge Glow", "Lie Flat"});
+                                             "Dissolve", "Dissolve Softness", "Dissolve Edge Glow",
+                                             "Squash and Stretch", "Lie Flat", "Hold Frames"});
 }
 
 TEST_CASE("an effect saved before a control existed still offers it, and is not rewritten", "[session][controls]") {
@@ -114,9 +115,9 @@ TEST_CASE("an effect saved before a control existed still offers it, and is not 
     std::filesystem::remove(file);
     const Id layer = s.effect().layers[0].id;
     auto controls = s.controls(layer);
-    REQUIRE(controls.size() == 16);
+    REQUIRE(controls.size() == 18);
     for (const char* label : {"Lie Flat", "Turbulence", "Swirl Size", "Dissolve", "Dissolve Softness",
-                              "Dissolve Edge Glow"}) {
+                              "Dissolve Edge Glow", "Squash and Stretch", "Hold Frames"}) {
         const ControlView* c = find(controls, label);
         REQUIRE(c != nullptr);
         REQUIRE(c->desc != nullptr);
@@ -300,7 +301,7 @@ TEST_CASE("layers can be added and removed, with undo", "[session]") {
     CHECK(s.effect().layers[1].id == added);
     CHECK(s.effect().layers[1].name == "Smoke");
     CHECK(s.effect().layers[1].duration == s.effect().duration);
-    CHECK(s.controls(added).size() == 16);
+    CHECK(s.controls(added).size() == 18);
 
     play(s, 1.0);
     CHECK(s.frame().batches.size() == 2);

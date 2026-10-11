@@ -275,6 +275,12 @@ void scaleTime(Layer& layer, double factor) {
     if (double* change = property<double>(layer, "motion", "turbulenceChange")) {
         *change = std::clamp(*change * factor, 0.0, 60.0);
     }
+    // Round the centre as many times in its shorter life. (Speed over Life
+    // is read across that life already, and Hold Frames is a way of
+    // drawing, not a speed: both stay.)
+    if (double* orbit = property<double>(layer, "motion", "orbit")) {
+        *orbit = std::clamp(*orbit * factor, -3600.0, 3600.0);
+    }
     if (Scalar* rate = property<Scalar>(layer, "emission", "rate")) {
         scale(*rate, factor);
     }

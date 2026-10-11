@@ -48,6 +48,25 @@ float evalCurve(const std::vector<CurveKeyF>& keys, float x) {
     return k0.v + (k1.v - k0.v) * f;
 }
 
+std::int64_t heldDrawing(const EmitterProgram& e, std::int64_t step) {
+    if (step <= 0) {
+        return -1;  // before anything has moved: a drawing of its own
+    }
+    // The particles at a step are the outcome of the step before it, which
+    // began at this time.
+    const double began = static_cast<double>(step - 1) * e.step;
+    std::int64_t pass = 0;
+    double within = began;
+    if (e.loop) {
+        pass = static_cast<std::int64_t>(std::floor(began / e.effectDuration));
+        within = began - static_cast<double>(pass) * e.effectDuration;
+    }
+    // The small allowance keeps a moment that falls exactly on a change
+    // from landing on either side of it by rounding.
+    const auto drawing = static_cast<std::int64_t>(std::floor(within * static_cast<double>(e.hold) + 1e-6));
+    return pass * (std::int64_t{1} << 20) + drawing;
+}
+
 float sample(const ScalarF& s, float random01, float curveX) {
     switch (s.mode) {
         case ScalarF::Mode::Constant:
@@ -245,6 +264,7 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
     // --------------------------------------------------------------- motion
     // With no Motion module nothing acts on the particle at all.
     const Reader motion(firstOfType(layer, "motion"), "motion");
+    e->speedOverLife = constantScalar(1.0f);
     if (motion.present()) {
         const Vec3& gravity = motion.get<Vec3>("gravity");
         e->gravityX = f(gravity.x);
@@ -258,12 +278,25 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         e->turbulence = std::isfinite(turbulence) ? std::clamp(f(turbulence), 0.0f, 1000.0f) : 0.0f;
         e->turbulencePerUnit = 1.0f / (std::isfinite(swirl) ? std::clamp(f(swirl), 0.02f, 10000.0f) : 1.5f);
         e->turbulenceChange = std::isfinite(change) ? std::clamp(f(change), 0.0f, 60.0f) : 0.0f;
+
+        e->speedOverLife = toScalar(motion.get<Scalar>("speedOverLife"));
+        e->eases = !(e->speedOverLife.mode == ScalarF::Mode::Constant && e->speedOverLife.a == 1.0f);
+        const double orbit = motion.get<double>("orbit");
+        if (std::isfinite(orbit) && orbit != 0.0) {
+            const double radians = std::clamp(orbit, -3600.0, 3600.0) * det::kDegreesToRadians;
+            double s = 0.0, c = 1.0;
+            det::sinCos(radians * e->step, s, c);
+            e->orbit = f(radians);
+            e->orbitSin = f(s);
+            e->orbitCos = f(c);
+        }
     }
 
     // ------------------------------------------------------------ over life
     const Reader overLife(firstOfType(layer, "overLife"), "overLife");
     e->sizeOverLife = constantScalar(1.0f);
     e->opacityOverLife = constantScalar(1.0f);
+    e->squashStretch = constantScalar(0.0f);
     if (overLife.present()) {
         e->hasOverLife = true;
         e->sizeOverLife = toScalar(overLife.get<Scalar>("size"));
@@ -283,6 +316,9 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         e->dissolveSoft = std::isfinite(soft) ? std::clamp(f(soft), 0.0f, 1.0f) : 0.15f;
         const double edge = overLife.get<double>("dissolveEdge");
         e->dissolveEdge = std::isfinite(edge) ? std::clamp(f(edge), 0.0f, 1.0f) : 0.0f;
+        e->squashStretch = toScalar(overLife.get<Scalar>("stretch"));
+        e->squashStretches =
+            !(e->squashStretch.mode == ScalarF::Mode::Constant && e->squashStretch.a == 0.0f);
     }
 
     // --------------------------------------------------------------- sprite
@@ -310,6 +346,9 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         e->stretch = e->alongMotion ? f(sprite.get<double>("stretch")) : 0.0f;
         const double tilt = sprite.get<double>("tilt");
         e->tilt = !e->alongMotion && std::isfinite(tilt) ? std::clamp(f(tilt), 0.0f, 89.0f) : 0.0f;
+        // A drawing held for less than one step is every step: smooth.
+        const double hold = sprite.get<double>("hold");
+        e->hold = std::isfinite(hold) && hold > 0.0 && hold < 1.0 / e->step - 1e-6 ? f(hold) : 0.0f;
 
         if (e->texture.valid()) {
             auto whole = [&](const char* key, std::int64_t lo, std::int64_t hi) {

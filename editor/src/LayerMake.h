@@ -107,6 +107,19 @@ public:
         return put("motion", "turbulenceChange", change);
     }
 
+    // ---- the animation principles
+    // How fast it travels its own path from birth to death, as a multiplier
+    // on its own movement: slow in and out, a wind-up, an overshoot.
+    Make& pace(Keys keys) { return put("motion", "speedOverLife", Scalar::curve(keys)); }
+    // Turned about the layer's centre, in degrees a second: arcs and spirals.
+    Make& orbit(double degreesPerSecond) { return put("motion", "orbit", degreesPerSecond); }
+    // Squash and stretch over its life: above 0 longer and thinner, below 0
+    // shorter and wider. Or one amount each, between two.
+    Make& squash(Keys keys) { return put("overLife", "stretch", Scalar::curve(keys)); }
+    Make& squash(double a, double b) { return put("overLife", "stretch", range(a, b)); }
+    // Shown this many times a second, each drawing held: 12 is "on twos".
+    Make& hold(double drawingsPerSecond) { return put("sprite", "hold", drawingsPerSecond); }
+
     // ---- how it changes over its life
     Make& sizeOver(Keys keys) { return put("overLife", "size", Scalar::curve(keys)); }
     Make& fade(Keys keys) { return put("overLife", "opacity", Scalar::curve(keys)); }

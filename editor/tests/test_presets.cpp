@@ -11,6 +11,7 @@
 #include "vfx/Serialize.h"
 #include "vfx/Simulation.h"
 #include "vfx/editor/Picture.h"
+#include "vfx/editor/CurveTools.h"
 #include "vfx/editor/Presets.h"
 #include "vfx/editor/Session.h"
 #include "vfx/editor/SpriteMesh.h"
@@ -185,10 +186,14 @@ TEST_CASE("every preset layer can be edited with the Simple controls", "[presets
             for (const ControlView& control : controls) {
                 INFO(control.label);
                 REQUIRE(control.desc != nullptr);
-                // Curves cannot be edited in the Simple view yet, so no
-                // Simple control of a preset may be one.
+                // A Simple control may be a curve (Squash and Stretch in the
+                // Cartoon motion presets is): the Simple view shows the curve
+                // editor for it, so it must be a curve that editor can hold.
                 if (const auto* scalar = std::get_if<Scalar>(&control.value)) {
-                    CHECK(scalar->kind != Scalar::Kind::Curve);
+                    if (scalar->kind == Scalar::Kind::Curve) {
+                        CHECK(scalar->keys.size() <= kEditorCurvePoints);
+                        CHECK(tidyCurve(scalar->keys, *control.desc) == scalar->keys);
+                    }
                 }
             }
         }

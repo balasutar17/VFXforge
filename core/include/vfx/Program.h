@@ -47,6 +47,21 @@ float evalCurve(const std::vector<CurveKeyF>& keys, float x);
 // random01 picks within a random range; curveX is where to read a curve.
 float sample(const ScalarF& s, float random01, float curveX);
 
+// Squash and stretch as two multipliers on a particle's size: `along` its
+// own upright (or the way it is moving, for a particle aligned to its
+// movement) and `across` that. Above 0 it is longer and thinner: 0.5 is
+// half as long again. Below 0 it is shorter and wider by the same rule the
+// other way round. The two always multiply to 1, so the area never changes.
+inline void stretchFactors(float amount, float& along, float& across) {
+    if (amount >= 0.0f) {
+        along = 1.0f + amount;
+        across = 1.0f / along;
+    } else {
+        across = 1.0f - amount;
+        along = 1.0f / across;
+    }
+}
+
 struct GradientKeyF {
     float t = 0, r = 1, g = 1, b = 1, a = 1;
 };
@@ -115,6 +130,18 @@ struct EmitterProgram {
     float turbulence = 0;         // units per second, on average
     float turbulencePerUnit = 1;  // one over the size of a swirl
     float turbulenceChange = 0;   // new patterns per second
+    // How fast a particle travels its own path, as a multiplier on its own
+    // movement (never on the swirls that carry it): 1 leaves it alone, 0
+    // stops it, below 0 sends it backwards. A curve reads across the
+    // particle's life; a fixed number or a random range is the particle's
+    // own for life.
+    ScalarF speedOverLife;
+    bool eases = false;  // speedOverLife is anything other than a fixed 1
+    // Turning about the layer's centre, so paths become arcs and spirals.
+    // Radians per second, counter-clockwise; 0 means none. The sine and
+    // cosine are of one whole step's turn.
+    float orbit = 0;
+    float orbitSin = 0, orbitCos = 1;
 
     // How it changes over its life. A fixed number or random range is a
     // per-particle multiplier chosen at birth; a curve is read every frame.
@@ -127,6 +154,12 @@ struct EmitterProgram {
     float dissolve = 0;
     float dissolveEdge = 0;  // how brightly the eaten edge glows, 0 to 1
     float dissolveSoft = 0.15f;  // how soft the eaten edge is, 0 (torn) to 1 (smoke)
+    // Squash and stretch: above 0 the particle is drawn longer and thinner,
+    // below 0 shorter and wider, its area kept (see stretchFactors). A curve
+    // reads across the particle's life; a fixed number or a random range is
+    // the particle's own for life.
+    ScalarF squashStretch;
+    bool squashStretches = false;  // squashStretch is anything other than a fixed 0
 
     // How it is drawn. A layer with no Sprite module is simulated but not drawn.
     bool drawn = false;
@@ -150,6 +183,11 @@ struct EmitterProgram {
     float trail = 0;       // seconds
     float trailWidth = 0;  // a share of the particle's size
 
+    // Held frames: the layer is shown this many times a second, each
+    // drawing held until the next, as hand-drawn animation is ("on twos" is
+    // 12). 0 means every step is shown.
+    float hold = 0;
+
     // Limits worked out at compile time, so stepping never allocates memory.
     double maxLifetime = 0;
     std::uint32_t capacity = 0;
@@ -167,6 +205,14 @@ struct Program {
     // Enabled layers only, in stack order.
     std::vector<std::shared_ptr<const EmitterProgram>> emitters;
 };
+
+// Which drawing of a held layer the particles at a step belong to. A held
+// layer (hold > 0) is shown `hold` times a second, each drawing held until
+// the next: the particles shown at a step are those of the first step with
+// the same number as it. Drawings are counted from the start of each pass
+// of the effect, so every pass of a loop is drawn at the same moments, and
+// a burst at the very start of a pass is in that pass's first drawing.
+std::int64_t heldDrawing(const EmitterProgram& e, std::int64_t step);
 
 std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const Layer& layer);
 std::shared_ptr<const Program> compileEffect(const Effect& effect);

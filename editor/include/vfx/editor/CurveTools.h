@@ -27,12 +27,23 @@ inline constexpr double kCurveGap = 0.002;
 struct CurveShape {
     const char* key;    // stable, for code and tests
     const char* label;  // for the artist
-    const char* group;  // "Level", "Ease", "Life"
+    const char* group;  // "Level", "Ease", "Life", "Squash and stretch", "Pace"
     const char* help;
     std::vector<CurveKey> keys;
+    // A shape made for one setting only, named as "module.property"
+    // ("overLife.stretch", "motion.speedOverLife"). Its values are that
+    // setting's own numbers and are used as they are, not as shares of the
+    // level the curve stands at. Null for a shape that suits any setting.
+    const char* only = nullptr;
 };
+// Every shape there is: the general ones first, then those made for one setting.
 const std::vector<CurveShape>& curveShapes();
 const CurveShape* findCurveShape(std::string_view key);
+
+// The shapes to offer for one setting: those made for it first, then the
+// general ones. (Squash and Stretch and Speed over Life have their own: a
+// stretch that settles, a wind-up, an overshoot.)
+std::vector<const CurveShape*> curveShapesFor(std::string_view moduleType, const PropertyDesc& desc);
 
 // How high a value stands now: the number itself, the top of a random
 // range, or the highest point of a curve (by size, so a spin of -90 gives
@@ -45,7 +56,7 @@ std::vector<CurveKey> curveFrom(const Scalar& value);
 
 // A shape made to stand as high as the value does now (or as high as the
 // property's ordinary value when it stands at nothing), within the
-// property's limits.
+// property's limits. A shape made for one setting is used as it is.
 Scalar shaped(const CurveShape& shape, const Scalar& now, const PropertyDesc& desc);
 
 // Makes any list of points into a legal curve for the property: finite,

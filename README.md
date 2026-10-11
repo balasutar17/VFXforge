@@ -36,6 +36,11 @@ What exists so far:
   curve editor with corner and smooth points and fifteen ready-made shapes,
   a colour-gradient editor, and a burst list; see
   [docs/advanced.md](docs/advanced.md)
+- **the animation principles**: squash and stretch, drawings held "on
+  twos", slow in and out, anticipation, overshoot and arcs, as settings on
+  every layer, with ready-made curves, one-click changes for a whole
+  effect (Motion… on the top bar) and four presets that show them; see
+  [docs/animation-principles.md](docs/animation-principles.md)
 - **turbulence and dissolve**: particles carried about by moving air, so
   smoke winds and embers wander; and particles eaten away in ragged patches
   as they die, softly like smoke or with a white-hot edge like burning

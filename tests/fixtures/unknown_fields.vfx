@@ -35,6 +35,8 @@
           "turbulence": 0.0,
           "turbulenceSize": 1.5,
           "turbulenceChange": 0.6,
+          "speedOverLife": 1.0,
+          "orbit": 0.0,
           "wind": [2.0, 0.0, 0.0]
         },
         {
