@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "vfx/Effect.h"
+#include "vfx/Program.h"
 #include "vfx/Result.h"
 #include "vfx/editor/Archive.h"
 
@@ -63,12 +64,19 @@ std::string unityFileStem(const Effect& effect);
 // The shape atlas as a PNG.
 std::string unityShapeAtlasPng();
 
-// A shape from the library travels as a picture of its own, laid out like
-// one tile of the atlas, and only the ones an effect uses are sent.
-std::string unityShapePicturePath(int shape);  // "Assets/VFXForge/Shapes/<name>.png"
-std::string unityShapePicturePng(int shape);
-// The library shapes an effect's drawn layers use, in order of number.
-std::vector<int> unityLibraryShapes(const Effect& effect);
+// A shape from the library, and any shape whose design has been changed,
+// travels as a picture of its own, laid out like one tile of the atlas, and
+// only the ones an effect uses are sent. A changed shape's settings are in
+// its file name, so two layers with the same change share one picture.
+struct UnityShape {
+    int shape = 0;
+    ShapeEdit edit;
+};
+std::string unityShapePicturePath(int shape, const ShapeEdit& edit = {});  // "Assets/VFXForge/Shapes/<name>.png"
+std::string unityShapePicturePng(int shape, const ShapeEdit& edit = {});
+// The shapes that travel this way for an effect's drawn layers, each once,
+// in order of file name.
+std::vector<UnityShape> unityShapePictures(const Effect& effect);
 
 // Every file an export writes, with paths relative to the Unity project
 // folder (each starts with "Assets/VFXForge/").

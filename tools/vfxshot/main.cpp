@@ -32,6 +32,9 @@ const char* kUsage =
     "  vfxshot library <out.png> [--category name] [--cell N] [--columns N]\n"
     "      Draw every shape there is (or one category), formula shapes and\n"
     "      library shapes alike, each large with a row of small ones under it.\n"
+    "  vfxshot edits <out.png> [--cell N]\n"
+    "      Draw every shape that has settings of its own, one to a row: as\n"
+    "      drawn, then at each end of its count, thickness, pointiness, roundness.\n"
     "  vfxshot file <effect.vfx> <out.png> [--time s] [--size WxH] [--view x,y,height]\n"
     "      Draw a saved effect at one moment.\n";
 
@@ -276,6 +279,77 @@ int main(int argc, char** argv) {
             }
             std::printf("%3zu  %-12s %-18s %s\n", n + 1, shapeInfo(wanted[n]).name, shapeInfo(wanted[n]).label,
                         shapeInfo(wanted[n]).category);
+        }
+        return save(args[0], sheet);
+    }
+
+    if (command == "edits" && !args.empty()) {
+        // Every shape that can be changed, one to a row: as drawn, then each
+        // of its settings at one end and the other.
+        const int cell = std::atoi(option(args, "--cell", "96").c_str());
+        if (cell < 16 || cell > 512) {
+            std::fputs(kUsage, stderr);
+            return 2;
+        }
+        std::vector<int> wanted;
+        for (int i = 0; i < shapeCount(); ++i) {
+            if (shapeEditInfo(i).any()) {
+                wanted.push_back(i);
+            }
+        }
+        const int gap = 4, columns = 9;
+        Picture sheet;
+        sheet.width = columns * (cell + gap) + gap;
+        sheet.height = static_cast<int>(wanted.size()) * (cell + gap) + gap;
+        sheet.rgba.assign(static_cast<std::size_t>(sheet.width) * static_cast<std::size_t>(sheet.height) * 4u, 60);
+        for (std::size_t n = 0; n < wanted.size(); ++n) {
+            const ShapeEditInfo& info = shapeEditInfo(wanted[n]);
+            for (int column = 0; column < columns; ++column) {
+                ShapeEdit edit;
+                bool has = column == 0;
+                const float end = column % 2 == 1 ? -1.0f : 1.0f;
+                if (column == 1 || column == 2) {
+                    has = info.count();
+                    edit.count = column == 1 ? info.countLowest : info.countHighest;
+                } else if (column == 3 || column == 4) {
+                    has = info.thickness;
+                    edit.thickness = end;
+                } else if (column == 5 || column == 6) {
+                    has = info.sharpness;
+                    edit.sharpness = end;
+                } else if (column == 7 || column == 8) {
+                    has = info.round && (column == 8 || info.sharperToo);
+                    edit.round = end;
+                }
+                if (!has) {
+                    continue;
+                }
+                RenderFrame frame;
+                frame.flat = true;
+                RenderBatch batch;
+                batch.shape = static_cast<SpriteShape>(wanted[n]);
+                batch.shapeEdit = edit;
+                SpriteInstance p;
+                p.size = 1.8f;
+                p.r = column == 0 ? 1.0f : 0.45f;
+                p.g = column == 0 ? 0.5f : 0.78f;
+                p.b = column == 0 ? 0.1f : 1.0f;
+                frame.instances.push_back(p);
+                batch.count = 1;
+                frame.batches.push_back(batch);
+                View view;
+                view.width = view.height = static_cast<float>(cell);
+                view.centerX = view.centerY = 0;
+                view.unitsHigh = 2.0f;
+                SpriteMesh mesh;
+                buildSpriteMesh(frame, view, mesh);
+                paste(sheet, drawPicture(mesh, cell, cell), gap + column * (cell + gap),
+                      gap + static_cast<int>(n) * (cell + gap));
+            }
+            std::printf("%-12s %s%s%s%s\n", shapeInfo(wanted[n]).name,
+                        info.count() ? (std::string(info.countLabel) + " ").c_str() : "",
+                        info.thickness ? "Thickness " : "", info.sharpness ? "Pointiness " : "",
+                        info.round ? "Roundness" : "");
         }
         return save(args[0], sheet);
     }

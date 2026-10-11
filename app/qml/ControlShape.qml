@@ -42,6 +42,59 @@ Item {
         return out
     }
 
+    // Some shapes have settings of their own: how many points, how thick,
+    // how pointed, how round. `edits` is the chosen shape's (none, for most
+    // shapes); `editValues` is where each stands, 0 being the shape as drawn.
+    readonly property var edits: {
+        for (var i = 0; i < info.options.length; ++i)
+            if (info.options[i].value === value)
+                return info.options[i].edits || []
+        return []
+    }
+    property var editValues: ({
+        shapeCount: picture.shapeCount || 0,
+        shapeThickness: picture.shapeThickness || 0,
+        shapeSharpness: picture.shapeSharpness || 0,
+        shapeRound: picture.shapeRound || 0
+    })
+    readonly property bool edited: {
+        for (var i = 0; i < edits.length; ++i) {
+            var v = editValues[edits[i].key] || 0
+            if (v !== 0 && !(edits[i].whole && v === edits[i].own))
+                return true
+        }
+        return false
+    }
+    function noEdits() {
+        return { shapeCount: 0, shapeThickness: 0, shapeSharpness: 0, shapeRound: 0 }
+    }
+    // What a slider shows: a count of 0 means the shape's own count.
+    function editShown(edit) {
+        var v = editValues[edit.key] || 0
+        return edit.whole && v === 0 ? edit.own : v
+    }
+    function setEdit(edit, v) {
+        v = Math.max(edit.from, Math.min(edit.to, v))
+        // Amounts move in the 63 steps each way that shapes are drawn at.
+        v = edit.whole ? Math.round(v) : Math.round(v * 63) / 63
+        if (v === editShown(edit))
+            return
+        var next = noEdits()
+        for (var key in next)
+            next[key] = editValues[key] || 0
+        next[edit.key] = v
+        editValues = next
+        app.setPictureNumber(edit.key, v)
+    }
+    function resetEdits() {
+        app.beginEdit("Shape As Drawn")
+        for (var i = 0; i < edits.length; ++i)
+            if ((editValues[edits[i].key] || 0) !== 0)
+                app.setPictureNumber(edits[i].key, 0)
+        app.endEdit()
+        editValues = noEdits()
+    }
+
     implicitHeight: column.implicitHeight
 
     Component.onCompleted: {
@@ -509,13 +562,96 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
+                                // A newly picked shape comes as it was drawn.
                                 root.value = tile.modelData.value
-                                app.setControlChoice(root.controlIndex, tile.modelData.value)
+                                root.editValues = root.noEdits()
+                                app.chooseShape(root.controlIndex, tile.modelData.value)
                             }
                         }
                         ToolTip.visible: tileArea.containsMouse
                         ToolTip.delay: 500
                         ToolTip.text: tile.modelData.label
+                    }
+                }
+            }
+
+            // ---- the chosen shape's own settings
+            Column {
+                visible: root.edits.length > 0
+                width: parent.width
+                spacing: 6
+                topPadding: 4
+
+                Item {
+                    width: parent.width
+                    height: 24
+                    Text {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Change this shape"
+                        color: theme.faint
+                        font.pixelSize: theme.smallFontSize
+                    }
+                    VButton {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 22
+                        visible: root.edited
+                        quiet: true
+                        text: "As drawn"
+                        tip: "Put the shape back the way it was drawn."
+                        onClicked: root.resetEdits()
+                    }
+                }
+
+                Repeater {
+                    model: root.edits
+                    delegate: Item {
+                        id: editRow
+                        required property var modelData
+                        width: parent.width
+                        height: 24
+
+                        Text {
+                            id: editLabel
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 76
+                            text: editRow.modelData.label
+                            color: theme.text
+                            font.pixelSize: theme.fontSize
+                            elide: Text.ElideRight
+                        }
+                        VSlider {
+                            anchors.left: editLabel.right
+                            anchors.right: editBox.left
+                            anchors.rightMargin: 8
+                            anchors.verticalCenter: parent.verticalCenter
+                            from: editRow.modelData.from
+                            to: editRow.modelData.to
+                            value: root.editShown(editRow.modelData)
+                            onDragStarted: app.beginEdit("Change Shape " + editRow.modelData.label)
+                            onDragEnded: app.endEdit()
+                            onMoved: function(v) { root.setEdit(editRow.modelData, v) }
+                        }
+                        VNumberField {
+                            id: editBox
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 52
+                            value: root.editShown(editRow.modelData)
+                            decimals: editRow.modelData.whole ? 0 : 2
+                            onEdited: function(v) { root.setEdit(editRow.modelData, v) }
+                        }
+                        MouseArea {
+                            id: editHover
+                            anchors.fill: editLabel
+                            hoverEnabled: true
+                            acceptedButtons: Qt.NoButton
+                        }
+                        ToolTip.visible: editHover.containsMouse
+                        ToolTip.delay: 500
+                        ToolTip.text: editRow.modelData.tip
                     }
                 }
             }

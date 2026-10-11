@@ -161,7 +161,7 @@ public:
 
 // How many library shapes' pictures a node keeps on the graphics card
 // before it starts letting go of the ones not on screen.
-constexpr std::size_t kShapeTexturesKept = 24;
+constexpr std::size_t kShapeTexturesKept = 12;
 
 QSGTexture* textureFor(SpriteRoot& root, vfx::Id id, const vfx::editor::ImageSet* images,
                        QQuickWindow* window, int shapePixels) {
@@ -170,9 +170,10 @@ QSGTexture* textureFor(SpriteRoot& root, vfx::Id id, const vfx::editor::ImageSet
     }
     // A shape from the library brings its own picture; anything else is one
     // of the artist's.
-    const int shape = vfx::editor::shapeFromTextureId(id);
+    vfx::ShapeEdit edit;  // how the shape's own design has been changed, if it has
+    const int shape = vfx::editor::shapeFromTextureId(id, &edit);
     std::shared_ptr<const vfx::editor::Image> image =
-        shape >= 0 ? vfx::editor::shapePicture(shape, shapePixels) : images ? images->shared(id) : nullptr;
+        shape >= 0 ? vfx::editor::shapePicture(shape, shapePixels, edit) : images ? images->shared(id) : nullptr;
     if (!image || image->width <= 0 || image->height <= 0) {
         return nullptr;
     }
@@ -319,6 +320,8 @@ QSGNode* updateSpriteNode(QSGNode* old, const vfx::editor::SpriteMesh& mesh,
                 } else if (vertices[i].shape >= static_cast<float>(vfx::kSpriteShapeCount)) {
                     vertices[i].shape = 0.0f;  // a library shape: its corners are already laid out right
                 }
+                // (One of the first thirty-five that has been changed falls
+                // back to itself as drawn: the shape shader knows it.)
             }
         }
         auto* indices = static_cast<std::uint32_t*>(geometry->indexData());

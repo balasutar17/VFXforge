@@ -721,17 +721,19 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
         }
     }
     const int shapeNumber = static_cast<int>(e.spriteShape);
-    render["shape"] = isLibraryShape(shapeNumber) ? 0 : shapeNumber;
+    const bool ownPicture = drawnFromPicture(shapeNumber, e.shapeEdit);
+    render["shape"] = ownPicture ? 0 : shapeNumber;
     render["shapeName"] = shapeName(e.spriteShape);
     if (const UnityPicture* picture = e.texture.valid() ? pictureFor(pictures, e.texture) : nullptr) {
         render["picture"] = picture->path;
         if (e.columns * e.rows > 1) {
             render["sheet"] = sheetJson(e);
         }
-    } else if (isLibraryShape(shapeNumber)) {
-        // A shape from the library is not in the atlas: it comes as a
-        // picture of its own, which Unity draws as an atlas of one tile.
-        render["shapePicture"] = unityShapePicturePath(shapeNumber);
+    } else if (ownPicture) {
+        // A shape from the library, or one that has been changed, is not in
+        // the atlas: it comes as a picture of its own, which Unity draws as
+        // an atlas of one tile.
+        render["shapePicture"] = unityShapePicturePath(shapeNumber, e.shapeEdit);
     }
     if (e.trail > 0.0f && e.trailWidth > 0.0f) {
         // Unity measures a trail in shares of the particle's life.
@@ -889,12 +891,21 @@ std::string unityShapeAtlasPng() {
     return encodePngImage(width, height, 4, pixels);
 }
 
-std::string unityShapePicturePath(int shape) {
-    return std::string("Assets/VFXForge/Shapes/") + shapeInfo(shape).name + ".png";
+std::string unityShapePicturePath(int shape, const ShapeEdit& asked) {
+    std::string path = std::string("Assets/VFXForge/Shapes/") + shapeInfo(shape).name;
+    const ShapeEdit edit = usableEdit(shape, asked);
+    if (edit.any()) {
+        // A changed shape is another picture: its settings are in its name,
+        // the count first and then each amount in whole steps.
+        const auto steps = [](float v) { return std::to_string(std::lround(v * static_cast<float>(kShapeEditSteps))); };
+        path += "_" + std::to_string(edit.count) + "_" + steps(edit.thickness) + "_" + steps(edit.sharpness) + "_" +
+                steps(edit.round);
+    }
+    return path + ".png";
 }
 
-std::string unityShapePicturePng(int shape) {
-    const std::shared_ptr<const Image> picture = shapePicture(shape);
+std::string unityShapePicturePng(int shape, const ShapeEdit& edit) {
+    const std::shared_ptr<const Image> picture = shapePicture(shape, kShapePictureSize, edit);
     const int size = picture->width;
     std::string pixels(static_cast<std::size_t>(size) * static_cast<std::size_t>(size) * 4u, '\0');
     // The library keeps tone, shine and coverage in red, green and blue;
@@ -908,17 +919,27 @@ std::string unityShapePicturePng(int shape) {
     return encodePngImage(size, size, 4, pixels);
 }
 
-std::vector<int> unityLibraryShapes(const Effect& effect) {
-    std::vector<int> used;
+std::vector<UnityShape> unityShapePictures(const Effect& effect) {
+    std::vector<UnityShape> used;
     for (const Layer& layer : effect.layers) {
         const std::shared_ptr<const EmitterProgram> program = compileLayer(effect, layer);
         const int shape = static_cast<int>(program->spriteShape);
-        if (program->drawn && isLibraryShape(shape) &&
-            std::find(used.begin(), used.end(), shape) == used.end()) {
-            used.push_back(shape);
+        if (!program->drawn || !drawnFromPicture(shape, program->shapeEdit)) {
+            continue;
+        }
+        const UnityShape one{shape, usableEdit(shape, program->shapeEdit)};
+        const std::string path = unityShapePicturePath(one.shape, one.edit);
+        bool seen = false;
+        for (const UnityShape& u : used) {
+            seen = seen || unityShapePicturePath(u.shape, u.edit) == path;
+        }
+        if (!seen) {
+            used.push_back(one);
         }
     }
-    std::sort(used.begin(), used.end());
+    std::sort(used.begin(), used.end(), [](const UnityShape& a, const UnityShape& b) {
+        return unityShapePicturePath(a.shape, a.edit) < unityShapePicturePath(b.shape, b.edit);
+    });
     return used;
 }
 
@@ -928,8 +949,9 @@ std::vector<TarEntry> unityExportFiles(const Effect& effect, const std::filesyst
         files.push_back(TarEntry{std::string("Assets/VFXForge/") + f.path, std::string(f.text)});
     }
     files.push_back(TarEntry{"Assets/VFXForge/Textures/VFXForgeShapes.png", unityShapeAtlasPng()});
-    for (const int shape : unityLibraryShapes(effect)) {
-        files.push_back(TarEntry{unityShapePicturePath(shape), unityShapePicturePng(shape)});
+    for (const UnityShape& shape : unityShapePictures(effect)) {
+        files.push_back(TarEntry{unityShapePicturePath(shape.shape, shape.edit),
+                                 unityShapePicturePng(shape.shape, shape.edit)});
     }
     const std::vector<UnityPicture> pictures = unityPictures(effect, pictureFolder);
     const std::vector<UnityPicture> sounds = unitySounds(effect, pictureFolder);

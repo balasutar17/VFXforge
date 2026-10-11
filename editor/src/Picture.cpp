@@ -27,7 +27,7 @@ Edge edgeThrough(const SpriteVertex& p, const SpriteVertex& q) {
 void drawTriangle(std::vector<float>& canvas, int width, int height, const SpriteVertex& v0,
                   const SpriteVertex& v1, const SpriteVertex& v2, SpriteShape shape,
                   std::vector<std::uint32_t>& taken, std::uint32_t stamp, bool keepAlpha,
-                  const MipChain* picture) {
+                  const MipChain* picture, const ShapeEdit& edit) {
     const float area = edgeThrough(v0, v1).at(v2.x, v2.y);
     if (!(std::fabs(area) > 1e-9f)) {
         return;
@@ -112,7 +112,8 @@ void drawTriangle(std::vector<float>& canvas, int width, int height, const Sprit
             }
             const ShapeSample sample =
                 v0.shape < -1.5f ? ribbonSample(u, v)
-                                 : sampleShape(shape, 2.0f * u - 1.0f, 1.0f - 2.0f * v, v0.aaX, v0.aaY);
+                                 : sampleShapeEdited(static_cast<int>(shape), edit, 2.0f * u - 1.0f, 1.0f - 2.0f * v, v0.aaX,
+                                                     v0.aaY);
             const float cover = sample.cover * eaten.keep;
             if (!(cover > 0.0f)) {
                 continue;
@@ -193,6 +194,11 @@ Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor backgr
             mesh.vertices[mesh.indices[i]].shape == kPictureShape) {
             picture = images->mips(mesh.runs[run].texture);
         }
+        // A shape that has been changed says how in the ID of its run.
+        ShapeEdit edit;
+        if (run < mesh.runs.size() && mesh.runs[run].texture.valid()) {
+            shapeFromTextureId(mesh.runs[run].texture, &edit);
+        }
         for (std::size_t t = 0; t < 2; ++t) {
             const SpriteVertex& v0 = mesh.vertices[mesh.indices[i + t * 3]];
             const SpriteVertex& v1 = mesh.vertices[mesh.indices[i + t * 3 + 1]];
@@ -200,7 +206,7 @@ Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor backgr
             const int number = static_cast<int>(std::lround(v0.shape));
             const auto shape = static_cast<SpriteShape>(number >= 0 && number < shapeCount() ? number : 0);
             drawTriangle(canvas, out.width, out.height, v0, v1, v2, shape, taken, stamp,
-                         transparent, picture);
+                         transparent, picture, edit);
         }
     }
 

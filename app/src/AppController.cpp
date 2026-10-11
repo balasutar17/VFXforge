@@ -507,6 +507,7 @@ void AppController::rebuildControls() {
                                 const vfx::editor::ShapeInfo& shape = vfx::editor::shapeInfo(number);
                                 entry.insert(QStringLiteral("label"), QString::fromUtf8(shape.label));
                                 entry.insert(QStringLiteral("category"), QString::fromUtf8(shape.category));
+                                entry.insert(QStringLiteral("edits"), shapeEdits(number));
                             }
                         }
                         options.push_back(entry);
@@ -964,6 +965,72 @@ void AppController::setControlChoice(int index, const QString& option) {
     applyControl(index, vfx::Value(utf8(option)));
 }
 
+// What can be changed about a shape, as the sliders the Shape control
+// shows for it: which setting each one is, what it is called, how far it
+// goes and where it stands for the shape as drawn.
+QVariantList AppController::shapeEdits(int number) const {
+    QVariantList list;
+    const vfx::editor::ShapeEditInfo& info = vfx::editor::shapeEditInfo(number);
+    const auto add = [&](const char* key, const QString& label, double from, double to, double own, bool whole,
+                         const QString& tip) {
+        QVariantMap one;
+        one.insert(QStringLiteral("key"), QString::fromLatin1(key));
+        one.insert(QStringLiteral("label"), label);
+        one.insert(QStringLiteral("from"), from);
+        one.insert(QStringLiteral("to"), to);
+        one.insert(QStringLiteral("own"), own);
+        one.insert(QStringLiteral("whole"), whole);
+        one.insert(QStringLiteral("tip"), tip);
+        list.push_back(one);
+    };
+    if (info.count()) {
+        add("shapeCount", QString::fromUtf8(info.countLabel), info.countLowest, info.countHighest, info.countOwn, true,
+            QStringLiteral("How many it has."));
+    }
+    if (info.thickness) {
+        add("shapeThickness", QStringLiteral("Thickness"), -1, 1, 0, false,
+            QStringLiteral("Left is thinner, right is thicker. 0 is the shape as it was drawn."));
+    }
+    if (info.sharpness) {
+        add("shapeSharpness", QStringLiteral("Pointiness"), -1, 1, 0, false,
+            QStringLiteral("Left is blunter, right is longer, thinner points. 0 is the shape as it was drawn."));
+    }
+    if (info.round) {
+        add("shapeRound", QStringLiteral("Roundness"), info.sharperToo ? -1 : 0, 1, 0, false,
+            info.sharperToo
+                ? QStringLiteral("Left is sharper corners, right is rounder. 0 is the shape as it was drawn.")
+                : QStringLiteral("Right is rounder corners. 0 is the shape as it was drawn."));
+    }
+    return list;
+}
+
+// Picking a shape gives that shape as it was drawn: settings left over from
+// the last one (seven points, extra thick) are put back, in the same undo
+// step as the change of shape.
+void AppController::chooseShape(int index, const QString& option) {
+    ControlView c;
+    if (!control(index, c) || c.desc->kind != vfx::ValueKind::Enum) {
+        return;
+    }
+    session_.endEdit();
+    const vfx::Id sprite = spriteModuleId();
+    const QVariantMap now = pictureInfo();
+    session_.beginEdit("Change Shape");
+    const bool chosen = report(session_.setControl(c.layer, c.control, vfx::Value(utf8(option))));
+    if (chosen && sprite.valid()) {
+        if (now.value(QStringLiteral("shapeCount")).toDouble() != 0.0) {
+            (void)session_.set(vfx::Path::property(c.layer, sprite, "shapeCount"), vfx::Value(std::int64_t{0}));
+        }
+        for (const char* key : {"shapeThickness", "shapeSharpness", "shapeRound"}) {
+            if (now.value(QString::fromLatin1(key)).toDouble() != 0.0) {
+                (void)session_.set(vfx::Path::property(c.layer, sprite, key), vfx::Value(0.0));
+            }
+        }
+    }
+    session_.endEdit();
+    changed(Values);
+}
+
 void AppController::setControlFlag(int index, bool on) {
     ControlView c;
     if (!control(index, c) || c.desc->kind != vfx::ValueKind::Bool) {
@@ -1414,6 +1481,11 @@ QVariantMap AppController::pictureInfo() const {
         }
         return fallback;
     };
+    // The shape's own settings (how many points, how thick...), which the
+    // Shape control shows under the shapes.
+    for (const char* key : {"shapeCount", "shapeThickness", "shapeSharpness", "shapeRound"}) {
+        info.insert(QString::fromLatin1(key), number(key, 0));
+    }
     info.insert(QStringLiteral("columns"), number("columns", 1));
     info.insert(QStringLiteral("rows"), number("rows", 1));
     info.insert(QStringLiteral("frames"), number("frames", 0));

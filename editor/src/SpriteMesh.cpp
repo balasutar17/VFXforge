@@ -446,11 +446,14 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
         if (runEnd == runStart) {
             continue;
         }
-        // A library shape is drawn from its own picture, which stands in
-        // the list under an ID of its own (see ShapeLibrary.h).
+        // A library shape, or any shape that has been changed, is drawn
+        // from its own picture, which stands in the list under an ID of its
+        // own (see ShapeLibrary.h).
+        const int shapeNumber = static_cast<int>(batch.shape);
         const Id texture = picture ? batch.texture
-                           : isLibraryShape(static_cast<int>(batch.shape)) ? shapeTextureId(static_cast<int>(batch.shape))
-                                                                           : Id{};
+                           : drawnFromPicture(shapeNumber, batch.shapeEdit)
+                                 ? shapeTextureId(shapeNumber, batch.shapeEdit)
+                                 : Id{};
         if (!mesh.runs.empty() && mesh.runs.back().texture == texture) {
             mesh.runs.back().indexCount += runEnd - runStart;
         } else {

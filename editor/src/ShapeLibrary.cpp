@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <cstdint>
 #include <mutex>
+#include <tuple>
 #include <utility>
 
 #include "vfx/Metadata.h"
@@ -1507,6 +1509,345 @@ ShapeSample lock(float x, float y, float px) {
     return s;
 }
 
+// ------------------------------------------------- shapes that can be changed
+//
+// Some shapes have settings of their own (see ShapeEdit in Program.h): how
+// many points, how thick, how pointed, how round. Each of those is drawn
+// here a second time, from its own measurements and the settings, so that
+// with every setting at zero it is the shape above, and the settings move it
+// away from that. A shape that is not being changed is still drawn by its
+// own formula above (or, for the first thirty-five, by the graphics card).
+
+// A setting from -1 to 1 as a measurement: `own` at 0, `low` at -1, `high`
+// at 1, and evenly between.
+float bent(float amount, float low, float own, float high) {
+    return amount < 0.0f ? own + (own - low) * amount : own + (high - own) * amount;
+}
+
+int countOr(const ShapeEdit& e, int own, int lowest, int highest) {
+    return std::clamp(e.count > 0 ? e.count : own, lowest, highest);
+}
+
+// ---- figures with straight sides
+
+struct Polygon {
+    int sides;
+    float reach;   // from the middle to a corner
+    float drop;    // how far below the middle of the square it is drawn
+    float toward;  // where one corner points, in degrees
+};
+
+// How far from the edge of a regular figure, measured truly (sdNgon above
+// measures to the nearest side's line, which is the same thing except
+// outside a corner): the difference is what makes a corner come out round
+// when the figure is grown.
+float sdNgonTrue(float x, float y, float r, int n, float toward) {
+    const float half = kPi / static_cast<float>(n);
+    const P q = fold(x, y, n, toward, true);
+    const float mid = r * std::cos(half);  // from the middle to the middle of a side
+    const float d = sdSeg(q.x, q.y, r, 0.0f, mid * std::cos(half), mid * std::sin(half));
+    return q.x * std::cos(half) + q.y * std::sin(half) - mid > 0.0f ? d : -d;
+}
+
+// Where a figure of `n` sides sits: how far below the middle of the square,
+// and where one corner points.
+struct Placed {
+    float drop, toward;
+};
+
+Placed placePolygon(const Polygon& own, int n, float reach) {
+    if (n == own.sides) {
+        return Placed{own.drop * reach / own.reach, own.toward};
+    }
+    // A corner points up, unless that would leave the figure standing on a
+    // corner when it could sit flat (a square, an octagon).
+    const float half = kPi / static_cast<float>(n);
+    return Placed{n % 2 == 1 ? 0.3f * reach * (1.0f - std::cos(half)) : 0.0f,
+                  n % 4 == 0 ? 90.0f + 180.0f / static_cast<float>(n) : 90.0f};
+}
+
+// A figure of `n` sides whose corners have been rounded by `round` (0 not
+// at all, 1 all the way to a circle). Rounding takes the corners off and
+// leaves the sides where they are.
+float polygonD(float u, float v, int n, float round, float reach, const Placed& at) {
+    if (!(round > 0.0f)) {
+        return sdNgon(u, v + at.drop, reach, n, at.toward);
+    }
+    const float cosHalf = std::cos(kPi / static_cast<float>(n));
+    const float corner = round * 0.999f * reach * cosHalf;
+    return sdNgonTrue(u, v + at.drop, reach - corner / cosHalf, n, at.toward) - corner;
+}
+
+template <const Polygon& own>
+ShapeSample polygonEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, own.sides, 3, 12);
+    const Placed at = placePolygon(own, n, own.reach);
+    return flat([&](float u, float v) { return polygonD(u, v, n, e.round, own.reach, at); }, x, y, px, 0.0f, 0.0f);
+}
+
+// As drawn above, each is a figure with sharp corners this far across.
+constexpr Polygon kTriangle{3, 0.98f, 0.14f, 90.0f};
+constexpr Polygon kPentagon{5, 0.9018f, 0.04f, 90.0f};
+constexpr Polygon kHexagon{6, 0.9062f, 0.0f, 90.0f};
+constexpr Polygon kOctagon{8, 0.9125f, 0.0f, 22.5f};
+constexpr Polygon kHexFrame{6, 0.9324f, 0.0f, 90.0f};
+
+ShapeSample hexframeEdited(float x, float y, float px, const ShapeEdit& e) {
+    // The outside of the line stays where it is; a thicker line grows inward.
+    const int n = countOr(e, 6, 3, 12);
+    const float cosHalf = std::cos(kPi / static_cast<float>(n));
+    const float half = bent(e.thickness, 0.02f, 0.08f, 0.41f);  // of the line, across it
+    const float outer = kHexFrame.reach;
+    const float inner = std::max(outer - 2.0f * half / cosHalf, 0.0f);
+    const Placed at = placePolygon(kHexFrame, n, outer);
+    const float round = std::max(e.round, 0.0f);
+    return flat(
+        [&](float u, float v) {
+            const float outside = polygonD(u, v, n, round, outer, at);
+            return inner > 0.01f ? std::max(outside, -polygonD(u, v, n, round, inner, at)) : outside;
+        },
+        x, y, px, 0.0f, 0.0f);
+}
+
+ShapeSample squareEdited(float x, float y, float px, const ShapeEdit& e) {
+    const float corner = bent(e.round, 0.0f, 0.12f, 0.78f);
+    ShapeSample s;
+    s.cover = edge(sdRound(x, y, 0.78f, 0.78f, corner), px);
+    return s;
+}
+
+ShapeSample frameEdited(float x, float y, float px, const ShapeEdit& e) {
+    const float half = bent(e.thickness, 0.0225f, 0.09f, 0.455f);
+    const float side = 0.89f - half;
+    const float corner = bent(e.round, 0.0f, 0.14f, side);
+    return flat([&](float u, float v) { return std::fabs(sdRound(u, v, side, side, corner)) - half; }, x, y, px,
+                0.0f, 0.0f);
+}
+
+ShapeSample plusEdited(float x, float y, float px, const ShapeEdit& e) {
+    const float arm = bent(e.thickness, 0.07f, 0.27f, 0.6f);
+    const float corner = bent(e.round, 0.0f, 0.08f, arm);
+    return flat(
+        [&](float u, float v) { return std::min(sdRound(u, v, 0.86f, arm, corner), sdRound(u, v, arm, 0.86f, corner)); },
+        x, y, px, 0.0f, 0.0f);
+}
+
+ShapeSample crossEdited(float x, float y, float px, const ShapeEdit& e) {
+    const float arm = bent(e.thickness, 0.05f, 0.2f, 0.36f);
+    const float corner = bent(e.round, 0.0f, 0.06f, arm);
+    return flat(
+        [&](float u, float v) {
+            const P q = turned(u, v, 45.0f);
+            return std::min(sdRound(q.x, q.y, 0.92f, arm, corner), sdRound(q.x, q.y, arm, 0.92f, corner));
+        },
+        x, y, px);
+}
+
+// ---- rings
+
+ShapeSample ringEdited(float x, float y, float px, const ShapeEdit& e) {
+    // The outside stays where it is; a thicker ring grows inward, to a disc.
+    const float half = bent(e.thickness, 0.012f, 0.055f, 0.46f);
+    ShapeSample s;
+    s.cover = edge(std::fabs(len(x, y) - (0.905f - half)) - half, px);
+    return s;
+}
+
+ShapeSample doubleringEdited(float x, float y, float px, const ShapeEdit& e) {
+    const float outer = bent(e.thickness, 0.0125f, 0.05f, 0.1f);
+    const float inner = bent(e.thickness, 0.007f, 0.028f, 0.07f);
+    const float r = len(x, y);
+    ShapeSample s;
+    s.cover = std::max(edge(std::fabs(r - (0.91f - outer)) - outer, px), edge(std::fabs(r - 0.62f) - inner, px));
+    return s;
+}
+
+ShapeSample dashringEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 10, 3, 24);
+    const float half = bent(e.thickness, 0.0175f, 0.07f, 0.3f);
+    const float sector = 360.0f / static_cast<float>(n);
+    const float r = len(x, y);
+    const float a = angleOf(x, y) / sector;
+    const float off = std::fabs(a - std::floor(a) - 0.5f);  // 0 mid-dash, 0.5 mid-gap
+    const float along = (0.34f - off) * sector * kPi / 180.0f * r;
+    ShapeSample s;
+    s.cover = edge(std::fabs(r - (0.87f - half)) - half, px) * edge(-along, px);
+    return s;
+}
+
+ShapeSample arcEdited(float x, float y, float px, const ShapeEdit& e) {
+    const float half = bent(e.thickness, 0.025f, 0.1f, 0.16f);
+    return flat([&](float u, float v) { return sdArc(u, v + 0.45f, 0.9f, 30.0f, 150.0f, half, half); }, x, y, px,
+                0.0f, 0.0f);
+}
+
+// ---- stars
+
+struct Star {
+    int points;
+    float reach;   // from the middle to the tip of a point
+    float inner;   // how far out the notches are, as a share of the points
+    float corner;  // how round the points and notches are
+    float drop;    // how far below the middle of the square it is drawn
+};
+
+struct StarNow {
+    int n;
+    float r, inner, corner, drop;
+};
+
+StarNow starNow(const Star& own, const ShapeEdit& e, float roundest = 0.3f) {
+    StarNow now;
+    now.n = countOr(e, own.points, 3, 16);
+    // With its notches this far out a star is a plain figure with straight
+    // sides. A star given more or fewer points keeps its character: its
+    // notches the same share of the way there.
+    const float flatAt = std::cos(kPi / static_cast<float>(now.n));
+    const float ownInner = now.n == own.points
+                               ? own.inner
+                               : flatAt * own.inner / std::cos(kPi / static_cast<float>(own.points));
+    now.inner = bent(e.sharpness, ownInner + (flatAt - ownInner) * 0.92f, ownInner, std::max(0.08f, ownInner * 0.3f));
+    now.corner = bent(e.round, 0.0f, own.corner, std::max(own.corner, roundest));
+    now.r = own.reach - now.corner;
+    const float ownR = std::max(own.reach - own.corner, 1e-3f);
+    if (now.n == own.points) {
+        now.drop = own.drop * now.r / ownR;
+    } else {
+        now.drop = now.n % 2 == 1 ? 0.25f * now.r * (1.0f - flatAt) : 0.0f;
+    }
+    return now;
+}
+
+float starD(float u, float v, const StarNow& now, float scale = 1.0f, float cornerScale = 1.0f) {
+    return sdStar(u, v + now.drop, now.r * scale, now.n, now.inner, 90.0f) - now.corner * cornerScale;
+}
+
+// A star with a smaller, lighter star inside it.
+ShapeSample starInStar(float x, float y, float px, const StarNow& now, float innerScale, float innerCorner,
+                       float innerUp, float light) {
+    ShapeSample s;
+    s.cover = edge(starD(x, y, now), px);
+    s.tone = light * edge(sdStar(x, y + now.drop + innerUp, now.r * innerScale, now.n, now.inner, 90.0f) - innerCorner, px);
+    return s;
+}
+
+ShapeSample starEdited(float x, float y, float px, const ShapeEdit& e) {
+    const StarNow now = starNow(Star{5, 0.92f, 0.45f, 0.10f, 0.0f}, e);
+    return starInStar(x, y, px, now, 0.46f / 0.82f, 0.6f * now.corner, 0.02f, 1.0f);
+}
+
+ShapeSample starfourEdited(float x, float y, float px, const ShapeEdit& e) {
+    const StarNow now = starNow(Star{4, 0.95f, 0.3f, 0.0f, 0.0f}, e);
+    return starInStar(x, y, px, now, 0.52f / 0.95f, 0.55f * now.corner, 0.0f, 0.8f);
+}
+
+ShapeSample starsixEdited(float x, float y, float px, const ShapeEdit& e) {
+    const StarNow now = starNow(Star{6, 0.95f, 0.5f, 0.03f, 0.0f}, e);
+    return starInStar(x, y, px, now, 0.5f / 0.92f, now.corner * 2.0f / 3.0f, 0.0f, 0.8f);
+}
+
+ShapeSample stareightEdited(float x, float y, float px, const ShapeEdit& e) {
+    const StarNow now = starNow(Star{8, 0.95f, 0.58f, 0.02f, 0.0f}, e);
+    return starInStar(x, y, px, now, 0.52f / 0.93f, now.corner, 0.0f, 0.8f);
+}
+
+ShapeSample starfatEdited(float x, float y, float px, const ShapeEdit& e) {
+    const StarNow now = starNow(Star{5, 0.88f, 0.6f, 0.14f, 0.03f}, e, 0.36f);
+    ShapeSample s = flat([&](float u, float v) { return starD(u, v, now); }, x, y, px, 0.0f, 0.5f, 0.12f);
+    const float spot = gloss(x, y, -0.22f, 0.3f, 0.2f, 0.09f, px) * s.cover;
+    s.tone += 0.3f * spot;
+    s.shine = 0.9f * spot;
+    return s;
+}
+
+ShapeSample starlineEdited(float x, float y, float px, const ShapeEdit& e) {
+    // The outside stays where it is; a thicker line grows inward.
+    const float half = bent(e.thickness, 0.014f, 0.055f, 0.2f);
+    const StarNow now = starNow(Star{5, 0.895f - half, 0.45f, 0.0f, 0.03f}, e);
+    ShapeSample s;
+    s.cover = edge(std::fabs(starD(x, y, now)) - half, px);
+    return s;
+}
+
+// ---- things counted
+
+ShapeSample sunburstEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 12, 5, 24);
+    const float wide = std::min(0.105f * 12.0f / static_cast<float>(n), 0.2f);
+    const P ray[3] = {{0.52f, -wide}, {0.95f, 0.0f}, {0.52f, wide}};
+    const P q = fold(x, y, n, 90.0f, false);
+    const float r = len(x, y);
+    ShapeSample s;
+    s.cover = std::max(edge(r - 0.42f, px), edge(sdPoly(q.x, q.y, ray, 3), px));
+    s.tone = 0.7f * edge(r - 0.3f, px);
+    return s;
+}
+
+ShapeSample flowerEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 5, 3, 12);
+    const float wide = std::min(0.3f * 5.0f / static_cast<float>(n), 0.36f);
+    const P q = fold(x, y, n, 90.0f, true);
+    const float r = len(x, y);
+    ShapeSample s;
+    const float petals = sdEllipse(q.y, q.x - 0.54f, wide, 0.4f);
+    s.cover = std::max(edge(petals, px), edge(r - 0.24f, px));
+    const float rim = 1.0f - edge(sdEllipse(q.y, q.x - 0.5f, wide, 0.4f) + 0.05f, px * 1.5f);
+    s.tone = -0.3f * rim * edge(petals, px);
+    const float heart = edge(r - 0.24f, px);
+    s.tone = mix(s.tone, 0.85f, heart);
+    s.shine = 0.45f * heart;
+    return s;
+}
+
+ShapeSample gearEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 8, 5, 16);
+    const float tall = std::clamp(0.13f * 8.0f / static_cast<float>(n), 0.05f, 0.2f);
+    const float corner = std::min(0.03f, tall * 0.4f);
+    return flat(
+        [&](float u, float v) {
+            const P q = fold(u, v, n, 90.0f, true);
+            const float teeth = sdRound(q.x - 0.74f, q.y, 0.18f, tall, corner);
+            return std::max(std::min(len(u, v) - 0.66f, teeth), -(len(u, v) - 0.26f));
+        },
+        x, y, px, 0.4f, 0.4f, 0.07f);
+}
+
+using DrawEdited = ShapeSample (*)(float x, float y, float px, const ShapeEdit& e);
+
+struct Editable {
+    const char* name;
+    ShapeEditInfo info;  // countLowest, countHighest, countOwn, countLabel, thickness, sharpness, round, sharperToo
+    DrawEdited draw;
+};
+
+const std::vector<Editable>& editables() {
+    static const std::vector<Editable> list = {
+        {"star", {3, 16, 5, "Points", false, true, true, true}, starEdited},
+        {"ring", {0, 0, 0, "", true, false, false, false}, ringEdited},
+        {"square", {0, 0, 0, "", false, false, true, true}, squareEdited},
+        {"triangle", {3, 12, 3, "Sides", false, false, true, false}, polygonEdited<kTriangle>},
+        {"pentagon", {3, 12, 5, "Sides", false, false, true, false}, polygonEdited<kPentagon>},
+        {"hexagon", {3, 12, 6, "Sides", false, false, true, false}, polygonEdited<kHexagon>},
+        {"octagon", {3, 12, 8, "Sides", false, false, true, false}, polygonEdited<kOctagon>},
+        {"plus", {0, 0, 0, "", true, false, true, true}, plusEdited},
+        {"cross", {0, 0, 0, "", true, false, true, true}, crossEdited},
+        {"frame", {0, 0, 0, "", true, false, true, true}, frameEdited},
+        {"hexframe", {3, 12, 6, "Sides", true, false, true, false}, hexframeEdited},
+        {"arc", {0, 0, 0, "", true, false, false, false}, arcEdited},
+        {"dashring", {3, 24, 10, "Dashes", true, false, false, false}, dashringEdited},
+        {"doublering", {0, 0, 0, "", true, false, false, false}, doubleringEdited},
+        {"starfour", {3, 16, 4, "Points", false, true, true, true}, starfourEdited},
+        {"starsix", {3, 16, 6, "Points", false, true, true, true}, starsixEdited},
+        {"stareight", {3, 16, 8, "Points", false, true, true, true}, stareightEdited},
+        {"starfat", {3, 16, 5, "Points", false, true, true, true}, starfatEdited},
+        {"starline", {3, 16, 5, "Points", true, true, true, true}, starlineEdited},
+        {"sunburst", {5, 24, 12, "Rays", false, false, false, false}, sunburstEdited},
+        {"flower", {3, 12, 5, "Petals", false, false, false, false}, flowerEdited},
+        {"gear", {5, 16, 8, "Teeth", false, false, false, false}, gearEdited},
+    };
+    return list;
+}
+
 // ------------------------------------------------------------ the list
 
 using Draw = ShapeSample (*)(float x, float y, float px);
@@ -1676,7 +2017,7 @@ const std::vector<Entry>& entries() {
     return list;
 }
 
-constexpr std::uint64_t kShapeTextureBase = 0x5348415045000000ull;  // "SHAPE", then the shape's number
+constexpr std::uint64_t kShapeTextureBase = 0x5348415000000000ull;  // "SHAP", above the 34 bits that say which
 
 }  // namespace
 
@@ -1705,6 +2046,107 @@ const std::vector<std::string>& shapeCategories() {
     return categories;
 }
 
+namespace {
+
+// The shapes that can be changed, by number (null for the rest).
+const std::vector<const Editable*>& editableByNumber() {
+    static const std::vector<const Editable*> byNumber = [] {
+        std::vector<const Editable*> out(static_cast<std::size_t>(shapeCount()), nullptr);
+        for (const Editable& e : editables()) {
+            const int number = shapeNumber(e.name);
+            if (number >= 0) {
+                out[static_cast<std::size_t>(number)] = &e;
+            }
+        }
+        return out;
+    }();
+    return byNumber;
+}
+
+const Editable* editableFor(int number) {
+    const auto& all = editableByNumber();
+    return number >= 0 && number < static_cast<int>(all.size()) ? all[static_cast<std::size_t>(number)] : nullptr;
+}
+
+float wholeSteps(float amount) {
+    if (!std::isfinite(amount)) {
+        return 0.0f;
+    }
+    return std::round(std::clamp(amount, -1.0f, 1.0f) * static_cast<float>(kShapeEditSteps)) /
+           static_cast<float>(kShapeEditSteps);
+}
+
+// A change as 26 bits: the count in five, and each amount in seven, where
+// 64 stands for none.
+std::uint32_t packed(const ShapeEdit& e) {
+    const auto amount = [](float v) {
+        return static_cast<std::uint32_t>(std::lround(wholeSteps(v) * static_cast<float>(kShapeEditSteps)) + 64);
+    };
+    return (static_cast<std::uint32_t>(std::clamp(e.count, 0, kShapeEditMaxCount)) << 21) | (amount(e.thickness) << 14) |
+           (amount(e.sharpness) << 7) | amount(e.round);
+}
+
+ShapeEdit unpacked(std::uint32_t bits) {
+    const auto amount = [](std::uint32_t v) {
+        const int steps = std::clamp(static_cast<int>(v & 0x7fu) - 64, -kShapeEditSteps, kShapeEditSteps);
+        return static_cast<float>(steps) / static_cast<float>(kShapeEditSteps);
+    };
+    ShapeEdit e;
+    e.count = static_cast<int>((bits >> 21) & 0x1fu);
+    e.thickness = amount(bits >> 14);
+    e.sharpness = amount(bits >> 7);
+    e.round = amount(bits);
+    return e;
+}
+
+}  // namespace
+
+const ShapeEditInfo& shapeEditInfo(int number) {
+    static const ShapeEditInfo none{};
+    const Editable* editable = editableFor(number);
+    return editable ? editable->info : none;
+}
+
+ShapeEdit usableEdit(int number, const ShapeEdit& asked) {
+    const ShapeEditInfo& info = shapeEditInfo(number);
+    ShapeEdit e;
+    if (info.countHighest > 0 && asked.count > 0) {
+        e.count = std::clamp(asked.count, info.countLowest, info.countHighest);
+        if (e.count == info.countOwn) {
+            e.count = 0;  // the shape's own count is the shape as drawn
+        }
+    }
+    e.thickness = info.thickness ? wholeSteps(asked.thickness) : 0.0f;
+    e.sharpness = info.sharpness ? wholeSteps(asked.sharpness) : 0.0f;
+    e.round = info.round ? wholeSteps(asked.round) : 0.0f;
+    if (!info.sharperToo && e.round < 0.0f) {
+        e.round = 0.0f;
+    }
+    return e;
+}
+
+ShapeSample sampleShapeEdited(int number, const ShapeEdit& asked, float x, float y, float aaX, float aaY) {
+    const ShapeEdit e = usableEdit(number, asked);
+    const Editable* editable = editableFor(number);
+    if (!editable || !e.any()) {
+        return sampleShape(static_cast<SpriteShape>(std::clamp(number, 0, shapeCount() - 1)), x, y, aaX, aaY);
+    }
+    // Nothing is drawn outside the particle's own square.
+    if (std::fabs(x) > 1.0f || std::fabs(y) > 1.0f) {
+        return ShapeSample{};
+    }
+    const float px = std::max(std::max(aaX, aaY), 1e-4f);
+    ShapeSample s = editable->draw(x, y, px, e);
+    s.cover = clamp01(s.cover);
+    s.tone = std::clamp(s.tone, -1.0f, 1.0f);
+    s.shine = clamp01(s.shine);
+    return s;
+}
+
+bool drawnFromPicture(int number, const ShapeEdit& edit) {
+    return isLibraryShape(number) || (number >= 0 && number < kSpriteShapeCount && usableEdit(number, edit).any());
+}
+
 ShapeSample sampleLibraryShape(int number, float x, float y, float aaX, float aaY) {
     const auto& list = entries();
     if (number < kSpriteShapeCount || number >= static_cast<int>(list.size())) {
@@ -1722,19 +2164,19 @@ ShapeSample sampleLibraryShape(int number, float x, float y, float aaX, float aa
     return s;
 }
 
-Image drawShapePicture(int number, int size) {
+Image drawShapePicture(int number, int size, const ShapeEdit& edit) {
     Image image;
     size = std::clamp(size, 1, 4096);
     image.width = image.height = size;
     image.rgba.assign(static_cast<std::size_t>(size) * static_cast<std::size_t>(size) * 4u, 0);
     const float pixel = 2.0f / static_cast<float>(size);
-    const auto shape = static_cast<SpriteShape>(std::clamp(number, 0, shapeCount() - 1));
+    number = std::clamp(number, 0, shapeCount() - 1);
     const auto byte = [](float v) { return static_cast<std::uint8_t>(std::lround(clamp01(v) * 255.0f)); };
     for (int row = 0; row < size; ++row) {
         for (int col = 0; col < size; ++col) {
             const float x = (static_cast<float>(col) + 0.5f) * pixel - 1.0f;
             const float y = 1.0f - (static_cast<float>(row) + 0.5f) * pixel;
-            const ShapeSample s = sampleShape(shape, x, y, pixel, pixel);
+            const ShapeSample s = sampleShapeEdited(number, edit, x, y, pixel, pixel);
             std::uint8_t* out = &image.rgba[(static_cast<std::size_t>(row) * static_cast<std::size_t>(size) +
                                              static_cast<std::size_t>(col)) * 4u];
             out[0] = byte(s.tone * 0.5f + 0.5f);
@@ -1746,34 +2188,85 @@ Image drawShapePicture(int number, int size) {
     return image;
 }
 
-std::shared_ptr<const Image> shapePicture(int number, int size) {
+std::shared_ptr<const Image> shapePicture(int number, int size, const ShapeEdit& asked) {
+    struct Key {
+        int number, size;
+        std::uint32_t edit;
+        bool operator<(const Key& o) const { return std::tie(number, size, edit) < std::tie(o.number, o.size, o.edit); }
+        bool operator==(const Key& o) const { return number == o.number && size == o.size && edit == o.edit; }
+    };
     static std::mutex guard;
-    static std::map<std::pair<int, int>, std::shared_ptr<const Image>> made;
+    // A shape as drawn is kept for good. A changed one is one of endlessly
+    // many (every stop of a slider is another), so only the last few are.
+    static std::map<Key, std::shared_ptr<const Image>> made;
+    static std::vector<std::pair<Key, std::shared_ptr<const Image>>> changed;  // newest last
+    constexpr std::size_t kChangedKept = 12;
+
     number = std::clamp(number, 0, shapeCount() - 1);
     size = std::clamp(size, 8, kShapePictureSize);
-    const std::pair<int, int> key{number, size};
+    const ShapeEdit edit = usableEdit(number, asked);
+    const Key key{number, size, packed(edit)};
     {
         const std::lock_guard<std::mutex> lock(guard);
-        const auto found = made.find(key);
-        if (found != made.end()) {
-            return found->second;
+        if (!edit.any()) {
+            const auto found = made.find(key);
+            if (found != made.end()) {
+                return found->second;
+            }
+        } else {
+            for (std::size_t i = 0; i < changed.size(); ++i) {
+                if (changed[i].first == key) {
+                    auto kept = changed[i];
+                    changed.erase(changed.begin() + static_cast<std::ptrdiff_t>(i));
+                    changed.push_back(kept);
+                    return kept.second;
+                }
+            }
         }
     }
     // Drawn outside the lock: two threads may both draw the same picture
     // once, and the first to finish is the one that is kept.
-    auto drawn = std::make_shared<const Image>(drawShapePicture(number, size));
+    auto drawn = std::make_shared<const Image>(drawShapePicture(number, size, edit));
     const std::lock_guard<std::mutex> lock(guard);
-    return made.emplace(key, std::move(drawn)).first->second;
+    if (!edit.any()) {
+        return made.emplace(key, std::move(drawn)).first->second;
+    }
+    for (const auto& kept : changed) {
+        if (kept.first == key) {
+            return kept.second;
+        }
+    }
+    changed.emplace_back(key, drawn);
+    if (changed.size() > kChangedKept) {
+        changed.erase(changed.begin());
+    }
+    return drawn;
 }
 
-Id shapeTextureId(int number) { return Id{kShapeTextureBase | static_cast<std::uint64_t>(number & 0xffff)}; }
+// A shape's picture goes by an ID made of a fixed top part, the shape's
+// number in eight bits and the change to it in twenty-six.
+Id shapeTextureId(int number, const ShapeEdit& edit) {
+    const std::uint64_t shape = static_cast<std::uint64_t>(std::clamp(number, 0, 255));
+    return Id{kShapeTextureBase | (shape << 26) | packed(usableEdit(number, edit))};
+}
 
-int shapeFromTextureId(Id id) {
-    if ((id.value & ~0xffffull) != kShapeTextureBase) {
+int shapeFromTextureId(Id id, ShapeEdit* edit) {
+    if ((id.value & ~((1ull << 34) - 1ull)) != kShapeTextureBase) {
         return -1;
     }
-    const int number = static_cast<int>(id.value & 0xffffull);
-    return isLibraryShape(number) ? number : -1;
+    const int number = static_cast<int>((id.value >> 26) & 0xffull);
+    const std::uint32_t bits = static_cast<std::uint32_t>(id.value & ((1ull << 26) - 1ull));
+    if (number >= shapeCount()) {
+        return -1;
+    }
+    const ShapeEdit found = usableEdit(number, unpacked(bits));
+    if (!isLibraryShape(number) && !found.any()) {
+        return -1;  // one of the first thirty-five as drawn: the graphics card's own formula
+    }
+    if (edit) {
+        *edit = found;
+    }
+    return number;
 }
 
 }  // namespace vfx::editor

@@ -786,6 +786,7 @@ void Simulation::extract(RenderFrame& frame) const {
         batch.centerX = e.offsetX;
         batch.centerY = e.offsetY;
         batch.hold = e.hold;
+        batch.shapeEdit = e.shapeEdit;
         batch.shownStep = isHeld ? em.heldStep : step_;
         batch.program = em.p;
         batch.first = at;

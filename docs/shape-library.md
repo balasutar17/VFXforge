@@ -142,10 +142,9 @@ writes the same file again.
 - **Reference to VFX only knows the first 35.** A reference clip of
   falling leaves is rebuilt from the nearest of the old shapes; choose Leaf
   afterwards.
-- **The shapes cannot be changed yet.** A star has five points and a gear
-  has eight teeth. Shapes you can edit (how many points, how thick, how
-  round) are the next step, and the library was built for it: a shape
-  whose formula takes settings only needs its picture drawn again.
+- **Most shapes cannot be changed.** From 0.14 twenty-two can (points on
+  a star, thickness of a ring, roundness of a corner): see
+  [editable-shapes.md](editable-shapes.md). The rest are as drawn.
 - **No pictures of things in colours of their own.** Every shape is one
   colour with shading. A red cherry with a green stalk, or a gold trophy
   on a brown base, needs two layers or a picture you painted.

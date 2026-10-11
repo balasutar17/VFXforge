@@ -338,6 +338,18 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
                 e->spriteShape = static_cast<SpriteShape>(i);
             }
         }
+        // Changes to the shape's design, each held to a whole step.
+        const auto amount = [&](const char* key) {
+            const double v = sprite.get<double>(key);
+            const double steps = std::isfinite(v) ? std::round(std::clamp(v, -1.0, 1.0) * kShapeEditSteps) : 0.0;
+            return f(steps / kShapeEditSteps);
+        };
+        e->shapeEdit.count = static_cast<int>(
+            std::clamp<std::int64_t>(sprite.get<std::int64_t>("shapeCount"), 0, kShapeEditMaxCount));
+        e->shapeEdit.thickness = amount("shapeThickness");
+        e->shapeEdit.sharpness = amount("shapeSharpness");
+        e->shapeEdit.round = amount("shapeRound");
+
         const double trail = sprite.get<double>("trail");
         e->trail = std::isfinite(trail) ? std::clamp(f(trail), 0.0f, 5.0f) : 0.0f;
         const double trailWidth = sprite.get<double>("trailWidth");

@@ -46,6 +46,10 @@ What exists so far:
   name in the picker, each written once and drawn the same in the app, in
   exported frames and in Unity; see
   [docs/shape-library.md](docs/shape-library.md)
+- **shapes you can change**: points and pointiness on stars, sides on
+  polygons, thickness on rings and outlines, roundness of corners, as
+  sliders under the shape picker; see
+  [docs/editable-shapes.md](docs/editable-shapes.md)
 - **turbulence and dissolve**: particles carried about by moving air, so
   smoke winds and embers wander; and particles eaten away in ragged patches
   as they die, softly like smoke or with a white-hot edge like burning

@@ -445,11 +445,18 @@ TEST_CASE("Unity is sent a picture for each library shape an effect uses", "[sha
     CHECK(heart["shape"] == static_cast<int>(SpriteShape::Heart));
     CHECK_FALSE(heart.contains("shapePicture"));
 
-    CHECK(unityLibraryShapes(effect) == std::vector<int>{shapeNumber("leaf")});
-    CHECK(unityLibraryShapes(drawing("heart")).empty());
-    CHECK(unityLibraryShapes(drawing("trophy", "coin")) ==
-          std::vector<int>{shapeNumber("coin"), shapeNumber("trophy")});
-    CHECK(unityLibraryShapes(drawing("coin", "coin")).size() == 1);
+    const auto numbers = [](const Effect& e) {
+        std::vector<int> out;
+        for (const UnityShape& u : unityShapePictures(e)) {
+            CHECK_FALSE(u.edit.any());
+            out.push_back(u.shape);
+        }
+        return out;
+    };
+    CHECK(numbers(effect) == std::vector<int>{shapeNumber("leaf")});
+    CHECK(numbers(drawing("heart")).empty());
+    CHECK(numbers(drawing("trophy", "coin")) == std::vector<int>{shapeNumber("coin"), shapeNumber("trophy")});
+    CHECK(numbers(drawing("coin", "coin")).size() == 1);
 
     int shapeFiles = 0;
     std::string png;

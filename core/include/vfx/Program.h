@@ -92,6 +92,27 @@ enum class SpriteShape : std::uint8_t {
 inline constexpr int kSpriteShapeCount = 35;
 inline constexpr int kMaxSpriteShapes = 250;
 
+// Changes to a shape's own design, for the shapes that can be changed (see
+// the editor's ShapeLibrary.h): how many points, sides, rays or teeth it
+// has, and how thick, how pointed and how round it is. Everything at zero
+// is the shape as it was drawn. The three amounts run from -1 to 1 and are
+// kept in whole steps of 1/kShapeEditSteps, so that a setting has one exact
+// value everywhere it is drawn.
+inline constexpr int kShapeEditSteps = 63;
+inline constexpr int kShapeEditMaxCount = 31;
+
+struct ShapeEdit {
+    int count = 0;        // 0: the shape's own
+    float thickness = 0;  // below 0 thinner, above 0 thicker
+    float sharpness = 0;  // below 0 blunter, above 0 more pointed
+    float round = 0;      // below 0 sharper corners, above 0 rounder
+
+    bool any() const { return count != 0 || thickness != 0.0f || sharpness != 0.0f || round != 0.0f; }
+    friend bool operator==(const ShapeEdit& a, const ShapeEdit& b) {
+        return a.count == b.count && a.thickness == b.thickness && a.sharpness == b.sharpness && a.round == b.round;
+    }
+};
+
 struct EmitterProgram {
     Id layer;
     std::uint64_t key = 0;  // effect seed mixed with the layer's ID
@@ -173,6 +194,7 @@ struct EmitterProgram {
     Facing facing = Facing::Camera;
     float glow = 1;
     SpriteShape spriteShape = SpriteShape::Soft;
+    ShapeEdit shapeEdit;       // changes to the shape's own design
     bool alongMotion = false;  // point each particle the way it is moving
     float stretch = 0;         // seconds of travel drawn as a streak
     float tilt = 0;            // degrees leaned back, as if lying on the ground

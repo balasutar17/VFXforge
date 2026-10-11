@@ -248,6 +248,24 @@ Registry::Registry() {
             .help("Shows this layer the way hand-drawn animation is shown: this many drawings a "
                   "second, each held still until the next. 12 is animating \"on twos\", 8 \"on "
                   "threes\". 0 is smooth."),
+        // Changes to the shape's own design. They are set from the Shape
+        // control, which shows only the ones the chosen shape has.
+        P("shapeCount", "Shape Points", ValueKind::Int, integer(0))
+            .range(0, 31).ui(0, 16)
+            .help("How many points a star has, sides a polygon, rays a sunburst, teeth a gear. "
+                  "0 is the shape as it was drawn. Shapes with nothing to count ignore it."),
+        P("shapeThickness", "Shape Thickness", ValueKind::Float, num(0.0))
+            .range(-1, 1).ui(-1, 1)
+            .help("Makes a ring, an outline or the arms of a plus thinner (below 0) or thicker "
+                  "(above 0). 0 is the shape as it was drawn."),
+        P("shapeSharpness", "Shape Pointiness", ValueKind::Float, num(0.0))
+            .range(-1, 1).ui(-1, 1)
+            .help("Makes a star's points blunter (below 0) or longer and thinner (above 0). "
+                  "0 is the shape as it was drawn."),
+        P("shapeRound", "Shape Roundness", ValueKind::Float, num(0.0))
+            .range(-1, 1).ui(-1, 1)
+            .help("Makes the corners of a shape sharper (below 0) or rounder (above 0). "
+                  "0 is the shape as it was drawn."),
     }));
 
     modules_.push_back(module("sound", "Sound", Stage::Audio, {

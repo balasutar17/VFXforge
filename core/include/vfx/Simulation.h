@@ -79,6 +79,7 @@ struct RenderBatch {
     float orbitSin = 0, orbitCos = 1;  // of one whole step's turn
     float centerX = 0, centerY = 0;
     float hold = 0;          // drawings per second; 0 for every step
+    ShapeEdit shapeEdit;     // changes to the shape's own design
     // The step its particles are shown at: the frame's own step, or for a
     // held layer the step its current drawing was taken at.
     std::int64_t shownStep = 0;

@@ -12,7 +12,9 @@ open effects made in VFX Forge.
   Textures/   the picture that holds VFX Forge's first thirty-five
               particle shapes.
   Shapes/     one picture for each shape from the shape library that an
-              exported effect uses (a leaf, a trophy, a rune...). Like the
+              exported effect uses (a leaf, a trophy, a rune...), and for
+              each shape whose own settings were changed in VFX Forge (a
+              star with seven points is star_7_0_0_0.png). Like the
               picture in Textures/, these hold a shape, not colours: leave
               their import settings as they are.
   Sounds/     the sounds the effects play: your own, and VFX Forge's

@@ -652,11 +652,77 @@ int main(int argc, char* argv[]) {
                                                 }
                                                 // A moment later, so the picker's own small
                                                 // pictures have been drawn too.
-                                                QTimer::singleShot(600, &application, [&, window, third]() {
+                                                QTimer::singleShot(600, &application, [&, window, software, third, panel]() {
                                                     capture(window, selfTest, QStringLiteral("-shape-picker"),
                                                             QStringLiteral("the shape picker"));
-                                                    controller.setLibraryOpen(true);
-                                                    QTimer::singleShot(2500, &application, third);
+                                                    // Shapes that can be changed: the stars of the same
+                                                    // preset given eight sharper points, then another
+                                                    // shape picked (which comes as drawn), and that undone.
+                                                    QTextStream edits(&selfTest.report);
+                                                    const auto shapeRow = [&]() {
+                                                        // The panel's list is only built again when the
+                                                        // layer shown changes, so change it and come back.
+                                                        controller.selectLayer(0);
+                                                        controller.selectLayer(5);
+                                                        QVariantMap row;
+                                                        for (const QVariant& item : controller.controls()) {
+                                                            const QVariantMap found = item.toMap();
+                                                            if (found.value(QStringLiteral("kind")).toString() == QStringLiteral("shape")) {
+                                                                row = found;
+                                                            }
+                                                        }
+                                                        return row;
+                                                    };
+                                                    const auto pointsNow = [&]() {
+                                                        return shapeRow().value(QStringLiteral("picture")).toMap()
+                                                            .value(QStringLiteral("shapeCount")).toInt();
+                                                    };
+                                                    const QVariantMap stars = shapeRow();
+                                                    int sliders = 0;
+                                                    for (const QVariant& option : stars.value(QStringLiteral("options")).toList()) {
+                                                        const QVariantMap o = option.toMap();
+                                                        if (o.value(QStringLiteral("value")) == stars.value(QStringLiteral("value"))) {
+                                                            sliders = static_cast<int>(o.value(QStringLiteral("edits")).toList().size());
+                                                        }
+                                                    }
+                                                    controller.setPictureNumber(QStringLiteral("shapeCount"), 8);
+                                                    controller.setPictureNumber(QStringLiteral("shapeSharpness"), 0.6);
+                                                    const int eight = pointsNow();
+                                                    controller.chooseShape(stars.value(QStringLiteral("control")).toInt(),
+                                                                           QStringLiteral("starsix"));
+                                                    const int asDrawn = pointsNow();
+                                                    const QString picked = shapeRow().value(QStringLiteral("value")).toString();
+                                                    controller.undo();
+                                                    const int back = pointsNow();
+                                                    edits << "shape settings: \"" << stars.value(QStringLiteral("value")).toString()
+                                                          << "\" has " << sliders << " sliders; given " << eight
+                                                          << " points; picking \"" << picked << "\" left " << asDrawn
+                                                          << "; undo brought back " << back << "\n";
+                                                    if (sliders != 3 || eight != 8 || picked != QStringLiteral("starsix") ||
+                                                        asDrawn != 0 || back != 8) {
+                                                        edits << "FAIL: a shape's own settings did not work\n";
+                                                        selfTest.result = 1;
+                                                    }
+                                                    // Once more, so the panel's sliders show where the
+                                                    // settings now stand.
+                                                    shapeRow();
+                                                    QTimer::singleShot(500, &application, [&, window, software, third, panel]() {
+                                                        QVariant found;
+                                                        if (panel) {
+                                                            QMetaObject::invokeMethod(panel, "showControl", Q_RETURN_ARG(QVariant, found),
+                                                                                      Q_ARG(QVariant, QVariant(QStringLiteral("Shape"))));
+                                                        }
+                                                        QTimer::singleShot(600, &application, [&, window, software, third]() {
+                                                            const int lit = capture(window, selfTest, QStringLiteral("-shape-edit"),
+                                                                                    QStringLiteral("a changed shape and its sliders"));
+                                                            if (!software && lit < 500) {
+                                                                QTextStream(&selfTest.report) << "FAIL: the preset with a changed shape shows nothing\n";
+                                                                selfTest.result = 1;
+                                                            }
+                                                            controller.setLibraryOpen(true);
+                                                            QTimer::singleShot(2500, &application, third);
+                                                        });
+                                                    });
                                                 });
                                             });
                                         });

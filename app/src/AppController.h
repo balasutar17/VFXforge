@@ -220,6 +220,9 @@ public:
     Q_INVOKABLE void setControlColor(int index, const QColor& color);
     Q_INVOKABLE void setControlDirection(int index, double heading, double tilt);
     Q_INVOKABLE void setControlChoice(int index, const QString& option);
+    // Picks a particle shape, as drawn: its own settings (points,
+    // thickness...) go back to none in the same undo step.
+    Q_INVOKABLE void chooseShape(int index, const QString& option);
     Q_INVOKABLE void setControlFlag(int index, bool on);
     Q_INVOKABLE void setControlVector(int index, double x, double y, double z);
     // A value that is one number ("fixed"), a random range ("random") or a
@@ -335,6 +338,7 @@ private:
     // The settings shown now: the Simple controls, or every setting.
     std::vector<vfx::editor::ControlView> views() const;
     QVariantMap pictureInfo() const;
+    QVariantList shapeEdits(int number) const;
     QVariantMap soundInfo() const;
     vfx::Id soundModuleId() const;
     bool useSoundBytes(const std::string& wav, const QString& name);

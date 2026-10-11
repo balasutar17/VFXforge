@@ -138,7 +138,11 @@
           "trail": 0.0,
           "trailWidth": 0.6,
           "tilt": 0.0,
-          "hold": 0.0
+          "hold": 0.0,
+          "shapeCount": 0,
+          "shapeThickness": 0.0,
+          "shapeSharpness": 0.0,
+          "shapeRound": 0.0
         }
       ]
     }
