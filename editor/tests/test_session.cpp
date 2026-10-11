@@ -64,13 +64,13 @@ TEST_CASE("a new 3D session is three-dimensional", "[session]") {
     CHECK(s.particleCount() > 0);
 }
 
-TEST_CASE("the starter effect offers the ten Simple controls", "[session]") {
+TEST_CASE("the starter effect offers the eleven Simple controls", "[session]") {
     Session s;
     const Id layer = s.effect().layers[0].id;
     const auto controls = s.controls(layer);
-    REQUIRE(controls.size() == 10);
+    REQUIRE(controls.size() == 11);
     for (const char* label : {"Size", "Speed", "Amount", "Lifetime", "Color", "Glow", "Spread",
-                              "Direction", "Shape", "Blend"}) {
+                              "Direction", "Shape", "Blend", "Lie Flat"}) {
         const ControlView* c = find(controls, label);
         REQUIRE(c != nullptr);
         REQUIRE(c->desc != nullptr);
@@ -236,7 +236,7 @@ TEST_CASE("layers can be added and removed, with undo", "[session]") {
     CHECK(s.effect().layers[1].id == added);
     CHECK(s.effect().layers[1].name == "Smoke");
     CHECK(s.effect().layers[1].duration == s.effect().duration);
-    CHECK(s.controls(added).size() == 10);
+    CHECK(s.controls(added).size() == 11);
 
     play(s, 1.0);
     CHECK(s.frame().batches.size() == 2);

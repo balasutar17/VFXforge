@@ -1,5 +1,6 @@
 // VFX Forge: the desktop app.
 #include <cstdio>
+#include <variant>
 
 #include <QCoreApplication>
 #include <QDir>
@@ -301,6 +302,48 @@ int main(int argc, char* argv[]) {
             QCoreApplication::processEvents();
             capture(window, selfTest, QStringLiteral("-reference-clip"), QStringLiteral("the reference workspace with a clip"));
 
+            // Something lying on the ground: a clip of the Vortex Portal
+            // preset. It has to be read as lying flat and turning, and
+            // rebuilt with a layer that lies flat.
+            const bool portal = ref.loadPath(QStringLiteral(":/samples/reference-portal.gif"));
+            ref.waitUntilIdle(60000);
+            out << "reference portal: " << ref.report() << "\n";
+            bool lying = false, turning = false;
+            for (const QVariant& row : ref.findings()) {
+                const QVariantMap finding = row.toMap();
+                lying = lying || finding.value(QStringLiteral("key")).toString() == QStringLiteral("ground");
+                turning = turning || (finding.value(QStringLiteral("key")).toString() == QStringLiteral("groundTurn") &&
+                                      finding.value(QStringLiteral("value")).toString().contains(QStringLiteral("degrees a second")));
+            }
+            out << "read as lying on the ground: " << (lying ? "yes" : "NO") << ", turning measured: "
+                << (turning ? "yes" : "NO") << "\n";
+            if (!portal || !lying || !turning) {
+                out << "FAIL: the sample portal was not read as a turning base on the ground\n";
+                selfTest.result = 1;
+            }
+            ref.build();
+            ref.waitUntilIdle(180000);
+            out << "built from the portal: " << ref.report() << "\n";
+            int flat = 0;
+            for (const vfx::Layer& layer : controller.session().effect().layers) {
+                for (const vfx::Module& module : layer.modules) {
+                    if (module.type == "sprite") {
+                        if (const vfx::Value* tilt = module.find("tilt")) {
+                            flat += std::get<double>(*tilt) > 1.0 ? 1 : 0;
+                        }
+                    }
+                }
+            }
+            out << "layers lying flat: " << flat << "\n";
+            if (!ref.built() || flat < 1) {
+                out << "FAIL: the portal was not rebuilt with a layer lying flat\n";
+                selfTest.result = 1;
+            }
+            ref.setTime(ref.length() * 0.4);
+            QCoreApplication::processEvents();
+            capture(window, selfTest, QStringLiteral("-reference-ground"),
+                    QStringLiteral("the reference workspace with a ground effect"));
+
             // Video goes through the computer's own media support, which a
             // build machine may lack. What happens is written down either way.
             for (const char* name : {"reference-burst.mp4", "reference-burst.webm"}) {
@@ -335,8 +378,23 @@ int main(int argc, char* argv[]) {
             }
             exports();
             referenceTest();
-            controller.setLibraryOpen(true);
-            QTimer::singleShot(2500, &application, third);
+            // A ground preset in the main window: the new shapes are drawn by
+            // the graphics card here, and lying flat is done by the mesh.
+            if (!controller.openPreset(QStringLiteral("magic-circle"))) {
+                out << "FAIL: the Magic Circle preset could not be opened\n";
+                selfTest.result = 1;
+            }
+            QTimer::singleShot(2200, &application, [&, window, software, third]() {
+                QTextStream line(&selfTest.report);
+                line << "ground preset: " << controller.effectName() << ", " << controller.particleCount() << " particles\n";
+                const int shown = capture(window, selfTest, QStringLiteral("-ground"), QStringLiteral("a ground preset"));
+                if (!software && shown < 500) {
+                    line << "FAIL: the ground preset shows nothing\n";
+                    selfTest.result = 1;
+                }
+                controller.setLibraryOpen(true);
+                QTimer::singleShot(2500, &application, third);
+            });
         };
 
         // Second: a toon preset, which uses the hard-edged shapes.

@@ -291,6 +291,28 @@ namespace VFXForge.EditorTools
             {
                 renderer.renderMode = ParticleSystemRenderMode.Billboard;
                 renderer.alignment = mode == "plane" ? ParticleSystemRenderSpace.Local : ParticleSystemRenderSpace.View;
+                float tilt = (float)Num(renderInfo, "tilt", 0);
+                if (tilt > 0f)
+                {
+                    // Lying back, as if on the ground: the particle is fixed in
+                    // the effect's own space, spins about its own face (Z) and
+                    // is then leaned back about its sideways axis (X). Unity
+                    // applies Z before X, which is the order wanted.
+                    renderer.alignment = ParticleSystemRenderSpace.Local;
+                    main.startRotation3D = true;
+                    main.startRotationX = tilt * Mathf.Deg2Rad;
+                    main.startRotationY = 0f;
+                    main.startRotationZ = Curve(layer, "startRotation", 0);
+                    if (layer.ContainsKey("spin") && layer["spin"] != null)
+                    {
+                        var turning = system.rotationOverLifetime;
+                        turning.enabled = true;
+                        turning.separateAxes = true;
+                        turning.x = 0f;
+                        turning.y = 0f;
+                        turning.z = Curve(layer, "spin", 0);
+                    }
+                }
             }
             renderer.sortMode = ParticleSystemSortMode.YoungestInFront;
             renderer.sortingOrder = (int)Num(renderInfo, "order", 0);

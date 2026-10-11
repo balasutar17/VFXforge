@@ -260,6 +260,30 @@ TEST_CASE("streaks become stretched billboards", "[unity][render]") {
     CHECK(smoke["shapeName"] == "smoke");
 }
 
+TEST_CASE("a layer lying flat tells Unity how far it leans", "[unity][render]") {
+    const J root = describe(preset("magic-circle"));
+    const J circle = layerNamed(root, "Circle")["render"];
+    CHECK(circle["mode"] == "billboard");
+    CHECK(circle["tilt"].get<double>() == Catch::Approx(70.0));
+    CHECK(circle["shapeName"] == "sigil");
+    // Upright streaks are not laid flat.
+    const J beams = layerNamed(root, "Beams")["render"];
+    CHECK(beams["mode"] == "stretched");
+    CHECK_FALSE(beams.contains("tilt"));
+    CHECK(beams["shapeName"] == "beam");
+    // And a layer that faces the viewer says nothing about leaning.
+    CHECK_FALSE(layerNamed(describe(preset("soft-glow")), "Glow")["render"].contains("tilt"));
+    // The importer knows what to do with it.
+    std::string importer;
+    for (const UnityFile& f : unityHelperSources()) {
+        if (f.path == "Editor/VFXForgeImporter.cs") {
+            importer = f.text;
+        }
+    }
+    CHECK(importer.find("\"tilt\"") != std::string::npos);
+    CHECK(importer.find("startRotation3D") != std::string::npos);
+}
+
 TEST_CASE("a white-hot gradient keeps its brightness in the glow", "[unity][render]") {
     const J root = describe(preset("campfire"));
     const J flames = layerNamed(root, "Flames");

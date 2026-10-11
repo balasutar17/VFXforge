@@ -349,8 +349,26 @@ Matte matteFromGrid(const Grid& grid, const BackdropRead& backdrop) {
         amount = clamp01(amount);
         float colour[3] = {pixel[0], pixel[1], pixel[2]};
         if (amount > 1e-3f) {
-            for (int c = 0; c < 3; ++c) {
-                colour[c] = clamp01(back[c] + (pixel[c] - back[c]) / amount);
+            if (backdrop.additive) {
+                // Light added to a dark background: its colour is what was
+                // added, channel by channel, not the colour the pixel ended
+                // up. (Blue light on dark grey shows as pale blue; rebuilt
+                // from "pale blue", it would come out paler still.) On true
+                // black the two are the same.
+                float light[3], top = 0.0f;
+                for (int c = 0; c < 3; ++c) {
+                    light[c] = std::max(0.0f, pixel[c] - back[c]);
+                    top = std::max(top, light[c]);
+                }
+                if (top > 1e-4f) {
+                    for (int c = 0; c < 3; ++c) {
+                        colour[c] = clamp01(light[c] / top);
+                    }
+                }
+            } else {
+                for (int c = 0; c < 3; ++c) {
+                    colour[c] = clamp01(back[c] + (pixel[c] - back[c]) / amount);
+                }
             }
         }
         matte.cover[i] = amount > cut ? (amount - cut) * keep : 0.0f;
@@ -1079,8 +1097,9 @@ Result<ReferenceAnalysis> analyzeReference(const Reference& reference, const Ref
     ReferenceAnalysis analysis;
     int stillFrame = first;
 
+    std::vector<Matte> mattes;
+    double clipRate = 0;
     if (moving) {
-        std::vector<Matte> mattes;
         mattes.reserve(static_cast<std::size_t>(count));
         for (int f = first; f <= last; ++f) {
             if (!step(0.05f + 0.45f * static_cast<float>(f - first) / static_cast<float>(count),
@@ -1092,6 +1111,7 @@ Result<ReferenceAnalysis> analyzeReference(const Reference& reference, const Ref
         }
         bool stop = false;
         const double fps = reference.framesPerSecond * (options.speed > 0.01 ? options.speed : 1.0);
+        clipRate = fps;
         analysis.time = analyzeTime(mattes, fps, [&](float done, const char* stage) {
             return step(0.5f + 0.25f * done, stage);
         }, stop);
@@ -1122,6 +1142,9 @@ Result<ReferenceAnalysis> analyzeReference(const Reference& reference, const Ref
     const Matte matte = matteFromGrid(grid, backdrop);
     analysis.still = analyzeStill(matte, backdrop);
     analysis.stillFrame = stillFrame;
+    if (moving && analysis.still.ground) {
+        groundOverClip(mattes, clipRate, analysis.still);
+    }
     if (analysis.hasEarly) {
         const Matte early =
             matteFromGrid(makeGrid(reference.frames[static_cast<std::size_t>(analysis.earlyFrame)], options, detail), backdrop);

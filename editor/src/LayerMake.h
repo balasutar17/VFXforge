@@ -142,6 +142,10 @@ public:
         return *this;
     }
 
+    // Lays each particle back as if on the ground, seen from an angle. It
+    // still turns in its own plane. (Every layer has a Lie Flat control.)
+    Make& lieFlat(double degrees) { return put("sprite", "tilt", degrees); }
+
     // A ribbon behind each particle, with a Simple control for its length.
     Make& trail(double seconds, double width) {
         put("sprite", "trail", seconds);

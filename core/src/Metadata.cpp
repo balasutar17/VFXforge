@@ -150,7 +150,7 @@ Registry::Registry() {
                       "diamond", "heart", "streak", "flame", "puff", "burst", "crescent", "orb",
                       "glint", "blaze", "candy", "shard", "drop", "splat", "shockwave",
                       "twinkle", "flare", "rays", "swirl", "bean", "bolt",
-                      "starflash", "sliver", "shardring"})
+                      "starflash", "sliver", "shardring", "vortex", "sigil", "beam"})
             .help("What each particle looks like when it has no texture."),
         P("align", "Align", ValueKind::Enum, text("none"))
             .options({"none", "movement"})
@@ -183,6 +183,12 @@ Registry::Registry() {
             .range(0, 4).ui(0, 2)
             .help("How wide the trail starts, as a share of the particle's size. It narrows "
                   "to nothing at its end."),
+        P("tilt", "Lie Flat", ValueKind::Float, num(0.0))
+            .simple().unit("degrees").range(0, 89).ui(0, 85)
+            .help("Leans the particle back as if it lay on the ground and you saw it from an "
+                  "angle: 0 faces you, higher is flatter. It still spins in its own plane, so a "
+                  "turning ring stays a level oval. For magic circles, portals and shockwaves "
+                  "on the floor. Not used when Align is set to movement."),
     }));
 
     modules_.push_back(module("sound", "Sound", Stage::Audio, {

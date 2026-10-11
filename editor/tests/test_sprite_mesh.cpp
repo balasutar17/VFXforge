@@ -90,6 +90,58 @@ TEST_CASE("rotation turns the square counter-clockwise on screen", "[mesh]") {
     CHECK(c.y == Catch::Approx(400.0f).margin(1e-3));
 }
 
+TEST_CASE("a particle that lies flat is squashed up and down, and still turns in its own plane", "[mesh]") {
+    const auto bounds = [](const SpriteMesh& mesh, float& wide, float& tall) {
+        float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f;
+        for (const auto& v : mesh.vertices) {
+            minX = std::min(minX, v.x);
+            maxX = std::max(maxX, v.x);
+            minY = std::min(minY, v.y);
+            maxY = std::max(maxY, v.y);
+        }
+        wide = maxX - minX;
+        tall = maxY - minY;
+    };
+    SpriteInstance p;
+    p.size = 2.0f;  // 200 pixels across
+    RenderFrame frame = oneParticle(p);
+    frame.batches[0].tilt = 60.0f;  // cos 60 = a half
+    SpriteMesh mesh;
+    buildSpriteMesh(frame, flatView(), mesh);
+    REQUIRE(mesh.vertices.size() == 4);
+    float wide = 0, tall = 0;
+    bounds(mesh, wide, tall);
+    CHECK(wide == Catch::Approx(200.0f).margin(0.01f));
+    CHECK(tall == Catch::Approx(100.0f).margin(0.01f));
+
+    // Turned an eighth of a turn in its own plane, the square's corners
+    // point left, right, up and down; leaned back, it is a level diamond
+    // half as tall as it is wide. (Turning after leaning would tip it.)
+    frame.instances[0].rotation = 3.14159265f / 4.0f;
+    buildSpriteMesh(frame, flatView(), mesh);
+    bounds(mesh, wide, tall);
+    CHECK(wide == Catch::Approx(200.0f * std::sqrt(2.0f)).margin(0.05f));
+    CHECK(tall == Catch::Approx(100.0f * std::sqrt(2.0f)).margin(0.05f));
+
+    // A streak along its movement has no plane to lie in: the lean is ignored.
+    frame.instances[0].rotation = 0.0f;
+    frame.instances[0].vy = 1.0f;
+    frame.batches[0].alongMotion = true;
+    buildSpriteMesh(frame, flatView(), mesh);
+    bounds(mesh, wide, tall);
+    CHECK(tall == Catch::Approx(200.0f).margin(0.01f));
+
+    // Nor does anything lean in a 3D effect: there the camera does it.
+    RenderFrame deep = oneParticle(p, BlendMode::Alpha, false);
+    deep.batches[0].tilt = 60.0f;
+    SpriteMesh other;
+    buildSpriteMesh(deep, flatView(), other);
+    if (other.vertices.size() == 4) {
+        bounds(other, wide, tall);
+        CHECK(tall == Catch::Approx(wide).margin(0.01f * wide + 0.01f));
+    }
+}
+
 TEST_CASE("alpha particles are premultiplied; additive ones have no alpha", "[mesh]") {
     SpriteInstance p;
     p.size = 1.0f;

@@ -390,6 +390,40 @@ void main() {
         float shade = 1.0 - edge(length(vec2(max(abs(p.x + 0.04) - 0.46, 0.0), by - 0.08)) - 0.32, pixel * 2.0);
         tone = 0.3 * spot - 0.5 * shade;
         shine = spot;
+    } else if (shape == 32) {    // vortex
+        float turns = atan(p.y, p.x) / 6.2831853;
+        float arm = 0.5 + 0.5 * cos(6.2831853 * (turns * 3.0 - r * 2.2));
+        float fine = 0.5 + 0.5 * cos(6.2831853 * (turns * 7.0 - r * 3.4) + 1.3);
+        float body = arm * arm * (0.7 + 0.3 * fine);
+        float eye = clamp((r - 0.06) / 0.22, 0.0, 1.0);
+        float t = clamp((1.0 - r) / 0.5, 0.0, 1.0);
+        float rim = t * t * (3.0 - 2.0 * t);
+        cover = clamp(eye * rim * (0.16 + 0.84 * body), 0.0, 1.0);
+        shine = 0.35 * body * rim * clamp(1.0 - r / 0.6, 0.0, 1.0);
+    } else if (shape == 33) {    // sigil
+        float lines = edge(abs(r - 0.90) - 0.030, pixel);
+        lines = max(lines, edge(abs(r - 0.76) - 0.012, pixel));
+        lines = max(lines, edge(abs(r - 0.38) - 0.014, pixel));
+        lines = max(lines, edge(abs(r - 0.17) - 0.012, pixel));
+        float angle = atan(p.y, p.x);
+        if (angle < 0.0) {
+            angle += 6.2831853;
+        }
+        float a = angle * 24.0 / 6.2831853;
+        float off = 0.5 - abs(fract(a) - 0.5);
+        float arc = off * 6.2831853 * r / 24.0;
+        lines = max(lines, edge(arc - 0.011, pixel) * edge(abs(r - 0.83) - 0.035, pixel));
+        float chord = abs(abs(dot(p, vec2(0.8660254, 0.5))) - 0.37);
+        chord = min(chord, abs(abs(p.y) - 0.37));
+        chord = min(chord, abs(abs(dot(p, vec2(-0.8660254, 0.5))) - 0.37));
+        lines = max(lines, edge(chord - 0.012, pixel) * edge(r - 0.74, pixel));
+        float wash = 0.14 * sq(clamp(1.0 - r2 / (0.93 * 0.93), 0.0, 1.0));
+        cover = max(lines, wash);
+        shine = 0.45 * lines;
+    } else if (shape == 34) {    // beam
+        float along = clamp((p.x + 1.0) / 0.3, 0.0, 1.0) * clamp((1.0 - p.x) / 1.4, 0.0, 1.0);
+        cover = sq(clamp(1.0 - abs(p.y) / 0.6, 0.0, 1.0)) * along;
+        shine = 0.8 * clamp(1.0 - abs(p.y) / 0.12, 0.0, 1.0) * along;
     }
 
     // Toon shading: a highlight moves toward white at the particle's own

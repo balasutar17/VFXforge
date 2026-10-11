@@ -605,6 +605,11 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
         render["lengthScale"] = 1.0;
     } else {
         render["mode"] = onPlane ? "plane" : "billboard";
+        if (e.flat && e.tilt > 0.0f) {
+            // Lying back, in degrees. Unity turns the particle about its own
+            // face first and leans it back second, as the preview does.
+            render["tilt"] = round6(e.tilt);
+        }
     }
     render["shape"] = static_cast<int>(e.spriteShape);
     render["shapeName"] = shapeName(e.spriteShape);

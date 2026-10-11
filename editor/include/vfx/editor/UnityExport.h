@@ -33,7 +33,7 @@ inline constexpr int kUnityFormatVersion = 1;
 // The atlas: every built-in shape in a grid. Coverage in alpha, toon tone in
 // red (and blue; 0.5 means no tone), gloss in green.
 inline constexpr int kAtlasColumns = 8;
-inline constexpr int kAtlasRows = 4;
+inline constexpr int kAtlasRows = 5;
 inline constexpr int kAtlasTile = 256;
 
 // One of the artist's pictures, as it travels to Unity.

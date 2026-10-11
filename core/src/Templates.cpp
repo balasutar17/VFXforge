@@ -1,5 +1,7 @@
 #include "vfx/Templates.h"
 
+#include "vfx/DetMath.h"
+
 #include <utility>
 #include <vector>
 
@@ -48,13 +50,24 @@ Layer makeBasicEmitter(const IdSource& newId, std::string name) {
     bind("Direction", initial, "direction");
     bind("Shape", sprite, "shape");
     bind("Blend", sprite, "blend");
+    // Lie Flat came later. Its ID is worked out from the sprite module's
+    // rather than taken from the source of new IDs, so that everything made
+    // after this layer still gets the IDs it always got. (A layer's ID seeds
+    // its random numbers: shift the IDs and every effect scatters anew.)
+    {
+        SimpleControl control;
+        control.id = Id{det::mix64(sprite.value ^ 0x4C6965466C6174ull) | 1ull};
+        control.label = "Lie Flat";
+        control.targets.push_back(ControlTarget{sprite, "tilt"});
+        layer.controls.push_back(std::move(control));
+    }
 
     // The order an artist reads them in: what it looks like first, then how
     // much of it there is, then how it moves. The IDs above are handed out
     // in the older order so that effects made by earlier versions and by
     // this one get the same IDs for the same things.
     const char* order[] = {"Shape", "Color", "Blend", "Glow", "Size", "Amount", "Lifetime",
-                           "Speed", "Spread", "Direction"};
+                           "Speed", "Spread", "Direction", "Lie Flat"};
     std::vector<SimpleControl> arranged;
     for (const char* label : order) {
         for (SimpleControl& control : layer.controls) {

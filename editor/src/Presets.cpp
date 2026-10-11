@@ -9,6 +9,7 @@
 #include "vfx/editor/Session.h"
 #include "vfx/editor/SoundLibrary.h"
 
+#include "EffectTools.h"
 #include "LayerMake.h"
 
 namespace vfx::editor {
@@ -931,6 +932,101 @@ Effect emberFlash(const IdSource& id) { return flash(id, "Ember Flash", 0xc0401a
 
 // ----------------------------------------------------------------- table
 
+// ---------------------------------------------------------------- ground
+// Effects that lie on the floor and are seen from an angle: a shape laid
+// flat and turning in its own plane, light rising out of it. The way a
+// game engine builds them: a flat disc with a picture on it, upright
+// streaks of light, and small sparks drifting up.
+
+// A sprite that is there for the whole of a looping effect must hand over
+// to its next self without a blink; see keepWholePass.
+Effect seamless(Effect e) {
+    tools::keepWholePass(e);
+    return e;
+}
+
+// Thin shafts of light standing on the ground, each fading in and out.
+void risingBeams(Effect& e, const IdSource& id, unsigned colour, double width, double height, double perSecond) {
+    Make m(id, "Beams");
+    m.rate(perSecond).rect(width, 0.25 * width).at(0.0, 0.5 * height)
+        .life(0.9, 1.7).speed(0.25, 0.6).aim(90, 0).size(0.1, 0.22).color(colour).gravity(0, 0)
+        .sizeOver({{0, 0.6}, {0.3, 1.0}, {1, 0.7}}).fade({{0, 0}, {0.25, 1}, {0.6, 0.8}, {1, 0}})
+        .look("beam").additive().glow(1.3).streak(height / 0.42);
+    add(e, m);
+}
+
+void risingMotes(Effect& e, const IdSource& id, unsigned colour, double width, double perSecond) {
+    Make m(id, "Motes");
+    m.rate(perSecond).rect(width, 0.3 * width).at(0.0, 0.2)
+        .life(0.9, 1.8).speed(0.5, 1.5).aim(90, 12).size(0.05, 0.12).color(colour).gravity(0, 0.4)
+        .sizeOver({{0, 0}, {0.25, 1.0}, {1, 0}}).solid().look("disc").additive().glow(1.4);
+    add(e, m);
+}
+
+Effect magicCircle(const IdSource& id) {
+    const double tilt = 70.0;
+    Effect e = begin(id, "Magic Circle", 6.0);
+    add(e, Make(id, "Ground glow").burst(1).life(6.0, 6.0).speed(0, 0).size(8.2, 8.2).color(0x1583ff, 0.6)
+               .gravity(0, 0).sizeOver({{0, 1.0}, {0.5, 1.06}, {1, 1.0}}).solid().look("soft").additive()
+               .lieFlat(tilt).sound("shimmer", false, 0.0, 0.7));
+    add(e, Make(id, "Circle").burst(1).life(6.0, 6.0).speed(0, 0).size(6.4, 6.4).color(0x35c8ff)
+               .gravity(0, 0).spin(30, 30).solid().look("sigil").additive().glow(1.0).lieFlat(tilt));
+    add(e, Make(id, "Inner circle").burst(1).life(6.0, 6.0).speed(0, 0).size(3.3, 3.3).color(0x7fe6ff)
+               .gravity(0, 0).spin(-60, -60).solid().look("sigil").additive().glow(1.0).lieFlat(tilt));
+    add(e, Make(id, "Pulse").rate(0.5).life(2.0, 2.0).speed(0, 0).size(7.0, 7.0).color(0x8fe9ff)
+               .gravity(0, 0).sizeOver({{0, 0.25}, {1, 1.0}}).fade({{0, 0}, {0.15, 0.7}, {1, 0}})
+               .look("ring").additive().lieFlat(tilt));
+    add(e, Make(id, "Core").burst(1).life(6.0, 6.0).speed(0, 0).size(2.4, 2.4).color(0xbff3ff, 0.7)
+               .gravity(0, 0).sizeOver({{0, 1.0}, {0.25, 1.12}, {0.5, 1.0}, {0.75, 1.12}, {1, 1.0}})
+               .solid().look("soft").additive().lieFlat(tilt));
+    risingBeams(e, id, 0x9fe8ff, 3.6, 3.2, 7.0);
+    risingMotes(e, id, 0xd8f8ff, 4.4, 12.0);
+    return seamless(e);
+}
+
+Effect vortexPortal(const IdSource& id) {
+    const double tilt = 66.0;
+    Effect e = begin(id, "Vortex Portal", 6.0);
+    add(e, Make(id, "Ground glow").burst(1).life(6.0, 6.0).speed(0, 0).size(8.6, 8.6).color(0x2b35ff, 0.55)
+               .gravity(0, 0).sizeOver({{0, 1.0}, {0.5, 1.05}, {1, 1.0}}).solid().look("soft").additive()
+               .lieFlat(tilt).sound("shimmer", false, 0.0, 0.7));
+    add(e, Make(id, "Vortex").burst(1).life(6.0, 6.0).speed(0, 0).size(7.4, 7.4).color(0x3560ff)
+               .gravity(0, 0).spin(60, 60).solid().look("vortex").additive().glow(1.25).lieFlat(tilt));
+    add(e, Make(id, "Inner vortex").burst(1).life(6.0, 6.0).speed(0, 0).size(4.8, 4.8).turn(50, 50)
+               .color(0x8f4dff).gravity(0, 0).spin(120, 120).solid().look("vortex").additive().glow(1.2)
+               .lieFlat(tilt));
+    add(e, Make(id, "Wisps").rate(1.5).life(2.0, 2.0).speed(0, 0).size(5.0, 7.0).turn(0, 360)
+               .color(0x4fd0ff, 0.6).gravity(0, 0).spin(80, 110).sizeOver({{0, 0.7}, {1, 1.1}})
+               .fade({{0, 0}, {0.35, 1}, {1, 0}}).look("vortex").additive().lieFlat(tilt));
+    add(e, Make(id, "Core").burst(1).life(6.0, 6.0).speed(0, 0).size(2.1, 2.1).color(0xf3e9ff)
+               .gravity(0, 0).sizeOver({{0, 1.0}, {0.25, 1.14}, {0.5, 1.0}, {0.75, 1.14}, {1, 1.0}})
+               .solid().look("soft").additive().glow(1.5).lieFlat(tilt));
+    risingBeams(e, id, 0x8fc4ff, 2.2, 3.4, 5.0);
+    risingMotes(e, id, 0xe2d8ff, 3.6, 9.0);
+    return seamless(e);
+}
+
+Effect groundSlam(const IdSource& id) {
+    const double tilt = 68.0;
+    Effect e = begin(id, "Ground Slam", 1.4);
+    add(e, Make(id, "Flash").burst(1).life(0.22, 0.22).speed(0, 0).size(7.0, 7.0).color(0xfff1d0)
+               .gravity(0, 0).sizeOver({{0, 0.4}, {1, 1.0}}).fade({{0, 1}, {1, 0}}).look("soft").additive()
+               .glow(1.6).lieFlat(tilt).sound("boom", true));
+    add(e, Make(id, "Shockwave").burst(1).life(0.6, 0.6).speed(0, 0).size(9.0, 9.0).color(0xffd9a0)
+               .gravity(0, 0).sizeOver({{0, 0.12}, {0.35, 0.75}, {1, 1.0}}).fade({{0, 1}, {0.5, 0.8}, {1, 0}})
+               .look("shockwave").additive().glow(1.2).lieFlat(tilt));
+    add(e, Make(id, "Second ring").from(0.08, 1.0).burst(1).life(0.7, 0.7).speed(0, 0).size(6.0, 6.0)
+               .color(0xffb066).gravity(0, 0).sizeOver({{0, 0.1}, {0.4, 0.8}, {1, 1.0}})
+               .fade({{0, 0.9}, {1, 0}}).look("ring").additive().lieFlat(tilt));
+    add(e, Make(id, "Dust").burst(14).rect(3.0, 0.5).life(0.6, 1.1).speed(0.6, 2.4).aim(90, 80)
+               .size(0.9, 1.7).color(0xb9a48c, 0.8).gravity(0, 0.3).drag(2.4)
+               .sizeOver({{0, 0.5}, {1, 1.5}}).fade({{0, 0.8}, {0.4, 0.5}, {1, 0}}).look("smoke"));
+    add(e, Make(id, "Chips").burst(16).rect(2.2, 0.3).life(0.5, 0.9).speed(3.0, 7.0).aim(90, 50)
+               .size(0.1, 0.24).turn(0, 360).color(0xe8cfa4).gravity(0, -12).spin(-400, 400)
+               .fade({{0, 1}, {0.8, 1}, {1, 0}}).look("shard"));
+    return e;
+}
+
 struct Entry {
     PresetInfo info;
     Effect (*build)(const IdSource&);
@@ -1015,6 +1111,10 @@ const std::vector<Entry>& table() {
         {describe("firework-sparks", "Firework Sparks", "Light and energy", "Sparks with trails, falling as they fade.", 0, -0.5f, 8, 0.6), fireworkSparks},
         {describe("lightning-strike", "Lightning Strike", "Light and energy", "A flickering bolt of electricity.", 0, 0, 7, 0.08), lightningStrike},
         {describe("electric-orb", "Electric Orb", "Light and energy", "A ball of crackling arcs.", 0, 0, 5, 1.0), electricOrb},
+
+        {describe("magic-circle", "Magic Circle", "Ground and portals", "A turning circle of runes on the floor, with light rising from it.", 0, 0.9f, 6.6f, 2.0), magicCircle},
+        {describe("vortex-portal", "Vortex Portal", "Ground and portals", "A whirlpool of light lying on the ground, with beams and sparks.", 0, 0.9f, 6.8f, 2.0), vortexPortal},
+        {describe("ground-slam", "Ground Slam", "Ground and portals", "A shockwave racing across the floor, with dust and chips.", 0, 0.8f, 7.0f, 0.18), groundSlam},
 
         {describe("gold-flash", "Gold Flash", "Flashes", "A burst of white spikes in a golden glow.", 0, 0, 5.6f, 0.08), goldFlash},
         {describe("ice-flash", "Ice Flash", "Flashes", "A burst of white spikes in a blue glow.", 0, 0, 5.6f, 0.08), iceFlash},

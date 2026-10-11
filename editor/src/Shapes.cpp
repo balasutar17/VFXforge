@@ -524,6 +524,68 @@ ShapeSample sampleShape(SpriteShape shape, float x, float y, float aaX, float aa
             out.shine = spot;
             break;
         }
+
+        case SpriteShape::Vortex: {
+            // A whirl of light: three soft arms winding outward round an
+            // open eye, broken up by a finer set, fading to nothing at the
+            // rim. Laid flat and spun, it is a portal.
+            const float angle = std::atan2(y, x);
+            const float turns = angle / 6.2831853f;
+            const float arm = 0.5f + 0.5f * std::cos(6.2831853f * (turns * 3.0f - r * 2.2f));
+            const float fine = 0.5f + 0.5f * std::cos(6.2831853f * (turns * 7.0f - r * 3.4f) + 1.3f);
+            const float body = arm * arm * (0.7f + 0.3f * fine);
+            const float eye = clamp01((r - 0.06f) / 0.22f);
+            const float t = clamp01((1.0f - r) / 0.5f);
+            const float rim = t * t * (3.0f - 2.0f * t);
+            out.cover = clamp01(eye * rim * (0.16f + 0.84f * body));
+            out.shine = 0.35f * body * rim * clamp01(1.0f - r / 0.6f);
+            break;
+        }
+
+        case SpriteShape::Sigil: {
+            // A magic circle: a bold outer ring, a fine ring inside it with
+            // tick marks between the two, a six-pointed star, and two small
+            // rings round the centre. Crisp lines over a faint wash.
+            const auto line = [&](float distance, float half) { return edge(std::fabs(distance) - half, pixel); };
+            float lines = line(r - 0.90f, 0.030f);
+            lines = std::max(lines, line(r - 0.76f, 0.012f));
+            lines = std::max(lines, line(r - 0.38f, 0.014f));
+            lines = std::max(lines, line(r - 0.17f, 0.012f));
+            // Twenty-four ticks between the two outer rings.
+            float angle = std::atan2(y, x);
+            if (angle < 0.0f) {
+                angle += 6.2831853f;
+            }
+            const float a = angle * 24.0f / 6.2831853f;
+            const float off = 0.5f - std::fabs(a - std::floor(a) - 0.5f);  // 0 on a tick, 0.5 between two
+            const float arc = off * 6.2831853f * r / 24.0f;
+            lines = std::max(lines, edge(arc - 0.011f, pixel) * line(r - 0.83f, 0.035f));
+            // The star: every chord of the 0.74 circle that lies half that
+            // radius from the centre, in six directions. Three normals do,
+            // because a chord and its opposite share one.
+            static const float nx[3] = {0.8660254f, 0.0f, -0.8660254f};
+            static const float ny[3] = {0.5f, 1.0f, 0.5f};
+            float chord = 1e9f;
+            for (int k = 0; k < 3; ++k) {
+                chord = std::min(chord, std::fabs(std::fabs(x * nx[k] + y * ny[k]) - 0.37f));
+            }
+            lines = std::max(lines, edge(chord - 0.012f, pixel) * edge(r - 0.74f, pixel));
+            const float wash = 0.14f * sq(clamp01(1.0f - r2 / sq(0.93f)));
+            out.cover = std::max(lines, wash);
+            out.shine = 0.45f * lines;
+            break;
+        }
+
+        case SpriteShape::Beam: {
+            // A shaft of light along x: it comes up quickly at the tail end,
+            // fades away toward the tip, and has a white-hot thread down
+            // its middle. With Align set to movement and some Stretch, a
+            // pillar of light.
+            const float along = clamp01((x + 1.0f) / 0.3f) * clamp01((1.0f - x) / 1.4f);
+            out.cover = sq(clamp01(1.0f - std::fabs(y) / 0.6f)) * along;
+            out.shine = 0.8f * clamp01(1.0f - std::fabs(y) / 0.12f) * along;
+            break;
+        }
     }
     return out;
 }
@@ -537,7 +599,7 @@ const char* shapeName(SpriteShape shape) {
         "soft", "disc", "ring", "bubble", "sparkle", "star", "smoke", "square", "diamond",
         "heart", "streak", "flame", "puff", "burst", "crescent", "orb", "glint", "blaze",
         "candy", "shard", "drop", "splat", "shockwave", "twinkle", "flare", "rays", "swirl", "bean", "bolt",
-        "starflash", "sliver", "shardring"};
+        "starflash", "sliver", "shardring", "vortex", "sigil", "beam"};
     const auto i = static_cast<int>(shape);
     return i >= 0 && i < kSpriteShapeCount ? names[i] : "soft";
 }

@@ -1348,7 +1348,8 @@ Rectangle {
                             text: "•  Following single particles through a clip, and correcting that by hand.\n"
                                 + "•  Editing the curves on a timeline (the curves are made and saved; the Advanced and Expert editors to change them are not built yet).\n"
                                 + "•  Optional AI models for cutting out busy backgrounds and following motion. None is used or downloaded.\n"
-                                + "•  Heat haze and distortion, swirling motion, beams and cones as meshes, depth.\n"
+                                + "•  Heat haze and distortion, swirling motion, beams and cones as meshes.\n"
+                                + "•  True depth. Something lying on the ground is one flat shape leaned back: its far side is not smaller than its near side, and only a round base seen level is read that way.\n"
                                 + "•  Parts of a burst that only show for a moment in the middle of it: the opening flash and the main part are read; anything else brief is not."
                         }
                         Item { Layout.preferredHeight: 12 }

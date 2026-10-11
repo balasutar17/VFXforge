@@ -38,6 +38,10 @@ struct RenderBatch {
     SpriteShape shape = SpriteShape::Soft;
     bool alongMotion = false;  // point each particle the way it is moving
     float stretch = 0;         // seconds of travel drawn as a streak
+    // Degrees the sprite leans back from facing the viewer, as if it lay on
+    // the ground and were seen from an angle. It still turns in its own
+    // plane, so a spinning ring stays a level oval. Flat effects only.
+    float tilt = 0;
     int columns = 1, rows = 1; // the texture's sprite-sheet grid
 
     // Trails. The path a particle took is worked out backwards from where

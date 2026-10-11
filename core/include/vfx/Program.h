@@ -67,9 +67,10 @@ enum class SpriteShape : std::uint8_t {
     Soft, Disc, Ring, Bubble, Sparkle, Star, Smoke, Square, Diamond, Heart, Streak, Flame,
     Puff, Burst, Crescent, Orb, Glint, Blaze,
     Candy, Shard, Drop, Splat, Shockwave, Twinkle, Flare, Rays, Swirl, Bean, Bolt,
-    Starflash, Sliver, Shardring
+    Starflash, Sliver, Shardring,
+    Vortex, Sigil, Beam
 };
-inline constexpr int kSpriteShapeCount = 32;
+inline constexpr int kSpriteShapeCount = 35;
 
 struct EmitterProgram {
     Id layer;
@@ -126,6 +127,7 @@ struct EmitterProgram {
     SpriteShape spriteShape = SpriteShape::Soft;
     bool alongMotion = false;  // point each particle the way it is moving
     float stretch = 0;         // seconds of travel drawn as a streak
+    float tilt = 0;            // degrees leaned back, as if lying on the ground
 
     // A sprite sheet: the texture cut into columns x rows pictures, of which
     // the first `frames` are used. One picture when there is no texture.

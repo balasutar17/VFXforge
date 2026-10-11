@@ -29,6 +29,9 @@ What exists so far:
 - **reference to VFX**: bring a picture, a GIF or a short video of an effect
   and get editable layers rebuilt from it, with a side-by-side comparison;
   see [docs/reference.md](docs/reference.md)
+- **effects on the ground**: any layer can lie flat (a magic circle, a
+  portal, a shockwave across the floor) and still turn in its own plane, with
+  shafts of light standing on it; see [docs/ground.md](docs/ground.md)
 - **export to Unity**: a prefab built from Unity's Particle System, a
   `.unitypackage`, or animation frames and sprite sheets; see
   [docs/export.md](docs/export.md)

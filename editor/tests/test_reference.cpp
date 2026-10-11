@@ -15,11 +15,14 @@
 #include "vfx/Serialize.h"
 #include "vfx/Simulation.h"
 #include "vfx/editor/Compare.h"
+#include "vfx/editor/Picture.h"
+#include "vfx/editor/Presets.h"
 #include "vfx/editor/Reconstruct.h"
 #include "vfx/editor/Reference.h"
 #include "vfx/editor/Refine.h"
 #include "vfx/editor/Session.h"
 #include "vfx/editor/Shapes.h"
+#include "vfx/editor/SpriteMesh.h"
 
 using namespace vfx;
 using namespace vfx::editor;
@@ -1252,6 +1255,352 @@ TEST_CASE("what is meant to stay never blinks out between one pass and the next"
     IdGenerator ids(82);
     const Reconstruction built = reconstruct(comet.value(), {}, counting(ids));
     CHECK(blinks(built.effect) == 0);
+}
+
+// ------------------------------------------------------------ on the ground
+
+namespace {
+
+// A preset photographed at one moment, framed as the library frames it.
+Image photograph(const char* id, double time, int width = 384, int height = 320) {
+    IdGenerator ids(7);
+    auto made = makePreset(id, counting(ids));
+    REQUIRE(made.ok());
+    const PresetInfo* info = findPreset(id);
+    REQUIRE(info);
+    Simulation simulation(compileEffect(made.value()));
+    simulation.seek(static_cast<std::int64_t>(std::llround(time / kSimulationStep)));
+    RenderFrame frame;
+    simulation.extract(frame);
+    View view;
+    view.width = static_cast<float>(width);
+    view.height = static_cast<float>(height);
+    view.centerX = info->viewX;
+    view.centerY = info->viewY;
+    view.unitsHigh = info->viewHeight;
+    SpriteMesh mesh;
+    buildSpriteMesh(frame, view, mesh);
+    const Picture p = drawPicture(mesh, width, height, ScreenColor{0.043f, 0.047f, 0.059f});
+    Image image;
+    image.width = p.width;
+    image.height = p.height;
+    image.rgba = p.rgba;
+    return image;
+}
+
+// An oval of light: a round glow seen from an angle.
+std::function<float(float, float)> oval(float cx, float cy, float radius, float squash, float level = 1.0f) {
+    return [=](float x, float y) {
+        const float dx = (x - cx) / radius, dy = (y - cy) / (radius * squash);
+        const float v = 1.0f - (dx * dx + dy * dy);
+        return v > 0.0f ? level * std::min(1.0f, 3.0f * v) : 0.0f;
+    };
+}
+
+const Layer* layerWithRole(const Effect& effect, const char* role) {
+    for (const Layer& layer : effect.layers) {
+        if (layer.role == role) {
+            return &layer;
+        }
+    }
+    return nullptr;
+}
+
+template <class T>
+T spriteValue(const Layer& layer, const char* key) {
+    for (const Module& m : layer.modules) {
+        if (m.type == "sprite") {
+            return std::get<T>(*m.find(key));
+        }
+    }
+    FAIL("the layer has no sprite module");
+    return T{};
+}
+
+}  // namespace
+
+TEST_CASE("something lying on the ground is read as a level oval, with how far it leans", "[reference][ground]") {
+    // A disc of light seen from an angle that squashes it to four tenths:
+    // it leans back about 66 degrees. Five shafts of light stand on it.
+    Canvas canvas(300, 240);
+    canvas.light(0.2f, 0.6f, 1.0f, oval(0.62f, 0.7f, 0.36f, 0.4f, 0.9f));
+    canvas.light(1.0f, 1.0f, 1.0f, oval(0.62f, 0.7f, 0.09f, 0.4f));
+    for (int i = 0; i < 5; ++i) {
+        const float x = 0.42f + 0.1f * static_cast<float>(i);
+        const float top = 0.2f + 0.05f * static_cast<float>(i % 3);
+        canvas.light(0.6f, 0.9f, 1.0f, [=](float px, float py) {
+            return std::fabs(px - x) < 0.006f && py > top && py < 0.7f ? 0.9f : 0.0f;
+        });
+    }
+    const auto analysed = analyzeReference(still(canvas.image()), {});
+    REQUIRE(analysed.ok());
+    const StillAnalysis& s = analysed.value().still;
+    REQUIRE(s.ground);
+    CHECK(s.groundTilt == Approx(66.4f).margin(6.0f));
+    CHECK(s.groundX == Approx(0.62f * 240.0f / 300.0f).margin(0.03f));
+    CHECK(s.groundY == Approx(0.7f).margin(0.04f));
+    CHECK(s.groundRadius == Approx(0.34f).margin(0.05f));
+    CHECK(s.groundCore);
+    CHECK(s.groundColour.b > 0.8f);
+    CHECK(s.groundColour.r < 0.5f);
+    CHECK_FALSE(s.groundHollow);
+    CHECK(s.groundPattern == "glow");
+    CHECK(s.beams == 5);
+    CHECK(s.beamTallest == Approx(0.5f).margin(0.06f));  // from the base's middle to the top of the tallest
+    CHECK(s.beamAt.size() == 5);
+    // The shafts are not counted a second time as streaks, nor the base as a shape.
+    CHECK(s.streaks.count == 0);
+    CHECK_FALSE(s.hasBody);
+    CHECK_FALSE(s.comet);
+    // The report says so in words, and says what it cannot know.
+    const Finding* ground = finding(analysed.value(), "ground");
+    REQUIRE(ground);
+    CHECK(ground->basis == Basis::Observed);
+    CHECK(finding(analysed.value(), "beams"));
+    bool unsure = false;
+    for (const std::string& u : analysed.value().uncertain) {
+        unsure = unsure || u.find("leans back") != std::string::npos;
+    }
+    CHECK(unsure);
+}
+
+TEST_CASE("what is not on the ground is not read as if it were", "[reference][ground]") {
+    // A round glow faces the viewer.
+    {
+        Canvas canvas(240, 240);
+        canvas.light(0.3f, 0.7f, 1.0f, glow(0.5f, 0.5f, 0.3f));
+        CHECK_FALSE(analyzeReference(still(canvas.image()), {}).value().still.ground);
+    }
+    // A crisp, filled oval with nothing rising from it is a drawn shape.
+    {
+        Canvas canvas(240, 240, 0.1f, 0.1f, 0.12f);
+        canvas.paint(0.9f, 0.3f, 0.3f, [](float x, float y) {
+            const float dx = (x - 0.5f) / 0.3f, dy = (y - 0.5f) / 0.15f;
+            return std::clamp((1.0f - (dx * dx + dy * dy)) / 0.04f, 0.0f, 1.0f);
+        });
+        CHECK_FALSE(analyzeReference(still(canvas.image()), {}).value().still.ground);
+    }
+    // Pieces scattered over an oval patch are pieces.
+    {
+        Canvas canvas(300, 240);
+        Dice dice;
+        for (int i = 0; i < 22; ++i) {
+            const float a = dice.next() * 2.0f * kPi, d = std::sqrt(dice.next());
+            canvas.light(1.0f, 0.8f, 0.2f, disc(0.62f + std::cos(a) * d * 0.4f, 0.5f + std::sin(a) * d * 0.16f, 0.02f));
+        }
+        CHECK_FALSE(analyzeReference(still(canvas.image()), {}).value().still.ground);
+    }
+    // But a ring seen from an angle is a ring on the ground, crisp or not.
+    {
+        Canvas canvas(300, 240);
+        canvas.light(1.0f, 0.8f, 0.5f, [](float x, float y) {
+            const float dx = (x - 0.62f) / 0.4f, dy = (y - 0.6f) / 0.16f;
+            const float r = std::sqrt(dx * dx + dy * dy);
+            return std::clamp((0.08f - std::fabs(r - 0.9f)) / 0.02f, 0.0f, 1.0f);
+        });
+        const StillAnalysis s = analyzeReference(still(canvas.image()), {}).value().still;
+        REQUIRE(s.ground);
+        CHECK(s.groundHollow);
+        CHECK(s.groundPattern == "ring");
+        CHECK(s.groundTilt == Approx(66.4f).margin(7.0f));
+    }
+}
+
+TEST_CASE("the ground presets, photographed, are read back as what they are", "[reference][ground]") {
+    {
+        const StillAnalysis s = analyzeReference(still(photograph("magic-circle", 2.4)), {}).value().still;
+        REQUIRE(s.ground);
+        CHECK(s.groundPattern == "sigil");
+        CHECK(s.groundTilt == Approx(70.0f).margin(5.0f));
+        CHECK(s.beams >= 3);
+    }
+    {
+        const StillAnalysis s = analyzeReference(still(photograph("vortex-portal", 2.4)), {}).value().still;
+        REQUIRE(s.ground);
+        CAPTURE(s.groundSwirl, s.groundFine, s.groundRings, s.groundLines);
+        CHECK(s.groundPattern == "vortex");
+        CHECK(s.groundTilt == Approx(66.0f).margin(7.0f));  // a whirl's edge is soft: the oval is less sure
+        CHECK(s.groundCore);
+        CHECK(s.beams >= 2);
+    }
+    // And nothing else in the library is mistaken for one.
+    // (Each is looked at three times in its life: its particles are
+    // scattered differently each time.)
+    for (const PresetInfo& info : presets()) {
+        if (info.category == "Ground and portals") {
+            continue;
+        }
+        for (const double share : {0.5, 1.0, 1.6}) {
+            CAPTURE(info.id, share);
+            const auto analysed = analyzeReference(still(photograph(info.id.c_str(), info.previewTime * share)), {});
+            if (analysed.ok()) {
+                CHECK_FALSE(analysed.value().still.ground);
+            }
+        }
+    }
+}
+
+TEST_CASE("a turning base is followed through a clip, and rebuilt lying flat and turning", "[reference][ground]") {
+    // The Vortex Portal preset, filmed: its whirls turn counter-clockwise
+    // at 60 to 120 degrees a second.
+    Reference clip;
+    clip.name = "portal";
+    clip.framesPerSecond = 24;
+    for (int f = 0; f < 36; ++f) {
+        clip.frames.push_back(photograph("vortex-portal", 2.0 + f / 24.0, 256, 214));
+    }
+    const auto analysed = analyzeReference(clip, {});
+    REQUIRE(analysed.ok());
+    const StillAnalysis& s = analysed.value().still;
+    REQUIRE(s.ground);
+    CHECK(s.groundPattern == "vortex");
+    CHECK(s.groundTurnConfidence >= 0.45f);
+    CHECK(s.groundTurnConfidence <= 0.9f);  // never "certain"
+    CHECK(s.groundTurn > 45.0f);
+    CHECK(s.groundTurn < 130.0f);
+    const Finding* turn = finding(analysed.value(), "groundTurn");
+    REQUIRE(turn);
+    CHECK(turn->basis == Basis::Observed);
+    CHECK(turn->value.find("counter-clockwise") != std::string::npos);
+
+    IdGenerator ids(91);
+    const Reconstruction built = reconstruct(analysed.value(), {}, counting(ids));
+    const Effect& e = built.effect;
+    CHECK(e.loop == "loop");
+    const Layer* base = layerWithRole(e, "body");
+    REQUIRE(base);
+    CHECK(spriteValue<std::string>(*base, "shape") == "vortex");
+    CHECK(spriteValue<double>(*base, "tilt") == Approx(s.groundTilt).margin(0.5));
+    double spin = 0;
+    for (const Module& m : base->modules) {
+        if (m.type == "motion") {
+            spin = std::get<Scalar>(*m.find("spin")).a;
+        }
+    }
+    CHECK(spin == Approx(s.groundTurn).margin(0.5));
+    // The effect lasts a whole number of turns, so it comes round to where it began.
+    const double turns = spin * e.duration / 360.0;
+    CHECK(turns == Approx(std::round(turns)).margin(0.02));
+    CHECK(e.duration >= 2.0);
+    // Shafts are upright streaks of the "beam" shape; nothing leans that follows its movement.
+    const Layer* beams = layerWithRole(e, "rays");
+    REQUIRE(beams);
+    CHECK(spriteValue<std::string>(*beams, "shape") == "beam");
+    CHECK(spriteValue<std::string>(*beams, "align") == "movement");
+    // Each layer says what was seen and what was assumed.
+    for (const LayerNote& note : built.layers) {
+        if (note.name == "Vortex") {
+            CHECK(note.motion == Basis::Observed);
+            CHECK(note.note.find("measured from the clip") != std::string::npos);
+        }
+        if (note.name == "Beams") {
+            CHECK(note.motion == Basis::Inferred);
+        }
+    }
+    // It is honest about being a flat shape leaned back.
+    bool said = false;
+    for (const std::string& n : built.notes) {
+        said = said || n.find("not true depth") != std::string::npos;
+    }
+    CHECK(said);
+    // And it is an ordinary effect: it saves, loads and compiles.
+    const auto again = readEffect(writeEffect(e));
+    REQUIRE(again.ok());
+    CHECK(again.value().diagnostics.empty());
+    CHECK(compileEffect(again.value().effect));
+}
+
+TEST_CASE("a still on the ground is rebuilt as something that stays; cut-outs lay the real base flat",
+          "[reference][ground][cutout]") {
+    const Reference reference = still(photograph("magic-circle", 2.4));
+    const auto analysed = analyzeReference(reference, {});
+    REQUIRE(analysed.ok());
+    REQUIRE(analysed.value().still.ground);
+
+    IdGenerator ids(92);
+    const Reconstruction plain = reconstruct(analysed.value(), {}, counting(ids));
+    const Layer* circle = layerWithRole(plain.effect, "body");
+    REQUIRE(circle);
+    CHECK(spriteValue<std::string>(*circle, "shape") == "sigil");
+    CHECK(spriteValue<double>(*circle, "tilt") > 45.0);
+    CHECK(plain.pictures.empty());
+    // It stays: one sprite living the whole pass, and its slow turn is marked as assumed.
+    for (const LayerNote& note : plain.layers) {
+        if (note.name == "Circle") {
+            CHECK(note.motion == Basis::Inferred);
+            CHECK(note.note.find("assumed") != std::string::npos);
+        }
+    }
+    // A circle of lines looks the same every sixth of a turn.
+    double spin = 0;
+    for (const Module& m : circle->modules) {
+        if (m.type == "motion") {
+            spin = std::get<Scalar>(*m.find("spin")).a;
+        }
+    }
+    REQUIRE(spin != 0.0);
+    const double sixths = spin * plain.effect.duration / 60.0;
+    CHECK(sixths == Approx(std::round(sixths)).margin(0.02));
+
+    // With cut-outs: the base as painted, stood upright as a square picture.
+    const std::vector<Cutout> cutouts = makeCutouts(reference, {}, analysed.value());
+    REQUIRE(cutouts.size() == 1);
+    CHECK(cutouts[0].part == "ground");
+    CHECK(cutouts[0].image.width == cutouts[0].image.height);
+    CHECK(cutouts[0].image.width >= 32);
+    // Its corners are clear and its middle is not.
+    const Image& lifted = cutouts[0].image;
+    CHECK(lifted.rgba[3] == 0);
+    const std::size_t middle = (static_cast<std::size_t>(lifted.height / 2) * static_cast<std::size_t>(lifted.width) +
+                                static_cast<std::size_t>(lifted.width / 2)) * 4u;
+    CHECK(lifted.rgba[middle + 3] > 100);
+
+    ReconstructOptions options;
+    options.cutouts = true;
+    IdGenerator more(93);
+    const Reconstruction lifting = reconstruct(analysed.value(), options, counting(more), &cutouts);
+    REQUIRE(lifting.pictures.size() == 1);
+    const Layer* base = layerWithRole(lifting.effect, "body");
+    REQUIRE(base);
+    CHECK(spriteValue<AssetRef>(*base, "texture").id == lifting.pictures[0].asset);
+    CHECK(spriteValue<double>(*base, "tilt") > 45.0);
+    // Shafts still rise from it as particles, and the caution about the reference's pixels is given.
+    CHECK(layerWithRole(lifting.effect, "rays"));
+    bool cautioned = false;
+    for (const LayerNote& note : lifting.layers) {
+        cautioned = cautioned || note.note.find("yours to use") != std::string::npos;
+    }
+    CHECK(cautioned);
+
+    // Rebuilt with the built-in parts and photographed, it is still read as
+    // a circle on the ground: the rebuild and the reading agree.
+    const Placement placement = placementOf(plain);
+    const Picture photo = drawLikeReference(plain.effect, placement, analysed.value().still, 384, 320, placement.peakTime);
+    Image image;
+    image.width = photo.width;
+    image.height = photo.height;
+    image.rgba = photo.rgba;
+    const StillAnalysis again = analyzeReference(still(image), {}).value().still;
+    REQUIRE(again.ground);
+    CHECK(again.groundTilt == Approx(analysed.value().still.groundTilt).margin(6.0f));
+    CHECK(again.groundRadius == Approx(analysed.value().still.groundRadius).margin(0.08f));
+}
+
+TEST_CASE("light added to a grey background is read as the light, not the paler colour it makes", "[reference][matte]") {
+    // Pure blue light, at a strength of six tenths, over mid-dark grey.
+    Canvas canvas(200, 200, 0.28f, 0.28f, 0.28f);
+    canvas.light(0.0f, 0.0f, 1.0f, [](float x, float y) {
+        const float dx = x - 0.5f, dy = y - 0.5f;
+        return dx * dx + dy * dy < 0.09f ? 0.6f : 0.0f;
+    });
+    const auto matte = makeMatte(canvas.image(), {});
+    REQUIRE(matte.ok());
+    const Matte& m = matte.value();
+    const std::size_t middle = m.at(m.width / 2, m.height / 2);
+    CHECK(m.cover[middle] > 0.5f);
+    CHECK(m.b[middle] == Approx(1.0f).margin(0.02f));
+    CHECK(m.r[middle] < 0.08f);  // the pixel is (0.28, 0.28, 0.88): pale blue, but the light is blue
+    CHECK(m.g[middle] < 0.08f);
 }
 
 TEST_CASE("fitting brings a mis-sized effect back toward the reference", "[reference][fit]") {

@@ -20,6 +20,7 @@ add_library(vfx_editor STATIC
     src/Reconstruct.cpp
     src/Refine.cpp
     src/Reference.cpp
+    src/ReferenceGround.cpp
     src/ReferenceStill.cpp
     src/ReferenceTime.cpp
     src/Session.cpp

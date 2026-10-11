@@ -1074,6 +1074,9 @@ StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
         detail[i] = std::max(0.0f, m.cover[i] - opened[i]);
     }
 
+    // ---- something lying on the ground, seen from an angle?
+    const bool onGround = readGround(m, basics, out);
+
     // ---- the centre
     float cx = basics.centreX, cy = basics.centreY;
     const float hotOff = std::sqrt((basics.hotX - cx) * (basics.hotX - cx) + (basics.hotY - cy) * (basics.hotY - cy));
@@ -1088,8 +1091,8 @@ StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
         }
         joined = largest >= 0.6 * basics.total;
     }
-    const bool lopsided = joined && out.elongation >= 1.7f && hotOff >= 0.25f * halfLength;
-    const bool elongated = out.elongation >= 1.9f && !lopsided;
+    const bool lopsided = !onGround && joined && out.elongation >= 1.7f && hotOff >= 0.25f * halfLength;
+    const bool elongated = !onGround && out.elongation >= 1.9f && !lopsided;
 
     // A solid main shape with a sharp edge, when there is one. A glow that
     // is merely clipped to white in the middle is not one: just outside its
@@ -1159,7 +1162,13 @@ StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
         }
     }
 
-    if (lopsided) {
+    if (onGround) {
+        // The base is the effect's middle; its oval is not a drawn shape.
+        body = nullptr;
+        manySolids = false;
+        cx = out.groundX * w;
+        cy = out.groundY * h;
+    } else if (lopsided) {
         out.comet = true;
     } else if (body) {
         cx = body->x;
@@ -1266,6 +1275,20 @@ StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
         for (const Patch& p : split) {
             pieces.bits.push_back(&p);
         }
+    }
+    if (onGround) {
+        // Bright specks on the near half of the base are part of what is
+        // drawn on it, not sparks in the air.
+        const float k = std::cos(out.groundTilt * kPi / 180.0f), baseRadius = out.groundRadius * h;
+        std::vector<const Patch*> floating;
+        for (const Patch* p : pieces.sparks) {
+            const float dx = p->x - cx, dy = (p->y - cy) / k;
+            const bool onBase = p->y > cy - 0.3f * k * baseRadius && dx * dx + dy * dy <= 1.1f * baseRadius * baseRadius;
+            if (!onBase) {
+                floating.push_back(p);
+            }
+        }
+        pieces.sparks = floating;
     }
     describeGroup(m, manySolids ? m.cover : detail, pieces.sparks, cx, cy, false, out.sparks);
     describeGroup(m, detail, pieces.streaks, cx, cy, true, out.streaks);
@@ -1378,6 +1401,14 @@ StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
         out.tailWidthStart = std::max(width[0], 2.0f) / h;
         out.tailWidthEnd = std::max(width[kStations - 1], 1.0f) / h;
         out.headRadius = 0.5f * out.tailWidthStart;
+        return out;
+    }
+
+    // ---- on the ground: the base and its shafts were read already. The
+    // thin upright pieces are those shafts, and are not counted twice.
+    if (out.ground) {
+        out.streaks = PieceGroup{};
+        out.bits = PieceGroup{};
         return out;
     }
 
@@ -1587,9 +1618,9 @@ std::vector<Cutout> makeCutouts(const Reference& reference, const ReferenceOptio
     if (reference.frames.empty() || s.comet) {
         return out;
     }
-    const bool wantRays = s.rays >= 2 && !s.hasBody;
-    const bool wantBody = s.hasBody;
-    if (!wantRays && !wantBody) {
+    const bool wantRays = !s.ground && s.rays >= 2 && !s.hasBody;
+    const bool wantBody = !s.ground && s.hasBody;
+    if (!wantRays && !wantBody && !s.ground) {
         return out;
     }
     const Image& frame = reference.frames[static_cast<std::size_t>(
@@ -1598,6 +1629,64 @@ std::vector<Cutout> makeCutouts(const Reference& reference, const ReferenceOptio
     const Grid grid = makeGrid(frame, options, 640);
     const Matte m = matteFromGrid(grid, backdropFrom(s));
     const float w = static_cast<float>(m.width), h = static_cast<float>(m.height);
+
+    if (s.ground) {
+        // The base of something lying on the ground, as painted, stood back
+        // up to face the viewer: every row of the oval is stretched back to
+        // the circle it is a view of. Laid flat again by its layer, it can
+        // turn in its own plane.
+        const float gx = s.groundX * w, gy = s.groundY * h;
+        const float k = std::cos(s.groundTilt * kPi / 180.0f);
+        const float half = 1.2f * std::max(4.0f, s.groundRadius * h);
+        // Shafts of light stand on the base. Left in, they would be painted
+        // on the floor and turn with it. So in the columns where a shaft
+        // stands, anything thin and upright is taken out of the picture
+        // first. (A fine line of the pattern that runs up and down just
+        // there goes with it; everything else is as painted.)
+        const int thin = std::max(2, static_cast<int>(std::lround(1.2f * s.beamWidth * h + 2.0f)));
+        std::vector<float> without = m.cover;
+        openAlongRows(without, m.width, m.height, thin);
+        const auto coverAt = [&](float px, float py) {
+            const float plain = readAt(m.cover, m.width, m.height, px, py);
+            for (float at : s.beamAt) {
+                if (std::fabs(px - at * w) <= 2.5f * static_cast<float>(thin)) {
+                    return std::min(plain, readAt(without, m.width, m.height, px, py));
+                }
+            }
+            return plain;
+        };
+        Cutout cut;
+        cut.part = "ground";
+        cut.centreX = s.groundX;
+        cut.centreY = s.groundY;
+        cut.halfSize = half / h;
+        const int side = std::clamp(static_cast<int>(std::lround(2.0f * half)), 16, std::max(16, maxSide));
+        cut.image.width = side;
+        cut.image.height = side;
+        cut.image.rgba.assign(static_cast<std::size_t>(side) * static_cast<std::size_t>(side) * 4u, 0);
+        float most = 0.0f;
+        for (int y = 0; y < side; ++y) {
+            for (int x = 0; x < side; ++x) {
+                const float u = (static_cast<float>(x) + 0.5f) / static_cast<float>(side) * 2.0f - 1.0f;
+                const float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(side) * 2.0f - 1.0f;
+                const float px = gx + u * half, py = gy + v * half * k;
+                // Fade to nothing at the rim, so the square never shows.
+                const float rim = clamp01((1.0f - std::sqrt(u * u + v * v)) / 0.1f);
+                const float a = clamp01(coverAt(px, py)) * rim;
+                std::uint8_t* d = &cut.image.rgba[(static_cast<std::size_t>(y) * static_cast<std::size_t>(side) +
+                                                   static_cast<std::size_t>(x)) * 4u];
+                d[0] = static_cast<std::uint8_t>(std::lround(clamp01(readAt(m.r, m.width, m.height, px, py)) * 255.0f));
+                d[1] = static_cast<std::uint8_t>(std::lround(clamp01(readAt(m.g, m.width, m.height, px, py)) * 255.0f));
+                d[2] = static_cast<std::uint8_t>(std::lround(clamp01(readAt(m.b, m.width, m.height, px, py)) * 255.0f));
+                d[3] = static_cast<std::uint8_t>(std::lround(a * 255.0f));
+                most = std::max(most, a);
+            }
+        }
+        if (most > 0.1f) {
+            out.push_back(std::move(cut));
+        }
+        return out;
+    }
     const float cx = s.centreX * w, cy = s.centreY * h;
     const float extent = std::max(2.0f, s.extent * h);
 

@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <string>
 #include <vector>
 
 #include "vfx/editor/Reference.h"
@@ -80,6 +81,26 @@ float readAt(const std::vector<float>& values, int width, int height, float x, f
 
 // The full reading of one frame, given its matte and what its background was.
 StillAnalysis analyzeStill(const Matte& matte, const BackdropRead& backdrop);
+
+// Takes thin upright things out of a picture, row by row: each point
+// becomes the least, then the greatest, within `radius` along its row.
+void openAlongRows(std::vector<float>& values, int width, int height, int radius);
+
+// Looks for an effect lying on the ground (a level oval, perhaps with
+// shafts of light on it) and fills in the ground and beam readings. False,
+// with nothing changed that matters, when the picture is not one.
+bool readGround(const Matte& matte, const Basics& basics, StillAnalysis& out);
+// For a clip of a ground effect: reads the base in frames across the clip
+// and keeps the middle of what they say (one frame's outline can mislead),
+// and measures how fast the base turns.
+void groundOverClip(const std::vector<Matte>& mattes, double framesPerSecond, StillAnalysis& still);
+// Which pattern the ground readings say: "ring", "sigil", "vortex" or "glow".
+std::string groundPatternFrom(const StillAnalysis& still);
+// How fast a ground effect's base turns in its own plane, from frames of a
+// clip `gap` seconds apart: degrees a second, counter-clockwise positive as
+// seen from above. Confidence is 0 when nothing could be followed.
+float groundTurning(const std::vector<const Matte*>& frames, double gap, const StillAnalysis& ground,
+                    float* confidence);
 
 // How many small loose pieces a frame has, and how far out they are on
 // average (grid points from the centre given). Used per frame of a clip.

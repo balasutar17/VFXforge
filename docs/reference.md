@@ -1,4 +1,4 @@
-# Reference to VFX (0.8.1)
+# Reference to VFX (0.9)
 
 Bring a picture, a GIF or a short video of an effect. VFX Forge studies it,
 builds an **editable effect** from what it finds, and shows the two side by
@@ -32,6 +32,10 @@ This page says what works, how, and where it stops.
 
 ### 2. Reading settings
 
+- **Light on a background that is not black** is read as the light that
+  was added, not the paler colour it made (blue light over grey shows as
+  pale blue), and rebuilt layers are dimmed by the room the background
+  leaves. (Until 0.9 such a reference came back washed out.)
 - **Background:** worked out (see-through, dark or light, from the picture's
   edge), or told, or a colour picked by clicking the picture. The effect is
   separated from it by "colour to alpha": the least amount of some colour
@@ -62,6 +66,7 @@ For a picture (`editor/src/ReferenceStill.cpp`):
 | Rings | A peak in brightness away from the centre that goes most of the way round; plain, soft or jagged |
 | Sparks, streaks, loose pieces | What a smoothing pass removes, sorted by size and thinness; count, sizes, distances, colours (up to three), softness, which way they sit or point |
 | A head with a tail | One joined, long shape with its brightest part at one end: length, direction, width and colour along it |
+| Something lying on the ground | See "Lying on the ground" below |
 | Several separate effects | Counted, with advice to crop |
 
 For a clip, additionally (`editor/src/ReferenceTime.cpp`), from measuring
@@ -79,6 +84,31 @@ every frame as a whole:
 | Turning | The shift that best lines up the brightness round the centre from frame to frame |
 | Sparks' speed and lifetime | From the group's average distance and count over time |
 | An opening flash | When the brightest moment comes well before the representative one and has a form of its own, it is described separately |
+
+#### Lying on the ground
+
+A magic circle, a portal or a shockwave on the floor shows in a picture as
+a level oval, usually with shafts of light on it. It is read as what it is
+(`editor/src/ReferenceGround.cpp`):
+
+| Found | How |
+| --- | --- |
+| That it is one | The bright mass, with thin things smoothed away, is a level oval clearly wider than tall; it is filled (or a ring unbroken most of the way round), the same on the left as on the right, and holds a good share of all the light |
+| How far it leans back | Looking outward from the middle in 48 directions, the place where the light falls away fastest is found. Ovals are put through threes of those places and the one most places agree with is kept, so that directions which run up a shaft of light do not decide. The lean is the angle that squashes a circle into that oval |
+| What is on it | Fine line (a circle of lines), light that differs from one side to the other going round (a whirl), an empty middle (a ring), or none of these (plain light) |
+| A white middle | A bright patch near the centre much whiter than the base |
+| Shafts of light | Thin upright columns above the base: how many, how tall, how wide, where |
+| How fast it turns (a clip) | Round the near half of the base as if seen from above, the pattern of light and dark is lined up from one frame to the next, after taking off what never changes. Checked against clips of known speed |
+
+What a flat picture cannot say is marked as assumed: that a still's base
+turns at all, that sparks rise, how the shafts come and go.
+
+Its limits: only a **round** base seen **level** (not rolled to one side)
+is read this way; the lean is good to about six degrees, less for a soft
+edge; with nothing rising from it, an oval has to be clearly flat (leaning
+back 57 degrees or more) and crisp flat shapes are left alone, so that a
+drawn bean or sweet is not taken for the floor. Every other preset in the
+library, photographed at three moments, is checked not to be read as one.
 
 Moments are marked on the timeline: appears, main burst, fullest, widest,
 second burst, main part, fading, gone.
@@ -106,6 +136,7 @@ each thing found:
 | Head and tail | A soft head, and particles streaming back from it that shrink and change colour |
 | Grey, soft areas on a light background | A few smoke puffs |
 | An opening flash | Its own short-lived layer |
+| Something lying on the ground | A base that lies flat (Lie Flat set to the lean found) and turns: the built-in whirl, circle of lines, ring, or a soft disc with a rim; a soft glow under it; a white core; shafts as upright streaks of the "beam" shape; motes drifting up. It lasts a whole number of turns |
 
 From a clip, one-shot layers get **curves** made from the measurements:
 size over life from the extent, opacity from the brightness, colour over
@@ -140,6 +171,10 @@ the effect's length is rounded to a whole number of simulation steps
   back up to the reference. Closer, but those are the reference's own
   pixels, so the app says to use it only with art that is yours to use.
   Fitting leaves cut-out layers, and the glows under them, alone.
+  For something lying on the ground the cut-out is the base itself, stood
+  back upright (each row of the oval stretched back to the circle it is a
+  view of), with shafts of light bridged out of it, so that its layer can
+  lay it flat again and turn it.
 - Each layer records its **role** (glow, core, body, rays, ring, sparks,
   streaks, bits, smoke, trail), how it is built, and whether its look and
   its motion were seen or assumed.
@@ -214,8 +249,12 @@ and the device's limit. Work runs on a background thread and can be stopped.
   whole picture (a ring's fade allows for its being an outline). A part
   that fades on its own schedule, such as a bright middle that stays while
   a ring thins, or smoke that follows fire, is not followed separately.
+- **Something lying on the ground is one flat shape leaned back**, not true
+  depth, and its pattern is a built-in one of the same kind unless cut-outs
+  are on. A base that is not round, or is rolled to one side, is not read
+  as lying down at all.
 - **Not built:** heat haze and distortion, turbulence, beams and cones as
-  meshes, depth, emitters that move along a path (a travelling effect's
+  meshes, true depth, emitters that move along a path (a travelling effect's
   particle layers start from where it began).
 - **Built-in shapes are approximations** of hand-drawn art. Cut-outs are
   closer, with the caution above.
@@ -240,15 +279,21 @@ vfxref build frames/ out.vfx --fps 30 --strip moments.png
 
 ## Tests
 
-`editor/tests/test_reference.cpp` (37 cases) paints its own references, so
+`editor/tests/test_reference.cpp` (43 cases) paints its own references, so
 what should be found is known: import checks, each background kind, glow,
 ring, sparks, rays, shape matching, head and tail, cropping, start/peak/end,
 trim and speed, loop, turning, travel, curve making, the clocks lining up,
 a burst shown once through and a repeated one coming round again, a ring
 that thins while the middle stays bright, nothing blinking between passes,
+something on the ground read as a level oval with its lean and its shafts,
+what is not on the ground left alone, a turning base followed through a
+clip and rebuilt lying flat, the base lifted and laid flat by cut-outs,
+light on a grey background read as light,
 comparison of an effect with its own picture, fitting (and locked layers,
 and stopping), cut-outs, every refinement, one-undo-step rebuilds, keeping
 the reference through save and reopen, and progress and cancelling.
 
 The app's self-test reads a picture, a GIF, an MP4 and a WebM, builds from
-them, and photographs the workspace on every build.
+them, reads a clip of a portal as lying on the ground and turning and
+rebuilds it with a layer that lies flat, and photographs the workspace on
+every build.

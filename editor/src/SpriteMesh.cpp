@@ -216,6 +216,9 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
         const bool additive = batch.blend == BlendMode::Additive;
         const bool onPlane = !frame.flat && batch.facing == Facing::Plane;
         const float glow = batch.glow > 0.0f ? batch.glow : 0.0f;
+        const float lean = frame.flat && !batch.alongMotion && batch.tilt > 0.0f
+                               ? std::cos(std::min(batch.tilt, 89.0f) * 3.14159265f / 180.0f)
+                               : 1.0f;
         const Image* picture =
             images && batch.texture.valid() ? images->find(batch.texture) : nullptr;
         const auto shape = picture ? kPictureShape : static_cast<float>(batch.shape);
@@ -269,6 +272,14 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
                         ayY = -dx * halfPx;
                     }
                 }
+            }
+
+            if (lean < 1.0f) {
+                // Lying back: the sprite has already turned in its own plane,
+                // and that plane is now seen from an angle, which only
+                // shortens whatever runs up and down the screen.
+                axY *= lean;
+                ayY *= lean;
             }
 
             const float lenX = std::sqrt(axX * axX + axY * axY);

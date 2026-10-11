@@ -263,7 +263,7 @@ TimeAnalysis analyzeTime(const std::vector<Matte>& mattes, double framesPerSecon
             std::vector<double> apartBy(static_cast<std::size_t>(n), -1.0);
             double typical = 0, lowest = 1e9;
             int measured = 0;
-            for (int period = 3; period <= n - 3; ++period) {
+            for (int period = 1; period <= n - 3; ++period) {
                 double sum = 0;
                 int count = 0;
                 for (int f = steady; f + period < n; ++f) {
@@ -274,16 +274,26 @@ TimeAnalysis analyzeTime(const std::vector<Matte>& mattes, double framesPerSecon
                     break;
                 }
                 apartBy[static_cast<std::size_t>(period)] = sum / count;
-                typical += sum / count;
-                lowest = std::min(lowest, sum / count);
-                ++measured;
+                if (period >= 3) {
+                    typical += sum / count;
+                    lowest = std::min(lowest, sum / count);
+                    ++measured;
+                }
             }
             if (measured > 0) {
                 typical /= measured;
                 if (typical > 0.002 && lowest <= 0.35 * typical + 0.001) {
+                    double awayBefore = std::max(apartBy[1], apartBy[2]);
                     for (int period = 3; period <= n - 3; ++period) {
                         const double v = apartBy[static_cast<std::size_t>(period)];
-                        if (v >= 0 && v <= 1.5 * lowest + 0.0015) {
+                        // To come round again it must first have gone away:
+                        // frames closer together than this were clearly less
+                        // alike. (Something that barely changes at all is as
+                        // like itself three frames on as thirty, and that is
+                        // not a rhythm.)
+                        const bool wentAway = awayBefore >= 2.0 * v + 0.002;
+                        awayBefore = std::max(awayBefore, v);
+                        if (v >= 0 && v <= 1.5 * lowest + 0.0015 && wentAway) {
                             out.loops = true;
                             out.loopLength = time(period);
                             out.loopConfidence = clamp01(static_cast<float>(1.0 - v / typical));
@@ -686,6 +696,61 @@ void writeFindings(ReferenceAnalysis& a, bool moving) {
     }
 
     // ---- parts
+    if (s.ground) {
+        const int lean = static_cast<int>(std::lround(s.groundTilt));
+        add("ground", "Lying on the ground",
+            "A round base seen from an angle: an oval " + percent(2.0f * s.groundRadius) +
+                " of the height wide, leaning back about " + std::to_string(lean) + " degrees",
+            0.75f, Basis::Observed,
+            "The lean is worked out from how squashed the oval is, taking the base to be a true circle.");
+        if (s.groundPattern == "vortex") {
+            add("groundPattern", "What is on the base", "A whirl of light: arms winding round the middle, " + colourName(s.groundColour),
+                clamp01(0.4f + s.groundSwirl), Basis::Observed,
+                "The built-in whirl stands in for it. Its arms are not the reference's own; cut-outs keep those.");
+        } else if (s.groundPattern == "sigil") {
+            add("groundPattern", "What is on the base", "A circle of fine lines (a magic circle), " + colourName(s.groundColour),
+                clamp01(0.4f + 2.0f * s.groundFine), Basis::Observed,
+                "The built-in circle of lines stands in for it. Its drawing is not the reference's own; cut-outs keep that.");
+        } else if (s.groundPattern == "ring") {
+            add("groundPattern", "What is on the base", "A ring, empty in the middle, " + colourName(s.groundColour), 0.7f,
+                Basis::Observed);
+        } else {
+            add("groundPattern", "What is on the base", "Plain light, " + colourName(s.groundColour) +
+                                                            ": no pattern could be made out",
+                0.4f, Basis::Inferred,
+                "A picture this small, or this bright, hides what is drawn on the base. Cut-outs keep whatever is there.");
+            a.uncertain.push_back("What is drawn on the base: it could not be made out.");
+        }
+        if (s.groundCore) {
+            add("core", "White middle", "A white light of its own in the middle of the base, " +
+                                            percent(2.0f * s.groundCoreRadius) + " of the height wide",
+                0.7f, Basis::Observed);
+        }
+        if (s.beams >= 2) {
+            add("beams", "Shafts of light",
+                std::to_string(s.beams) + " standing on the base, " + colourName(s.beamColour) + ", the tallest " +
+                    percent(s.beamTallest) + " of the height",
+                0.7f, Basis::Observed, "Thin upright columns of light above the base. Dotted ones count as one each.");
+        }
+        if (moving && t.available) {
+            if (s.groundTurnConfidence >= 0.45f && std::fabs(s.groundTurn) >= 5.0f) {
+                add("groundTurn", "Turning on the ground",
+                    number(std::fabs(s.groundTurn), 0) + " degrees a second, " +
+                        (s.groundTurn > 0 ? "counter-clockwise" : "clockwise") + " seen from above",
+                    s.groundTurnConfidence, Basis::Observed,
+                    "Measured by lining up the base's light and dark from one frame to the next, as if seen from above.");
+            } else {
+                add("groundTurn", "Turning on the ground", "None that could be measured", 0.4f, Basis::Inferred);
+            }
+        } else if (s.groundPattern == "vortex" || s.groundPattern == "sigil") {
+            add("groundTurn", "Turning on the ground", "Not in a still picture; a slow steady turn is assumed", 0.2f,
+                Basis::Inferred);
+        }
+        a.uncertain.push_back("How far the base really leans back: it is worked out from the oval's proportions.");
+        a.uncertain.push_back("The far side of the base, where light rising from it is in the way.");
+        a.methods.push_back("Ground effects: an oval is fitted to where the base's light stops, read all the way round; "
+                            "shafts are thin upright columns of light above it.");
+    }
     if (s.comet) {
         add("comet", "Head and tail",
             "A bright head with a tail " + percent(s.tailLength) + " of the height long, pointing " +
@@ -758,7 +823,10 @@ void writeFindings(ReferenceAnalysis& a, bool moving) {
         add("smoke", "Smoke", colourName(s.smokeColour) + ", soft, radius " + percent(s.smokeRadius), 0.45f,
             Basis::Inferred, "Grey and soft is read as smoke.");
     }
-    add("depth", "What is in front of what", "Glow behind, shapes in the middle, sparks in front", 0.4f, Basis::Inferred,
+    add("depth", "What is in front of what",
+        s.ground ? "The base on the floor; shafts and sparks rising from it, in front of its far side"
+                 : "Glow behind, shapes in the middle, sparks in front",
+        0.4f, Basis::Inferred,
         "A flat picture does not say which part is in front. The usual order is assumed, and real depth is not recovered.");
     a.uncertain.push_back("Depth and layer order: a flat picture cannot show them.");
 
@@ -802,7 +870,7 @@ void writeFindings(ReferenceAnalysis& a, bool moving) {
             }
             add("travel", "Travel", value, 0.7f, Basis::Observed);
         }
-        if (t.turning != 0) {
+        if (t.turning != 0 && !s.ground) {
             add("turning", "Turning",
                 number(std::fabs(t.turning), 0) + " degrees a second, " +
                     (t.turning > 0 ? "counter-clockwise" : "clockwise"),
@@ -824,9 +892,14 @@ void writeFindings(ReferenceAnalysis& a, bool moving) {
             a.uncertain.push_back("Whether sparks fall, rise or swirl: single sparks are not followed.");
         }
     } else {
-        add("timing", "Timing", "Not in a still picture. A short burst that fades is assumed", 0.2f, Basis::Inferred,
-            "Use a GIF or a video of the effect to have its timing measured.");
-        if (s.sparks.count > 0 || s.streaks.count > 0) {
+        const bool stays = s.ground && !(s.groundHollow && s.beams < 2);
+        add("timing", "Timing",
+            stays ? "Not in a still picture. Something that stays, as a circle or portal on the ground does, is assumed"
+                  : "Not in a still picture. A short burst that fades is assumed",
+            0.2f, Basis::Inferred, "Use a GIF or a video of the effect to have its timing measured.");
+        if (s.ground && s.sparks.count > 0) {
+            add("sparkMotion", "How the sparks move", "Assumed to drift upward from the base", 0.25f, Basis::Inferred);
+        } else if (s.sparks.count > 0 || s.streaks.count > 0) {
             add("sparkMotion", "How the pieces move", "Assumed to fly outward from the centre and slow down", 0.25f,
                 Basis::Inferred);
         }

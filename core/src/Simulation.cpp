@@ -657,6 +657,7 @@ void Simulation::extract(RenderFrame& frame) const {
         batch.shape = e.spriteShape;
         batch.alongMotion = e.alongMotion;
         batch.stretch = e.stretch;
+        batch.tilt = e.flat ? e.tilt : 0.0f;
         batch.columns = e.columns;
         batch.rows = e.rows;
         batch.trail = e.trail;
@@ -779,6 +780,10 @@ std::uint64_t hashFrame(const RenderFrame& frame) {
             // the fingerprints they always had.
             h = det::mix64(h ^ bits(b.trail));
             h = det::mix64(h ^ bits(b.trailWidth));
+        }
+        if (b.tilt > 0.0f) {
+            // Likewise: only a tilted layer changes its fingerprint.
+            h = det::mix64(h ^ 0x54494C54ull ^ bits(b.tilt));
         }
         h = det::mix64(h ^ b.first);
         h = det::mix64(h ^ b.count);

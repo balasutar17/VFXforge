@@ -200,17 +200,60 @@ struct Plan {
     std::vector<std::pair<double, double>> bursts;  // time, share of the main burst
     double drag = 3.5;
     double spin = 0;
+    bool spinSeen = false;  // the turning was measured, not assumed
     double driftSpeed = 0, driftHeading = 0;
     Vec3 pull{};
     bool tinted = false;
     std::vector<Tint> tint;
 };
 
+// How many degrees a ground pattern can turn before it looks the same again.
+double groundSymmetry(const std::string& pattern) {
+    return pattern == "sigil" ? 60.0 : 360.0;
+}
+
+// The timing of something that stays on the ground: it turns steadily, and
+// its length is a whole number of turns, so that when the effect comes
+// round again the base is exactly where it started.
+void groundPlan(const StillAnalysis& s, bool moving, Plan& p) {
+    const bool seen = moving && s.groundTurnConfidence >= 0.45f && std::fabs(s.groundTurn) >= 5.0f;
+    if (seen) {
+        p.spin = std::clamp<double>(s.groundTurn, -360.0, 360.0);
+    } else if (s.groundPattern == "vortex") {
+        p.spin = 60.0;
+    } else if (s.groundPattern == "sigil") {
+        p.spin = 30.0;
+    } else {
+        p.spin = 0.0;
+    }
+    p.spinSeen = seen;
+    double length = 4.0;
+    if (p.spin != 0.0) {
+        const double once = groundSymmetry(s.groundPattern) / std::fabs(p.spin);
+        length = once * std::max(1.0, std::ceil(2.5 / once));
+    }
+    p.duration = length;
+    p.life = length;
+    p.peak = std::min(1.0, 0.5 * length);
+    p.grow = {{0, 1}, {1, 1}};
+    p.fade = {{0, 1}, {1, 1}};
+    p.fadeRing = p.fade;
+    p.flash = p.fade;
+    p.tinted = false;
+    p.tint.clear();
+    p.driftSpeed = 0;
+    p.pull = Vec3{};
+}
+
 Plan makePlan(const ReferenceAnalysis& a, const ReconstructOptions& o) {
     Plan p;
     const TimeAnalysis& t = a.time;
     const bool moving = t.available && t.frames >= 2;
-    p.steady = o.pace == Pace::Steady || (o.pace == Pace::Auto && (moving ? t.continuous : a.still.comet));
+    // Something lying on the ground keeps going (a circle, a portal),
+    // unless it is only a ring crossing the floor, which is a burst.
+    const bool standing = a.still.ground && !(a.still.groundHollow && a.still.beams < 2);
+    p.steady = o.pace == Pace::Steady ||
+               (o.pace == Pace::Auto && (moving ? t.continuous : (a.still.comet || standing)));
     const int keys = (o.mode == MatchMode::Motion || o.mode == MatchMode::Layered) ? 8 : 6;
 
     if (moving) {
@@ -358,6 +401,9 @@ Plan makePlan(const ReferenceAnalysis& a, const ReconstructOptions& o) {
         p.driftSpeed = std::hypot(t.driftX, t.driftY) * kU;
         p.driftHeading = std::atan2(t.driftY, t.driftX) * 180.0 / kPi;
         p.pull = Vec3{t.pullX * kU, t.pullY * kU, 0.0};
+        if (a.still.ground && p.steady) {
+            groundPlan(a.still, true, p);
+        }
         return p;
     }
 
@@ -369,6 +415,9 @@ Plan makePlan(const ReferenceAnalysis& a, const ReconstructOptions& o) {
         p.grow = {{0, 1}, {1, 1}};
         p.fade = {{0, 1}, {1, 1}};
         p.flash = p.fade;
+        if (a.still.ground) {
+            groundPlan(a.still, false, p);
+        }
     } else if (o.mode == MatchMode::ShapeColour) {
         // Reach the picture quickly and hold it, so it can be compared.
         p.duration = 1.3;
@@ -437,7 +486,9 @@ public:
             scale_ = std::min(1.3, scale_ * 1.3);
         }
 
-        if (s_.comet) {
+        if (s_.ground) {
+            ground();
+        } else if (s_.comet) {
             comet();
         } else {
             if (s_.hasSmoke) {
@@ -459,9 +510,11 @@ public:
                 }
             }
         }
-        pieces(s_.streaks, "streaks", "Streaks", 6);
-        pieces(s_.bits, "bits", "Pieces", 7);
-        pieces(s_.sparks, "sparks", "Sparks", 5);
+        if (!s_.ground) {
+            pieces(s_.streaks, "streaks", "Streaks", 6);
+            pieces(s_.bits, "bits", "Pieces", 7);
+            pieces(s_.sparks, "sparks", "Sparks", 5);
+        }
         if (a_.hasEarly && !plan_.steady && plan_.measured && o_.variation != Variation::Performance) {
             // The clip opens with a flash that looks nothing like what
             // follows: it gets layers of its own, for as long as it showed.
@@ -548,6 +601,15 @@ private:
         m.role(role);
         Built b;
         b.layer = m.done(plan_.duration);
+        // Readings of brightness run from "nothing added" to "as bright as
+        // the picture can show". Over a background that is not black there
+        // is less room between the two, so the same reading is less light.
+        if (s_.additive && tools::isAdditive(b.layer)) {
+            const float taken = std::max({s_.backdropColour.r, s_.backdropColour.g, s_.backdropColour.b});
+            if (s_.backdrop != Backdrop::Transparent && taken > 0.02f) {
+                tools::scaleBrightness(b.layer, std::clamp(1.0 - static_cast<double>(taken), 0.4, 1.0));
+            }
+        }
         b.note.layer = b.layer.id;
         b.note.name = b.layer.name;
         b.note.role = role;
@@ -1029,6 +1091,254 @@ private:
         }
     }
 
+    // Something lying on the ground, seen from an angle: a flat base that
+    // turns in its own plane, with shafts of light and motes rising from it.
+    void ground() {
+        const bool additive = s_.additive;
+        const double tilt = std::clamp<double>(s_.groundTilt, 30.0, 82.0);
+        const double radius = std::max(0.02f, s_.groundRadius);
+        const bool stays = plan_.steady;
+        const std::string& pattern = s_.groundPattern;
+        const Basis turning = plan_.spinSeen ? Basis::Observed : Basis::Inferred;
+        const std::string flatNote = "Lies flat on the ground, leaning back about " +
+                                     std::to_string(static_cast<int>(std::lround(tilt))) +
+                                     " degrees, as the oval in the reference shows. The Lie Flat control changes it.";
+        const auto turnNote = [&]() -> std::string {
+            if (plan_.spin == 0.0) {
+                return {};
+            }
+            return plan_.spinSeen ? " Its turning was measured from the clip."
+                                  : " Its turning is assumed: a still picture does not show any.";
+        };
+        // One sprite that stays (or, for a burst, grows and fades as the clip does).
+        const auto base = [&](Make& m, bool turns) {
+            if (stays) {
+                m.burst(1).life(plan_.duration, plan_.duration).speed(0, 0).gravity(0, 0);
+                if (turns && plan_.spin != 0.0) {
+                    m.spin(plan_.spin, plan_.spin);
+                }
+            } else {
+                oneShot(m, false);
+                m.sizeOver(plan_.grow);
+            }
+            m.lieFlat(tilt);
+        };
+        const auto hold = [&](Make& m, bool ring) {
+            if (stays) {
+                m.solid();
+            } else {
+                m.fade(ring && !plan_.fadeRing.empty() ? plan_.fadeRing : plan_.fade);
+            }
+        };
+        const Cutout* cut = cutout("ground");
+
+        // The soft light round the base.
+        if (!cut && s_.groundGlowRadius > 1.05f * s_.groundRadius) {
+            Make m(id_, "Ground glow");
+            base(m, false);
+            const double size = 2.0 * s_.groundGlowRadius * kU / 0.8;
+            const Swatch colour = additive ? bright(s_.groundGlowColour) : s_.groundGlowColour;
+            m.size(size, size).colorLinear(linear(colour, 0.5)).look("soft");
+            hold(m, false);
+            blend(m, additive, 1.0);
+            push(m, "glow", "One large soft sprite, lying flat", "ground", Basis::Observed, 1, 1, flatNote);
+            built_.back().note.motion = stays ? Basis::Inferred : built_.back().note.motion;
+        }
+
+        if (cut) {
+            // The base as painted, laid back down flat so that it can turn.
+            Make m(id_, "Base");
+            base(m, true);
+            usePicture(m, *cut, "ground");
+            m.colorLinear(Color{1, 1, 1, 1});
+            hold(m, false);
+            if (additive) {
+                m.additive();
+            }
+            push(m, "body", "One sprite, drawing the base cut from the reference and laid flat", "ground",
+                 Basis::Observed, 0, 1, flatNote + turnNote() + " " + cutoutNote());
+            built_.back().note.motion = turning;
+        } else if (pattern == "vortex") {
+            const Swatch colour = additive ? bright(s_.groundColour) : s_.groundColour;
+            {
+                Make m(id_, "Vortex");
+                base(m, true);
+                const double size = 2.0 * radius * kU / 0.76;
+                m.size(size, size).colorLinear(linear(colour)).look("vortex");
+                hold(m, false);
+                blend(m, additive, 1.2);
+                push(m, "body", "One sprite, the \"vortex\" shape, lying flat and turning", "ground", Basis::Observed, 0,
+                     1,
+                     flatNote + turnNote() +
+                         " The arms are the built-in whirl, not the reference's own; allow cut-outs to keep those.");
+                built_.back().note.motion = turning;
+            }
+            if (o_.variation != Variation::Performance && o_.mode != MatchMode::Motion) {
+                // A second, smaller whirl turning faster gives the depth a
+                // real one has. Its colour is the reference's second colour.
+                const Swatch second = additive ? bright(s_.groundInnerColour) : s_.groundInnerColour;
+                Make m(id_, "Inner vortex");
+                base(m, false);
+                if (stays && plan_.spin != 0.0) {
+                    m.spin(2.0 * plan_.spin, 2.0 * plan_.spin);
+                }
+                const double size = 2.0 * 0.62 * radius * kU / 0.76;
+                m.size(size, size).turn(50, 50).colorLinear(linear(second)).look("vortex");
+                hold(m, false);
+                blend(m, additive, 1.2);
+                push(m, "body", "A smaller \"vortex\" shape inside the first, turning twice as fast", "ground",
+                     Basis::Observed, 3, 1,
+                     "Its colour is the colour of the reference's inner part. That it turns faster than the outer "
+                     "whirl is assumed.");
+                built_.back().note.motion = Basis::Inferred;
+            }
+        } else if (pattern == "sigil") {
+            Make m(id_, "Circle");
+            base(m, true);
+            const double size = 2.0 * radius * kU / 0.93;
+            const Swatch colour = additive ? bright(s_.groundColour) : s_.groundColour;
+            m.size(size, size).colorLinear(linear(colour)).look("sigil");
+            hold(m, false);
+            blend(m, additive, 1.0);
+            push(m, "body", "One sprite, the \"sigil\" shape (a circle of lines), lying flat", "ground", Basis::Observed,
+                 0, 1,
+                 flatNote + turnNote() +
+                     " The lines are the built-in circle, not the reference's own drawing; allow cut-outs to keep that, "
+                     "or paint your own and use it as this layer's picture.");
+            built_.back().note.motion = turning;
+        } else if (pattern == "ring") {
+            const SpriteShape shape = s_.hardness > 0.5f ? SpriteShape::Shockwave : SpriteShape::Ring;
+            Make m(id_, "Ring");
+            base(m, false);
+            const double size = sizeFor(shape, radius * 0.92, &ShapeMeasure::ringRadius);
+            const Swatch colour = additive ? bright(s_.groundColour) : s_.groundColour;
+            m.size(size, size).colorLinear(linear(colour)).look(shapeName(shape));
+            hold(m, true);
+            blend(m, additive, 1.1);
+            push(m, "ring", std::string("One sprite, the \"") + shapeName(shape) + "\" shape, lying flat", "ground",
+                 Basis::Observed, 0, 1, flatNote);
+        } else {
+            // Plain light: a soft disc, with a ring at its edge when one shows.
+            const Swatch colour = additive ? bright(s_.groundColour) : s_.groundColour;
+            {
+                Make m(id_, "Base");
+                base(m, false);
+                const double size = 2.0 * radius * kU / 0.56;
+                m.size(size, size).colorLinear(linear(colour, std::clamp<double>(s_.groundLevel, 0.3, 1.0))).look("soft");
+                hold(m, false);
+                blend(m, additive, 1.3);
+                push(m, "body", "One soft sprite, lying flat", "ground", Basis::Observed, 0, 1,
+                     flatNote + " No pattern could be made out on it, so it is plain light; allow cut-outs to keep "
+                                "what is drawn there.");
+            }
+            {
+                Make m(id_, "Rim");
+                base(m, false);
+                const double size = sizeFor(SpriteShape::Ring, radius, &ShapeMeasure::ringRadius);
+                m.size(size, size).colorLinear(linear(towardWhite(colour, 0.3f), 0.8)).look("ring");
+                hold(m, true);
+                blend(m, additive, 1.0);
+                push(m, "ring", "One sprite, the \"ring\" shape, lying flat at the base's edge", "ground",
+                     s_.groundRings >= 1 ? Basis::Observed : Basis::Inferred, 4, 1);
+            }
+        }
+
+        // A white light of its own in the middle.
+        if (!cut && s_.groundCore && s_.groundCoreRadius > 0.0f) {
+            Make m(id_, "Core");
+            base(m, false);
+            // Driven hard, a soft sprite burns white out to seven tenths of
+            // its radius and has only a narrow skirt of colour beyond: a
+            // tight white light, as wide as the white seen, rather than a
+            // wash over everything round it.
+            const double size = 2.0 * std::max(s_.groundCoreRadius, 0.12f * s_.groundRadius) * kU / 0.85;
+            m.size(size, size).colorLinear(linear(towardWhite(s_.groundCoreColour, 0.2f))).look("soft");
+            if (stays) {
+                m.sizeOver({{0, 1.0}, {0.25, 1.1}, {0.5, 1.0}, {0.75, 1.1}, {1, 1.0}});
+            }
+            hold(m, false);
+            blend(m, additive, 4.0);
+            push(m, "core", "One small bright soft sprite, lying flat", "ground", Basis::Observed, 2, 1,
+                 stays ? "Its slow pulse is assumed." : "");
+        }
+
+        // Shafts of light standing on the base.
+        if (s_.beams >= 2) {
+            const double height = std::max(0.08f, s_.beamHeight) * kU;
+            const double width = 2.0 * std::max(0.02f, s_.beamSpread) * kU;
+            const double thickness = std::clamp<double>(s_.beamWidth * kU * 1.6, 0.07, 0.6);
+            // Each lives a little over a second, so this many a second keeps
+            // about as many standing as the reference shows.
+            const double life = 1.3;
+            const int showing = scaled(s_.beams, 2);
+            // A streak is as long as its particle travels in `stretch`
+            // seconds, so the speeds set the lengths: from a good deal
+            // shorter than the typical shaft seen, to the tallest.
+            const double stretch = 7.5;
+            const double shortest = 0.6 * height;
+            const double tallest = std::max(1.05 * height, static_cast<double>(s_.beamTallest) * kU);
+            Make m(id_, "Beams");
+            const Swatch colour = additive ? bright(s_.beamColour) : s_.beamColour;
+            if (stays) {
+                m.rate(showing / (0.8 * life));
+            } else {
+                m.burst(showing, 0.0);
+            }
+            m.rect(width, 0.25 * width).at(0.0, 0.45 * height)
+                .life(0.7 * life, 1.3 * life).speed(shortest / stretch, tallest / stretch).aim(90, 0)
+                .size(0.7 * thickness, 1.3 * thickness).colorLinear(linear(colour)).gravity(0, 0)
+                .sizeOver({{0, 0.6}, {0.3, 1.0}, {1, 0.7}}).fade({{0, 0}, {0.25, 1}, {0.6, 0.8}, {1, 0}})
+                .look("beam").streak(stretch);
+            blend(m, additive, 1.3);
+            push(m, "rays", "Thin shafts of light: particles drawn as long upright streaks", "ground", Basis::Observed,
+                 2, showing,
+                 "How many, how tall and how wide are as seen. Where each one stands, and how they come and go, is "
+                 "random.");
+            built_.back().note.motion = Basis::Inferred;
+        }
+
+        // Sparks in the air above it.
+        const int motes = pieceCount(s_.sparks);
+        if (motes >= 3 || (motes >= 1 && o_.mode == MatchMode::Layered)) {
+            const int showing = scaled(motes, 3);
+            const double life = 1.35;
+            const double reach = std::max<double>(s_.beams >= 2 ? s_.beamTallest : 0.0f, s_.sparks.farthest) * kU;
+            const double width = 2.0 * std::max<double>(s_.groundRadius * 0.7, s_.beamSpread) * kU;
+            // Motes are specks: at this size a square and a dot look alike
+            // in the reference, so anything but a glint is drawn as a dot.
+            const double low = std::clamp(static_cast<double>(s_.sparks.sizeLow) * kU, 0.03, 0.14);
+            const double high = std::clamp(static_cast<double>(s_.sparks.sizeHigh) * kU, low, 0.2);
+            SpriteShape shape = shapeFrom(s_.sparks.shape, SpriteShape::Disc);
+            if (shape != SpriteShape::Glint && shape != SpriteShape::Twinkle && shape != SpriteShape::Sparkle) {
+                shape = s_.sparks.softness > 0.6f ? SpriteShape::Soft : SpriteShape::Disc;
+            }
+            Make m(id_, "Motes");
+            const Swatch colour = additive ? bright(s_.sparks.colour) : s_.sparks.colour;
+            if (stays) {
+                m.rate(showing / life);
+            } else {
+                m.burst(showing, 0.0);
+            }
+            const double rise = std::max(0.4, reach) / life;
+            m.rect(width, 0.3 * width).at(0.0, 0.1 * std::max(0.4, reach))
+                .life(0.7 * life, 1.3 * life).speed(0.5 * rise, 1.1 * rise).aim(90, 12)
+                .size(low, high).colorLinear(linear(colour)).gravity(0, 0.4)
+                .sizeOver({{0, 0}, {0.25, 1.0}, {1, 0}}).solid().look(shapeName(shape));
+            blend(m, additive, 1.4);
+            push(m, "sparks", stays ? "Small particles sent up steadily" : "A burst of small particles", "ground",
+                 Basis::Observed, 5, showing,
+                 "Their number, size and colour are as seen. That they rise is assumed.");
+            built_.back().note.motion = Basis::Inferred;
+        }
+        if (!cut && (pattern == "vortex" || pattern == "sigil")) {
+            skipped_.push_back("The pattern on the ground is a built-in one of the same kind (a whirl, or a circle of "
+                               "lines), not a copy of the reference's. Allowing cut-outs from the reference lifts the "
+                               "real one out and lays it flat.");
+        }
+        skipped_.push_back("The base is one flat shape leaned back, not true depth: the far side is not smaller than "
+                           "the near side as it would be through a camera.");
+    }
+
     // Extras the reference does not have. Each is marked as added.
     void polish() {
         const Swatch accent = s_.palette.size() > 1 ? s_.palette[1] : (s_.palette.empty() ? Swatch{1, 1, 1, 0} : s_.palette[0]);
@@ -1177,7 +1487,7 @@ private:
             out.notes.push_back("Some turning was seen but not clearly enough to copy.");
         }
         out.notes.push_back("Not built in this version: heat haze and distortion, swirling (turbulent) motion, beams "
-                            "and cones as real meshes, and depth. Sparks are placed at random, so they match the "
+                            "and cones as real meshes, and true depth. Sparks are placed at random, so they match the "
                             "reference in number, size, colour and spread, not one by one.");
         return out;
     }

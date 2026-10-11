@@ -210,6 +210,39 @@ struct StillAnalysis {
     float tailWidthStart = 0, tailWidthEnd = 0;
     std::vector<Swatch> tailColours;  // from the head to the tip
 
+    // An effect lying on the ground and seen from an angle: a round, flat
+    // base (a magic circle, a portal, a shockwave on the floor) that shows
+    // in the picture as a level oval, often with shafts of light on it.
+    bool ground = false;
+    float groundX = 0, groundY = 0;  // the middle of the base
+    float groundRadius = 0;          // half the oval's width: the base's true radius
+    float groundTilt = 0;            // degrees it leans back from facing the viewer
+    std::string groundPattern;       // what is drawn on it: "vortex", "sigil", "ring" or "glow"
+    bool groundHollow = false;       // its light is out at the rim, the middle nearly empty
+    float groundTurn = 0;            // degrees a second it turns in its own plane (a clip only)
+    float groundTurnConfidence = 0;
+    float groundSwirl = 0;           // how much its light rises and falls going round
+    float groundLines = 0;           // how sharply it rises and falls going outward
+    float groundFine = 0;            // fine detail on it: lines and glyphs, against soft light
+    int groundRings = 0;             // fine rings counted going outward
+    float groundLevel = 0;           // its brightness, 0 to 1
+    float groundFill = 0;            // how much of its near half has light in it
+    Swatch groundColour;             // of its outer part
+    Swatch groundInnerColour;        // of its inner part, between the middle and halfway out
+    float groundGlowRadius = 0;      // how far its soft light reaches
+    Swatch groundGlowColour;
+    bool groundCore = false;         // a white light of its own in the middle
+    float groundCoreRadius = 0;
+    Swatch groundCoreColour;
+    // Shafts of light standing on the base.
+    int beams = 0;
+    float beamHeight = 0;   // a typical one, from the base's middle to its top
+    float beamTallest = 0;
+    float beamWidth = 0;
+    float beamSpread = 0;   // how far to either side of the middle they stand
+    std::vector<float> beamAt;  // where each stands, across the picture, 0 to 1
+    Swatch beamColour;
+
     // More than one separate effect in the picture (a sheet of several).
     int separate = 1;
 

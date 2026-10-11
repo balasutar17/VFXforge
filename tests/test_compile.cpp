@@ -430,7 +430,7 @@ TEST_CASE("Compile: every sprite shape, alignment and stretch") {
     CHECK(options[static_cast<std::size_t>(SpriteShape::Candy)] == "candy");
     CHECK(options[static_cast<std::size_t>(SpriteShape::Twinkle)] == "twinkle");
     CHECK(options[static_cast<std::size_t>(SpriteShape::Bolt)] == "bolt");
-    CHECK(options.back() == "shardring");
+    CHECK(options.back() == "beam");
     for (std::size_t i = 0; i < options.size(); ++i) {
         put(layer, "sprite", "shape", text(options[i].c_str()));
         CHECK(static_cast<std::size_t>(compileLayer(effect, layer)->spriteShape) == i);
@@ -443,6 +443,23 @@ TEST_CASE("Compile: every sprite shape, alignment and stretch") {
     e = compileLayer(effect, layer);
     CHECK(e->alongMotion);
     CHECK(e->stretch == 0.2f);
+}
+
+TEST_CASE("Compile: a particle can lie flat, unless it points along its movement") {
+    Effect effect = oneLayer();
+    Layer& layer = effect.layers[0];
+    CHECK(compileLayer(effect, layer)->tilt == 0.0f);  // a new layer faces the viewer
+
+    put(layer, "sprite", "tilt", number(60.0));
+    CHECK(compileLayer(effect, layer)->tilt == 60.0f);
+    // Edge-on would be nothing at all: it stops just short.
+    put(layer, "sprite", "tilt", number(89.0));
+    CHECK(compileLayer(effect, layer)->tilt == 89.0f);
+
+    // A streak that follows its movement has no plane to lie in.
+    put(layer, "sprite", "tilt", number(60.0));
+    put(layer, "sprite", "align", text("movement"));
+    CHECK(compileLayer(effect, layer)->tilt == 0.0f);
 }
 
 TEST_CASE("Sprite sheets: grid, frame count and which picture each particle shows") {

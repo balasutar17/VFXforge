@@ -291,6 +291,8 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         e->trailWidth = std::isfinite(trailWidth) ? std::clamp(f(trailWidth), 0.0f, 4.0f) : 0.0f;
         e->alongMotion = sprite.get<std::string>("align") == "movement";
         e->stretch = e->alongMotion ? f(sprite.get<double>("stretch")) : 0.0f;
+        const double tilt = sprite.get<double>("tilt");
+        e->tilt = !e->alongMotion && std::isfinite(tilt) ? std::clamp(f(tilt), 0.0f, 89.0f) : 0.0f;
 
         if (e->texture.valid()) {
             auto whole = [&](const char* key, std::int64_t lo, std::int64_t hi) {
