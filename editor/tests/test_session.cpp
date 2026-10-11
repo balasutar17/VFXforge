@@ -127,13 +127,13 @@ TEST_CASE("an effect saved before a control existed still offers it, and is not 
     CHECK(writeEffect(s.effect()) == saved);
 
     // They work: the value changes, it shows, and one undo takes it back.
-    const ControlView* turbulence = find(controls, "Turbulence");
-    REQUIRE(std::get<double>(turbulence->value) == 0.0);
-    REQUIRE(s.setControl(layer, turbulence->control, Value{2.5}).ok());
+    REQUIRE(std::get<double>(find(controls, "Turbulence")->value) == 0.0);
+    const Id turbulence = find(controls, "Turbulence")->control;
+    REQUIRE(s.setControl(layer, turbulence, Value{2.5}).ok());
     controls = s.controls(layer);
     CHECK(std::get<double>(find(controls, "Turbulence")->value) == 2.5);
     // The same control keeps the same ID from one look to the next.
-    CHECK(find(controls, "Turbulence")->control == turbulence->control);
+    CHECK(find(controls, "Turbulence")->control == turbulence);
     play(s, 0.5);
     REQUIRE_FALSE(s.frame().batches.empty());
     CHECK(s.frame().batches[0].turbulence == 2.5f);
