@@ -110,6 +110,11 @@ struct EmitterProgram {
     float gravityX = 0, gravityY = 0, gravityZ = 0;
     float drag = 0;
     ScalarF spin;  // degrees per second; a curve reads across the particle's life
+    // A field of swirls that carries particles along, on top of their own
+    // movement. 0 speed means none.
+    float turbulence = 0;         // units per second, on average
+    float turbulencePerUnit = 1;  // one over the size of a swirl
+    float turbulenceChange = 0;   // new patterns per second
 
     // How it changes over its life. A fixed number or random range is a
     // per-particle multiplier chosen at birth; a curve is read every frame.
@@ -117,6 +122,11 @@ struct EmitterProgram {
     ScalarF sizeOverLife;
     ScalarF opacityOverLife;
     std::vector<GradientKeyF> colorOverLife;  // empty means no tint
+    // The share of its life, at the end, over which a particle is eaten
+    // away in a ragged pattern. 0 means it is not.
+    float dissolve = 0;
+    float dissolveEdge = 0;  // how brightly the eaten edge glows, 0 to 1
+    float dissolveSoft = 0.15f;  // how soft the eaten edge is, 0 (torn) to 1 (smoke)
 
     // How it is drawn. A layer with no Sprite module is simulated but not drawn.
     bool drawn = false;

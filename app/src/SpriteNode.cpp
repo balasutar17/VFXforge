@@ -122,10 +122,17 @@ const QSGGeometry::AttributeSet& spriteAttributes() {
                                                         QSGGeometry::TexCoordAttribute),
         QSGGeometry::Attribute::createWithAttributeType(2, 4, QSGGeometry::FloatType,
                                                         QSGGeometry::ColorAttribute),
-        QSGGeometry::Attribute::createWithAttributeType(3, 3, QSGGeometry::FloatType,
+        QSGGeometry::Attribute::createWithAttributeType(3, 4, QSGGeometry::FloatType,
+                                                        QSGGeometry::UnknownAttribute),
+        // Own position on the particle, how far it is eaten away, its own
+        // random number.
+        QSGGeometry::Attribute::createWithAttributeType(4, 4, QSGGeometry::FloatType,
+                                                        QSGGeometry::UnknownAttribute),
+        // How soft a dissolving edge is.
+        QSGGeometry::Attribute::createWithAttributeType(5, 1, QSGGeometry::FloatType,
                                                         QSGGeometry::UnknownAttribute),
     };
-    static const QSGGeometry::AttributeSet set = {4, static_cast<int>(sizeof(SpriteVertex)),
+    static const QSGGeometry::AttributeSet set = {6, static_cast<int>(sizeof(SpriteVertex)),
                                                   attributes};
     return set;
 }

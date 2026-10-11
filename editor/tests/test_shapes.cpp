@@ -305,3 +305,176 @@ TEST_CASE("a see-through picture keeps colours straight and counts glow", "[pict
     CHECK(glow.pixel(50, 50)[3] == 255);
     CHECK(glow.pixel(50, 50)[0] == 255);
 }
+
+TEST_CASE("dissolving eats a particle away steadily, in its own pattern", "[shapes][dissolve]") {
+    // Nothing is touched before it starts, and nothing is left at the end.
+    const int n = 48;
+    const auto share = [&](float amount, float seed, float soft) {
+        double kept = 0;
+        for (int j = 0; j < n; ++j) {
+            for (int i = 0; i < n; ++i) {
+                const float x = (static_cast<float>(i) + 0.5f) / n * 2.0f - 1.0f;
+                const float y = (static_cast<float>(j) + 0.5f) / n * 2.0f - 1.0f;
+                const Dissolved d = dissolveAt(x, y, amount, seed, soft, 0.0f);
+                REQUIRE(d.keep >= 0.0f);
+                REQUIRE(d.keep <= 1.0f);
+                REQUIRE(d.rim == 0.0f);  // no edge glow was asked for
+                kept += d.keep;
+            }
+        }
+        return kept / (n * n);
+    };
+    for (float soft : {0.0f, 0.15f, 1.0f}) {
+        CHECK(share(0.0f, 0.3f, soft) == 1.0);
+        CHECK(share(1.0f, 0.3f, soft) == 0.0);
+    }
+
+    // About as much goes in each part of the dissolve as in any other, so
+    // a particle never hangs about whole and then vanishes at once. Averaged
+    // over many particles, because each has its own pattern.
+    double before = 1.0;
+    for (float amount : {0.1f, 0.3f, 0.5f, 0.7f, 0.9f}) {
+        double kept = 0;
+        const int particles = 40;
+        for (int s = 0; s < particles; ++s) {
+            kept += share(amount, (static_cast<float>(s) + 0.5f) / particles, 0.15f);
+        }
+        kept /= particles;
+        CAPTURE(amount, kept);
+        CHECK(kept == Catch::Approx(1.0 - amount).margin(0.07));
+        CHECK(kept < before);
+        before = kept;
+    }
+
+    // What has gone stays gone: a point never comes back as the dissolve goes on.
+    for (int k = 0; k < 200; ++k) {
+        const float x = static_cast<float>((k * 37) % 100) / 50.0f - 1.0f;
+        const float y = static_cast<float>((k * 61) % 100) / 50.0f - 1.0f;
+        float last = 1.0f;
+        for (int step = 0; step <= 20; ++step) {
+            const float keep = dissolveAt(x, y, static_cast<float>(step) / 20.0f, 0.61f, 0.15f, 0.0f).keep;
+            REQUIRE(keep <= last);
+            last = keep;
+        }
+    }
+
+    // Two particles are eaten in different places.
+    int differ = 0;
+    for (int k = 0; k < 200; ++k) {
+        const float x = static_cast<float>((k * 37) % 100) / 50.0f - 1.0f;
+        const float y = static_cast<float>((k * 61) % 100) / 50.0f - 1.0f;
+        const bool a = dissolveAt(x, y, 0.5f, 0.2f, 0.0f, 0.0f).keep > 0.5f;
+        const bool b = dissolveAt(x, y, 0.5f, 0.7f, 0.0f, 0.0f).keep > 0.5f;
+        differ += a != b ? 1 : 0;
+    }
+    CHECK(differ > 50);
+
+    // A soft edge leaves more half-there points than a torn one.
+    const auto halfThere = [&](float soft) {
+        int count = 0;
+        for (int j = 0; j < n; ++j) {
+            for (int i = 0; i < n; ++i) {
+                const float x = (static_cast<float>(i) + 0.5f) / n * 2.0f - 1.0f;
+                const float y = (static_cast<float>(j) + 0.5f) / n * 2.0f - 1.0f;
+                const float keep = dissolveAt(x, y, 0.5f, 0.3f, soft, 0.0f).keep;
+                count += keep > 0.05f && keep < 0.95f ? 1 : 0;
+            }
+        }
+        return count;
+    };
+    CHECK(halfThere(1.0f) > 4 * halfThere(0.0f));
+
+    // The edge glow sits on what is left, beside what has gone, and there is
+    // none before anything has been eaten.
+    CHECK(dissolveAt(0.2f, 0.1f, 0.0f, 0.3f, 0.15f, 1.0f).rim == 0.0f);
+    int glowing = 0, glowingFarInside = 0;
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < n; ++i) {
+            const float x = (static_cast<float>(i) + 0.5f) / n * 2.0f - 1.0f;
+            const float y = (static_cast<float>(j) + 0.5f) / n * 2.0f - 1.0f;
+            const Dissolved d = dissolveAt(x, y, 0.5f, 0.3f, 0.0f, 1.0f);
+            REQUIRE(d.rim >= 0.0f);
+            REQUIRE(d.rim <= 1.0f);
+            if (d.keep > 0.99f && d.rim > 0.5f) {
+                ++glowing;
+                // Somewhere close by has been eaten.
+                bool nearEdge = false;
+                for (int oy = -6; oy <= 6 && !nearEdge; ++oy) {
+                    for (int ox = -6; ox <= 6 && !nearEdge; ++ox) {
+                        nearEdge = dissolveAt(x + static_cast<float>(ox) * 2.0f / n,
+                                              y + static_cast<float>(oy) * 2.0f / n, 0.5f, 0.3f, 0.0f, 1.0f)
+                                       .keep < 0.5f;
+                    }
+                }
+                glowingFarInside += nearEdge ? 0 : 1;
+            }
+        }
+    }
+    CHECK(glowing > 20);
+    CHECK(glowingFarInside == 0);
+}
+
+TEST_CASE("the picture renderer draws a dissolving particle with holes and a bright edge",
+          "[shapes][dissolve][picture]") {
+    SpriteInstance p;
+    p.size = 2.0f;
+    p.r = 1.0f;
+    p.g = 0.2f;
+    p.b = 0.05f;
+    p.seed = 0.42f;
+    const View view = square(96, 2.2f);
+    const auto lit = [&](float amount, float edgeGlow, int* white = nullptr) {
+        SpriteInstance q = p;
+        q.dissolve = amount;
+        RenderFrame frame = one(q, SpriteShape::Disc);
+        frame.batches[0].dissolves = true;
+        frame.batches[0].dissolveEdge = edgeGlow;
+        frame.batches[0].dissolveSoft = 0.05f;
+        SpriteMesh mesh;
+        buildSpriteMesh(frame, view, mesh);
+        const Picture picture = drawPicture(mesh, 96, 96, ScreenColor{0, 0, 0});
+        int count = 0;
+        for (int y = 0; y < 96; ++y) {
+            for (int x = 0; x < 96; ++x) {
+                const std::uint8_t* c = picture.pixel(x, y);
+                count += c[0] > 128 ? 1 : 0;
+                if (white && c[0] > 200 && c[1] > 150 && c[2] > 150) {
+                    ++*white;
+                }
+            }
+        }
+        return count;
+    };
+    const int whole = lit(0.0f, 0.0f);
+    const int half = lit(0.5f, 0.0f);
+    const int late = lit(0.85f, 0.0f);
+    CHECK(whole > 4000);
+    CHECK(half < whole * 0.75);
+    CHECK(half > whole * 0.25);
+    CHECK(late < half);
+    CHECK(lit(1.0f, 0.0f) == 0);
+
+    // A layer that is not dissolving ignores a stray amount on the particle.
+    {
+        SpriteInstance q = p;
+        q.dissolve = 0.5f;
+        RenderFrame frame = one(q, SpriteShape::Disc);
+        SpriteMesh mesh;
+        buildSpriteMesh(frame, view, mesh);
+        const Picture picture = drawPicture(mesh, 96, 96, ScreenColor{0, 0, 0});
+        int count = 0;
+        for (int y = 0; y < 96; ++y) {
+            for (int x = 0; x < 96; ++x) {
+                count += picture.pixel(x, y)[0] > 128 ? 1 : 0;
+            }
+        }
+        CHECK(count == whole);
+    }
+
+    // The red disc has no white in it until its eaten edge is made to glow.
+    int plainWhite = 0, glowWhite = 0;
+    lit(0.5f, 0.0f, &plainWhite);
+    lit(0.5f, 1.0f, &glowWhite);
+    CHECK(plainWhite == 0);
+    CHECK(glowWhite > 40);
+}

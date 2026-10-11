@@ -30,6 +30,9 @@ const std::vector<RefineInfo>& refinements() {
         {Refine::Stylize, "stylize", "More stylized", "Snappier: shapes pop in past full size and settle. Soft dots become glints."},
         {Refine::AddSecondary, "add-secondary", "Add finer particles", "Adds a layer of small, slower particles in a lighter colour."},
         {Refine::ForMobile, "for-mobile", "Lighter for mobile", "Halves the particles in busy layers and removes trails."},
+        {Refine::MoreSwirl, "more-swirl", "More swirl", "Small particles and smoke are carried about by moving air, winding as they go. Again for more."},
+        {Refine::Calmer, "calmer", "Calmer", "Less swirling; none when it is already slight."},
+        {Refine::DissolveAway, "dissolve-away", "Dissolve away", "Smoke and big shapes are eaten away in ragged patches as they go, instead of only fading."},
         {Refine::MatchColours, "match-colours", "Reference colours again", "Sets each layer back to the colour measured in the reference.", true, false},
         {Refine::MatchDuration, "match-duration", "Reference length again", "Stretches or squeezes the effect to last as long as the clip.", true, true},
     };
@@ -270,6 +273,72 @@ Result<Effect> refine(const Effect& effect, Refine what, const ReferenceAnalysis
                 }
             });
             note = "Halved the particles in busy layers" + std::string(trails ? " and removed trails." : ".");
+            break;
+        }
+        case Refine::MoreSwirl: {
+            int begun = 0;
+            each([](const Layer& l) { return isParticles(l) && (small(roleOf(l)) || roleOf(l) == "smoke"); },
+                 [&](Layer& l) {
+                     double* turbulence = property<double>(l, "motion", "turbulence");
+                     if (!turbulence) {
+                         return;
+                     }
+                     if (*turbulence > 0.0) {
+                         *turbulence = std::min(*turbulence * 1.5, 1000.0);
+                         return;
+                     }
+                     // From still air: a push of about a third of the
+                     // particles' own speed, in swirls a few particles wide,
+                     // so they wind without losing their way.
+                     double speed = 0.0;
+                     if (const Scalar* s = property<Scalar>(l, "initial", "speed")) {
+                         speed = s->kind == Scalar::Kind::Random ? 0.5 * (s->a + s->b) : s->a;
+                     }
+                     *turbulence = std::clamp(0.35 * std::fabs(speed), 0.3, 6.0);
+                     if (double* swirl = property<double>(l, "motion", "turbulenceSize")) {
+                         *swirl = 1.2;
+                     }
+                     if (double* change = property<double>(l, "motion", "turbulenceChange")) {
+                         *change = 0.6;
+                     }
+                     ++begun;
+                 });
+            note = begun > 0 ? "Moving air now carries the particles in " + count(touched, "layer", "layers") + "."
+                             : "Half as much swirling again in " + count(touched, "layer", "layers") + ".";
+            break;
+        }
+        case Refine::Calmer: {
+            int stilled = 0;
+            each([](const Layer& l) {
+                     const double* turbulence = property<double>(l, "motion", "turbulence");
+                     return turbulence && *turbulence > 0.0;
+                 },
+                 [&](Layer& l) {
+                     double* turbulence = property<double>(l, "motion", "turbulence");
+                     *turbulence *= 2.0 / 3.0;
+                     if (*turbulence < 0.15) {
+                         *turbulence = 0.0;
+                         ++stilled;
+                     }
+                 });
+            note = "A third less swirling in " + count(touched, "layer", "layers") + "." +
+                   (stilled > 0 ? " " + count(stilled, "layer is", "layers are") + " now still air." : "");
+            break;
+        }
+        case Refine::DissolveAway: {
+            each([](const Layer& l) {
+                     const std::string role = roleOf(l);
+                     const double* dissolve = property<double>(l, "overLife", "dissolve");
+                     return dissolve && *dissolve <= 0.0 && (role == "smoke" || role == "shape");
+                 },
+                 [](Layer& l) {
+                     const bool smoke = roleOf(l) == "smoke";
+                     *property<double>(l, "overLife", "dissolve") = smoke ? 0.6 : 0.5;
+                     if (double* soft = property<double>(l, "overLife", "dissolveSoft")) {
+                         *soft = smoke ? 0.6 : 0.08;
+                     }
+                 });
+            note = count(touched, "layer is", "layers are") + " now eaten away in patches at the end.";
             break;
         }
         case Refine::MatchColours: {

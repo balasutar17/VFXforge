@@ -102,4 +102,143 @@ void basis(Vec3f n, Vec3f& tangent, Vec3f& bitangent) {
     bitangent = Vec3f{b, sign + n.y * n.y * a, -n.y};
 }
 
+namespace {
+
+// A direction for each corner of the grid, in each slice of time: three
+// numbers from -1 to 1. The pattern slopes that way at that corner. (A
+// pattern made from plain heights at the corners would be level at every
+// corner, and particles sitting on one would never move.)
+struct Lean {
+    float x, y, z;
+};
+inline Lean corner(std::uint64_t key, std::int64_t slice, std::int32_t ix, std::int32_t iy, std::int32_t iz) {
+    std::uint64_t h = mix64(key + static_cast<std::uint64_t>(slice) * 0x9E3779B97F4A7C15ull);
+    h = mix64(h ^ (static_cast<std::uint64_t>(static_cast<std::uint32_t>(ix)) |
+                   (static_cast<std::uint64_t>(static_cast<std::uint32_t>(iy)) << 32)));
+    h = mix64(h + static_cast<std::uint64_t>(static_cast<std::uint32_t>(iz)) * 0xBF58476D1CE4E5B9ull);
+    const std::uint64_t more = mix64(h + 0x94D049BB133111EBull);
+    return Lean{unitFloat(h) * 2.0f - 1.0f, unitFloat(h << 24) * 2.0f - 1.0f, unitFloat(more) * 2.0f - 1.0f};
+}
+
+// Eases from 0 to 1 with no jolt at either end, and how steeply.
+inline float ease(float t) { return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f); }
+inline float easeSlope(float t) { return 30.0f * t * t * (t * (t - 2.0f) + 1.0f); }
+inline float mixed(float a, float b, float t) { return a + (b - a) * t; }
+
+// Which grid cell a coordinate is in, and how far across it. Far outside
+// anything an effect uses, the cell number is held so it cannot overflow.
+inline void cellOf(float v, std::int32_t& cell, float& across) {
+    if (!(v > -1.0e6f)) {
+        v = -1.0e6f;
+    } else if (!(v < 1.0e6f)) {
+        v = 1.0e6f;
+    }
+    float whole = static_cast<float>(static_cast<std::int32_t>(v));
+    if (whole > v) {
+        whole -= 1.0f;
+    }
+    cell = static_cast<std::int32_t>(whole);
+    across = v - whole;
+}
+
+// The slope of a smooth 2D pattern, at one slice of time. The pattern's
+// height at a point is each corner's lean times the way to the point, the
+// four eased together.
+inline void slope2(std::uint64_t key, std::int64_t slice, std::int32_t ix, std::int32_t iy, float tx, float ty,
+                   float& du, float& dv) {
+    const Lean g00 = corner(key, slice, ix, iy, 0), g10 = corner(key, slice, ix + 1, iy, 0);
+    const Lean g01 = corner(key, slice, ix, iy + 1, 0), g11 = corner(key, slice, ix + 1, iy + 1, 0);
+    const float n00 = g00.x * tx + g00.y * ty, n10 = g10.x * (tx - 1.0f) + g10.y * ty;
+    const float n01 = g01.x * tx + g01.y * (ty - 1.0f), n11 = g11.x * (tx - 1.0f) + g11.y * (ty - 1.0f);
+    const float fx = ease(tx), fy = ease(ty);
+    du = mixed(mixed(g00.x, g10.x, fx), mixed(g01.x, g11.x, fx), fy) + easeSlope(tx) * mixed(n10 - n00, n11 - n01, fy);
+    dv = mixed(mixed(g00.y, g10.y, fx), mixed(g01.y, g11.y, fx), fy) +
+         easeSlope(ty) * (mixed(n01, n11, fx) - mixed(n00, n10, fx));
+}
+
+// The slope of a smooth 3D pattern, at one slice of time.
+inline void slope3(std::uint64_t key, std::int64_t slice, std::int32_t ix, std::int32_t iy, std::int32_t iz, float tx,
+                   float ty, float tz, float& du, float& dv, float& dw) {
+    Lean g[2][2][2];
+    float n[2][2][2];
+    for (int k = 0; k < 2; ++k) {
+        for (int j = 0; j < 2; ++j) {
+            for (int i = 0; i < 2; ++i) {
+                g[k][j][i] = corner(key, slice, ix + i, iy + j, iz + k);
+                n[k][j][i] = g[k][j][i].x * (tx - static_cast<float>(i)) + g[k][j][i].y * (ty - static_cast<float>(j)) +
+                             g[k][j][i].z * (tz - static_cast<float>(k));
+            }
+        }
+    }
+    const float fx = ease(tx), fy = ease(ty), fz = ease(tz);
+    // Eases the eight corners' values of something together.
+    const auto all = [&](const auto& of) {
+        const float x00 = mixed(of(0, 0, 0), of(0, 0, 1), fx), x01 = mixed(of(0, 1, 0), of(0, 1, 1), fx);
+        const float x10 = mixed(of(1, 0, 0), of(1, 0, 1), fx), x11 = mixed(of(1, 1, 0), of(1, 1, 1), fx);
+        return mixed(mixed(x00, x01, fy), mixed(x10, x11, fy), fz);
+    };
+    const float leanX = all([&](int k, int j, int i) { return g[k][j][i].x; });
+    const float leanY = all([&](int k, int j, int i) { return g[k][j][i].y; });
+    const float leanZ = all([&](int k, int j, int i) { return g[k][j][i].z; });
+    // How the height changes across the cell in each direction, the other two eased.
+    const float acrossX = mixed(mixed(n[0][0][1] - n[0][0][0], n[0][1][1] - n[0][1][0], fy),
+                                mixed(n[1][0][1] - n[1][0][0], n[1][1][1] - n[1][1][0], fy), fz);
+    const float acrossY = mixed(mixed(n[0][1][0], n[0][1][1], fx) - mixed(n[0][0][0], n[0][0][1], fx),
+                                mixed(n[1][1][0], n[1][1][1], fx) - mixed(n[1][0][0], n[1][0][1], fx), fz);
+    const float acrossZ = mixed(mixed(n[1][0][0], n[1][0][1], fx), mixed(n[1][1][0], n[1][1][1], fx), fy) -
+                          mixed(mixed(n[0][0][0], n[0][0][1], fx), mixed(n[0][1][0], n[0][1][1], fx), fy);
+    du = leanX + easeSlope(tx) * acrossX;
+    dv = leanY + easeSlope(ty) * acrossY;
+    dw = leanZ + easeSlope(tz) * acrossZ;
+}
+
+// So that the speed averages about one. (Measured: see the turbulence test.)
+constexpr float kFlatScale = 1.577f;
+constexpr float kDeepScale = 0.927f;
+
+}  // namespace
+
+Vec3f turbulence(std::uint64_t key, float perUnit, float perSecond, bool flat, float x, float y, float z,
+                 double time) {
+    // The pattern at one whole moment, the pattern at the next, and an eased
+    // blend between the two.
+    const double moment = time * static_cast<double>(perSecond);
+    auto slice = static_cast<std::int64_t>(moment);
+    if (static_cast<double>(slice) > moment) {
+        --slice;
+    }
+    const float blend = ease(static_cast<float>(moment - static_cast<double>(slice)));
+
+    std::int32_t ix = 0, iy = 0, iz = 0;
+    float tx = 0, ty = 0, tz = 0;
+    cellOf(x * perUnit, ix, tx);
+    cellOf(y * perUnit, iy, ty);
+    Vec3f out;
+    if (flat) {
+        float du0 = 0, dv0 = 0, du1 = 0, dv1 = 0;
+        slope2(key, slice, ix, iy, tx, ty, du0, dv0);
+        slope2(key, slice + 1, ix, iy, tx, ty, du1, dv1);
+        const float du = du0 + (du1 - du0) * blend, dv = dv0 + (dv1 - dv0) * blend;
+        // Round the hills of the pattern, never up or down them.
+        out.x = dv * kFlatScale;
+        out.y = -du * kFlatScale;
+        return out;
+    }
+    cellOf(z * perUnit, iz, tz);
+    float d[3][3];  // d[which pattern][which direction]
+    for (int which = 0; which < 3; ++which) {
+        const std::uint64_t one = mix64(key + static_cast<std::uint64_t>(which + 1) * 0x94D049BB133111EBull);
+        float a0 = 0, b0 = 0, c0 = 0, a1 = 0, b1 = 0, c1 = 0;
+        slope3(one, slice, ix, iy, iz, tx, ty, tz, a0, b0, c0);
+        slope3(one, slice + 1, ix, iy, iz, tx, ty, tz, a1, b1, c1);
+        d[which][0] = a0 + (a1 - a0) * blend;
+        d[which][1] = b0 + (b1 - b0) * blend;
+        d[which][2] = c0 + (c1 - c0) * blend;
+    }
+    out.x = (d[2][1] - d[1][2]) * kDeepScale;
+    out.y = (d[0][2] - d[2][0]) * kDeepScale;
+    out.z = (d[1][0] - d[0][1]) * kDeepScale;
+    return out;
+}
+
 }  // namespace vfx::det

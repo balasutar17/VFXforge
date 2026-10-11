@@ -283,6 +283,128 @@ TEST_CASE("Drag slows a particle and never reverses it") {
     CHECK(harsh.particles(0).vy[0] >= 0.0f);
 }
 
+TEST_CASE("Turbulence carries particles along, and none means none") {
+    // A cloud of particles with no speed of their own and nothing pulling on them.
+    Effect effect = oneLayer();
+    Layer& layer = effect.layers[0];
+    burstOnly(layer, 400);
+    put(layer, "shape", "shape", text("circle"));
+    put(layer, "shape", "radius", number(3.0));
+    put(layer, "initial", "speed", constant(0));
+    put(layer, "initial", "lifetime", constant(10));
+    put(layer, "motion", "gravity", vec(0, 0, 0));
+
+    // With none they stay exactly where they were born.
+    std::vector<float> bornX, bornY;
+    {
+        Simulation sim(compileEffect(effect));
+        sim.seek(1);
+        const ParticleView born = sim.particles(0);
+        bornX.assign(born.x, born.x + born.count);
+        bornY.assign(born.y, born.y + born.count);
+        sim.seek(60);
+        const ParticleView later = sim.particles(0);
+        REQUIRE(later.count == 400);
+        for (std::uint32_t i = 0; i < later.count; ++i) {
+            REQUIRE(later.x[i] == bornX[i]);
+            REQUIRE(later.y[i] == bornY[i]);
+        }
+    }
+
+    // With some, they wander: about as far in a second as the speed asked
+    // for, less the turning back on themselves that swirls do.
+    put(layer, "motion", "turbulence", number(2.0));
+    put(layer, "motion", "turbulenceSize", number(1.5));
+    Simulation sim(compileEffect(effect));
+    sim.seek(60);
+    const ParticleView v = sim.particles(0);
+    REQUIRE(v.count == 400);
+    double moved = 0, farthest = 0;
+    for (std::uint32_t i = 0; i < v.count; ++i) {
+        const double d = std::hypot(v.x[i] - bornX[i], v.y[i] - bornY[i]);
+        moved += d;
+        farthest = std::max(farthest, d);
+        REQUIRE(v.z[i] == 0.0f);   // a flat effect stays flat
+        REQUIRE(v.vx[i] == 0.0f);  // carried, not pushed: their own speed is untouched
+        REQUIRE(v.vy[i] == 0.0f);
+    }
+    moved /= v.count;
+    CHECK(moved > 0.5);
+    CHECK(moved < 2.4);
+    CHECK(farthest < 2.0 * 4.0);  // nothing is flung away
+    CHECK(allFinite(sim));
+
+    // Twice the speed goes further; a different layer wanders differently.
+    put(layer, "motion", "turbulence", number(4.0));
+    Simulation faster(compileEffect(effect));
+    faster.seek(60);
+    double further = 0;
+    for (std::uint32_t i = 0; i < 400; ++i) {
+        further += std::hypot(faster.particles(0).x[i] - bornX[i], faster.particles(0).y[i] - bornY[i]);
+    }
+    CHECK(further / 400 > 1.3 * moved);
+}
+
+TEST_CASE("Turbulence in 3D moves particles in depth too") {
+    Effect effect = oneLayer(true);
+    Layer& layer = effect.layers[0];
+    burstOnly(layer, 300);
+    put(layer, "initial", "speed", constant(0));
+    put(layer, "initial", "lifetime", constant(10));
+    put(layer, "motion", "gravity", vec(0, 0, 0));
+    put(layer, "motion", "turbulence", number(2.0));
+    Simulation sim(compileEffect(effect));
+    sim.seek(60);
+    const ParticleView v = sim.particles(0);
+    double depth = 0;
+    for (std::uint32_t i = 0; i < v.count; ++i) {
+        depth += std::fabs(v.z[i]);
+    }
+    CHECK(depth / v.count > 0.1);
+    CHECK(allFinite(sim));
+}
+
+TEST_CASE("With turbulence, scrubbing to a moment still gives exactly what playing to it gives") {
+    Effect effect = oneLayer();
+    effect.loop = "loop";
+    effect.duration = 1.0;
+    Layer& layer = effect.layers[0];
+    put(layer, "emission", "rate", constant(80));
+    put(layer, "initial", "lifetime", range(0.4, 1.3));
+    put(layer, "initial", "speed", range(0.5, 2.0));
+    put(layer, "motion", "drag", number(1.5));
+    put(layer, "motion", "turbulence", number(3.0));
+    put(layer, "motion", "turbulenceChange", number(1.3));
+
+    Simulation played(compileEffect(effect));
+    RenderFrame a, b;
+    for (const std::int64_t step : {7, 59, 60, 61, 133, 240, 400}) {
+        while (played.step() < step) {
+            played.advance();
+        }
+        played.extract(a);
+        Simulation scrubbed(compileEffect(effect));
+        scrubbed.seek(step);
+        scrubbed.extract(b);
+        CAPTURE(step);
+        CHECK(hashFrame(a) == hashFrame(b));
+    }
+    // Backwards too.
+    played.seek(133);
+    played.extract(a);
+    Simulation again(compileEffect(effect));
+    again.seek(133);
+    again.extract(b);
+    CHECK(hashFrame(a) == hashFrame(b));
+
+    // And a layer's turbulence shows in its fingerprint, as its other settings do.
+    put(layer, "motion", "turbulence", number(0.0));
+    Simulation calm(compileEffect(effect));
+    calm.seek(133);
+    calm.extract(a);
+    CHECK(hashFrame(a) != hashFrame(b));
+}
+
 TEST_CASE("Spin turns a particle at a steady rate") {
     Effect effect = oneLayer();
     Layer& layer = effect.layers[0];

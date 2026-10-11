@@ -540,6 +540,21 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
         out["force"] = nullptr;
     }
     out["drag"] = e.drag > 0.0f ? J(round6(e.drag)) : J(nullptr);
+    if (e.turbulence > 0.0f) {
+        // Unity's own Noise module does this job. Its swirls are not the same
+        // swirls, so the particles wander as much and as widely, not along
+        // the same paths. Unity's strength is the most the noise can push,
+        // about twice the usual push that Turbulence is measured in.
+        J noise = J::object();
+        noise["strength"] = round6(2.0 * e.turbulence);
+        noise["frequency"] = round6(e.turbulencePerUnit);
+        noise["scrollSpeed"] = round6(e.turbulenceChange);
+        noise["flat"] = e.flat;
+        noise["exact"] = false;
+        out["noise"] = std::move(noise);
+    } else {
+        out["noise"] = nullptr;
+    }
     const bool spins = e.spin.mode != ScalarF::Mode::Constant || e.spin.a != 0.0f;
     out["spin"] = spins ? lifeCurve(e.spin, -1.0 / kDeg) : J(nullptr);
 
@@ -626,6 +641,15 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
         trail["ratio"] = round6(std::clamp(e.trail / life, 0.02, 1.0));
         trail["width"] = round6(e.trailWidth);
         render["trail"] = std::move(trail);
+    }
+    if (e.hasOverLife && e.dissolve > 0.0f) {
+        // Drawn by the VFX Forge shader in Unity with the same pattern, from
+        // each particle's age and its own random number.
+        J dissolve = J::object();
+        dissolve["share"] = round6(e.dissolve);
+        dissolve["soft"] = round6(e.dissolveSoft);
+        dissolve["edge"] = round6(e.dissolveEdge);
+        render["dissolve"] = std::move(dissolve);
     }
     render["additive"] = e.blend == BlendMode::Additive;
     render["glow"] = round6(glow);

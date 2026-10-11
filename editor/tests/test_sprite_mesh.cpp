@@ -8,6 +8,7 @@
 #include "vfx/editor/Image.h"
 #include "vfx/editor/Picture.h"
 #include "vfx/editor/Session.h"
+#include "vfx/DetMath.h"
 #include "vfx/editor/SpriteMesh.h"
 
 using namespace vfx;
@@ -468,4 +469,130 @@ TEST_CASE("a trail follows the exact path the particle took", "[mesh][trail]") {
     frame.instances[0].age = 0.0f;
     buildSpriteMesh(frame, flatView(), mesh);
     CHECK(mesh.vertices.size() == 4);
+}
+
+TEST_CASE("a trail follows the path of a particle that swirls carried about", "[mesh][trail][turbulence]") {
+    // Fly a particle forward the way the simulation does: carried by the
+    // swirls as they were where it stood, then its own gravity, drag and move.
+    const float h = 1.0f / 60.0f, gy = 1.5f, drag = 0.4f;
+    const float strength = 2.5f, perUnit = 1.0f / 1.2f, change = 0.7f;
+    const std::uint64_t key = 0x1234567ull;
+    float x = -1.5f, y = -1.0f, vx = 1.0f, vy = 2.0f;
+    const float startX = x, startY = y;
+    const int first = 10, steps = 30;
+    for (int i = 0; i < steps; ++i) {
+        const det::Vec3f w =
+            det::turbulence(key, perUnit, change, true, x, y, 0.0f, static_cast<double>(first + i) * h);
+        x += w.x * strength * h;
+        y += w.y * strength * h;
+        const float damp = 1.0f / (1.0f + drag * h);
+        vx = vx * damp;
+        vy = (vy + gy * h) * damp;
+        x += vx * h;
+        y += vy * h;
+    }
+    SpriteInstance p;
+    p.x = x;
+    p.y = y;
+    p.vx = vx;
+    p.vy = vy;
+    p.size = 0.3f;
+    p.age = steps * h;
+    RenderFrame frame = oneParticle(p);
+    frame.step = first + steps;
+    RenderBatch& b = frame.batches[0];
+    b.trail = 5.0f;
+    b.trailWidth = 1.0f;
+    b.gravityY = gy;
+    b.drag = drag;
+    b.step = h;
+    b.turbulence = strength;
+    b.turbulencePerUnit = perUnit;
+    b.turbulenceChange = change;
+    b.turbulenceKey = key;
+
+    SpriteMesh mesh;
+    buildSpriteMesh(frame, flatView(), mesh);
+    REQUIRE(mesh.vertices.size() > 8);
+    const std::size_t trailVertices = mesh.vertices.size() - 4;
+    const SpriteVertex& endA = mesh.vertices[trailVertices - 2];
+    const SpriteVertex& endB = mesh.vertices[trailVertices - 1];
+    float sx = 0, sy = 0, scale = 0;
+    REQUIRE(projectPoint(flatView(), true, startX, startY, 0, sx, sy, scale));
+    // Back to where it was born, to within half a pixel after thirty steps.
+    CHECK(0.5f * (endA.x + endB.x) == Catch::Approx(sx).margin(0.5));
+    CHECK(0.5f * (endA.y + endB.y) == Catch::Approx(sy).margin(0.5));
+
+    // Without knowing about the swirls the ribbon would end somewhere else:
+    // the swirls really did move it.
+    b.turbulence = 0.0f;
+    buildSpriteMesh(frame, flatView(), mesh);
+    const SpriteVertex& plainA = mesh.vertices[mesh.vertices.size() - 6];
+    const SpriteVertex& plainB = mesh.vertices[mesh.vertices.size() - 5];
+    const float offX = 0.5f * (plainA.x + plainB.x) - sx, offY = 0.5f * (plainA.y + plainB.y) - sy;
+    CHECK(std::sqrt(offX * offX + offY * offY) > 5.0f);
+}
+
+TEST_CASE("a dissolving particle carries what the drawing needs, and takes its trail with it",
+          "[mesh][dissolve]") {
+    SpriteInstance p;
+    p.size = 1.0f;
+    p.dissolve = 0.4f;
+    p.seed = 0.37f;
+    RenderFrame frame = oneParticle(p);
+    frame.batches[0].dissolves = true;
+    frame.batches[0].dissolveEdge = 0.8f;
+    frame.batches[0].dissolveSoft = 0.3f;
+    SpriteMesh mesh;
+    buildSpriteMesh(frame, flatView(), mesh);
+    REQUIRE(mesh.vertices.size() == 4);
+    float sumX = 0, sumY = 0;
+    for (const SpriteVertex& v : mesh.vertices) {
+        CHECK(v.dissolve == 0.4f);
+        CHECK(v.seed == 0.37f);
+        CHECK(v.edge == 0.8f);
+        CHECK(v.soft == 0.3f);
+        // Each corner knows where it is on the particle's own square, the
+        // same place the shape formulas work out from the picture position.
+        CHECK(v.ownX == Catch::Approx(2.0f * v.u - 1.0f));
+        CHECK(v.ownY == Catch::Approx(1.0f - 2.0f * v.v));
+        sumX += v.ownX;
+        sumY += v.ownY;
+    }
+    CHECK(sumX == 0.0f);
+    CHECK(sumY == 0.0f);
+
+    // A layer that does not dissolve leaves all of it at nothing, whatever
+    // the particle says.
+    frame.batches[0].dissolves = false;
+    frame.batches[0].dissolveEdge = 0.0f;
+    frame.batches[0].dissolveSoft = 0.0f;
+    buildSpriteMesh(frame, flatView(), mesh);
+    for (const SpriteVertex& v : mesh.vertices) {
+        CHECK(v.dissolve == 0.0f);
+        CHECK(v.seed == 0.0f);
+    }
+
+    // The trail of a half-eaten particle is half as strong, and is not
+    // itself eaten into patches.
+    SpriteInstance q;
+    q.size = 0.4f;
+    q.vx = 3.0f;
+    q.age = 0.5f;
+    q.r = q.g = q.b = 1.0f;
+    RenderFrame whole = oneParticle(q);
+    whole.batches[0].trail = 0.3f;
+    whole.batches[0].trailWidth = 1.0f;
+    whole.batches[0].step = 1.0f / 60.0f;
+    whole.batches[0].dissolves = true;
+    RenderFrame half = whole;
+    half.instances[0].dissolve = 0.5f;
+    SpriteMesh a, b;
+    buildSpriteMesh(whole, flatView(), a);
+    buildSpriteMesh(half, flatView(), b);
+    REQUIRE(a.vertices.size() == b.vertices.size());
+    REQUIRE(a.vertices.front().shape == kRibbonShape);
+    CHECK(b.vertices.front().a == Catch::Approx(0.5f * a.vertices.front().a));
+    CHECK(b.vertices.front().r == Catch::Approx(0.5f * a.vertices.front().r));
+    CHECK(b.vertices.front().dissolve == 0.0f);
 }

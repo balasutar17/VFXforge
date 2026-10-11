@@ -542,3 +542,70 @@ TEST_CASE("sounds travel to Unity with the moments they play", "[unity][sound]")
     }
     CHECK(runtime);
 }
+
+TEST_CASE("turbulence and dissolve are handed to Unity", "[unity][turbulence][dissolve]") {
+    Effect effect = preset("soft-glow");
+    const auto put = [&](const char* type, const char* key, double value) {
+        bool done = false;
+        for (Module& m : effect.layers.front().modules) {
+            if (m.type == type) {
+                if (Value* slot = m.find(key)) {
+                    *slot = value;
+                    done = true;
+                }
+            }
+        }
+        REQUIRE(done);
+    };
+
+    // Nothing is said about either until they are used.
+    {
+        const J layer = describe(effect)["layers"][0];
+        CHECK(layer["noise"].is_null());
+        CHECK_FALSE(layer["render"].contains("dissolve"));
+    }
+
+    put("motion", "turbulence", 1.5);
+    put("motion", "turbulenceSize", 2.0);
+    put("motion", "turbulenceChange", 0.4);
+    put("overLife", "dissolve", 0.6);
+    put("overLife", "dissolveSoft", 0.5);
+    put("overLife", "dissolveEdge", 0.8);
+    const J layer = describe(effect)["layers"][0];
+
+    // Unity's Noise module: its strength is the most it can push, twice the
+    // usual push; its frequency is swirls per unit.
+    const J& noise = layer["noise"];
+    REQUIRE(noise.is_object());
+    CHECK(noise["strength"].get<double>() == Catch::Approx(3.0));
+    CHECK(noise["frequency"].get<double>() == Catch::Approx(0.5));
+    CHECK(noise["scrollSpeed"].get<double>() == Catch::Approx(0.4));
+    CHECK(noise["flat"] == true);
+    CHECK(noise["exact"] == false);  // Unity's swirls are its own
+
+    const J& dissolve = layer["render"]["dissolve"];
+    REQUIRE(dissolve.is_object());
+    CHECK(dissolve["share"].get<double>() == Catch::Approx(0.6));
+    CHECK(dissolve["soft"].get<double>() == Catch::Approx(0.5));
+    CHECK(dissolve["edge"].get<double>() == Catch::Approx(0.8));
+
+    // The importer and the shader both know what to do with them, and the
+    // shader's pattern is the preview's pattern.
+    std::string importer, shader;
+    for (const UnityFile& f : unityHelperSources()) {
+        if (f.path == "Editor/VFXForgeImporter.cs") {
+            importer = f.text;
+        } else if (f.path == "Shaders/VFXForgeParticle.shader") {
+            shader = f.text;
+        }
+    }
+    CHECK(importer.find("system.noise") != std::string::npos);
+    CHECK(importer.find("\"dissolve\"") != std::string::npos);
+    CHECK(importer.find("ParticleSystemVertexStream.AgePercent") != std::string::npos);
+    CHECK(importer.find("ParticleSystemVertexStream.StableRandomX") != std::string::npos);
+    for (const char* piece : {"_Dissolve", "_DissolveSoft", "_DissolveEdge", "0.1031", "33.33", "0.2033", "0.7556",
+                              "seed * 37.0", "seed * 91.0"}) {
+        CAPTURE(piece);
+        CHECK(shader.find(piece) != std::string::npos);
+    }
+}

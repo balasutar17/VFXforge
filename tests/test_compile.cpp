@@ -445,6 +445,27 @@ TEST_CASE("Compile: every sprite shape, alignment and stretch") {
     CHECK(e->stretch == 0.2f);
 }
 
+TEST_CASE("Compile: turbulence is off unless asked for, and kept within sense") {
+    Effect effect = oneLayer();
+    Layer& layer = effect.layers[0];
+    auto e = compileLayer(effect, layer);
+    CHECK(e->turbulence == 0.0f);
+
+    put(layer, "motion", "turbulence", number(2.5));
+    put(layer, "motion", "turbulenceSize", number(0.5));
+    put(layer, "motion", "turbulenceChange", number(1.25));
+    e = compileLayer(effect, layer);
+    CHECK(e->turbulence == 2.5f);
+    CHECK(e->turbulencePerUnit == 2.0f);  // one over the size of a swirl
+    CHECK(e->turbulenceChange == 1.25f);
+
+    // A swirl of no size would be a division by nothing.
+    put(layer, "motion", "turbulenceSize", number(0.0));
+    e = compileLayer(effect, layer);
+    CHECK(std::isfinite(e->turbulencePerUnit));
+    CHECK(e->turbulencePerUnit == 1.0f / 0.02f);
+}
+
 TEST_CASE("Compile: a particle can lie flat, unless it points along its movement") {
     Effect effect = oneLayer();
     Layer& layer = effect.layers[0];

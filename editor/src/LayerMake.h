@@ -99,6 +99,13 @@ public:
     Make& gravity(double x, double y) { return put("motion", "gravity", Vec3{x, y, 0.0}); }
     Make& drag(double amount) { return put("motion", "drag", amount); }
     Make& spin(double a, double b) { return put("motion", "spin", range(a, b)); }
+    // Carried along a field of swirls: how fast, how large the swirls are,
+    // and how quickly they are replaced by new ones.
+    Make& turbulence(double speed, double swirlSize = 1.5, double change = 0.6) {
+        put("motion", "turbulence", speed);
+        put("motion", "turbulenceSize", swirlSize);
+        return put("motion", "turbulenceChange", change);
+    }
 
     // ---- how it changes over its life
     Make& sizeOver(Keys keys) { return put("overLife", "size", Scalar::curve(keys)); }
@@ -113,6 +120,15 @@ public:
         return put("overLife", "color", gradient);
     }
     Make& solid() { return put("overLife", "opacity", Scalar::constant(1.0)); }
+    // Eaten away in a ragged pattern over this last share of its life.
+    // Eaten away in ragged patches over the last share of its life. edgeGlow
+    // is how brightly the eaten edge burns (0 for smoke and mist); soft is
+    // how soft that edge is (0 torn like paper, 1 thinning like smoke).
+    Make& dissolve(double share, double edgeGlow = 0.0, double soft = 0.15) {
+        put("overLife", "dissolveEdge", edgeGlow);
+        put("overLife", "dissolveSoft", soft);
+        return put("overLife", "dissolve", share);
+    }
     Make& tint(std::initializer_list<Tint> keys) {
         Gradient gradient;
         for (const Tint& k : keys) {

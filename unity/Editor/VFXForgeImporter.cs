@@ -244,6 +244,28 @@ namespace VFXForge.EditorTools
                 rotation.enabled = true;
                 rotation.z = Curve(layer, "spin", 0);
             }
+            var noiseInfo = Obj(layer, "noise");
+            if (noiseInfo != null)
+            {
+                // Turbulence: Unity's own Noise module carries the particles
+                // about. Its swirls are Unity's, so the wandering is as strong
+                // and as wide as in VFX Forge but does not follow the same paths.
+                var noise = system.noise;
+                noise.enabled = true;
+                noise.quality = ParticleSystemNoiseQuality.High;
+                noise.octaveCount = 1;
+                noise.damping = false;
+                noise.frequency = (float)Num(noiseInfo, "frequency", 0.5);
+                noise.scrollSpeed = (float)Num(noiseInfo, "scrollSpeed", 0);
+                noise.positionAmount = 1f;
+                noise.rotationAmount = 0f;
+                noise.sizeAmount = 0f;
+                float strength = (float)Num(noiseInfo, "strength", 0);
+                noise.separateAxes = true;
+                noise.strengthX = strength;
+                noise.strengthY = strength;
+                noise.strengthZ = Bool(noiseInfo, "flat", true) ? 0f : strength;
+            }
 
             // ---- over each particle's life
             if (layer.ContainsKey("sizeOverLife") && layer["sizeOverLife"] != null)
@@ -380,6 +402,28 @@ namespace VFXForge.EditorTools
             material.SetFloat("_Glow", (float)Num(renderInfo, "glow", 1));
             material.SetFloat("_Additive", Bool(renderInfo, "additive", false) ? 1f : 0f);
             material.SetFloat("_MotionAxis", mode == "stretched" ? StretchedMotionAxis : 0f);
+
+            // ---- dissolve: eaten away in ragged patches toward the end of its life
+            var dissolveInfo = Obj(renderInfo, "dissolve");
+            if (dissolveInfo != null)
+            {
+                material.SetFloat("_Dissolve", (float)Num(dissolveInfo, "share", 0));
+                material.SetFloat("_DissolveSoft", (float)Num(dissolveInfo, "soft", 0.15));
+                material.SetFloat("_DissolveEdge", (float)Num(dissolveInfo, "edge", 0));
+                material.SetFloat("_SheetColumns", sheet.enabled ? sheet.numTilesX : 1f);
+                material.SetFloat("_SheetRows", sheet.enabled ? sheet.numTilesY : 1f);
+                // The shader needs to know how far through its life each
+                // particle is, and a number of its own so that no two are
+                // eaten the same way. Both ride along with the picture position.
+                renderer.SetActiveVertexStreams(new List<ParticleSystemVertexStream>
+                {
+                    ParticleSystemVertexStream.Position,
+                    ParticleSystemVertexStream.Color,
+                    ParticleSystemVertexStream.UV,
+                    ParticleSystemVertexStream.AgePercent,
+                    ParticleSystemVertexStream.StableRandomX,
+                });
+            }
             renderer.sharedMaterial = material;
             return material;
         }

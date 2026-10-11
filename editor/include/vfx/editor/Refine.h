@@ -32,6 +32,9 @@ enum class Refine {
     Stylize,        // snappier timing, drawn-looking shapes
     AddSecondary,   // a second, finer layer of small particles
     ForMobile,      // fewer particles, no trails
+    MoreSwirl,      // small particles and smoke carried about by moving air
+    Calmer,         // less of that
+    DissolveAway,   // smoke and big shapes eaten away in patches as they go
     MatchColours,   // needs a reference: its colours again
     MatchDuration,  // needs a clip: its length again
 };

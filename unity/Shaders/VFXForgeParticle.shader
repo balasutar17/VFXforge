@@ -23,6 +23,11 @@ Shader "VFX Forge/Particle"
         _MotionAxis ("Streak direction", Float) = 0
         [Toggle] _Picture ("Draw the picture as painted", Float) = 0
         [Toggle] _Ribbon ("Draw a trail ribbon", Float) = 0
+        _Dissolve ("Dissolve: share of life at the end", Range(0, 1)) = 0
+        _DissolveSoft ("Dissolve softness", Range(0, 1)) = 0.15
+        _DissolveEdge ("Dissolve edge glow", Range(0, 1)) = 0
+        _SheetColumns ("Sprite sheet columns (for dissolve)", Float) = 1
+        _SheetRows ("Sprite sheet rows (for dissolve)", Float) = 1
     }
 
     SubShader
@@ -48,19 +53,27 @@ Shader "VFX Forge/Particle"
             float _MotionAxis;
             float _Picture;
             float _Ribbon;
+            float _Dissolve;
+            float _DissolveSoft;
+            float _DissolveEdge;
+            float _SheetColumns;
+            float _SheetRows;
 
             struct appdata
             {
                 float4 vertex : POSITION;
                 float4 color : COLOR;
-                float2 uv : TEXCOORD0;
+                // xy: the picture position. For a dissolving layer the importer
+                // also sends z: how far through its life the particle is, and
+                // w: a number of its own from 0 to 1.
+                float4 uv : TEXCOORD0;
             };
 
             struct v2f
             {
                 float4 pos : SV_POSITION;
                 float4 color : COLOR;
-                float2 uv : TEXCOORD0;
+                float4 uv : TEXCOORD0;
             };
 
             v2f vert(appdata v)
@@ -70,6 +83,49 @@ Shader "VFX Forge/Particle"
                 o.color = v.color;
                 o.uv = v.uv;
                 return o;
+            }
+
+            // Dissolve: the particle eaten away in ragged patches as it dies.
+            // The same sums as VFX Forge's own preview.
+            float dissolveSpeck(float2 c)
+            {
+                float3 q = frac(float3(c.x, c.y, c.x) * 0.1031);
+                q += dot(q, q.yzx + 33.33);
+                return frac((q.x + q.y) * q.z);
+            }
+
+            float dissolveLumps(float2 q)
+            {
+                float2 i = floor(q);
+                float2 f = q - i;
+                f = f * f * (3.0 - 2.0 * f);
+                float low = lerp(dissolveSpeck(i), dissolveSpeck(i + float2(1.0, 0.0)), f.x);
+                float high = lerp(dissolveSpeck(i + float2(0.0, 1.0)), dissolveSpeck(i + float2(1.0, 1.0)), f.x);
+                return lerp(low, high, f.y);
+            }
+
+            // x: how much of this point is left; y: how brightly it glows for
+            // being near the eaten edge. own is the particle's own -1..1 square.
+            float2 dissolveAt(float2 own, float age, float seed)
+            {
+                if (_Dissolve <= 0.0)
+                    return float2(1.0, 0.0);
+                float amount = saturate((age - (1.0 - _Dissolve)) / _Dissolve);
+                if (amount <= 0.0)
+                    return float2(1.0, 0.0);
+                float2 q = own * 1.7 + float2(seed * 37.0, seed * 91.0);
+                float2 q2 = float2(0.8 * q.x - 0.6 * q.y, 0.6 * q.x + 0.8 * q.y) * 2.1 + float2(5.3, 1.7);
+                float2 q3 = float2(0.28 * q.x + 0.96 * q.y, -0.96 * q.x + 0.28 * q.y) * 4.3 + float2(9.1, 3.3);
+                float n = 0.5 * dissolveLumps(q) + 0.3 * dissolveLumps(q2) + 0.2 * dissolveLumps(q3);
+                n += 0.1 * (0.5 - min(length(own), 1.0));
+                n = saturate((n - 0.2033) / (0.7556 - 0.2033));
+                n = n * n * (3.0 - 2.0 * n);
+                float width = 0.03 + 0.6 * _DissolveSoft;
+                float past = n - (amount * (1.0 + width) - width);
+                float keep = saturate(past / width);
+                float inner = saturate((past - width) / 0.2);
+                float rim = _DissolveEdge * (1.0 - inner) * (1.0 - inner) * min(amount * 6.0, 1.0);
+                return float2(keep, rim);
             }
 
             float4 frag(v2f i) : SV_Target
@@ -89,14 +145,21 @@ Shader "VFX Forge/Particle"
                 if (_Picture > 0.5)
                 {
                     // The picture, premultiplied, tinted and faded by the particle.
-                    float4 p = tex2D(_MainTex, i.uv);
+                    float4 p = tex2D(_MainTex, i.uv.xy);
                     float a = i.color.a;
                     float3 tint = i.color.rgb * (a * _Glow);
-                    return float4(tint * p.rgb * p.a, (_Additive > 0.5 ? 0.0 : a) * p.a);
+                    float3 prgb = tint * p.rgb * p.a;
+                    float pa = (_Additive > 0.5 ? 0.0 : a) * p.a;
+                    // Where on the particle this is: within its own sprite-sheet cell.
+                    float2 cell = frac(i.uv.xy * float2(_SheetColumns, _SheetRows));
+                    float2 gone = dissolveAt(float2(cell.x * 2.0 - 1.0, cell.y * 2.0 - 1.0), i.uv.z, i.uv.w);
+                    float pwhite = max(pa, max(prgb.r, max(prgb.g, prgb.b)));
+                    prgb += (pwhite - prgb) * gone.y;
+                    return float4(prgb, pa) * gone.x;
                 }
 
                 // Across the particle from 0 to 1, with v pointing up.
-                float2 local = i.uv;
+                float2 local = i.uv.xy;
                 if (_MotionAxis > 0.5)
                     local = float2(local.y, 1.0 - local.x);
                 local = clamp(local, 0.004, 0.996);
@@ -112,6 +175,11 @@ Shader "VFX Forge/Particle"
                 if (abs(tone) < 0.01)
                     tone = 0.0;
                 float shine = t.g;
+
+                // Being eaten away as it dies.
+                float2 eaten = dissolveAt(local * 2.0 - 1.0, i.uv.z, i.uv.w);
+                cover *= eaten.x;
+                shine = max(shine, eaten.y);
 
                 float alpha = i.color.a;
                 float3 rgb = i.color.rgb * (alpha * _Glow);

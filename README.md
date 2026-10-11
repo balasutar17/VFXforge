@@ -32,6 +32,10 @@ What exists so far:
 - **effects on the ground**: any layer can lie flat (a magic circle, a
   portal, a shockwave across the floor) and still turn in its own plane, with
   shafts of light standing on it; see [docs/ground.md](docs/ground.md)
+- **turbulence and dissolve**: particles carried about by moving air, so
+  smoke winds and embers wander; and particles eaten away in ragged patches
+  as they die, softly like smoke or with a white-hot edge like burning
+  paper; see [docs/turbulence-and-dissolve.md](docs/turbulence-and-dissolve.md)
 - **export to Unity**: a prefab built from Unity's Particle System, a
   `.unitypackage`, or animation frames and sprite sheets; see
   [docs/export.md](docs/export.md)

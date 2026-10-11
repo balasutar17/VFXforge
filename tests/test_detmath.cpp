@@ -1,5 +1,8 @@
 #include <catch2/catch_amalgamated.hpp>
 
+#include <algorithm>
+#include <cstring>
+
 #include <cmath>
 #include <fstream>
 #include <limits>
@@ -122,6 +125,97 @@ TEST_CASE("Random numbers are pinned: these exact values on every machine") {
     CHECK(det::unitFloat(0) == 0.0f);
     CHECK(det::unitFloat(~0ull) == 0.99999994f);  // the largest float below 1
     CHECK(det::unitFloat(0x8000000000000000ull) == 0.5f);
+}
+
+TEST_CASE("The field of swirls is pinned: these exact values on every machine") {
+    // If any of these change, every effect that uses turbulence moves differently.
+    const auto bitsOf = [](float f) {
+        std::uint32_t u = 0;
+        std::memcpy(&u, &f, sizeof u);
+        return u;
+    };
+    const det::Vec3f flat = det::turbulence(0x1234abcdull, 0.75f, 0.6f, true, 1.25f, -3.5f, 0.0f, 2.4);
+    CHECK(bitsOf(flat.x) == 0x3e7e2d3au);
+    CHECK(bitsOf(flat.y) == 0xbf41747eu);
+    CHECK(flat.z == 0.0f);  // a flat field never leaves the plane
+    const det::Vec3f deep = det::turbulence(0x1234abcdull, 0.75f, 0.6f, false, 1.25f, -3.5f, 7.125f, 2.4);
+    CHECK(bitsOf(deep.x) == 0xbdd1d5feu);
+    CHECK(bitsOf(deep.y) == 0xbe19178cu);
+    CHECK(bitsOf(deep.z) == 0xbf39f400u);
+    // A field that never changes is the same at any moment.
+    const det::Vec3f fixed = det::turbulence(99, 2.0f, 0.0f, true, -0.3f, 0.9f, 0.0f, 100.0);
+    CHECK(bitsOf(fixed.x) == 0xbf0dddbfu);
+    CHECK(bitsOf(fixed.y) == 0xbec9882eu);
+    const det::Vec3f later = det::turbulence(99, 2.0f, 0.0f, true, -0.3f, 0.9f, 0.0f, 3.7);
+    CHECK(later.x == fixed.x);
+    CHECK(later.y == fixed.y);
+}
+
+TEST_CASE("The field of swirls averages a speed of about one, and neither gathers nor spreads") {
+    for (const bool flat : {true, false}) {
+        CAPTURE(flat);
+        double squares = 0, spreading = 0, largest = 0;
+        const int samples = 20000;
+        for (int i = 0; i < samples; ++i) {
+            const auto at = [&](int which) {
+                return det::unitFloat(det::mix64(static_cast<std::uint64_t>(i) * 5 + static_cast<std::uint64_t>(which))) *
+                           40.0f - 20.0f;
+            };
+            const float x = at(1), y = at(2), z = at(3);
+            const double time = det::unitFloat(det::mix64(static_cast<std::uint64_t>(i) * 5 + 4)) * 10.0;
+            const auto field = [&](float px, float py, float pz) {
+                return det::turbulence(4321, 1.0f, 0.7f, flat, px, py, pz, time);
+            };
+            const det::Vec3f v = field(x, y, z);
+            REQUIRE(std::isfinite(v.x));
+            REQUIRE(std::isfinite(v.y));
+            REQUIRE(std::isfinite(v.z));
+            const double speed2 = static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y +
+                                  static_cast<double>(v.z) * v.z;
+            squares += speed2;
+            largest = std::max(largest, speed2);
+            // As much flows into any small box as out of it.
+            const float e = 0.01f;
+            double out = (field(x + e, y, z).x - field(x - e, y, z).x) + (field(x, y + e, z).y - field(x, y - e, z).y);
+            if (!flat) {
+                out += field(x, y, z + e).z - field(x, y, z - e).z;
+            }
+            spreading += std::fabs(out) / (2.0 * e);
+        }
+        CHECK(std::sqrt(squares / samples) == Catch::Approx(1.0).margin(0.08));
+        CHECK(std::sqrt(largest) < 4.0);  // and never runs away
+        CHECK(spreading / samples < 0.01);
+    }
+}
+
+TEST_CASE("The field of swirls is smooth: near points and near moments move alike") {
+    for (const bool flat : {true, false}) {
+        double step = 0, moment = 0;
+        const int samples = 5000;
+        for (int i = 0; i < samples; ++i) {
+            const float x = det::unitFloat(det::mix64(static_cast<std::uint64_t>(i) * 3 + 1)) * 20.0f - 10.0f;
+            const float y = det::unitFloat(det::mix64(static_cast<std::uint64_t>(i) * 3 + 2)) * 20.0f - 10.0f;
+            const double t = det::unitFloat(det::mix64(static_cast<std::uint64_t>(i) * 3 + 3)) * 8.0;
+            const det::Vec3f a = det::turbulence(7, 1.0f, 0.5f, flat, x, y, 0.3f, t);
+            const det::Vec3f b = det::turbulence(7, 1.0f, 0.5f, flat, x + 0.005f, y, 0.3f, t);
+            const det::Vec3f c = det::turbulence(7, 1.0f, 0.5f, flat, x, y, 0.3f, t + 0.005);
+            step = std::max<double>(step, std::fabs(a.x - b.x) + std::fabs(a.y - b.y) + std::fabs(a.z - b.z));
+            moment = std::max<double>(moment, std::fabs(a.x - c.x) + std::fabs(a.y - c.y) + std::fabs(a.z - c.z));
+        }
+        CHECK(step < 0.15);    // no jumps across the edges of the grid it is built on
+        CHECK(moment < 0.08);  // nor from one slice of time to the next
+    }
+    // Far outside anything an effect uses, it still answers with a number.
+    // Nowhere is it still: a particle that starts exactly on a corner of the
+    // grid the field is built on (the middle of the effect is one) moves too.
+    const det::Vec3f origin = det::turbulence(7, 1.0f, 0.5f, true, 0.0f, 0.0f, 0.0f, 0.0);
+    CHECK(std::fabs(origin.x) + std::fabs(origin.y) > 0.05f);
+    const det::Vec3f origin3 = det::turbulence(7, 1.0f, 0.5f, false, 0.0f, 0.0f, 0.0f, 0.0);
+    CHECK(std::fabs(origin3.x) + std::fabs(origin3.y) + std::fabs(origin3.z) > 0.05f);
+    const det::Vec3f far = det::turbulence(7, 1.0f, 0.5f, false, 1.0e12f, -1.0e12f, 4.0e9f, 1.0e9);
+    CHECK(std::isfinite(far.x));
+    CHECK(std::isfinite(far.y));
+    CHECK(std::isfinite(far.z));
 }
 
 TEST_CASE("Random numbers are evenly spread and never reach 1") {

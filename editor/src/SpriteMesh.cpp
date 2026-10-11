@@ -1,5 +1,7 @@
 #include "vfx/editor/SpriteMesh.h"
 
+#include "vfx/DetMath.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -97,7 +99,7 @@ float toScreen(float linear) { return static_cast<float>(linearToSrgb(static_cas
 // gravity, divides by drag, then moves), so it is exactly the path it took,
 // back to its birth at most.
 void addTrail(SpriteMesh& mesh, const Camera& camera, bool flat, const RenderBatch& batch,
-              const SpriteInstance& p, float glow, bool additive) {
+              const SpriteInstance& p, float glow, bool additive, std::int64_t frameStep) {
     const float h = batch.step;
     const float back = std::min(batch.trail, p.age > 0.0f ? p.age : 0.0f);
     const int steps = static_cast<int>(back / h + 1e-3f);
@@ -126,6 +128,24 @@ void addTrail(SpriteMesh& mesh, const Camera& camera, bool flat, const RenderBat
         x -= vx * h;
         y -= vy * h;
         z -= vz * h;
+        if (batch.turbulence > 0.0f) {
+            // The step also carried the particle along the swirls as they
+            // were, where it was, when the step began. Where it was is what
+            // is being worked out, so it is closed in on: each guess gives
+            // a better one, and three are plenty for so small a step.
+            const double began = static_cast<double>(frameStep - 1 - s) * static_cast<double>(h);
+            float ox = x, oy = y, oz = z;
+            for (int guess = 0; guess < 3; ++guess) {
+                const det::Vec3f w = det::turbulence(batch.turbulenceKey, batch.turbulencePerUnit, batch.turbulenceChange,
+                                                     flat, ox, oy, oz, began);
+                ox = x - w.x * batch.turbulence * h;
+                oy = y - w.y * batch.turbulence * h;
+                oz = z - w.z * batch.turbulence * h;
+            }
+            x = ox;
+            y = oy;
+            z = flat ? 0.0f : oz;
+        }
         vx = vx * (1.0f + batch.drag * h) - batch.gravityX * h;
         vy = vy * (1.0f + batch.drag * h) - batch.gravityY * h;
         vz = vz * (1.0f + batch.drag * h) - batch.gravityZ * h;
@@ -153,7 +173,9 @@ void addTrail(SpriteMesh& mesh, const Camera& camera, bool flat, const RenderBat
         ny[i] = dx;
     }
 
-    const float alpha = p.a > 1.0f ? 1.0f : p.a;
+    // A particle being eaten away takes its trail with it.
+    const float left = 1.0f - (p.dissolve > 1.0f ? 1.0f : (p.dissolve > 0.0f ? p.dissolve : 0.0f));
+    const float alpha = (p.a > 1.0f ? 1.0f : p.a) * left;
     const float strength = alpha * glow;
     const float cr = toScreen(p.r) * strength, cg = toScreen(p.g) * strength, cb = toScreen(p.b) * strength;
     const float last = static_cast<float>(count - 1);
@@ -244,7 +266,7 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
             const float halfPx = half * scale;
 
             if (batch.trail > 0.0f && batch.trailWidth > 0.0f && batch.step > 0.0f) {
-                addTrail(mesh, camera, frame.flat, batch, p, glow, additive);
+                addTrail(mesh, camera, frame.flat, batch, p, glow, additive, frame.step);
             }
 
             // The particle's own two axes, as steps across the screen in
@@ -259,8 +281,18 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
                 // heading on screen, and how fast.
                 const float moment = 1.0f / 120.0f;
                 float qx = 0, qy = 0, qs = 1;
-                if (project(camera, p.x + p.vx * moment, p.y + p.vy * moment,
-                            frame.flat ? 0.0f : z + p.vz * moment, qx, qy, qs)) {
+                // Its own speed, and whatever the swirls are adding just now.
+                float goX = p.vx, goY = p.vy, goZ = p.vz;
+                if (batch.turbulence > 0.0f) {
+                    const det::Vec3f w = det::turbulence(batch.turbulenceKey, batch.turbulencePerUnit,
+                                                         batch.turbulenceChange, frame.flat, p.x, p.y, z,
+                                                         static_cast<double>(frame.step) * static_cast<double>(batch.step));
+                    goX += w.x * batch.turbulence;
+                    goY += w.y * batch.turbulence;
+                    goZ += w.z * batch.turbulence;
+                }
+                if (project(camera, p.x + goX * moment, p.y + goY * moment,
+                            frame.flat ? 0.0f : z + goZ * moment, qx, qy, qs)) {
                     const float sx = (qx - px) / moment, sy = (qy - py) / moment;
                     const float speed = std::sqrt(sx * sx + sy * sy);
                     if (speed > 1e-3f) {
@@ -300,6 +332,10 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
             v.shape = shape;
             v.aaX = 1.0f / (lenX > 0.25f ? lenX : 0.25f);
             v.aaY = 1.0f / (lenY > 0.25f ? lenY : 0.25f);
+            v.dissolve = batch.dissolves ? p.dissolve : 0.0f;
+            v.seed = batch.dissolves ? p.seed : 0.0f;
+            v.edge = batch.dissolveEdge;
+            v.soft = batch.dissolveSoft;
 
             int cellX = 0, cellY = 0;
             if (picture) {
@@ -335,6 +371,8 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
                     v.u = cornerU[k];
                     v.v = cornerV[k];
                 }
+                v.ownX = cornerX[k];
+                v.ownY = cornerY[k];
                 mesh.vertices.push_back(v);
             }
             if (!visible) {

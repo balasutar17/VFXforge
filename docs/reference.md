@@ -207,11 +207,13 @@ the effect's length is rounded to a whole number of simulation steps
   brightness of each unlocked layer are nudged, the effect is drawn again,
   and a change is kept only if the pictures measure closer. What was
   changed is listed. "Match again" and "Improve the outline" run it again.
-- **Seventeen refinements**, each a plain edit to plain properties and one
+- **Twenty refinements**, each a plain edit to plain properties and one
   undo step: bigger, smaller, wider, tighter, more sparks, fewer sparks,
   more glow, less glow, faster, slower, sharper, softer, more stylized, add
-  finer particles, lighter for mobile, reference colours again, reference
-  length again.
+  finer particles, lighter for mobile, more swirl, calmer, dissolve away,
+  reference colours again, reference length again. (More swirl, calmer and
+  dissolve away came with 0.10; see
+  [turbulence-and-dissolve.md](turbulence-and-dissolve.md).)
 - **Versions:** every build and refinement is kept in a list while the
   window is open; clicking one brings it back (also one undo step).
 
@@ -231,7 +233,10 @@ and the device's limit. Work runs on a background thread and can be stopped.
 
 - **It does not follow single particles.** Sparks match the reference in
   number, size, colour and spread, not one by one, and their positions are
-  random. Whether they fall, rise or swirl is not measured.
+  random. Whether they fall, rise or swirl is not measured. Smoke is given
+  a little moving air and a ragged dissolve because that is how smoke goes,
+  and the report marks both as assumed; for sparks, "More swirl" adds
+  turbulence when the original has it, and how much is your call.
 - **No manual correction of tracking**, and **no curve editor**: the curves
   are made and saved, but the Advanced and Expert editors that would change
   them are not built. Timing can be changed with Faster, Slower and the
@@ -253,8 +258,7 @@ and the device's limit. Work runs on a background thread and can be stopped.
   depth, and its pattern is a built-in one of the same kind unless cut-outs
   are on. A base that is not round, or is rolled to one side, is not read
   as lying down at all.
-- **Not built:** heat haze and distortion, turbulence, beams and cones as
-  meshes, true depth, emitters that move along a path (a travelling effect's
+- **Not built:** heat haze and distortion, beams and cones as meshes, true depth, emitters that move along a path (a travelling effect's
   particle layers start from where it began).
 - **Built-in shapes are approximations** of hand-drawn art. Cut-outs are
   closer, with the caution above.

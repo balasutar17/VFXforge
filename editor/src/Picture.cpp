@@ -74,6 +74,16 @@ void drawTriangle(std::vector<float>& canvas, int width, int height, const Sprit
             const float vg = w0 * v0.g + w1 * v1.g + w2 * v2.g;
             const float vb = w0 * v0.b + w1 * v1.b + w2 * v2.b;
             const float va = w0 * v0.a + w1 * v1.a + w2 * v2.a;
+            // Being eaten away: what is left of this point, and the glow
+            // along the eaten edge.
+            Dissolved eaten;
+            if (v0.dissolve > 0.0f) {
+                eaten = dissolveAt(w0 * v0.ownX + w1 * v1.ownX + w2 * v2.ownX,
+                                   w0 * v0.ownY + w1 * v1.ownY + w2 * v2.ownY, v0.dissolve, v0.seed, v0.soft, v0.edge);
+                if (!(eaten.keep > 0.0f)) {
+                    continue;
+                }
+            }
             if (picture) {
                 // The painted picture, premultiplied, tinted by the particle.
                 float t[4];
@@ -81,14 +91,19 @@ void drawTriangle(std::vector<float>& canvas, int width, int height, const Sprit
                 if (!(t[3] > 0.0f) && !(t[0] + t[1] + t[2] > 0.0f)) {
                     continue;
                 }
-                const float r = vr * t[0], g = vg * t[1], b = vb * t[2];
+                float r = vr * t[0], g = vg * t[1], b = vb * t[2];
+                const float pa = va * t[3] * eaten.keep;
+                applyShine(r, g, b, va * t[3], eaten.rim);
+                r *= eaten.keep;
+                g *= eaten.keep;
+                b *= eaten.keep;
                 float* d = &canvas[index * 4u];
-                const float keep = 1.0f - va * t[3];
+                const float keep = 1.0f - pa;
                 d[0] = r + d[0] * keep;
                 d[1] = g + d[1] * keep;
                 d[2] = b + d[2] * keep;
                 if (keepAlpha) {
-                    const float own = va > 0.0f ? va * t[3]
+                    const float own = va > 0.0f ? pa
                                                    : std::min(1.0f, std::max({r, g, b}));
                     d[3] = own + d[3] * (1.0f - own);
                 }
@@ -97,13 +112,13 @@ void drawTriangle(std::vector<float>& canvas, int width, int height, const Sprit
             const ShapeSample sample =
                 v0.shape < -1.5f ? ribbonSample(u, v)
                                  : sampleShape(shape, 2.0f * u - 1.0f, 1.0f - 2.0f * v, v0.aaX, v0.aaY);
-            const float cover = sample.cover;
+            const float cover = sample.cover * eaten.keep;
             if (!(cover > 0.0f)) {
                 continue;
             }
             float r = vr, g = vg, b = vb;
             applyTone(r, g, b, sample.tone);
-            applyShine(r, g, b, va, sample.shine);
+            applyShine(r, g, b, va, std::max(sample.shine, eaten.rim));
             // The one blend rule: source + destination * (1 - source alpha).
             float* d = &canvas[index * 4u];
             const float keep = 1.0f - va * cover;

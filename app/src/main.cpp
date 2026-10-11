@@ -392,8 +392,40 @@ int main(int argc, char* argv[]) {
                     line << "FAIL: the ground preset shows nothing\n";
                     selfTest.result = 1;
                 }
-                controller.setLibraryOpen(true);
-                QTimer::singleShot(2500, &application, third);
+                // Dissolve, drawn by the graphics card: a sheet caught while it
+                // is being eaten away. Then turbulence: ribbons winding upward.
+                if (!controller.openPreset(QStringLiteral("burn-away"))) {
+                    line << "FAIL: the Burn Away preset could not be opened\n";
+                    selfTest.result = 1;
+                }
+                QTimer::singleShot(1150, &application, [&, window, software, third]() {
+                    QTextStream more(&selfTest.report);
+                    more << "dissolve preset: " << controller.effectName() << ", " << controller.particleCount()
+                         << " particles\n";
+                    const int burning = capture(window, selfTest, QStringLiteral("-dissolve"),
+                                                QStringLiteral("a dissolving preset"));
+                    if (!software && burning < 500) {
+                        more << "FAIL: the dissolving preset shows nothing\n";
+                        selfTest.result = 1;
+                    }
+                    if (!controller.openPreset(QStringLiteral("spirit-wisps"))) {
+                        more << "FAIL: the Spirit Wisps preset could not be opened\n";
+                        selfTest.result = 1;
+                    }
+                    QTimer::singleShot(3200, &application, [&, window, software, third]() {
+                        QTextStream last(&selfTest.report);
+                        last << "turbulence preset: " << controller.effectName() << ", " << controller.particleCount()
+                             << " particles\n";
+                        const int winding = capture(window, selfTest, QStringLiteral("-turbulence"),
+                                                    QStringLiteral("a turbulent preset"));
+                        if (!software && winding < 100) {
+                            last << "FAIL: the turbulent preset shows nothing\n";
+                            selfTest.result = 1;
+                        }
+                        controller.setLibraryOpen(true);
+                        QTimer::singleShot(2500, &application, third);
+                    });
+                });
             });
         };
 

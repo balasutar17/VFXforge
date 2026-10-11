@@ -1030,9 +1030,11 @@ private:
         const double r = s_.smokeRadius * kU;
         m.burst(count).circle(0.4 * r).life(plan_.life * 0.8, plan_.life).speed(0.1 * r, 0.4 * r).aim(90, 180)
             .size(0.9 * r, 1.4 * r).turn(-180, 180).colorLinear(linear(s_.smokeColour, 0.6)).drag(2.0).gravity(0, 0.3)
-            .sizeOver({{0, 0.6}, {1, 1.2}}).fade({{0, 0}, {0.15, 1}, {0.6, 0.8}, {1, 0}}).look("smoke");
+            .sizeOver({{0, 0.6}, {1, 1.2}}).fade({{0, 0}, {0.15, 1}, {0.6, 0.8}, {1, 0.3}}).look("smoke")
+            .turbulence(0.2 * r, std::max(0.3, 0.8 * r), 0.5).dissolve(0.55, 0.0, 0.6);
         push(m, "smoke", "A few soft smoke puffs", "smoke", Basis::Inferred, 8, count,
-             "Grey, soft areas are read as smoke.");
+             "Grey, soft areas are read as smoke. That it drifts on moving air and thins away in patches is how "
+             "smoke goes, not something measured.");
     }
 
     void comet() {
@@ -1492,9 +1494,10 @@ private:
         if (a_.time.available && a_.time.turning != 0 && plan_.spin == 0) {
             out.notes.push_back("Some turning was seen but not clearly enough to copy.");
         }
-        out.notes.push_back("Not built in this version: heat haze and distortion, swirling (turbulent) motion, beams "
-                            "and cones as real meshes, and true depth. Sparks are placed at random, so they match the "
-                            "reference in number, size, colour and spread, not one by one.");
+        out.notes.push_back("Not built in this version: heat haze and distortion, beams and cones as real meshes, and "
+                            "true depth. Swirling on moving air is not measured from the reference: if the original "
+                            "has it, More swirl adds it. Sparks are placed at random, so they match the reference in "
+                            "number, size, colour and spread, not one by one.");
         return out;
     }
 

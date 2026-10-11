@@ -247,6 +247,12 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         e->gravityZ = e->flat ? 0.0f : f(gravity.z);
         e->drag = f(std::max(0.0, motion.get<double>("drag")));
         e->spin = toScalar(motion.get<Scalar>("spin"));
+        const double turbulence = motion.get<double>("turbulence");
+        const double swirl = motion.get<double>("turbulenceSize");
+        const double change = motion.get<double>("turbulenceChange");
+        e->turbulence = std::isfinite(turbulence) ? std::clamp(f(turbulence), 0.0f, 1000.0f) : 0.0f;
+        e->turbulencePerUnit = 1.0f / (std::isfinite(swirl) ? std::clamp(f(swirl), 0.02f, 10000.0f) : 1.5f);
+        e->turbulenceChange = std::isfinite(change) ? std::clamp(f(change), 0.0f, 60.0f) : 0.0f;
     }
 
     // ------------------------------------------------------------ over life
@@ -266,6 +272,12 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         if (!tints) {
             e->colorOverLife.clear();  // all white: nothing to do each frame
         }
+        const double dissolve = overLife.get<double>("dissolve");
+        e->dissolve = std::isfinite(dissolve) ? std::clamp(f(dissolve), 0.0f, 1.0f) : 0.0f;
+        const double soft = overLife.get<double>("dissolveSoft");
+        e->dissolveSoft = std::isfinite(soft) ? std::clamp(f(soft), 0.0f, 1.0f) : 0.15f;
+        const double edge = overLife.get<double>("dissolveEdge");
+        e->dissolveEdge = std::isfinite(edge) ? std::clamp(f(edge), 0.0f, 1.0f) : 0.0f;
     }
 
     // --------------------------------------------------------------- sprite

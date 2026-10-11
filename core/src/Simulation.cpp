@@ -224,6 +224,21 @@ void Simulation::Emitter::advance() {
             rot[i] += spin[i] * h;
         }
     }
+    if (e.turbulence > 0.0f) {
+        // Carried along by the swirls as they were, where the particle was,
+        // at the start of the step. Done before the particle's own movement
+        // so that the step can be undone exactly (a trail does that).
+        const std::uint64_t field = det::mix64(e.key ^ 0x5457495354ull);
+        for (std::uint32_t i = 0; i < n; ++i) {
+            const float a1 = age[i] + dt;
+            const float h = a1 < dt ? (a1 > 0.0f ? a1 : 0.0f) : dt;
+            const det::Vec3f w = det::turbulence(field, e.turbulencePerUnit, e.turbulenceChange, e.flat, x[i], y[i],
+                                                 z[i], t0);
+            x[i] += w.x * e.turbulence * h;
+            y[i] += w.y * e.turbulence * h;
+            z[i] += w.z * e.turbulence * h;
+        }
+    }
     for (std::uint32_t i = 0; i < n; ++i) {
         const float a1 = age[i] + dt;
         const float h = a1 < dt ? (a1 > 0.0f ? a1 : 0.0f) : dt;
@@ -660,6 +675,9 @@ void Simulation::extract(RenderFrame& frame) const {
         batch.tilt = e.flat ? e.tilt : 0.0f;
         batch.columns = e.columns;
         batch.rows = e.rows;
+        batch.dissolves = e.dissolve > 0.0f;
+        batch.dissolveEdge = batch.dissolves ? e.dissolveEdge : 0.0f;
+        batch.dissolveSoft = batch.dissolves ? e.dissolveSoft : 0.0f;
         batch.trail = e.trail;
         batch.trailWidth = e.trailWidth;
         batch.gravityX = e.gravityX;
@@ -667,6 +685,10 @@ void Simulation::extract(RenderFrame& frame) const {
         batch.gravityZ = e.flat ? 0.0f : e.gravityZ;
         batch.drag = e.drag;
         batch.step = static_cast<float>(e.step);
+        batch.turbulence = e.turbulence;
+        batch.turbulencePerUnit = e.turbulencePerUnit;
+        batch.turbulenceChange = e.turbulenceChange;
+        batch.turbulenceKey = e.turbulence > 0.0f ? det::mix64(e.key ^ 0x5457495354ull) : 0;
         batch.first = at;
         batch.count = em.count;
         frame.batches.push_back(batch);
@@ -737,6 +759,14 @@ void Simulation::extract(RenderFrame& frame) const {
             }
             out.frame = static_cast<float>(cell);
             out.age = age[i];
+            if (e.dissolve > 0.0f) {
+                // Whole until the last share of its life, then steadily away.
+                out.dissolve = clamp01((lived - (1.0f - e.dissolve)) / e.dissolve);
+                out.seed = pick[i];
+            } else {
+                out.dissolve = 0.0f;
+                out.seed = 0.0f;
+            }
         }
         at += em.count;
     }
@@ -785,6 +815,11 @@ std::uint64_t hashFrame(const RenderFrame& frame) {
             // Likewise: only a tilted layer changes its fingerprint.
             h = det::mix64(h ^ 0x54494C54ull ^ bits(b.tilt));
         }
+        if (b.turbulence > 0.0f) {
+            h = det::mix64(h ^ 0x54555242ull ^ bits(b.turbulence));
+            h = det::mix64(h ^ bits(b.turbulencePerUnit));
+            h = det::mix64(h ^ bits(b.turbulenceChange));
+        }
         h = det::mix64(h ^ b.first);
         h = det::mix64(h ^ b.count);
     }
@@ -792,6 +827,21 @@ std::uint64_t hashFrame(const RenderFrame& frame) {
         for (float v : {s.x, s.y, s.z, s.size, s.rotation, s.r, s.g, s.b, s.a, s.vx, s.vy, s.vz,
                         s.frame}) {
             h = det::mix64(h ^ bits(v));
+        }
+    }
+    // Mixed in only for layers that dissolve, so every other frame keeps
+    // the fingerprint it always had.
+    for (const auto& b : frame.batches) {
+        if (!b.dissolves) {
+            continue;
+        }
+        h = det::mix64(h ^ 0x44495353ull ^ b.first);
+        h = det::mix64(h ^ bits(b.dissolveEdge));
+        h = det::mix64(h ^ bits(b.dissolveSoft));
+        for (std::uint32_t i = 0; i < b.count; ++i) {
+            const SpriteInstance& s = frame.instances[b.first + i];
+            h = det::mix64(h ^ bits(s.dissolve));
+            h = det::mix64(h ^ bits(s.seed));
         }
     }
     return h;

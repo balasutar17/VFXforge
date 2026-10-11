@@ -4,9 +4,12 @@
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
+#include <algorithm>
 #include <string>
+#include <vector>
 
 #include "vfx/FileIO.h"
+#include "vfx/Serialize.h"
 #include "vfx/editor/Session.h"
 #include "vfx/editor/SpriteMesh.h"
 
@@ -64,13 +67,14 @@ TEST_CASE("a new 3D session is three-dimensional", "[session]") {
     CHECK(s.particleCount() > 0);
 }
 
-TEST_CASE("the starter effect offers the eleven Simple controls", "[session]") {
+TEST_CASE("the starter effect offers its Simple controls", "[session]") {
     Session s;
     const Id layer = s.effect().layers[0].id;
     const auto controls = s.controls(layer);
-    REQUIRE(controls.size() == 11);
+    REQUIRE(controls.size() == 16);
     for (const char* label : {"Size", "Speed", "Amount", "Lifetime", "Color", "Glow", "Spread",
-                              "Direction", "Shape", "Blend", "Lie Flat"}) {
+                              "Direction", "Shape", "Blend", "Lie Flat", "Turbulence", "Swirl Size", "Dissolve",
+                              "Dissolve Softness", "Dissolve Edge Glow"}) {
         const ControlView* c = find(controls, label);
         REQUIRE(c != nullptr);
         REQUIRE(c->desc != nullptr);
@@ -79,6 +83,66 @@ TEST_CASE("the starter effect offers the eleven Simple controls", "[session]") {
     CHECK(std::get<Scalar>(find(controls, "Amount")->value) == Scalar::constant(60.0));
     CHECK(std::get<double>(find(controls, "Glow")->value) == 1.6);
     CHECK(s.controls(Id{12345}).empty());
+
+    // In the order an artist reads them, each setting beside what it belongs to.
+    std::vector<std::string> labels;
+    for (const ControlView& c : controls) {
+        labels.push_back(c.label);
+    }
+    CHECK(labels == std::vector<std::string>{"Shape", "Color", "Blend", "Glow", "Size", "Amount", "Lifetime",
+                                             "Speed", "Spread", "Direction", "Turbulence", "Swirl Size",
+                                             "Dissolve", "Dissolve Softness", "Dissolve Edge Glow", "Lie Flat"});
+}
+
+TEST_CASE("an effect saved before a control existed still offers it, and is not rewritten", "[session][controls]") {
+    // As an earlier version saved it: no Lie Flat, Turbulence or Dissolve
+    // controls in the layer's own list.
+    Effect old = Session().effect();
+    auto& list = old.layers[0].controls;
+    list.erase(std::remove_if(list.begin(), list.end(),
+                              [](const SimpleControl& c) {
+                                  return c.label == "Lie Flat" || c.label == "Turbulence" || c.label == "Dissolve";
+                              }),
+               list.end());
+    REQUIRE(list.size() == 10);
+    const std::string saved = writeEffect(old);
+
+    const std::filesystem::path file = std::filesystem::temp_directory_path() / "vfx_old_controls.vfx";
+    REQUIRE(saveEffect(file, old).ok());
+    Session s;
+    REQUIRE(s.open(file).ok());
+    std::filesystem::remove(file);
+    const Id layer = s.effect().layers[0].id;
+    auto controls = s.controls(layer);
+    REQUIRE(controls.size() == 16);
+    for (const char* label : {"Lie Flat", "Turbulence", "Swirl Size", "Dissolve", "Dissolve Softness",
+                              "Dissolve Edge Glow"}) {
+        const ControlView* c = find(controls, label);
+        REQUIRE(c != nullptr);
+        REQUIRE(c->desc != nullptr);
+        CHECK(holdsKind(c->value, c->desc->kind));
+    }
+    // Looking changed nothing in the effect itself.
+    CHECK(s.effect().layers[0].controls.size() == 10);
+    CHECK(writeEffect(s.effect()) == saved);
+
+    // They work: the value changes, it shows, and one undo takes it back.
+    const ControlView* turbulence = find(controls, "Turbulence");
+    REQUIRE(std::get<double>(turbulence->value) == 0.0);
+    REQUIRE(s.setControl(layer, turbulence->control, Value{2.5}).ok());
+    controls = s.controls(layer);
+    CHECK(std::get<double>(find(controls, "Turbulence")->value) == 2.5);
+    // The same control keeps the same ID from one look to the next.
+    CHECK(find(controls, "Turbulence")->control == turbulence->control);
+    play(s, 0.5);
+    REQUIRE_FALSE(s.frame().batches.empty());
+    CHECK(s.frame().batches[0].turbulence == 2.5f);
+    CHECK(s.effect().layers[0].controls.size() == 10);
+    REQUIRE(s.undo().ok());
+    CHECK(std::get<double>(find(s.controls(layer), "Turbulence")->value) == 0.0);
+
+    // A control that is not there is still refused.
+    CHECK_FALSE(s.setControl(layer, Id{999}, Value{1.0}).ok());
 }
 
 TEST_CASE("changing a control changes the picture and can be undone", "[session]") {
@@ -236,7 +300,7 @@ TEST_CASE("layers can be added and removed, with undo", "[session]") {
     CHECK(s.effect().layers[1].id == added);
     CHECK(s.effect().layers[1].name == "Smoke");
     CHECK(s.effect().layers[1].duration == s.effect().duration);
-    CHECK(s.controls(added).size() == 11);
+    CHECK(s.controls(added).size() == 16);
 
     play(s, 1.0);
     CHECK(s.frame().batches.size() == 2);

@@ -145,6 +145,14 @@ void scaleReach(Layer& layer, double factor) {
     if (Vec3* gravity = property<Vec3>(layer, "motion", "gravity")) {
         scale(*gravity, factor);
     }
+    // The moving air grows with everything else: as fast for its size, and
+    // its swirls as wide for the distance covered.
+    if (double* turbulence = property<double>(layer, "motion", "turbulence")) {
+        *turbulence *= factor;
+    }
+    if (double* swirl = property<double>(layer, "motion", "turbulenceSize")) {
+        *swirl = std::clamp(*swirl * factor, 0.02, 10000.0);
+    }
 }
 
 void scaleEverything(Layer& layer, double factor) {
@@ -260,6 +268,12 @@ void scaleTime(Layer& layer, double factor) {
     }
     if (Scalar* spin = property<Scalar>(layer, "motion", "spin")) {
         scale(*spin, factor);
+    }
+    if (double* turbulence = property<double>(layer, "motion", "turbulence")) {
+        *turbulence *= factor;
+    }
+    if (double* change = property<double>(layer, "motion", "turbulenceChange")) {
+        *change = std::clamp(*change * factor, 0.0, 60.0);
     }
     if (Scalar* rate = property<Scalar>(layer, "emission", "rate")) {
         scale(*rate, factor);

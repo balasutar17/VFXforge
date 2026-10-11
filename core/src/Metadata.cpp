@@ -118,6 +118,17 @@ Registry::Registry() {
             .help("Slows particles down over time."),
         P("spin", "Spin", ValueKind::Scalar, Scalar::constant(0.0))
             .unit("degrees per second").range(-36000, 36000).ui(-360, 360),
+        P("turbulence", "Turbulence", ValueKind::Float, num(0.0))
+            .simple().unit("units per second").range(0, 1000).ui(0, 6)
+            .help("Carries each particle along a field of swirls, the way air carries smoke: "
+                  "0 is none, higher wanders faster. It adds to the particle's own movement."),
+        P("turbulenceSize", "Swirl Size", ValueKind::Float, num(1.5))
+            .simple().unit("units").range(0.02, 10000).ui(0.2, 6)
+            .help("How large the swirls are. Small swirls jitter; large ones drift and curl."),
+        P("turbulenceChange", "Swirl Change", ValueKind::Float, num(0.6))
+            .unit("per second").range(0, 60).ui(0, 3)
+            .help("How quickly the swirls are replaced by new ones. 0 keeps them where they are, "
+                  "so particles follow the same winding paths."),
     }));
 
     modules_.push_back(module("overLife", "Over Lifetime", Stage::Update, {
@@ -129,6 +140,17 @@ Registry::Registry() {
         P("opacity", "Opacity", ValueKind::Scalar, Scalar::curve({{0, 1}, {1, 0}}))
             .range(0, 1).ui(0, 1)
             .help("Fades each particle from birth to death."),
+        P("dissolve", "Dissolve", ValueKind::Float, num(0.0))
+            .simple().range(0, 1).ui(0, 1)
+            .help("Eats each particle away in ragged patches instead of only fading it: 0 never, "
+                  "0.5 over the second half of its life, 1 over the whole of it."),
+        P("dissolveSoft", "Dissolve Softness", ValueKind::Float, num(0.15))
+            .simple().range(0, 1).ui(0, 1)
+            .help("How soft the eaten edge is: 0 torn like paper, 1 thinning away like smoke."),
+        P("dissolveEdge", "Dissolve Edge Glow", ValueKind::Float, num(0.0))
+            .simple().range(0, 1).ui(0, 1)
+            .help("How brightly the eaten edge glows, like paper burning: 0 not at all (smoke, "
+                  "mist), 1 white-hot."),
     }));
 
     modules_.push_back(module("sprite", "Sprite", Stage::Render, {

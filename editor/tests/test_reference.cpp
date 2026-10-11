@@ -14,6 +14,7 @@
 #include "vfx/Program.h"
 #include "vfx/Serialize.h"
 #include "vfx/Simulation.h"
+#include "vfx/Templates.h"
 #include "vfx/editor/Compare.h"
 #include "vfx/editor/Picture.h"
 #include "vfx/editor/Presets.h"
@@ -2111,4 +2112,103 @@ TEST_CASE("the shapes are measured the way layers are sized", "[reference][shape
     CHECK(colourName(Swatch{1.0f, 1.0f, 1.0f, 0}) == "white");
     CHECK(colourName(Swatch{0.1f, 0.2f, 0.9f, 0}) == "blue");
     CHECK(std::string(backdropName(Backdrop::Transparent)) == "transparent");
+}
+
+TEST_CASE("refining adds, calms and scales the moving air, and dissolves smoke", "[reference][refine][turbulence]") {
+    IdGenerator generator(77);
+    const IdSource newId = [&generator]() { return generator.next(); };
+    const auto number = [](const Effect& effect, const char* role, const char* type, const char* key) {
+        for (const Layer& layer : effect.layers) {
+            if (layer.role == role) {
+                for (const Module& m : layer.modules) {
+                    if (m.type == type) {
+                        return std::get<double>(*m.find(key));
+                    }
+                }
+            }
+        }
+        return -1.0;
+    };
+
+    // Sparks flying out at 4 units a second, some smoke, and a glow.
+    Effect start = makeEmptyEffect(newId, "Refine me", false);
+    const auto layer = [&](const char* name, const char* role, int count, double speed, const char* shape) {
+        Layer l = makeBasicEmitter(newId, name);
+        l.role = role;
+        for (Module& m : l.modules) {
+            if (m.type == "emission") {
+                *m.find("rate") = Scalar::constant(0.0);
+                *m.find("bursts") = BurstList{{Burst{0.0, count}}};
+            } else if (m.type == "initial") {
+                *m.find("speed") = Scalar::random(0.5 * speed, 1.5 * speed);
+            } else if (m.type == "sprite") {
+                *m.find("shape") = std::string(shape);
+            }
+        }
+        start.layers.push_back(std::move(l));
+    };
+    layer("Sparks", "sparks", 30, 4.0, "disc");
+    layer("Smoke", "smoke", 6, 0.5, "smoke");
+    layer("Glow", "glow", 1, 0.0, "soft");
+    REQUIRE(number(start, "sparks", "motion", "turbulence") == 0.0);
+
+    // More swirl: still air becomes moving air, in proportion to how fast
+    // the particles go; the glow, which is one sprite, is left alone.
+    std::string said;
+    const Effect swirled = refine(start, Refine::MoreSwirl, nullptr, newId, &said).value();
+    CHECK(said.find("2 layers") != std::string::npos);
+    const double sparks = number(swirled, "sparks", "motion", "turbulence");
+    const double smoke = number(swirled, "smoke", "motion", "turbulence");
+    CHECK(sparks == Catch::Approx(0.35 * 4.0));
+    CHECK(smoke == Catch::Approx(0.3));  // never so little that it does nothing
+    CHECK(number(swirled, "glow", "motion", "turbulence") == 0.0);
+    // Again: half as much more.
+    const Effect more = refine(swirled, Refine::MoreSwirl, nullptr, newId, &said).value();
+    CHECK(number(more, "sparks", "motion", "turbulence") == Catch::Approx(1.5 * sparks));
+    CHECK(said.find("Half as much") != std::string::npos);
+
+    // Calmer undoes it, and stops altogether once it is slight.
+    const Effect calmer = refine(more, Refine::Calmer, nullptr, newId).value();
+    CHECK(number(calmer, "sparks", "motion", "turbulence") == Catch::Approx(sparks));
+    Effect calm = swirled;
+    for (int i = 0; i < 12; ++i) {
+        calm = refine(calm, Refine::Calmer, nullptr, newId, &said).value();
+    }
+    CHECK(number(calm, "sparks", "motion", "turbulence") == 0.0);
+    CHECK(number(calm, "smoke", "motion", "turbulence") == 0.0);
+    // With nothing swirling there is nothing to calm, and it says so.
+    refine(calm, Refine::Calmer, nullptr, newId, &said).value();
+    CHECK(said == "No layer here is of the kind this changes.");
+
+    // Bigger makes the swirls bigger and faster with everything else, so the
+    // paths keep their shape; faster makes them quicker and quicker to change.
+    const Effect bigger = refine(swirled, Refine::Bigger, nullptr, newId).value();
+    CHECK(number(bigger, "sparks", "motion", "turbulence") == Catch::Approx(1.15 * sparks));
+    CHECK(number(bigger, "sparks", "motion", "turbulenceSize") ==
+          Catch::Approx(1.15 * number(swirled, "sparks", "motion", "turbulenceSize")));
+    const Effect faster = refine(swirled, Refine::Faster, nullptr, newId).value();
+    CHECK(number(faster, "sparks", "motion", "turbulence") == Catch::Approx(1.25 * sparks));
+    CHECK(number(faster, "sparks", "motion", "turbulenceChange") ==
+          Catch::Approx(1.25 * number(swirled, "sparks", "motion", "turbulenceChange")));
+    CHECK(number(faster, "sparks", "motion", "turbulenceSize") ==
+          Catch::Approx(number(swirled, "sparks", "motion", "turbulenceSize")));
+
+    // Dissolve away: the smoke, softly; not the sparks or the glow. A
+    // second time there is nothing left to change.
+    const Effect eaten = refine(start, Refine::DissolveAway, nullptr, newId, &said).value();
+    CHECK(number(eaten, "smoke", "overLife", "dissolve") == Catch::Approx(0.6));
+    CHECK(number(eaten, "smoke", "overLife", "dissolveSoft") == Catch::Approx(0.6));
+    CHECK(number(eaten, "sparks", "overLife", "dissolve") == 0.0);
+    CHECK(number(eaten, "glow", "overLife", "dissolve") == 0.0);
+    CHECK(said.find("1 layer is") != std::string::npos);
+    refine(eaten, Refine::DissolveAway, nullptr, newId, &said).value();
+    CHECK(said == "No layer here is of the kind this changes.");
+
+    // A locked layer is left as it was.
+    Effect held = start;
+    held.layers[0].locked = true;
+    const Effect kept = refine(held, Refine::MoreSwirl, nullptr, newId, &said).value();
+    CHECK(number(kept, "sparks", "motion", "turbulence") == 0.0);
+    CHECK(number(kept, "smoke", "motion", "turbulence") > 0.0);
+    CHECK(said.find("locked") != std::string::npos);
 }

@@ -75,4 +75,20 @@ Vec3f normalizeOr(Vec3f v, Vec3f fallback);
 // Two unit vectors at right angles to n and to each other. n must be unit.
 void basis(Vec3f n, Vec3f& tangent, Vec3f& bitangent);
 
+// --------------------------------------------------------------- turbulence
+
+// A field of smooth swirls that changes over time: at every point and
+// moment, a velocity whose size averages about one. Particles carried along
+// by it wander the way smoke does, and never bunch up or thin out, because
+// the field neither gathers nor spreads (it is the curl of a smooth
+// potential).
+//
+// `key` picks the field, so each layer has its own. `perUnit` is one over
+// the size of a swirl in world units, and `perSecond` how many times a
+// second the pattern is replaced by a new one. A flat field swirls in the
+// x-y plane only. Built from hashing and plain arithmetic alone, so it is
+// the same on every machine.
+Vec3f turbulence(std::uint64_t key, float perUnit, float perSecond, bool flat, float x, float y,
+                 float z, double time);
+
 }  // namespace vfx::det

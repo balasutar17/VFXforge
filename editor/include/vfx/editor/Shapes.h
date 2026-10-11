@@ -6,6 +6,8 @@
 // change one, change the other.
 #pragma once
 
+#include <cmath>
+
 #include "vfx/Program.h"
 
 namespace vfx::editor {
@@ -73,6 +75,83 @@ inline void applyShine(float& r, float& g, float& b, float alpha, float shine) {
         g += (white - g) * shine;
         b += (white - b) * shine;
     }
+}
+
+// Dissolve: a particle eaten away in ragged patches as it dies, the way a
+// burning leaf or a wisp of smoke goes, where a plain fade thins it evenly
+// all over. Written three times with the same sums: here, and in
+// app/shaders/sprite.frag and image.frag. If you change one, change them all.
+//
+// A number from 0 to 1 that depends only on which square of a grid a point
+// is in. Plain arithmetic, so every graphics card gets the same answer.
+inline float dissolveSpeck(float cx, float cy) {
+    const auto part = [](float v) { return v - std::floor(v); };
+    float qx = part(cx * 0.1031f), qy = part(cy * 0.1031f), qz = qx;
+    const float d = qx * (qy + 33.33f) + qy * (qz + 33.33f) + qz * (qx + 33.33f);
+    qx += d;
+    qy += d;
+    qz += d;
+    return part((qx + qy) * qz);
+}
+
+// Soft lumps about one grid square across.
+inline float dissolveLumps(float x, float y) {
+    const float ix = std::floor(x), iy = std::floor(y);
+    float fx = x - ix, fy = y - iy;
+    fx = fx * fx * (3.0f - 2.0f * fx);
+    fy = fy * fy * (3.0f - 2.0f * fy);
+    const float a = dissolveSpeck(ix, iy), b = dissolveSpeck(ix + 1.0f, iy);
+    const float c = dissolveSpeck(ix, iy + 1.0f), d = dissolveSpeck(ix + 1.0f, iy + 1.0f);
+    const float low = a + (b - a) * fx, high = c + (d - c) * fx;
+    return low + (high - low) * fy;
+}
+
+// When each point of a particle goes, from 0 (first) to 1 (last). (x, y) is
+// the particle's own -1..1 square; seed is the particle's own random number,
+// so no two are eaten the same way. Three sizes of lump, each turned against
+// the others so no grid shows; the outside tends to go a little before the
+// middle; and the result is spread out so that about as much goes in each
+// tenth of the dissolve as in any other.
+inline float dissolvePattern(float x, float y, float seed) {
+    const float qx = x * 1.7f + seed * 37.0f, qy = y * 1.7f + seed * 91.0f;
+    const float rx = (0.8f * qx - 0.6f * qy) * 2.1f + 5.3f, ry = (0.6f * qx + 0.8f * qy) * 2.1f + 1.7f;
+    const float sx = (0.28f * qx + 0.96f * qy) * 4.3f + 9.1f, sy = (-0.96f * qx + 0.28f * qy) * 4.3f + 3.3f;
+    float n = 0.5f * dissolveLumps(qx, qy) + 0.3f * dissolveLumps(rx, ry) + 0.2f * dissolveLumps(sx, sy);
+    float r = std::sqrt(x * x + y * y);
+    r = r > 1.0f ? 1.0f : r;
+    n += 0.1f * (0.5f - r);
+    n = (n - 0.2033f) / (0.7556f - 0.2033f);
+    n = n < 0.0f ? 0.0f : (n > 1.0f ? 1.0f : n);
+    return n * n * (3.0f - 2.0f * n);
+}
+
+// What is left of a point when the particle is `amount` of the way through
+// dissolving (0 whole, 1 gone), and how brightly it glows for being near the
+// eaten edge. soft and edge are the layer's Dissolve Softness and Dissolve
+// Edge Glow, each 0 to 1.
+struct Dissolved {
+    float keep = 1;
+    float rim = 0;
+};
+inline constexpr float kDissolveBand = 0.2f;  // how far in from the edge the glow reaches
+inline Dissolved dissolveAt(float x, float y, float amount, float seed, float soft, float edge) {
+    Dissolved out;
+    if (!(amount > 0.0f)) {
+        return out;
+    }
+    const float width = 0.03f + 0.6f * soft;
+    const float n = dissolvePattern(x, y, seed);
+    const float past = n - (amount * (1.0f + width) - width);
+    float keep = past / width;
+    keep = keep < 0.0f ? 0.0f : (keep > 1.0f ? 1.0f : keep);
+    out.keep = keep;
+    if (edge > 0.0f) {
+        float inner = (past - width) / kDissolveBand;
+        inner = inner < 0.0f ? 0.0f : (inner > 1.0f ? 1.0f : inner);
+        const float start = amount * 6.0f;  // no glow before anything is eaten
+        out.rim = edge * (1.0f - inner) * (1.0f - inner) * (start > 1.0f ? 1.0f : start);
+    }
+    return out;
 }
 
 const char* shapeName(SpriteShape shape);

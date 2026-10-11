@@ -26,6 +26,11 @@ struct SpriteInstance {
     float vx = 0, vy = 0, vz = 0;      // units per second, for streaks
     float frame = 0;  // which sprite-sheet picture, a whole number from 0
     float age = 0;    // seconds since birth (limits how far back a trail reaches)
+    // How far it has been eaten away, 0 (whole) to 1 (gone), and a number
+    // of its own from 0 to 1 so that no two are eaten in the same pattern.
+    // Both stay 0 in a layer that does not dissolve.
+    float dissolve = 0;
+    float seed = 0;
 };
 
 // A run of instances drawn with the same settings: one per drawn layer.
@@ -43,6 +48,9 @@ struct RenderBatch {
     // plane, so a spinning ring stays a level oval. Flat effects only.
     float tilt = 0;
     int columns = 1, rows = 1; // the texture's sprite-sheet grid
+    bool dissolves = false;    // its particles are eaten away toward the end of their lives
+    float dissolveEdge = 0;    // how brightly the eaten edge glows, 0 to 1
+    float dissolveSoft = 0;    // how soft the eaten edge is, 0 (torn) to 1 (smoke)
 
     // Trails. The path a particle took is worked out backwards from where
     // it is, by undoing the simulation's own steps, so it needs no memory.
@@ -51,6 +59,13 @@ struct RenderBatch {
     float gravityX = 0, gravityY = 0, gravityZ = 0;
     float drag = 0;
     float step = 0;            // the simulation step, seconds
+    // The field of swirls that carried the particles (see det::turbulence),
+    // so that a trail can follow the winding path and a streak can point
+    // the way its particle is really going. 0 speed means none.
+    float turbulence = 0;
+    float turbulencePerUnit = 1;
+    float turbulenceChange = 0;
+    std::uint64_t turbulenceKey = 0;
     std::uint32_t first = 0;
     std::uint32_t count = 0;
 };

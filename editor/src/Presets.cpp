@@ -64,7 +64,7 @@ Effect toonExplosion(const IdSource& id) {
     Effect e = begin(id, "Toon Explosion", 1.8);
     add(e, Make(id, "Smoke").burst(8, 0.06).circle(0.3).life(0.9, 1.3).speed(1.6, 3.6).aim(90, 180)
                .size(1.2, 1.9).turn(-30, 30).color(0x574b66).drag(2.8).gravity(0, 0.8)
-               .sizeOver({{0, 0.4}, {0.3, 1.0}, {0.7, 0.9}, {1, 0}}).solid().look("puff"));
+               .sizeOver({{0, 0.4}, {0.3, 1.0}, {1, 0.8}}).solid().look("puff").dissolve(0.6, 0.0, 0.02));
     add(e, Make(id, "Fire").burst(10).circle(0.2).life(0.45, 0.78).speed(2.2, 5.2).aim(90, 180)
                .size(1.2, 1.9).turn(-30, 30).color(0xff7a14).drag(4.2).gravity(0, 0.5)
                .sizeOver({{0, 0.4}, {0.2, 1.0}, {0.6, 0.85}, {1, 0}}).solid().look("puff"));
@@ -208,7 +208,8 @@ Effect smokePuff(const IdSource& id) {
     add(e, Make(id, "Puff").burst(13).circle(0.25).life(0.8, 1.3).speed(1.4, 3.6).aim(90, 180)
                .size(0.9, 1.5).turn(0, 360).spin(-30, 30).color(0xe9e4dc, 0.9).drag(3.4)
                .gravity(0, 0.8).sizeOver({{0, 0.4}, {0.3, 1.0}, {1, 1.25}})
-               .fade({{0, 0.95}, {0.4, 0.75}, {1, 0}}).look("smoke"));
+               .fade({{0, 0.95}, {0.4, 0.8}, {1, 0.35}}).look("smoke").turbulence(0.5, 1.3, 0.5)
+               .dissolve(0.65, 0.0, 0.55));
     add(e, Make(id, "Dust").burst(12).life(0.4, 0.8).speed(3, 6).aim(90, 180).size(0.1, 0.18)
                .color(0xd8d0c4).drag(3).gravity(0, -1).sizeOver({{0, 1}, {1, 0}}).solid().look("disc"));
     return e;
@@ -220,7 +221,8 @@ Effect campfire(const IdSource& id) {
     Effect e = begin(id, "Campfire", 4.0);
     add(e, Make(id, "Smoke").rate(6).circle(0.25).life(2.2, 3.0).speed(0.9, 1.5).aim(90, 10)
                .size(0.9, 1.4).turn(0, 360).spin(-25, 25).color(0x38322f, 0.6).gravity(0, 0.5)
-               .sizeOver({{0, 0.5}, {1, 1.7}}).fade({{0, 0}, {0.3, 0}, {0.55, 0.5}, {1, 0}}).look("smoke").sound("fire-loop", false, 0.0, 0.8).soundLoop());
+               .sizeOver({{0, 0.5}, {1, 1.7}}).fade({{0, 0}, {0.3, 0}, {0.55, 0.5}, {1, 0.2}}).look("smoke")
+               .turbulence(0.6, 1.4, 0.5).dissolve(0.45, 0.0, 0.6).sound("fire-loop", false, 0.0, 0.8).soundLoop());
     add(e, Make(id, "Flames").rate(42).circle(0.38).life(0.6, 1.05).speed(1.3, 2.5).aim(90, 9)
                .size(0.75, 1.25).color(0xff6412).gravity(0, 1.6).drag(0.4)
                .sizeOver({{0, 0.55}, {0.2, 1.0}, {1, 0.12}}).solid().tint(VFX_HOT_TO_DARK)
@@ -229,7 +231,7 @@ Effect campfire(const IdSource& id) {
                .gravity(0, 0).fade({{0, 0}, {0.5, 0.2}, {1, 0}}).additive());
     add(e, Make(id, "Embers").rate(11).circle(0.3).life(1.2, 2.2).speed(1.6, 3.2).aim(90, 22)
                .size(0.05, 0.1).color(0xffb44a).gravity(0, 0.5).drag(0.3)
-               .fade({{0, 1}, {0.6, 1}, {1, 0}}).additive().glow(2.2));
+               .fade({{0, 1}, {0.6, 1}, {1, 0}}).additive().glow(2.2).turbulence(1.3, 0.8, 0.9));
     return e;
 }
 
@@ -244,7 +246,7 @@ Effect spiritFlame(const IdSource& id) {
     add(e, Make(id, "Wisps").rate(9).circle(0.5).life(1.0, 1.8).speed(1.2, 2.4).aim(90, 26)
                .size(0.22, 0.42).color(0xb8f4ff).gravity(0, 0.8)
                .sizeOver({{0, 0.2}, {0.3, 1}, {1, 0.1}}).fade({{0, 0}, {0.3, 1}, {1, 0}})
-               .look("sparkle").additive().glow(1.4));
+               .look("sparkle").additive().glow(1.4).turbulence(1.0, 0.9, 0.8));
     return e;
 }
 
@@ -252,7 +254,7 @@ Effect risingEmbers(const IdSource& id) {
     Effect e = begin(id, "Rising Embers", 5.0);
     add(e, Make(id, "Embers").rate(26).rect(8, 0.6).life(2.2, 3.6).speed(0.9, 2.2).aim(90, 16)
                .size(0.05, 0.12).color(0xff9d3c).gravity(0.25, 0.35).drag(0.2)
-               .fade({{0, 0}, {0.15, 1}, {0.7, 1}, {1, 0}}).additive().glow(2.4));
+               .fade({{0, 0}, {0.15, 1}, {0.7, 1}, {1, 0}}).additive().glow(2.4).turbulence(1.2, 1.5, 0.5));
     add(e, Make(id, "Haze").rate(7).rect(8, 0.6).life(2.0, 3.0).speed(0.5, 1.0).aim(90, 12)
                .size(2.4, 3.6).color(0xff5a1a).gravity(0, 0.2)
                .fade({{0, 0}, {0.4, 0.07}, {1, 0}}).additive());
@@ -376,7 +378,7 @@ Effect fairyDust(const IdSource& id) {
     Effect e = begin(id, "Fairy Dust", 4.0);
     add(e, Make(id, "Dust").rate(46).circle(0.25).life(1.0, 1.9).speed(0.5, 2.2).aim(270, 55)
                .size(0.05, 0.11).color(0xffe9a8).gravity(0, -1.6).drag(0.8)
-               .fade({{0, 1}, {0.6, 1}, {1, 0}}).additive().glow(2.0));
+               .fade({{0, 1}, {0.6, 1}, {1, 0}}).additive().glow(2.0).turbulence(0.8, 0.8, 0.8));
     add(e, Make(id, "Glints").rate(11).circle(0.3).life(0.8, 1.5).speed(0.4, 1.8).aim(270, 60)
                .size(0.3, 0.62).color(0xfff7d6).gravity(0, -1.4).drag(0.8)
                .sizeOver({{0, 0.1}, {0.3, 1}, {1, 0.1}}).fade({{0, 0}, {0.2, 1}, {1, 0}})
@@ -426,7 +428,7 @@ Effect burningFrame(const IdSource& id) {
                .look("flame").additive().glow(0.5));
     add(e, Make(id, "Embers").rate(24).rect(5.2, 3.2, true).life(0.8, 1.5).speed(0.8, 2.0).aim(90, 24)
                .size(0.04, 0.08).color(0xffb44a).gravity(0, 0.8)
-               .fade({{0, 1}, {0.6, 1}, {1, 0}}).additive().glow(2.2));
+               .fade({{0, 1}, {0.6, 1}, {1, 0}}).additive().glow(2.2).turbulence(1.0, 0.8, 0.9));
     return e;
 }
 
@@ -514,7 +516,8 @@ Effect confetti(const IdSource& id) {
     for (int i = 0; i < 5; ++i) {
         add(e, Make(id, names[i]).burst(16).rect(0.6, 0.1).life(1.9, 2.8).speed(6, 12).aim(90, 30)
                    .size(0.22, 0.36).turn(0, 360).spin(-420, 420).color(colors[i]).gravity(0, -6)
-                   .drag(1.7).fade({{0, 1}, {0.85, 1}, {1, 0}}).look(i % 2 == 0 ? "square" : "diamond"));
+                   .drag(1.7).fade({{0, 1}, {0.85, 1}, {1, 0}}).look(i % 2 == 0 ? "square" : "diamond")
+                   .turbulence(1.1, 1.3, 0.6));
     }
     return e;
 }
@@ -587,10 +590,10 @@ Effect snow(const IdSource& id) {
     Effect e = begin(id, "Snow", 6.0);
     add(e, Make(id, "Far flakes").rate(60).rect(12, 8).life(3.0, 4.5).speed(0.35, 0.7).aim(265, 14)
                .size(0.06, 0.11).color(0xdfeaff, 0.7).gravity(0, 0)
-               .fade({{0, 0}, {0.15, 1}, {0.85, 1}, {1, 0}}));
+               .fade({{0, 0}, {0.15, 1}, {0.85, 1}, {1, 0}}).turbulence(0.35, 2.4, 0.3));
     add(e, Make(id, "Near flakes").rate(22).rect(12, 8).life(2.6, 3.8).speed(0.7, 1.3).aim(262, 16)
                .size(0.14, 0.26).color(0xffffff, 0.9).gravity(0, 0)
-               .fade({{0, 0}, {0.15, 1}, {0.85, 1}, {1, 0}}));
+               .fade({{0, 0}, {0.15, 1}, {0.85, 1}, {1, 0}}).turbulence(0.55, 2.0, 0.3));
     return e;
 }
 
@@ -598,7 +601,8 @@ Effect fireflies(const IdSource& id) {
     Effect e = begin(id, "Fireflies", 6.0);
     add(e, Make(id, "Fireflies").rate(5).rect(9, 5).life(2.6, 4.0).speed(0.15, 0.45).aim(90, 180)
                .size(0.3, 0.46).color(0xa8f03c).gravity(0, 0)
-               .fade({{0, 0}, {0.25, 1}, {0.5, 0.2}, {0.75, 1}, {1, 0}}).additive().glow(2.1));
+               .fade({{0, 0}, {0.25, 1}, {0.5, 0.2}, {0.75, 1}, {1, 0}}).additive().glow(2.1)
+               .turbulence(0.7, 1.4, 0.5));
     return e;
 }
 
@@ -959,7 +963,8 @@ void risingMotes(Effect& e, const IdSource& id, unsigned colour, double width, d
     Make m(id, "Motes");
     m.rate(perSecond).rect(width, 0.3 * width).at(0.0, 0.2)
         .life(0.9, 1.8).speed(0.5, 1.5).aim(90, 12).size(0.05, 0.12).color(colour).gravity(0, 0.4)
-        .sizeOver({{0, 0}, {0.25, 1.0}, {1, 0}}).solid().look("disc").additive().glow(1.4);
+        .sizeOver({{0, 0}, {0.25, 1.0}, {1, 0}}).solid().look("disc").additive().glow(1.4)
+        .turbulence(0.6, 0.9, 0.7);
     add(e, m);
 }
 
@@ -1020,10 +1025,91 @@ Effect groundSlam(const IdSource& id) {
                .fade({{0, 0.9}, {1, 0}}).look("ring").additive().lieFlat(tilt));
     add(e, Make(id, "Dust").burst(14).rect(3.0, 0.5).life(0.6, 1.1).speed(0.6, 2.4).aim(90, 80)
                .size(0.9, 1.7).color(0xb9a48c, 0.8).gravity(0, 0.3).drag(2.4)
-               .sizeOver({{0, 0.5}, {1, 1.5}}).fade({{0, 0.8}, {0.4, 0.5}, {1, 0}}).look("smoke"));
+               .sizeOver({{0, 0.5}, {1, 1.5}}).fade({{0, 0.8}, {0.4, 0.6}, {1, 0.25}}).look("smoke")
+               .turbulence(0.4, 1.2, 0.5).dissolve(0.6, 0.0, 0.5));
     add(e, Make(id, "Chips").burst(16).rect(2.2, 0.3).life(0.5, 0.9).speed(3.0, 7.0).aim(90, 50)
                .size(0.1, 0.24).turn(0, 360).color(0xe8cfa4).gravity(0, -12).spin(-400, 400)
                .fade({{0, 1}, {0.8, 1}, {1, 0}}).look("shard"));
+    return e;
+}
+
+// ------------------------------------------------------- smoke and wind
+// What turbulence and dissolve are for: things carried about by moving air,
+// winding as they go, and things eaten away in patches as they die.
+
+Effect risingSmoke(const IdSource& id) {
+    Effect e = begin(id, "Rising Smoke", 6.0);
+    add(e, Make(id, "Smoke").rate(9).circle(0.2).at(0.0, -2.2).life(3.0, 4.0).speed(1.0, 1.5).aim(90, 8)
+               .size(0.8, 1.3).turn(0, 360).spin(-20, 20).color(0x8f8a84, 0.6).gravity(0, 0.15)
+               .sizeOver({{0, 0.4}, {1, 2.0}}).fade({{0, 0}, {0.12, 0.75}, {0.6, 0.6}, {1, 0.25}})
+               .look("smoke").turbulence(0.9, 1.6, 0.4).dissolve(0.5, 0.0, 0.7));
+    add(e, Make(id, "Thin smoke").rate(6).circle(0.15).at(0.0, -2.2).life(2.4, 3.4).speed(1.2, 1.9).aim(90, 10)
+               .size(0.4, 0.75).turn(0, 360).spin(-30, 30).color(0xcfcac3, 0.4).gravity(0, 0.2)
+               .sizeOver({{0, 0.4}, {1, 2.2}}).fade({{0, 0}, {0.15, 0.7}, {0.6, 0.5}, {1, 0.2}})
+               .look("smoke").turbulence(1.3, 1.1, 0.5).dissolve(0.5, 0.0, 0.8));
+    return e;
+}
+
+Effect groundMist(const IdSource& id) {
+    Effect e = begin(id, "Ground Mist", 8.0);
+    add(e, Make(id, "Mist").rate(5).rect(11, 0.8).at(0.0, -1.4).life(4.5, 6.5).speed(0.2, 0.5).aim(0, 14)
+               .size(2.8, 4.2).turn(0, 360).spin(-6, 6).color(0xcfdcea, 0.3).gravity(0, 0)
+               .sizeOver({{0, 0.7}, {1, 1.3}}).fade({{0, 0}, {0.25, 1}, {0.6, 1}, {1, 0.35}})
+               .look("smoke").turbulence(0.35, 2.5, 0.25).dissolve(0.5, 0.0, 0.9));
+    add(e, Make(id, "Low mist").rate(4).rect(11, 0.4).at(0.0, -2.1).life(4.0, 6.0).speed(0.3, 0.7).aim(0, 8)
+               .size(1.8, 2.8).turn(0, 360).color(0xe6eef7, 0.26).gravity(0, 0)
+               .sizeOver({{0, 0.8}, {1, 1.25}}).fade({{0, 0}, {0.25, 1}, {0.6, 1}, {1, 0.35}})
+               .look("smoke").turbulence(0.3, 2.0, 0.25).dissolve(0.5, 0.0, 0.9));
+    return e;
+}
+
+Effect spiritWisps(const IdSource& id) {
+    Effect e = begin(id, "Spirit Wisps", 6.0);
+    add(e, Make(id, "Wisps").rate(12).rect(6, 0.2).at(0.0, -2.4).life(3.0, 3.6).speed(1.2, 1.6).aim(90, 4)
+               .size(0.14, 0.2).color(0x8fd8ff).gravity(0, 0)
+               .fade({{0, 0}, {0.1, 1}, {0.8, 1}, {1, 0}}).additive().glow(1.6).turbulence(1.8, 1.4, 0.5)
+               .trail(1.2, 0.5).sound("shimmer", false, 0.0, 0.6));
+    add(e, Make(id, "Motes").rate(16).rect(6.5, 3.0).at(0.0, -0.6).life(1.6, 2.6).speed(0.2, 0.7).aim(90, 30)
+               .size(0.04, 0.09).color(0xd6f3ff).gravity(0, 0.2)
+               .fade({{0, 0}, {0.3, 1}, {0.7, 1}, {1, 0}}).additive().glow(1.8).turbulence(1.2, 1.2, 0.6));
+    return e;
+}
+
+Effect burnAway(const IdSource& id) {
+    Effect e = begin(id, "Burn Away", 2.8);
+    // A sheet that burns through from many places at once, its eaten edges
+    // white-hot. Swap its Shape, or give it a picture, to burn anything.
+    add(e, Make(id, "Sheet").burst(1).life(2.0, 2.0).speed(0, 0).size(4.0, 4.0).color(0xc79a5e)
+               .gravity(0, 0).solid()
+               .tint({{0.0, 1.0, 1.0, 1.0, 1.0}, {0.45, 0.85, 0.66, 0.46, 1.0}, {1.0, 0.3, 0.18, 0.12, 1.0}})
+               .look("square").dissolve(0.85, 1.0, 0.03).sound("fire-loop", false, 0.0, 0.7));
+    add(e, Make(id, "Fire glow").burst(1).life(2.0, 2.0).speed(0, 0).size(6.4, 6.4).color(0xff6a1a)
+               .gravity(0, 0).fade({{0, 0}, {0.3, 0.3}, {0.75, 0.3}, {1, 0}}).additive());
+    add(e, Make(id, "Embers").from(0.3, 1.7).rate(46).rect(3.4, 3.4).life(0.8, 1.6).speed(0.4, 1.8).aim(90, 40)
+               .size(0.05, 0.1).color(0xffa040).gravity(0, 1.2).drag(0.3)
+               .fade({{0, 1}, {0.6, 1}, {1, 0}}).additive().glow(2.4).turbulence(1.6, 0.8, 0.9));
+    add(e, Make(id, "Smoke").from(0.4, 1.7).rate(7).rect(3.0, 3.0).life(1.2, 1.9).speed(0.6, 1.2).aim(90, 14)
+               .size(0.9, 1.5).turn(0, 360).spin(-25, 25).color(0x3a3431, 0.5).gravity(0, 0.5)
+               .sizeOver({{0, 0.5}, {1, 1.6}}).fade({{0, 0}, {0.25, 0.7}, {1, 0.2}}).look("smoke")
+               .turbulence(0.7, 1.3, 0.5).dissolve(0.5, 0.0, 0.7));
+    return e;
+}
+
+Effect vanish(const IdSource& id) {
+    Effect e = begin(id, "Vanish", 1.8);
+    // Something magical breaking up and blowing away: for a pickup taken, a
+    // character teleporting out, a spell ending.
+    add(e, Make(id, "Body").burst(1).life(1.1, 1.1).speed(0, 0).size(3.0, 3.0).color(0x58d6ff)
+               .gravity(0, 0).sizeOver({{0, 1.0}, {1, 1.2}}).solid().look("orb").additive().glow(1.1)
+               .dissolve(0.9, 1.0, 0.04).sound("whoosh", true, 0.0, 0.8));
+    add(e, Make(id, "Ring").burst(1).life(0.45, 0.45).speed(0, 0).size(5.2, 5.2).color(0xbdf0ff)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {1, 1.0}}).fade({{0, 0.9}, {1, 0}}).look("ring").additive());
+    add(e, Make(id, "Dust").from(0.1, 0.8).rate(110).circle(1.1).life(0.7, 1.3).speed(0.3, 1.6).aim(90, 180)
+               .size(0.05, 0.11).color(0xa8ecff).gravity(0, 0.6).drag(0.6)
+               .fade({{0, 0}, {0.15, 1}, {0.6, 1}, {1, 0}}).additive().glow(2.0).turbulence(2.2, 0.8, 1.0));
+    add(e, Make(id, "Glints").from(0.1, 0.7).rate(14).circle(1.2).life(0.4, 0.8).speed(0.2, 1.0).aim(90, 180)
+               .size(0.3, 0.6).color(0xeafaff).gravity(0, 0).sizeOver({{0, 0.1}, {0.3, 1}, {1, 0.1}})
+               .fade({{0, 0}, {0.25, 1}, {1, 0}}).look("sparkle").additive().glow(1.6));
     return e;
 }
 
@@ -1115,6 +1201,12 @@ const std::vector<Entry>& table() {
         {describe("magic-circle", "Magic Circle", "Ground and portals", "A turning circle of runes on the floor, with light rising from it.", 0, 0.9f, 6.6f, 2.0), magicCircle},
         {describe("vortex-portal", "Vortex Portal", "Ground and portals", "A whirlpool of light lying on the ground, with beams and sparks.", 0, 0.9f, 6.8f, 2.0), vortexPortal},
         {describe("ground-slam", "Ground Slam", "Ground and portals", "A shockwave racing across the floor, with dust and chips.", 0, 0.8f, 7.0f, 0.18), groundSlam},
+
+        {describe("rising-smoke", "Rising Smoke", "Smoke and wind", "A column of smoke winding upward and thinning away.", 0, 0.4f, 7.0f, 4.0), risingSmoke},
+        {describe("ground-mist", "Ground Mist", "Smoke and wind", "Low mist drifting across the scene.", 0, -0.8f, 6.5f, 5.0), groundMist},
+        {describe("spirit-wisps", "Spirit Wisps", "Smoke and wind", "Ribbons of light winding upward on moving air.", 0, 0.2f, 7.0f, 4.0), spiritWisps},
+        {describe("burn-away", "Burn Away", "Smoke and wind", "A sheet burning through with white-hot edges, embers and smoke.", 0, 0.4f, 7.0f, 1.3), burnAway},
+        {describe("vanish", "Vanish", "Smoke and wind", "A glowing shape breaking up and blowing away as dust.", 0, 0.2f, 6.0f, 0.75), vanish},
 
         {describe("gold-flash", "Gold Flash", "Flashes", "A burst of white spikes in a golden glow.", 0, 0, 5.6f, 0.08), goldFlash},
         {describe("ice-flash", "Ice Flash", "Flashes", "A burst of white spikes in a blue glow.", 0, 0, 5.6f, 0.08), iceFlash},

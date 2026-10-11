@@ -101,14 +101,20 @@
           "type": "motion",
           "gravity": [0.0, -9.8, 0.0],
           "drag": 0.0,
-          "spin": 0.0
+          "spin": 0.0,
+          "turbulence": 0.0,
+          "turbulenceSize": 1.5,
+          "turbulenceChange": 0.6
         },
         {
           "id": "m-4824e9f3e8075401",
           "type": "overLife",
           "size": {"curve": [[0.0, 1.0], [1.0, 0.4]]},
           "color": {"gradient": [[0.0, [1.0, 1.0, 1.0, 1.0]], [1.0, [1.0, 1.0, 1.0, 1.0]]]},
-          "opacity": {"curve": [[0.0, 1.0], [1.0, 0.0]]}
+          "opacity": {"curve": [[0.0, 1.0], [1.0, 0.0]]},
+          "dissolve": 0.0,
+          "dissolveSoft": 0.15,
+          "dissolveEdge": 0.0
         },
         {
           "id": "m-97155b025368b57f",

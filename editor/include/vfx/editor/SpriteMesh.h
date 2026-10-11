@@ -24,8 +24,14 @@ struct SpriteVertex {
     float shape = 0;         // which built-in shape (a SpriteShape, as a number);
                              // kPictureShape when the artist's picture is drawn
     float aaX = 1, aaY = 1;  // the size of one pixel, in the particle's own -1..1 units
+    float edge = 0;          // dissolving: how brightly the eaten edge glows, 0 to 1
+    float ownX = 0, ownY = 0;  // where this corner is on the particle's own -1..1
+                               // square, y up (the same for a shape or a picture)
+    float dissolve = 0;        // how far it is eaten away: 0 whole, 1 gone
+    float seed = 0;            // the particle's own random number, 0..1
+    float soft = 0;            // dissolving: how soft the eaten edge is, 0 to 1
 };
-static_assert(sizeof(SpriteVertex) == 44, "the graphics code copies these as raw bytes");
+static_assert(sizeof(SpriteVertex) == 68, "the graphics code copies these as raw bytes");
 
 inline constexpr float kPictureShape = -1.0f;
 // A segment of a trail ribbon: u runs along it (0 at the particle, 1 at the

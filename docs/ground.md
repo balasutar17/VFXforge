@@ -14,8 +14,8 @@ same three:
 ## Lie Flat
 
 Every new layer and every preset layer has a **Lie Flat** control, from 0 to
-85 degrees. (A layer in an effect saved by an earlier version does not gain
-the control; the property is there and reads 0.) At 0 the
+85 degrees. (From 0.10 a layer in an effect saved by an earlier version
+shows the control too.) At 0 the
 particle faces you, as before. Higher, it leans back as if it lay on the
 ground: 60 degrees makes a circle an oval half as tall as it is wide.
 
