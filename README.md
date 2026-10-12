@@ -51,6 +51,9 @@ What exists so far:
   clover, arms on a snowflake, thickness on rings and lines, roundness of
   corners; see
   [docs/editable-shapes.md](docs/editable-shapes.md)
+- **effects on a 3D model**: bring in a character or prop (.obj, .glb,
+  .gltf), or use the practice dummy, and make the effect on it; particles
+  behind it are hidden; see [docs/models.md](docs/models.md)
 - **turbulence and dissolve**: particles carried about by moving air, so
   smoke winds and embers wander; and particles eaten away in ragged patches
   as they die, softly like smoke or with a white-hot edge like burning

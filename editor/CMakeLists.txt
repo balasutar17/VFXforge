@@ -13,6 +13,7 @@ add_library(vfx_editor STATIC
     src/Audio.cpp
     src/Frames.cpp
     src/Image.cpp
+    src/Model.cpp
     src/Picture.cpp
     src/Compare.cpp
     src/CurveTools.cpp

@@ -1756,6 +1756,164 @@ void AppController::loadBackdrop() {
     }
     backdrop_ = loaded;
     emit backdropChanged();
+    loadStage();
+}
+
+// ---------------------------------------------------------------- model
+//
+// Like the backdrop, the model is remembered for each effect on this
+// computer, not saved in the effect: it is for seeing the effect on, and in
+// the game it is already there.
+
+QString AppController::modelName() const {
+    if (!model_) {
+        return QString();
+    }
+    return QString::fromUtf8(model_->name.c_str());
+}
+
+QVariantMap AppController::modelPlaceMap() const {
+    QVariantMap out;
+    out.insert(QStringLiteral("x"), static_cast<double>(modelPlace_.x));
+    out.insert(QStringLiteral("y"), static_cast<double>(modelPlace_.y));
+    out.insert(QStringLiteral("z"), static_cast<double>(modelPlace_.z));
+    out.insert(QStringLiteral("turn"), static_cast<double>(modelPlace_.turn));
+    out.insert(QStringLiteral("height"), static_cast<double>(modelPlace_.height));
+    return out;
+}
+
+bool AppController::showModelFile(const QString& path, bool quiet) {
+    if (path == modelPath_ && model_ && !path.isEmpty()) {
+        return true;  // already showing it
+    }
+    auto loaded = vfx::editor::loadModel(toPath(path));
+    if (!loaded) {
+        if (!quiet) {
+            say(text(loaded.error().message), true);
+        }
+        return false;
+    }
+    model_ = std::make_shared<const vfx::editor::Model>(std::move(loaded.value()));
+    modelPath_ = path;
+    return true;
+}
+
+void AppController::loadStage() {
+    QSettings settings;
+    const QString key = QStringLiteral("models/") + text(vfx::formatId('e', session_.effect().id));
+    const QString kind = settings.value(key + QStringLiteral("/kind")).toString();
+    bool shown = false;
+    if (kind == QStringLiteral("dummy")) {
+        if (!model_ || !modelPath_.isEmpty()) {
+            model_ = std::make_shared<const vfx::editor::Model>(vfx::editor::practiceDummy());
+        }
+        modelPath_.clear();
+        shown = true;
+    } else if (kind == QStringLiteral("file")) {
+        const QString path = settings.value(key + QStringLiteral("/path")).toString();
+        shown = QFileInfo::exists(path) && showModelFile(path, true);
+    }
+    if (!shown) {
+        model_.reset();
+        modelPath_.clear();
+    } else {
+        modelPlace_.x = settings.value(key + QStringLiteral("/x"), 0.0).toFloat();
+        modelPlace_.y = settings.value(key + QStringLiteral("/y"), 0.0).toFloat();
+        modelPlace_.z = settings.value(key + QStringLiteral("/z"), 0.0).toFloat();
+        modelPlace_.turn = settings.value(key + QStringLiteral("/turn"), 0.0).toFloat();
+        modelPlace_.height = settings.value(key + QStringLiteral("/height"), 3.0).toFloat();
+        hideBehindModel_ = settings.value(key + QStringLiteral("/hide"), true).toBool();
+    }
+    emit modelChanged();
+}
+
+void AppController::storeStage() {
+    QSettings settings;
+    const QString key = QStringLiteral("models/") + text(vfx::formatId('e', session_.effect().id));
+    if (!model_) {
+        settings.remove(key);
+    } else {
+        settings.setValue(key + QStringLiteral("/kind"), modelPath_.isEmpty() ? QStringLiteral("dummy") : QStringLiteral("file"));
+        settings.setValue(key + QStringLiteral("/path"), modelPath_);
+        settings.setValue(key + QStringLiteral("/x"), static_cast<double>(modelPlace_.x));
+        settings.setValue(key + QStringLiteral("/y"), static_cast<double>(modelPlace_.y));
+        settings.setValue(key + QStringLiteral("/z"), static_cast<double>(modelPlace_.z));
+        settings.setValue(key + QStringLiteral("/turn"), static_cast<double>(modelPlace_.turn));
+        settings.setValue(key + QStringLiteral("/height"), static_cast<double>(modelPlace_.height));
+        settings.setValue(key + QStringLiteral("/hide"), hideBehindModel_);
+    }
+    emit modelChanged();
+}
+
+bool AppController::useModel(const QUrl& file) {
+    const QString path = file.toLocalFile();
+    if (path.isEmpty() || !QFileInfo::exists(path)) {
+        say(QStringLiteral("That model could not be found on this computer."), true);
+        return false;
+    }
+    const bool had = model_ != nullptr;
+    if (!showModelFile(path, false)) {
+        return false;
+    }
+    if (!had) {
+        modelPlace_ = vfx::editor::ModelPlace{};
+        // In a 2D effect the particles are a flat sheet through the middle
+        // of the model, so hiding what is behind it would hide half the
+        // effect: there it starts off.
+        hideBehindModel_ = session_.effect().space == "3d";
+    }
+    storeStage();
+    say(QStringLiteral("Showing %1 (%2 triangles). Drag the camera to look round it; place it under Backdrop.")
+            .arg(modelName())
+            .arg(modelTriangles()));
+    return true;
+}
+
+void AppController::useSampleModel() {
+    const bool had = model_ != nullptr;
+    model_ = std::make_shared<const vfx::editor::Model>(vfx::editor::practiceDummy());
+    modelPath_.clear();
+    if (!had) {
+        modelPlace_ = vfx::editor::ModelPlace{};
+        hideBehindModel_ = session_.effect().space == "3d";
+    }
+    storeStage();
+    say(QStringLiteral("Showing the practice dummy. Place it under Backdrop."));
+}
+
+void AppController::clearModel() {
+    model_.reset();
+    modelPath_.clear();
+    storeStage();
+}
+
+void AppController::setModelPlace(const QString& key, double value) {
+    if (!model_ || !std::isfinite(value)) {
+        return;
+    }
+    const auto v = static_cast<float>(value);
+    if (key == QStringLiteral("x")) {
+        modelPlace_.x = std::clamp(v, -1000.0f, 1000.0f);
+    } else if (key == QStringLiteral("y")) {
+        modelPlace_.y = std::clamp(v, -1000.0f, 1000.0f);
+    } else if (key == QStringLiteral("z")) {
+        modelPlace_.z = std::clamp(v, -1000.0f, 1000.0f);
+    } else if (key == QStringLiteral("turn")) {
+        modelPlace_.turn = std::fmod(v, 360.0f);
+    } else if (key == QStringLiteral("height")) {
+        modelPlace_.height = std::clamp(v, 0.01f, 1000.0f);
+    } else {
+        return;
+    }
+    storeStage();
+}
+
+void AppController::setHideBehindModel(bool hide) {
+    if (hide == hideBehindModel_) {
+        return;
+    }
+    hideBehindModel_ = hide;
+    storeStage();
 }
 
 void AppController::storeBackdrop() {

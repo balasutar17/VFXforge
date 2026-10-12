@@ -45,6 +45,12 @@ Picture drawPicture(const SpriteMesh& mesh, int width, int height, ScreenColor b
 Picture drawPictureClear(const SpriteMesh& mesh, int width, int height,
                          const ImageSet* images = nullptr);
 
+// Draws a mesh over a picture of the same size (a model, say, laid over the
+// background colour first). Where the picture is see-through the background
+// shows.
+Picture drawPictureOver(const SpriteMesh& mesh, const Picture& under, ScreenColor background = {},
+                        const ImageSet* images = nullptr);
+
 // Copies one picture into another at (left, top), clipped to fit.
 void paste(Picture& onto, const Picture& piece, int left, int top);
 

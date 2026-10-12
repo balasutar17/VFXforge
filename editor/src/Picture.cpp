@@ -159,7 +159,7 @@ std::uint8_t toByte(float v, float nudge) {
 namespace {
 
 Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor background, bool transparent,
-               const ImageSet* images) {
+               const ImageSet* images, const Picture* under = nullptr) {
     Picture out;
     out.width = width > 0 ? width : 0;
     out.height = height > 0 ? height : 0;
@@ -176,6 +176,15 @@ Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor backgr
             canvas[i * 4u] = background.r;
             canvas[i * 4u + 1] = background.g;
             canvas[i * 4u + 2] = background.b;
+        }
+        if (under && under->width == out.width && under->height == out.height) {
+            // The picture underneath, laid over the background.
+            for (std::size_t i = 0; i < pixels; ++i) {
+                const float a = static_cast<float>(under->rgba[i * 4u + 3]) / 255.0f;
+                for (std::size_t c = 0; c < 3; ++c) {
+                    canvas[i * 4u + c] += (static_cast<float>(under->rgba[i * 4u + c]) / 255.0f - canvas[i * 4u + c]) * a;
+                }
+            }
         }
     }
 
@@ -239,6 +248,11 @@ Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor backgr
 Picture drawPicture(const SpriteMesh& mesh, int width, int height, ScreenColor background,
                     const ImageSet* images) {
     return render(mesh, width, height, background, false, images);
+}
+
+Picture drawPictureOver(const SpriteMesh& mesh, const Picture& under, ScreenColor background,
+                        const ImageSet* images) {
+    return render(mesh, under.width, under.height, background, false, images, &under);
 }
 
 Picture drawPictureClear(const SpriteMesh& mesh, int width, int height, const ImageSet* images) {

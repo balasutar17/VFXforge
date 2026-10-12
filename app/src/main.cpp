@@ -722,8 +722,33 @@ int main(int argc, char* argv[]) {
                                                                 QTextStream(&selfTest.report) << "FAIL: the preset with a changed shape shows nothing\n";
                                                                 selfTest.result = 1;
                                                             }
-                                                            controller.setLibraryOpen(true);
-                                                            QTimer::singleShot(2500, &application, third);
+                                                            // A model to make an effect on: the practice dummy
+                                                            // under Healing Aura.
+                                                            if (!controller.openPreset(QStringLiteral("healing-aura"))) {
+                                                                QTextStream(&selfTest.report) << "FAIL: the Healing Aura preset could not be opened\n";
+                                                                selfTest.result = 1;
+                                                            }
+                                                            controller.useSampleModel();
+                                                            QTimer::singleShot(900, &application, [&, window, software, third]() {
+                                                                QTextStream model(&selfTest.report);
+                                                                model << "model: " << (controller.hasModel() ? "shown" : "NOT shown") << ", \""
+                                                                      << controller.modelName() << "\", " << controller.modelTriangles()
+                                                                      << " triangles, particles behind it "
+                                                                      << (controller.hideBehindModel() ? "hidden" : "shown") << "\n";
+                                                                if (!controller.hasModel() || controller.modelTriangles() < 1000) {
+                                                                    model << "FAIL: the practice dummy is not shown\n";
+                                                                    selfTest.result = 1;
+                                                                }
+                                                                const int shown = capture(window, selfTest, QStringLiteral("-model"),
+                                                                                          QStringLiteral("an effect on the practice dummy"));
+                                                                if (!software && shown < 2000) {
+                                                                    model << "FAIL: the model is not drawn\n";
+                                                                    selfTest.result = 1;
+                                                                }
+                                                                controller.clearModel();
+                                                                controller.setLibraryOpen(true);
+                                                                QTimer::singleShot(2500, &application, third);
+                                                            });
                                                         });
                                                     });
                                                 });

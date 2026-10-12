@@ -3,9 +3,11 @@
 
 #include <QPointF>
 #include <QQuickItem>
+#include <QTimer>
 #include <QVariantMap>
 
 #include "AppController.h"
+#include "vfx/editor/Model.h"
 #include "vfx/editor/SpriteMesh.h"
 
 class ViewportItem : public QQuickItem {
@@ -51,8 +53,25 @@ private:
     vfx::editor::View currentView() const;
     bool flat() const;
 
+    // Marks the camera as moving: while it moves, the model is drawn
+    // quickly at lower quality, and properly once it has been still a moment.
+    void moved();
+
     AppController* controller_ = nullptr;
     vfx::editor::View view_;
     vfx::editor::SpriteMesh mesh_;
     int drawnCount_ = 0;
+
+    // The model as last drawn, and what it was drawn for.
+    vfx::editor::ModelPicture modelPicture_;
+    struct ModelKey {
+        const vfx::editor::Model* model = nullptr;
+        vfx::editor::ModelPlace place;
+        vfx::editor::View view;
+        bool flat = true;
+        int width = 0, height = 0, smooth = 0;
+    } modelKey_;
+    bool modelFresh_ = false;  // drawn since the texture was made
+    bool moving_ = false;
+    QTimer* settle_ = nullptr;
 };

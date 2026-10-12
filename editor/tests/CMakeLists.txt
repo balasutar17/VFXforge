@@ -4,6 +4,7 @@ add_executable(vfx_editor_tests
     test_curve_tools.cpp
     test_frames.cpp
     test_image.cpp
+    test_model.cpp
     test_presets.cpp
     test_principles.cpp
     test_reference.cpp

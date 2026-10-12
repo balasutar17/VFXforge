@@ -6,6 +6,8 @@
 // something changed.
 #pragma once
 
+#include <memory>
+
 #include <QColor>
 #include <QImage>
 #include <QObject>
@@ -15,6 +17,7 @@
 #include <QVariantList>
 
 #include "AudioPlayer.h"
+#include "vfx/editor/Model.h"
 #include "vfx/editor/Session.h"
 
 class AppController : public QObject {
@@ -81,6 +84,12 @@ class AppController : public QObject {
     Q_PROPERTY(double backdropY READ backdropY NOTIFY backdropChanged)
     Q_PROPERTY(double backdropHeight READ backdropHeight NOTIFY backdropChanged)
     Q_PROPERTY(double backdropOpacity READ backdropOpacity NOTIFY backdropChanged)
+    // A 3D model to make the effect on (see vfx/editor/Model.h).
+    Q_PROPERTY(bool hasModel READ hasModel NOTIFY modelChanged)
+    Q_PROPERTY(QString modelName READ modelName NOTIFY modelChanged)
+    Q_PROPERTY(int modelTriangles READ modelTriangles NOTIFY modelChanged)
+    Q_PROPERTY(QVariantMap modelPlace READ modelPlaceMap NOTIFY modelChanged)
+    Q_PROPERTY(bool hideBehindModel READ hideBehindModel WRITE setHideBehindModel NOTIFY modelChanged)
 
     // Exports.
     Q_PROPERTY(bool exportOpen READ exportOpen WRITE setExportOpen NOTIFY exportOpenChanged)
@@ -152,6 +161,16 @@ public:
     double backdropHeight() const { return backdrop_.height; }
     double backdropOpacity() const { return backdrop_.opacity; }
 
+    bool hasModel() const { return model_ != nullptr; }
+    QString modelName() const;
+    int modelTriangles() const { return model_ ? static_cast<int>(model_->triangleCount()) : 0; }
+    QVariantMap modelPlaceMap() const;
+    bool hideBehindModel() const { return hideBehindModel_; }
+    void setHideBehindModel(bool hide);
+    // For the viewport, which draws the model.
+    std::shared_ptr<const vfx::editor::Model> model() const { return model_; }
+    const vfx::editor::ModelPlace& modelPlace() const { return modelPlace_; }
+
     bool exportOpen() const { return exportOpen_; }
     void setExportOpen(bool open);
     QString lastUnityProject() const;
@@ -173,6 +192,12 @@ public:
     Q_INVOKABLE void setBackdrop(const QUrl& image);
     Q_INVOKABLE void clearBackdrop();
     Q_INVOKABLE void setBackdropPlace(double x, double y, double height);
+    // The model: one of the artist's own (.obj, .glb, .gltf), or the practice dummy.
+    Q_INVOKABLE bool useModel(const QUrl& file);
+    Q_INVOKABLE void useSampleModel();
+    Q_INVOKABLE void clearModel();
+    // key: "x", "y", "z", "turn" or "height".
+    Q_INVOKABLE void setModelPlace(const QString& key, double value);
     Q_INVOKABLE void moveBackdrop(double dx, double dy);
     Q_INVOKABLE void scaleBackdrop(double factor);
     Q_INVOKABLE void setBackdropOpacity(double opacity);
@@ -315,6 +340,7 @@ signals:
     void redraw();
     void libraryOpenChanged();
     void backdropChanged();
+    void modelChanged();
     void exportOpenChanged();
     void exportsChanged();
     void soundOnChanged();
@@ -354,6 +380,13 @@ private:
         double x = 0.0, y = 1.5, height = 3.0, opacity = 1.0;
     };
     Backdrop backdrop_;
+    void loadStage();
+    void storeStage();
+    bool showModelFile(const QString& path, bool quiet);
+    std::shared_ptr<const vfx::editor::Model> model_;
+    QString modelPath_;  // empty for the practice dummy
+    vfx::editor::ModelPlace modelPlace_;
+    bool hideBehindModel_ = true;
     bool libraryOpen_ = false;
     bool exportOpen_ = false;
 

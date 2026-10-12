@@ -2,12 +2,14 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "vfx/FileIO.h"
 #include "vfx/Program.h"
 #include "vfx/Simulation.h"
+#include "vfx/editor/Model.h"
 #include "vfx/editor/Picture.h"
 #include "vfx/editor/Presets.h"
 #include "vfx/editor/ShapeLibrary.h"
@@ -24,6 +26,8 @@ const char* kUsage =
     "  vfxshot list\n"
     "      Name every preset.\n"
     "  vfxshot preset <id> <out.png> [--time s] [--size WxH]\n"
+    "      Any command that draws an effect also takes --model <file.obj|.glb|.gltf|dummy>\n"
+    "      and --place x,y,z,turn,height to draw it on a model.\n"
     "      Draw one preset at one moment.\n"
     "  vfxshot sheet <out.png> [--category name] [--cell WxH]\n"
     "      Draw every preset (or one category) at four moments, one row each.\n"
@@ -55,12 +59,22 @@ bool parseSize(const std::string& text, int& width, int& height) {
            width <= 8192 && height <= 8192;
 }
 
+// A model to draw the effect on (--model), and where it stands (--place).
+std::optional<Model> gModel;
+ModelPlace gPlace;
+
 Picture draw(const Effect& effect, double time, const View& view) {
     Simulation simulation(compileEffect(effect));
     simulation.seek(static_cast<std::int64_t>(time / kSimulationStep + 0.5));
     RenderFrame frame;
     simulation.extract(frame);
     SpriteMesh mesh;
+    if (gModel) {
+        const ModelPicture model = drawModel(*gModel, gPlace, view, frame.flat, static_cast<int>(view.width),
+                                             static_cast<int>(view.height));
+        buildSpriteMesh(frame, view, mesh, nullptr, &model);
+        return drawPictureOver(mesh, model.picture);
+    }
     buildSpriteMesh(frame, view, mesh);
     return drawPicture(mesh, static_cast<int>(view.width), static_cast<int>(view.height));
 }
@@ -101,6 +115,27 @@ int main(int argc, char** argv) {
     }
     const std::string command = args[0];
     args.erase(args.begin());
+
+    const std::string modelFile = option(args, "--model", "");
+    if (!modelFile.empty()) {
+        if (modelFile == "dummy") {
+            gModel = practiceDummy();
+        } else {
+            auto loaded = loadModel(pathFromUtf8(modelFile));
+            if (!loaded) {
+                std::fprintf(stderr, "%s\n", loaded.error().message.c_str());
+                return 1;
+            }
+            gModel = std::move(loaded.value());
+        }
+        const std::string place = option(args, "--place", "0,0,0,0,3");
+        if (std::sscanf(place.c_str(), "%f,%f,%f,%f,%f", &gPlace.x, &gPlace.y, &gPlace.z, &gPlace.turn,
+                        &gPlace.height) != 5) {
+            std::fputs(kUsage, stderr);
+            return 2;
+        }
+        std::printf("model: %s, %zu triangles\n", gModel->name.c_str(), gModel->triangleCount());
+    }
 
     if (command == "list") {
         for (const PresetInfo& info : presets()) {

@@ -4,6 +4,10 @@
 #include <cmath>
 
 #include <QMetaObject>
+#include <QQuickWindow>
+#include <QSGSimpleTextureNode>
+#include <QSGTexture>
+#include <memory>
 
 #include "SpriteNode.h"
 
@@ -11,6 +15,18 @@
 
 ViewportItem::ViewportItem(QQuickItem* parent) : QQuickItem(parent) {
     setFlag(ItemHasContents, true);
+    settle_ = new QTimer(this);
+    settle_->setSingleShot(true);
+    settle_->setInterval(180);
+    connect(settle_, &QTimer::timeout, this, [this]() {
+        moving_ = false;
+        update();
+    });
+}
+
+void ViewportItem::moved() {
+    moving_ = true;
+    settle_->start();
 }
 
 void ViewportItem::setController(AppController* controller) {
@@ -25,6 +41,7 @@ void ViewportItem::setController(AppController* controller) {
         connect(controller_, &AppController::redraw, this, &QQuickItem::update);
         // The origin marker depends on whether the effect is 2D or 3D.
         connect(controller_, &AppController::documentChanged, this, &ViewportItem::viewChanged);
+        connect(controller_, &AppController::modelChanged, this, &QQuickItem::update);
     }
     emit controllerChanged();
     emit viewChanged();
@@ -58,6 +75,7 @@ void ViewportItem::dragBy(double dx, double dy, bool secondary) {
     if (height() <= 0) {
         return;
     }
+    moved();
     if (flat()) {
         // Pan: the world follows the pointer.
         const double unitsPerPixel = static_cast<double>(view_.unitsHigh) / height();
@@ -84,6 +102,7 @@ void ViewportItem::zoomBy(double steps, double atX, double atY) {
     if (!std::isfinite(steps) || height() <= 0 || width() <= 0) {
         return;
     }
+    moved();
     const double factor = std::pow(0.88, std::clamp(steps, -10.0, 10.0));
     if (flat()) {
         // Keep the world point under the pointer where it is.
@@ -154,22 +173,120 @@ void ViewportItem::geometryChange(const QRectF& newGeometry, const QRectF& oldGe
     }
 }
 
+namespace {
+
+// The viewport's nodes: the model, when there is one, under the particles.
+class ViewportNode : public QSGNode {
+public:
+    ~ViewportNode() override {
+        while (QSGNode* child = firstChild()) {
+            removeChildNode(child);
+            delete child;
+        }
+    }
+    QSGSimpleTextureNode* model = nullptr;
+    std::unique_ptr<QSGTexture> modelTexture;
+    QSGNode* sprites = nullptr;
+};
+
+bool sameView(const vfx::editor::View& a, const vfx::editor::View& b) {
+    return a.width == b.width && a.height == b.height && a.centerX == b.centerX && a.centerY == b.centerY &&
+           a.unitsHigh == b.unitsHigh && a.targetX == b.targetX && a.targetY == b.targetY && a.targetZ == b.targetZ &&
+           a.yaw == b.yaw && a.pitch == b.pitch && a.distance == b.distance && a.fieldOfView == b.fieldOfView;
+}
+
+bool samePlace(const vfx::editor::ModelPlace& a, const vfx::editor::ModelPlace& b) {
+    return a.x == b.x && a.y == b.y && a.z == b.z && a.turn == b.turn && a.height == b.height;
+}
+
+}  // namespace
+
 QSGNode* ViewportItem::updatePaintNode(QSGNode* old, UpdatePaintNodeData*) {
     // Runs on the render thread while the main thread is held still, so the
-    // session's frame can be read here safely.
+    // session's frame and the controller's model can be read here safely.
+    auto* root = static_cast<ViewportNode*>(old);
+    if (!root) {
+        root = new ViewportNode;
+    }
     mesh_.vertices.clear();
     mesh_.indices.clear();
     mesh_.runs.clear();
     mesh_.drawn = 0;
     const vfx::editor::ImageSet* images = controller_ ? &controller_->session().images() : nullptr;
-    if (controller_ && width() > 0 && height() > 0) {
-        vfx::editor::buildSpriteMesh(controller_->session().frame(), currentView(), mesh_, images);
-    }
+    const std::shared_ptr<const vfx::editor::Model> model = controller_ ? controller_->model() : nullptr;
+    const vfx::editor::View view = currentView();
 
+    // The model, drawn again only when it, its place or the camera changes.
+    // While the camera moves it is drawn at the viewport's own size and
+    // without smoothing, which is several times quicker.
+    if (model && width() > 0 && height() > 0 && window()) {
+        const double ratio = std::clamp(static_cast<double>(window()->effectiveDevicePixelRatio()), 1.0, 2.0);
+        ModelKey key;
+        key.model = model.get();
+        key.place = controller_->modelPlace();
+        key.view = view;
+        key.flat = controller_->session().frame().flat;
+        key.width = static_cast<int>(std::lround(width() * (moving_ ? 1.0 : ratio)));
+        key.height = static_cast<int>(std::lround(height() * (moving_ ? 1.0 : ratio)));
+        key.smooth = moving_ || ratio > 1.5 ? 1 : 2;
+        if (key.model != modelKey_.model || !samePlace(key.place, modelKey_.place) || !sameView(key.view, modelKey_.view) ||
+            key.flat != modelKey_.flat || key.width != modelKey_.width || key.height != modelKey_.height ||
+            key.smooth != modelKey_.smooth) {
+            modelPicture_ = vfx::editor::drawModel(*model, key.place, view, key.flat, key.width, key.height, key.smooth);
+            modelKey_ = key;
+            modelFresh_ = true;
+        }
+    } else {
+        modelPicture_ = vfx::editor::ModelPicture{};
+        modelKey_ = ModelKey{};
+    }
+    const bool hide = model && controller_ && controller_->hideBehindModel() && !modelPicture_.empty();
+
+    if (controller_ && width() > 0 && height() > 0) {
+        vfx::editor::buildSpriteMesh(controller_->session().frame(), view, mesh_, images,
+                                     hide ? &modelPicture_ : nullptr);
+    }
     const int drawn = static_cast<int>(mesh_.drawn);
     if (drawn != drawnCount_) {
         drawnCount_ = drawn;
         QMetaObject::invokeMethod(this, &ViewportItem::drawnCountChanged, Qt::QueuedConnection);
     }
-    return updateSpriteNode(old, mesh_, images, window());
+
+    if (!modelPicture_.empty()) {
+        if (!root->model) {
+            root->model = new QSGSimpleTextureNode;
+            root->model->setFiltering(QSGTexture::Linear);
+            root->prependChildNode(root->model);
+            modelFresh_ = true;
+        }
+        if (modelFresh_) {
+            const vfx::editor::Picture& p = modelPicture_.picture;
+            const QImage pixels(p.rgba.data(), p.width, p.height, p.width * 4, QImage::Format_RGBA8888);
+            QSGTexture* texture = window()->createTextureFromImage(
+                pixels.convertToFormat(QImage::Format_RGBA8888_Premultiplied), QQuickWindow::TextureHasAlphaChannel);
+            if (texture) {
+                texture->setFiltering(QSGTexture::Linear);
+                root->model->setTexture(texture);
+                root->modelTexture.reset(texture);  // the old one goes now that nothing uses it
+            }
+            modelFresh_ = false;
+        }
+        root->model->setRect(boundingRect());
+    } else if (root->model) {
+        root->removeChildNode(root->model);
+        delete root->model;
+        root->model = nullptr;
+        root->modelTexture.reset();
+    }
+
+    QSGNode* sprites = updateSpriteNode(root->sprites, mesh_, images, window());
+    if (sprites != root->sprites) {
+        if (root->sprites) {
+            root->removeChildNode(root->sprites);
+            delete root->sprites;
+        }
+        root->appendChildNode(sprites);
+        root->sprites = sprites;
+    }
+    return root;
 }

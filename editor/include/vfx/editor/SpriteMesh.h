@@ -76,11 +76,15 @@ struct SpriteMesh {
     std::uint32_t drawn = 0;             // particles that made it on screen
 };
 
+struct ModelPicture;
+
 // Rebuilds the mesh from a frame. Reuse one mesh object from frame to frame
 // and no memory is allocated once it has grown to size. A layer whose
 // picture is not in images (or with no images given) draws its Shape instead.
+// With a model drawn for the same view (see Model.h), particles behind it
+// are left out, and those just behind its surface are faded.
 void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mesh,
-                     const ImageSet* images = nullptr);
+                     const ImageSet* images = nullptr, const ModelPicture* model = nullptr);
 
 // Where a world point lands in the viewport. Returns false when a 3D point
 // is behind the camera. scale receives pixels per world unit at that point.

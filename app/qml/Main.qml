@@ -106,6 +106,14 @@ ApplicationWindow {
     }
 
     FileDialog {
+        id: modelDialog
+        title: "Choose a 3D model to make the effect on"
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["3D models (*.obj *.glb *.gltf)", "All files (*)"]
+        onAccepted: app.useModel(selectedFile)
+    }
+
+    FileDialog {
         id: openDialog
         title: "Open an effect"
         fileMode: FileDialog.OpenFile
@@ -324,6 +332,90 @@ ApplicationWindow {
                         spacing: 6
                         VButton { Layout.fillWidth: true; text: "Change…"; onClicked: backdropDialog.open() }
                         VButton { Layout.fillWidth: true; text: "Remove"; onClicked: app.clearBackdrop() }
+                    }
+
+                    // A 3D model to make the effect on, drawn under the particles.
+                    Item { Layout.preferredHeight: 6 }
+                    PanelTitle {
+                        Layout.fillWidth: true
+                        text: "Model"
+                        detail: app.hasModel ? app.modelName : ""
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: !app.hasModel
+                        spacing: 6
+                        VButton {
+                            Layout.fillWidth: true
+                            text: "Import a model…"
+                            tip: "Show a character, weapon or prop (.obj, .glb, .gltf) and make the effect on it"
+                            onClicked: modelDialog.open()
+                        }
+                        VButton {
+                            objectName: "practiceDummy"
+                            text: "Dummy"
+                            quiet: true
+                            tip: "Try a practice dummy, made for trying effects on"
+                            onClicked: app.useSampleModel()
+                        }
+                    }
+                    GridLayout {
+                        Layout.fillWidth: true
+                        visible: app.hasModel
+                        columns: 4
+                        columnSpacing: 6
+                        rowSpacing: 6
+
+                        Text { text: "Height"; color: theme.dim; font.pixelSize: theme.fontSize }
+                        VNumberField {
+                            Layout.fillWidth: true
+                            value: app.modelPlace.height
+                            decimals: 2
+                            onEdited: function(v) { app.setModelPlace("height", v) }
+                        }
+                        Text { text: "Turn"; color: theme.dim; font.pixelSize: theme.fontSize }
+                        VNumberField {
+                            Layout.fillWidth: true
+                            value: app.modelPlace.turn
+                            decimals: 0
+                            onEdited: function(v) { app.setModelPlace("turn", v) }
+                        }
+                        Text { text: "X"; color: theme.dim; font.pixelSize: theme.fontSize }
+                        VNumberField {
+                            Layout.fillWidth: true
+                            value: app.modelPlace.x
+                            decimals: 2
+                            onEdited: function(v) { app.setModelPlace("x", v) }
+                        }
+                        Text { text: "Y"; color: theme.dim; font.pixelSize: theme.fontSize }
+                        VNumberField {
+                            Layout.fillWidth: true
+                            value: app.modelPlace.y
+                            decimals: 2
+                            onEdited: function(v) { app.setModelPlace("y", v) }
+                        }
+                        Text { text: "Z"; color: theme.dim; font.pixelSize: theme.fontSize; visible: app.threeD }
+                        VNumberField {
+                            Layout.fillWidth: true
+                            visible: app.threeD
+                            value: app.modelPlace.z
+                            decimals: 2
+                            onEdited: function(v) { app.setModelPlace("z", v) }
+                        }
+                    }
+                    VCheck {
+                        Layout.fillWidth: true
+                        visible: app.hasModel
+                        text: "Hide particles behind it"
+                        checked: app.hideBehindModel
+                        onToggled: function(on) { app.hideBehindModel = on }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: app.hasModel
+                        spacing: 6
+                        VButton { Layout.fillWidth: true; text: "Change…"; onClicked: modelDialog.open() }
+                        VButton { Layout.fillWidth: true; text: "Remove"; onClicked: app.clearModel() }
                     }
 
                     Item { Layout.preferredHeight: 6 }
