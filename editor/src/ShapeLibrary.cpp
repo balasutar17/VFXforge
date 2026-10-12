@@ -1812,6 +1812,362 @@ ShapeSample gearEdited(float x, float y, float px, const ShapeEdit& e) {
         x, y, px, 0.4f, 0.4f, 0.07f);
 }
 
+// ---- the second set (0.15)
+
+ShapeSample cloverEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 4, 3, 8);
+    // An odd number of leaves has one straight up; an even number sits
+    // either side of the stem, none down over it. More leaves are narrower.
+    const float toward = n % 2 == 1 ? 90.0f : 90.0f - 180.0f / static_cast<float>(n);
+    P q = fold(x, y - 0.08f, n, toward, true);
+    q.y *= static_cast<float>(n) / 4.0f;
+    ShapeSample s;
+    const float leaves = std::min(len(q.x - 0.5f, q.y - 0.2f) - 0.3f, len(q.x - 0.3f, q.y) - 0.26f);
+    const float stem = sdTaper(x, y, 0.0f, -0.1f, 0.12f, -0.95f, 0.06f, 0.04f);
+    s.cover = edge(std::min(leaves, stem), px);
+    const float inside = edge(leaves, px);
+    s.tone = inside * (0.3f * edge(len(q.x - 0.5f, q.y - 0.2f) - 0.2f, px) -
+                       0.5f * edge(sdSeg(q.x, q.y, 0.12f, 0.0f, 0.62f, 0.0f) - 0.018f, px));
+    return s;
+}
+
+ShapeSample snowflakeEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 6, 3, 12);
+    const float w = bent(e.thickness, 0.4f, 1.0f, 2.2f);
+    const P q = fold(x, y, n, 90.0f, true);
+    float d = sdSeg(q.x, q.y, 0.0f, 0.0f, 0.9f - std::max(0.0f, 0.045f * (w - 1.0f)), 0.0f) - 0.045f * w;
+    d = std::min(d, sdSeg(q.x, q.y, 0.56f, 0.0f, 0.76f, 0.2f) - 0.04f * w);
+    d = std::min(d, sdSeg(q.x, q.y, 0.32f, 0.0f, 0.48f, 0.16f) - 0.04f * w);
+    d = std::min(d, sdNgon(x, y, 0.17f, n, 90.0f));
+    ShapeSample s;
+    s.cover = std::max(edge(d, px), 0.22f * sq(clamp01(1.0f - (x * x + y * y) / sq(0.95f))));
+    s.shine = 0.6f * edge(d, px);
+    return s;
+}
+
+ShapeSample pinwheelEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 4, 2, 8);
+    const float sector = 360.0f / static_cast<float>(n);
+    const float tipAt = 0.5f * sector * kPi / 180.0f, litAt = 18.43f * sector / 90.0f * kPi / 180.0f;
+    const P blade[3] = {{0.0f, 0.0f}, {0.92f, 0.0f}, {0.6505f * std::cos(tipAt), 0.6505f * std::sin(tipAt)}};
+    const P lit[3] = {{0.0f, 0.0f}, {0.92f, 0.0f}, {0.6325f * std::cos(litAt), 0.6325f * std::sin(litAt)}};
+    const float a = angleOf(x, y);
+    const float within = (a - std::floor(a / sector) * sector) * kPi / 180.0f;
+    const float r = len(x, y);
+    const float qx = r * std::cos(within), qy = r * std::sin(within);
+    ShapeSample s;
+    s.cover = edge(sdPoly(qx, qy, blade, 3), px);
+    s.tone = 0.6f * edge(sdPoly(qx, qy, lit, 3), px) - 0.3f * (1.0f - edge(sdPoly(qx, qy, lit, 3), px));
+    const float pin = edge(r - 0.1f, px);
+    s.cover = std::max(s.cover, pin);
+    s.shine = 0.8f * pin;
+    return s;
+}
+
+ShapeSample crownEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 3, 3, 9);
+    // The points spread evenly across the brow, tallest in the middle, each
+    // with a ball on top; the dips between them all at one height.
+    P band[2 + 9 + 8];
+    int k = 0;
+    band[k++] = P{-0.78f, -0.6f};
+    band[k++] = P{0.78f, -0.6f};
+    const auto tipX = [&](int i) { return 0.88f - 1.76f * static_cast<float>(i) / static_cast<float>(n - 1); };
+    const auto tipY = [](float tx) { return 0.3f + 0.26f * (1.0f - sq(tx / 0.88f)); };
+    for (int i = 0; i < n; ++i) {
+        band[k++] = P{tipX(i), tipY(tipX(i))};
+        if (i + 1 < n) {
+            band[k++] = P{0.5f * (tipX(i) + tipX(i + 1)), -0.08f};
+        }
+    }
+    const float small = std::min(1.0f, 4.0f / static_cast<float>(n + 1));
+    const auto shapeD = [&](float u, float v) {
+        float d = sdPoly(u, v, band, k) - 0.03f;
+        for (int i = 0; i < n; ++i) {
+            const float tx = tipX(i), middle = 1.0f - sq(tx / 0.88f);
+            d = std::min(d, len(u - tx, v - tipY(tx) - 0.08f - 0.02f * middle) - (0.1f + 0.01f * middle) * small);
+        }
+        return d;
+    };
+    ShapeSample s = flat(shapeD, x, y, px, 0.4f, 0.4f, 0.08f);
+    const float band2 = edge(std::fabs(y + 0.42f) - 0.1f, px) * s.cover;
+    float jewels = len(x, y + 0.42f) - 0.065f;
+    jewels = std::min(jewels, len(std::fabs(x) - 0.42f, y + 0.42f) - 0.055f);
+    const float jewel = edge(jewels, px);
+    s.tone = mix(s.tone, -0.4f, band2);
+    s.tone = mix(s.tone, 0.8f, jewel);
+    s.shine = 0.8f * jewel;
+    return s;
+}
+
+float powEditedD(float x, float y, int n, float dipAt) {
+    static const float reach[12] = {0.95f, 0.74f, 0.9f, 0.7f, 0.93f, 0.78f, 0.86f, 0.72f, 0.95f, 0.76f, 0.88f, 0.7f};
+    P outline[40];
+    const float sector = 360.0f / static_cast<float>(n);
+    for (int i = 0; i < n; ++i) {
+        const float tip = (static_cast<float>(i) * sector + 8.0f) * kPi / 180.0f;
+        const float dip = tip + 0.5f * sector * kPi / 180.0f;
+        outline[2 * i] = P{reach[i % 12] * std::cos(tip), reach[i % 12] * std::sin(tip)};
+        outline[2 * i + 1] = P{dipAt * std::cos(dip), dipAt * std::sin(dip)};
+    }
+    return sdPoly(x, y, outline, 2 * n);
+}
+
+ShapeSample powEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 12, 6, 20);
+    const float dip = bent(e.sharpness, 0.7f, 0.48f, 0.28f);
+    ShapeSample s;
+    s.cover = edge(powEditedD(x, y, n, dip), px);
+    s.tone = 0.8f * edge(powEditedD(x / 0.62f, y / 0.62f, n, dip) * 0.62f, px);
+    return s;
+}
+
+ShapeSample bangEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 14, 6, 24);
+    const float half = bent(e.thickness, 0.015f, 0.05f, 0.12f);
+    const float inner = bent(e.sharpness, 0.9f, 0.8f, 0.55f);
+    ShapeSample s;
+    s.cover = edge(std::fabs(sdStar(x, y, 0.95f - half, n, inner, 90.0f)) - half, px);
+    return s;
+}
+
+ShapeSample pentacleEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 5, 5, 12);
+    const float r = len(x, y);
+    const auto line = [&](float distance, float half) { return edge(std::fabs(distance) - half, px); };
+    float lines = std::max(line(r - 0.9f, 0.032f), line(r - 0.78f, 0.012f));
+    // Each corner joined to the next but one.
+    float chords = 1e9f;
+    const float step = 360.0f / static_cast<float>(n);
+    for (int i = 0; i < n; ++i) {
+        const float a = (90.0f + step * static_cast<float>(i)) * kPi / 180.0f;
+        const float b = (90.0f + step * static_cast<float>(i + 2)) * kPi / 180.0f;
+        chords = std::min(chords, sdSeg(x, y, 0.77f * std::cos(a), 0.77f * std::sin(a), 0.77f * std::cos(b),
+                                        0.77f * std::sin(b)));
+    }
+    lines = std::max(lines, edge(chords - 0.016f, px));
+    return inked(lines, 0.14f * sq(clamp01(1.0f - r * r / sq(0.93f))));
+}
+
+ShapeSample speedlinesEdited(float x, float y, float px, const ShapeEdit& e) {
+    static const float starts[20] = {0.42f, 0.6f, 0.5f, 0.66f, 0.46f, 0.58f, 0.4f, 0.68f, 0.52f, 0.62f,
+                                     0.44f, 0.64f, 0.5f, 0.7f,  0.42f, 0.56f, 0.48f, 0.66f, 0.54f, 0.6f};
+    static const float ends[20] = {0.95f, 0.86f, 0.92f, 0.95f, 0.8f,  0.94f, 0.88f, 0.95f, 0.84f, 0.93f,
+                                   0.9f,  0.95f, 0.82f, 0.94f, 0.95f, 0.86f, 0.92f, 0.9f,  0.95f, 0.84f};
+    const int n = countOr(e, 20, 6, 31);
+    const float half = bent(e.thickness, 0.012f, 0.034f, 0.07f);
+    int k = 0;
+    const P q = fold(x, y, n, 180.0f / static_cast<float>(n), false, &k);
+    k = ((k % 20) + 20) % 20;
+    ShapeSample s;
+    s.cover = edge(sdTaper(q.x, q.y, starts[k], 0.0f, ends[k] - std::max(0.0f, half - 0.034f), 0.0f, half, half * 0.18f), px);
+    return s;
+}
+
+ShapeSample impactEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 12, 6, 24);
+    const float half = bent(e.thickness, 0.02f, 0.06f, 0.12f);
+    int k = 0;
+    const P q = fold(x, y, n, 90.0f, false, &k);
+    const bool isLong = k % 2 == 0;
+    ShapeSample s;
+    s.cover = edge(sdTaper(q.x, q.y, isLong ? 0.4f : 0.56f, 0.0f, (isLong ? 0.95f : 0.82f) - std::max(0.0f, half - 0.06f), 0.0f,
+                           half, half * 0.2f),
+                   px);
+    return s;
+}
+
+ShapeSample clawEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 3, 1, 5);
+    // Marks close together are drawn thinner, so they stay apart.
+    const float spacing = n > 1 ? 0.92f / static_cast<float>(n - 1) : 1.0f;
+    const float wide = std::min(bent(e.thickness, 0.04f, 0.105f, 0.17f), 0.35f * spacing);
+    float d = 1e9f;
+    for (int i = 0; i < n; ++i) {
+        const float mx = n == 1 ? 0.0f : -0.46f + 0.92f * static_cast<float>(i) / static_cast<float>(n - 1);
+        const float my = -0.1087f * mx;
+        const float length = 0.92f - 0.18f * sq(mx / 0.46f);
+        const P q = turned(x - mx, y - my, 18.0f);
+        d = std::min(d, sdVesica(q.x, q.y, length, wide));
+    }
+    ShapeSample s;
+    s.cover = edge(d, px);
+    s.tone = 0.5f * edge(d + 0.045f * wide / 0.105f, px);
+    return s;
+}
+
+ShapeSample rippleEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 3, 1, 6);
+    const float w = bent(e.thickness, 0.35f, 1.0f, 2.2f);
+    const float r = len(x, y);
+    const float soft = std::max(px, 0.03f);
+    const float step = n > 1 ? 0.6f / static_cast<float>(n - 1) : 0.0f;
+    float cover = 0.0f;
+    for (int i = 0; i < n; ++i) {
+        const float at = 0.88f - step * static_cast<float>(i);
+        const float half = (i == 0 ? 0.03f : 0.04f) * w;
+        const float strength = std::max(0.25f, 1.0f - 0.2f * static_cast<float>(i));
+        cover = std::max(cover, strength * edge(std::fabs(r - at) - half, soft));
+    }
+    ShapeSample s;
+    s.cover = cover;
+    return s;
+}
+
+ShapeSample zigzagEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 3, 1, 9);
+    const float w = bent(e.thickness, 0.35f, 1.0f, 2.2f);
+    static const P own[5] = {{-0.92f, 0.16f}, {-0.36f, -0.26f}, {0.04f, 0.3f}, {0.42f, -0.22f}, {0.92f, 0.1f}};
+    P line[11];
+    int count = 0;
+    if (n == 3) {
+        for (const P& p : own) {
+            line[count++] = p;
+        }
+    } else {
+        for (int i = 0; i < n + 2; ++i) {
+            const float lx = -0.92f + 1.84f * static_cast<float>(i) / static_cast<float>(n + 1);
+            const float ly = i == 0 ? 0.16f : i == n + 1 ? 0.1f : (i % 2 == 1 ? -0.26f : 0.3f);
+            line[count++] = P{lx, ly};
+        }
+    }
+    const float thin = 1.0f - std::pow(std::fabs(x), 5.0f);
+    return glowing(sdLine(x, y, line, count), 0.06f * thin * w, px, 0.3f, 0.6f * thin);
+}
+
+ShapeSample spiralEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 3, 1, 6);
+    const float w = bent(e.thickness, 0.35f, 1.0f, 2.0f);
+    const float r = len(x, y);
+    const float pitch = 0.34f * 3.0f / static_cast<float>(n);
+    const float turns = std::atan2(y, x) / kTau;
+    const float t = r / pitch - turns;
+    const float nearest = std::floor(t + 0.5f);
+    const float d = std::fabs(t - nearest) * pitch;
+    const float ends = edge(r - 0.92f, px) * (nearest >= 0.0f && nearest <= static_cast<float>(n - 1) ? 1.0f : 0.0f);
+    const float half = std::min(0.05f * w, 0.42f * pitch) * (1.0f - 0.45f * r);
+    ShapeSample s = glowing(d, half, px, std::min(0.16f, 0.45f * pitch), 0.35f);
+    s.cover *= ends;
+    s.shine *= ends;
+    return s;
+}
+
+ShapeSample portalringEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 3, 2, 8);
+    const float half = bent(e.thickness, 0.03f, 0.09f, 0.16f);
+    const float at = 0.89f - half;
+    const float r = len(x, y);
+    const float sector = 360.0f / static_cast<float>(n);
+    const float a = angleOf(x, y) / sector;
+    const float off = std::fabs(a - std::floor(a) - 0.5f);
+    const float along = (0.42f - off) * sector * kPi / 180.0f * r;
+    const float heavy = edge(std::fabs(r - at) - half, px) * edge(-along, px);
+    const float fine = edge(std::fabs(r - std::min(0.6f, at - half - 0.06f)) - 0.014f, px);
+    ShapeSample s;
+    s.cover = std::max({heavy, fine, 0.12f * sq(clamp01(1.0f - r * r / sq(0.9f)))});
+    s.shine = 0.6f * heavy * edge(std::fabs(r - (at - 0.06f * half / 0.09f)) - 0.025f * half / 0.09f, px);
+    s.tone = 0.3f * heavy;
+    return s;
+}
+
+ShapeSample softringEdited(float x, float y, float, const ShapeEdit& e) {
+    const float half = bent(e.thickness, 0.08f, 0.27f, 0.47f);
+    ShapeSample s;
+    s.cover = sq(clamp01(1.0f - std::fabs(len(x, y) - (0.95f - half)) / half));
+    return s;
+}
+
+ShapeSample haloEdited(float x, float y, float, const ShapeEdit& e) {
+    const float half = bent(e.thickness, 0.05f, 0.16f, 0.3f);
+    const float at = 0.92f - half;
+    const float r = len(x, y);
+    ShapeSample s;
+    s.cover = clamp01(sq(clamp01(1.0f - std::fabs(r - at) / half)) + 0.14f * clamp01((at - r) / 0.1f));
+    s.shine = 0.5f * sq(clamp01(1.0f - std::fabs(r - at) / (0.05f * half / 0.16f)));
+    return s;
+}
+
+ShapeSample donutEdited(float x, float y, float px, const ShapeEdit& e) {
+    const float half = bent(e.thickness, 0.12f, 0.34f, 0.45f);
+    const float at = 0.9f - half;
+    const float share = half / 0.34f;
+    const float r = len(x, y);
+    ShapeSample s = flat([&](float u, float v) { return std::fabs(len(u, v) - at) - half; }, x, y, px, 0.0f, 0.4f,
+                         0.1f);
+    const float drip = 0.05f * share * std::cos(9.0f * std::atan2(y, x));
+    const float icing = edge(std::fabs(r - (at - 0.01f)) - (0.22f * share + drip), px);
+    static const float sprinkles[7][3] = {{0.5f, 0.16f, 20.0f},  {0.2f, 0.52f, 110.0f},  {-0.34f, 0.44f, 60.0f},
+                                          {-0.56f, -0.04f, 150.0f}, {-0.3f, -0.5f, 30.0f}, {0.2f, -0.54f, 80.0f},
+                                          {0.56f, -0.24f, 130.0f}};
+    float bits = 1e9f;
+    for (const auto& b : sprinkles) {
+        const float a = b[2] * kPi / 180.0f;
+        bits = std::min(bits, sdSeg(x, y, b[0] - 0.05f * std::cos(a), b[1] - 0.05f * std::sin(a),
+                                    b[0] + 0.05f * std::cos(a), b[1] + 0.05f * std::sin(a)) - 0.022f);
+    }
+    const float sprinkle = edge(bits, px);
+    s.tone = mix(s.tone, 0.55f, icing * s.cover);
+    s.shine = 0.85f * sprinkle * s.cover * icing;
+    return s;
+}
+
+ShapeSample crosshairEdited(float x, float y, float px, const ShapeEdit& e) {
+    const float half = bent(e.thickness, 0.015f, 0.04f, 0.1f);
+    const float r = len(x, y);
+    const P q = fold(x, y, 4, 0.0f, true);
+    float d = std::fabs(r - 0.66f) - half;
+    d = std::min(d, sdSeg(q.x, q.y, 0.46f, 0.0f, 0.98f - half, 0.0f) - half);
+    d = std::min(d, r - 0.07f);
+    ShapeSample s;
+    s.cover = edge(d, px);
+    return s;
+}
+
+ShapeSample smokeringEdited(float x, float y, float px, const ShapeEdit& e) {
+    const int n = countOr(e, 7, 3, 16);
+    const float half = bent(e.thickness, 0.06f, 0.2f, 0.38f);
+    const float at = 0.86f - half;
+    return flat(
+        [&](float u, float v) {
+            const float bumps = 0.035f * std::cos(static_cast<float>(n) * std::atan2(v, u));
+            return std::fabs(len(u, v) - at) - (half + bumps);
+        },
+        x, y, px, 0.45f, 0.5f, 0.09f);
+}
+
+ShapeSample glowbarEdited(float x, float y, float, const ShapeEdit& e) {
+    const float half = bent(e.thickness, 0.08f, 0.24f, 0.6f);
+    const float ends = smooth(0.96f, 0.5f, std::fabs(x));
+    ShapeSample s;
+    s.cover = sq(clamp01(1.0f - std::fabs(y) / half)) * ends;
+    s.shine = 0.85f * clamp01(1.0f - std::fabs(y) / (0.06f * half / 0.24f)) * ends;
+    return s;
+}
+
+ShapeSample wedgeEdited(float x, float y, float px, const ShapeEdit& e) {
+    const float half = bent(e.sharpness, 36.0f, 27.0f, 8.0f);
+    return flat([&](float u, float v) { return sdPie(u, v + 0.8f, half, 1.56f) - 0.04f; }, x, y, px, 0.0f, 0.0f);
+}
+
+ShapeSample diamondEdited(float x, float y, float px, const ShapeEdit& e) {
+    // The same sums as the diamond in Shapes.cpp, with its width and the
+    // roundness of its corners as settings. It keeps its height.
+    const float w = bent(e.sharpness, 0.86f, 0.66f, 0.3f), h = 0.92f;
+    const float k = 1.0f / std::sqrt(1.0f / (w * w) + 1.0f / (h * h));  // from the middle to a side
+    float d = (std::fabs(x) / w + std::fabs(y) / h - 1.0f) * k;
+    if (e.round > 0.0f) {
+        // Corners taken off, sides where they were: a smaller diamond, grown.
+        const float corner = e.round * 0.999f * k;
+        const float scale = (k - corner) / k;
+        const P outline[4] = {{0.0f, h * scale}, {w * scale, 0.0f}, {0.0f, -h * scale}, {-w * scale, 0.0f}};
+        d = sdPoly(x, y, outline, 4) - corner;
+    }
+    ShapeSample s;
+    s.cover = edge(d, px);
+    s.tone = clamp01((y - x) * 4.0f) * 0.8f * edge((std::fabs(x) / w + std::fabs(y) / h - 0.72f) * k, px);
+    return s;
+}
+
 using DrawEdited = ShapeSample (*)(float x, float y, float px, const ShapeEdit& e);
 
 struct Editable {
@@ -1844,6 +2200,28 @@ const std::vector<Editable>& editables() {
         {"sunburst", {5, 24, 12, "Rays", false, false, false, false}, sunburstEdited},
         {"flower", {3, 12, 5, "Petals", false, false, false, false}, flowerEdited},
         {"gear", {5, 16, 8, "Teeth", false, false, false, false}, gearEdited},
+        {"diamond", {0, 0, 0, "", false, true, true, false}, diamondEdited},
+        {"clover", {3, 8, 4, "Leaves", false, false, false, false}, cloverEdited},
+        {"snowflake", {3, 12, 6, "Arms", true, false, false, false}, snowflakeEdited},
+        {"pinwheel", {2, 8, 4, "Blades", false, false, false, false}, pinwheelEdited},
+        {"crown", {3, 9, 3, "Points", false, false, false, false}, crownEdited},
+        {"pow", {6, 20, 12, "Spikes", false, true, false, false}, powEdited},
+        {"bang", {6, 24, 14, "Spikes", true, true, false, false}, bangEdited},
+        {"pentacle", {5, 12, 5, "Points", false, false, false, false}, pentacleEdited},
+        {"speedlines", {6, 31, 20, "Lines", true, false, false, false}, speedlinesEdited},
+        {"impact", {6, 24, 12, "Lines", true, false, false, false}, impactEdited},
+        {"claw", {1, 5, 3, "Marks", true, false, false, false}, clawEdited},
+        {"ripple", {1, 6, 3, "Rings", true, false, false, false}, rippleEdited},
+        {"zigzag", {1, 9, 3, "Bends", true, false, false, false}, zigzagEdited},
+        {"spiral", {2, 6, 3, "Turns", true, false, false, false}, spiralEdited},
+        {"portalring", {2, 8, 3, "Pieces", true, false, false, false}, portalringEdited},
+        {"smokering", {3, 16, 7, "Puffs", true, false, false, false}, smokeringEdited},
+        {"softring", {0, 0, 0, "", true, false, false, false}, softringEdited},
+        {"halo", {0, 0, 0, "", true, false, false, false}, haloEdited},
+        {"donut", {0, 0, 0, "", true, false, false, false}, donutEdited},
+        {"crosshair", {0, 0, 0, "", true, false, false, false}, crosshairEdited},
+        {"glowbar", {0, 0, 0, "", true, false, false, false}, glowbarEdited},
+        {"wedge", {0, 0, 0, "", false, true, false, false}, wedgeEdited},
     };
     return list;
 }

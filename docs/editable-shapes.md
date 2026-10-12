@@ -1,14 +1,11 @@
-# Shapes you can change (0.14)
+# Shapes you can change (0.14, 0.15)
 
 Until now a star had five points and a ring was as thick as it was drawn.
-From 0.14, twenty-two shapes have **settings of their own**: how many
-points, sides, rays or teeth; how thick; how pointed; how round. They are
-sliders under the shapes in the **Shape** control, and they show only for a
-shape that has them.
-
-This is the first part of editable shapes: the shapes where it matters
-most. The rest of the library (the petals of a clover, the arms of a
-snowflake, the points of a crown) is not done yet; see Limits.
+From 0.14, shapes have **settings of their own**: how many points, sides,
+rays or teeth; how thick; how pointed; how round. They are sliders under
+the shapes in the **Shape** control, and they show only for a shape that
+has them. 0.14 gave them to twenty-two shapes; 0.15 to twenty-two more,
+**forty-four** in all.
 
 ## Which shapes, and what
 
@@ -27,9 +24,29 @@ snowflake, the points of a crown) is not done yet; see Limits.
 | **Sunburst** | Rays, 5 to 24 | | | |
 | **Flower** | Petals, 3 to 12 | | | |
 | **Gear** | Teeth, 5 to 16 | | | |
+| **Diamond** | | | yes (narrower) | rounder |
+| **Wedge** | | | yes (narrower) | |
+| **Clover** | Leaves, 3 to 8 | | | |
+| **Snowflake** | Arms, 3 to 12 | yes | | |
+| **Pinwheel** | Blades, 2 to 8 | | | |
+| **Crown** | Points, 3 to 9 | | | |
+| **Pow** | Spikes, 6 to 20 | | yes | |
+| **Bang** | Spikes, 6 to 24 | yes | yes | |
+| **Pentacle** | Points, 5 to 12 | | | |
+| **Speed lines** | Lines, 6 to 31 | yes | | |
+| **Impact lines** | Lines, 6 to 24 | yes | | |
+| **Claw marks** | Marks, 1 to 5 | yes | | |
+| **Ripple** | Rings, 1 to 6 | yes | | |
+| **Zigzag** | Bends, 1 to 9 | yes | | |
+| **Spiral** | Turns, 2 to 6 | yes | | |
+| **Portal ring** | Pieces, 2 to 8 | yes | | |
+| **Smoke ring** | Puffs, 3 to 16 | yes | | |
+| **Soft ring, Halo, Donut, Crosshair, Glow bar** | | yes | | |
 
-Star, Ring and Square are three of the original 35 shapes; the rest are
-from the shape library.
+Star, Ring, Square and Diamond are four of the original 35 shapes; the
+rest are from the shape library. Claw marks that are close together are
+drawn thinner so they stay apart, and a Pentacle with an even number of
+points is two figures woven together (six makes a hexagram).
 
 ## What each setting does
 
@@ -72,9 +89,9 @@ A changed shape is one of endlessly many, so it cannot be written into
 the graphics card's shader the way the original 35 are. It is drawn the
 way a library shape is ([shape-library.md](shape-library.md)): from its
 formula into a picture, and from the picture by the graphics card. That
-holds for Star, Ring and Square too: unchanged, they are drawn by the
+holds for Star, Ring, Square and Diamond too: unchanged, they are drawn by the
 graphics card's own formula exactly as before; changed, they go by
-picture. Each of the three was written a second time for this, starting
+picture. Each of the four was written a second time for this, starting
 from the same measurements, and a test holds the second drawing to the
 first: one step of a slider away from "as drawn" is nearly the same shape.
 
@@ -127,9 +144,10 @@ library already uses.
 
 ## Limits
 
-- **Only these twenty-two shapes.** Clover, Snowflake, Pinwheel, Crown,
-  Burst, Pow, Bang, Diamond, Oval, Capsule, Wedge and the rest have no
-  settings yet. That is the second part of this step.
+- **Not every shape.** Forty-four of the 143 have settings. The rest have
+  nothing obvious to count or thicken (a leaf, a key, a skull, a cloud),
+  or were left as drawn for now: Burst, Sparkle, Twinkle and the other
+  glows of the first 35, Octagram, Triad, Eye, Gem, and the debris.
 - **A changed shape is a 512-pixel picture** in the app's live view and in
   Unity, like a library shape: very large on screen, its edges soften
   slightly. A Star drawn unchanged is still sharp at any size; move a

@@ -141,7 +141,7 @@ TEST_CASE("some shapes can be changed, and say how", "[shapes][edits]") {
         }
         ++editable;
         if (info.count()) {
-            CHECK(info.countLowest >= 3);
+            CHECK(info.countLowest >= 1);
             CHECK(info.countHighest <= kShapeEditMaxCount);
             CHECK(info.countOwn >= info.countLowest);
             CHECK(info.countOwn <= info.countHighest);
@@ -153,7 +153,7 @@ TEST_CASE("some shapes can be changed, and say how", "[shapes][edits]") {
             CHECK(info.round);
         }
     }
-    CHECK(editable >= 20);
+    CHECK(editable >= 44);
     // Three of the first thirty-five among them.
     CHECK(shapeEditInfo(numbered("star")).count());
     CHECK(std::string(shapeEditInfo(numbered("star")).countLabel) == "Points");
@@ -309,6 +309,43 @@ TEST_CASE("each setting does what it says", "[shapes][edits]") {
         CAPTURE(n);
         CHECK(stretches("gear", edit(n), 0.85f) == n);
     }
+    for (const int n : {3, 5, 8, 12}) {
+        CAPTURE(n);
+        CHECK(stretches("snowflake", edit(n), 0.85f) == n);
+        CHECK(stretches("pow", edit(n < 6 ? 6 : n), 0.65f) == (n < 6 ? 6 : n));
+        CHECK(stretches("speedlines", edit(n < 6 ? 6 : n), 0.75f) == (n < 6 ? 6 : n));
+        CHECK(stretches("impact", edit(n < 6 ? 6 : n), 0.7f) == (n < 6 ? 6 : n));
+        CHECK(stretches("portalring", edit(std::min(n, 8)), 0.8f) == std::min(n, 8));
+        CHECK(stretches("pinwheel", edit(std::min(n, 8)), 0.5f) == std::min(n, 8));
+    }
+    // A crown's points along its top; claw marks across it; rings in a ripple.
+    for (const int n : {3, 5, 9}) {
+        CAPTURE(n);
+        int points = 0;
+        bool before = false;
+        for (int i = 0; i <= 400; ++i) {
+            const bool now = cover("crown", edit(n), -0.95f + 1.9f * static_cast<float>(i) / 400.0f, 0.12f) > 0.5f;
+            points += now && !before ? 1 : 0;
+            before = now;
+        }
+        CHECK(points == n);
+    }
+    for (const int n : {1, 3, 5}) {
+        CAPTURE(n);
+        int marks = 0, rings = 0;
+        bool markBefore = false, ringBefore = false;
+        for (int i = 0; i <= 400; ++i) {
+            const float t = -0.95f + 1.9f * static_cast<float>(i) / 400.0f;
+            const bool mark = cover("claw", edit(n), t, -0.1087f * t) > 0.5f;
+            const bool ring = t > 0.0f && cover("ripple", edit(n), t, 0) > 0.2f;
+            marks += mark && !markBefore ? 1 : 0;
+            rings += ring && !ringBefore ? 1 : 0;
+            markBefore = mark;
+            ringBefore = ring;
+        }
+        CHECK(marks == n);
+        CHECK(rings == n);
+    }
 
     // Thickness: a ring thinned is still a ring; thickened all the way it
     // is a disc. Its outside stays where it was.
@@ -318,7 +355,9 @@ TEST_CASE("each setting does what it says", "[shapes][edits]") {
     CHECK(cover("ring", edit(0, 1), 0.95f, 0) == 0.0f);
     CHECK(cover("ring", edit(0, 0.5f), 0.89f, 0) == 1.0f);
     CHECK(area(numbered("ring"), edit(0, -1)) < 0.5f * area(numbered("ring"), ShapeEdit{}));
-    for (const char* name : {"ring", "frame", "hexframe", "arc", "dashring", "doublering", "starline", "plus", "cross"}) {
+    for (const char* name : {"ring", "frame", "hexframe", "arc", "dashring", "doublering", "starline", "plus", "cross",
+                             "snowflake", "bang", "speedlines", "impact", "claw", "ripple", "zigzag", "spiral",
+                             "portalring", "smokering", "softring", "halo", "donut", "crosshair", "glowbar"}) {
         INFO(name);
         const int number = numbered(name);
         float before = 0.0f;
@@ -333,7 +372,7 @@ TEST_CASE("each setting does what it says", "[shapes][edits]") {
     CHECK(cover("plus", ShapeEdit{}, 0.3f, 0.2f) == 1.0f);
 
     // Pointiness: the notches move in, the points stay where they are.
-    for (const char* name : {"star", "starfour", "starsix", "stareight", "starfat"}) {
+    for (const char* name : {"star", "starfour", "starsix", "stareight", "starfat", "pow", "diamond", "wedge"}) {
         INFO(name);
         const int number = numbered(name);
         float before = 1e9f;
