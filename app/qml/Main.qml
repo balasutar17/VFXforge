@@ -425,6 +425,7 @@ ApplicationWindow {
                         id: layerList
                         Layout.fillWidth: true
                         Layout.fillHeight: true
+                        Layout.minimumHeight: 100
                         clip: true
                         spacing: 2
                         model: app.layers
@@ -608,63 +609,52 @@ ApplicationWindow {
                         visible: group !== ""
                         spacing: 4
 
-                        Item { Layout.preferredHeight: 4 }
-                        Text {
-                            Layout.fillWidth: true
-                            text: "GROUP  " + groupPanel.group
-                            color: theme.dim
-                            font.pixelSize: theme.smallFontSize
-                            font.bold: true
-                            elide: Text.ElideRight
-                        }
                         RowLayout {
                             Layout.fillWidth: true
+                            Layout.topMargin: 4
                             spacing: 4
-                            Text { Layout.preferredWidth: 44; text: "Move"; color: theme.dim; font.pixelSize: theme.smallFontSize }
-                            VButton { Layout.fillWidth: true; text: "\u2190"; tip: "Move the group left"; onClicked: app.moveGroup(groupPanel.group, -groupPanel.step, 0, 0) }
-                            VButton { Layout.fillWidth: true; text: "\u2192"; tip: "Move the group right"; onClicked: app.moveGroup(groupPanel.group, groupPanel.step, 0, 0) }
-                            VButton { Layout.fillWidth: true; text: "\u2191"; tip: "Move the group up"; onClicked: app.moveGroup(groupPanel.group, 0, groupPanel.step, 0) }
-                            VButton { Layout.fillWidth: true; text: "\u2193"; tip: "Move the group down"; onClicked: app.moveGroup(groupPanel.group, 0, -groupPanel.step, 0) }
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            visible: app.threeD
-                            spacing: 4
-                            Item { Layout.preferredWidth: 44 }
-                            VButton { Layout.fillWidth: true; text: "Nearer"; tip: "Move the group towards the front"; onClicked: app.moveGroup(groupPanel.group, 0, 0, groupPanel.step) }
-                            VButton { Layout.fillWidth: true; text: "Further"; tip: "Move the group towards the back"; onClicked: app.moveGroup(groupPanel.group, 0, 0, -groupPanel.step) }
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 4
-                            Text {
-                                Layout.preferredWidth: 44
-                                text: "Starts"
-                                color: theme.dim
-                                font.pixelSize: theme.smallFontSize
-                            }
                             Text {
                                 Layout.fillWidth: true
-                                text: (groupPanel.row ? groupPanel.row.groupStart : 0).toFixed(2) + " s"
-                                color: theme.text
-                                font.pixelSize: theme.fontSize
+                                text: "GROUP  " + groupPanel.group
+                                color: theme.dim
+                                font.pixelSize: theme.smallFontSize
+                                font.bold: true
+                                elide: Text.ElideRight
                             }
-                            VButton { text: "\u2212 0.1 s"; tip: "Start the group a tenth of a second earlier"; onClicked: app.delayGroup(groupPanel.group, -0.1) }
-                            VButton { text: "+ 0.1 s"; tip: "Start the group a tenth of a second later (the effect grows to fit)"; onClicked: app.delayGroup(groupPanel.group, 0.1) }
+                            VButton {
+                                implicitHeight: 22
+                                quiet: true
+                                text: "Ungroup"
+                                tip: "Keep the layers, but no longer as a group"
+                                onClicked: app.ungroup(groupPanel.group)
+                            }
                         }
                         RowLayout {
                             Layout.fillWidth: true
-                            spacing: 4
-                            Text { Layout.preferredWidth: 44; text: "Size"; color: theme.dim; font.pixelSize: theme.smallFontSize }
-                            VButton { Layout.fillWidth: true; text: "Smaller"; tip: "The whole group 10% smaller, particles and reach"; onClicked: app.sizeGroup(groupPanel.group, 1.0 / 1.1) }
-                            VButton { Layout.fillWidth: true; text: "Larger"; tip: "The whole group 10% larger, particles and reach"; onClicked: app.sizeGroup(groupPanel.group, 1.1) }
+                            spacing: 3
+                            VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u2190"; tip: "Move the group left"; onClicked: app.moveGroup(groupPanel.group, -groupPanel.step, 0, 0) }
+                            VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u2192"; tip: "Move the group right"; onClicked: app.moveGroup(groupPanel.group, groupPanel.step, 0, 0) }
+                            VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u2191"; tip: "Move the group up"; onClicked: app.moveGroup(groupPanel.group, 0, groupPanel.step, 0) }
+                            VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u2193"; tip: "Move the group down"; onClicked: app.moveGroup(groupPanel.group, 0, -groupPanel.step, 0) }
+                            VButton { Layout.fillWidth: true; implicitHeight: 26; visible: app.threeD; text: "\u2299"; tip: "Move the group nearer, towards the front"; onClicked: app.moveGroup(groupPanel.group, 0, 0, groupPanel.step) }
+                            VButton { Layout.fillWidth: true; implicitHeight: 26; visible: app.threeD; text: "\u2297"; tip: "Move the group further, towards the back"; onClicked: app.moveGroup(groupPanel.group, 0, 0, -groupPanel.step) }
                         }
-                        VButton {
+                        RowLayout {
                             Layout.fillWidth: true
-                            quiet: true
-                            text: "Ungroup"
-                            tip: "Keep the layers, but no longer as a group"
-                            onClicked: app.ungroup(groupPanel.group)
+                            spacing: 3
+                            VButton { implicitWidth: 26; implicitHeight: 26; text: "\u2212"; tip: "Start the group a tenth of a second earlier"; onClicked: app.delayGroup(groupPanel.group, -0.1) }
+                            Text {
+                                Layout.fillWidth: true
+                                horizontalAlignment: Text.AlignHCenter
+                                text: "starts " + (groupPanel.row ? groupPanel.row.groupStart : 0).toFixed(1) + " s"
+                                color: theme.text
+                                font.pixelSize: theme.smallFontSize
+                            }
+                            VButton { implicitWidth: 26; implicitHeight: 26; text: "+"; tip: "Start the group a tenth of a second later"; onClicked: app.delayGroup(groupPanel.group, 0.1) }
+                            Item { Layout.preferredWidth: 6 }
+                            VButton { implicitWidth: 26; implicitHeight: 26; text: "\u2212"; tip: "The whole group 10% smaller, particles and reach"; onClicked: app.sizeGroup(groupPanel.group, 1.0 / 1.1) }
+                            Text { text: "size"; color: theme.text; font.pixelSize: theme.smallFontSize }
+                            VButton { implicitWidth: 26; implicitHeight: 26; text: "+"; tip: "The whole group 10% larger, particles and reach"; onClicked: app.sizeGroup(groupPanel.group, 1.1) }
                         }
                     }
                 }

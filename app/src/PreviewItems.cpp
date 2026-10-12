@@ -37,6 +37,7 @@ void PresetPreview::setPreset(const QString& id) {
         auto made = vfx::editor::makePreset(key, newId);
         if (made) {
             simulation_ = std::make_unique<vfx::Simulation>(vfx::compileEffect(made.value()));
+            duration_ = made.value().duration;
             // Start at a moment where the effect looks like itself, so a
             // card is never empty when the library opens.
             time_ = info_.previewTime;
@@ -50,6 +51,26 @@ void PresetPreview::setPreset(const QString& id) {
 
 void PresetPreview::advance(double seconds) {
     if (!simulation_ || !std::isfinite(seconds) || seconds <= 0.0) {
+        return;
+    }
+    // A quick burst (a hit, a flash) is over before the eye finds it: each
+    // time round, its card stops on the moment it looks most like itself
+    // for a while before it plays again.
+    if (hold_ > 0.0) {
+        hold_ -= seconds;
+        if (hold_ <= 0.0) {
+            time_ = 0.0;
+            simulation_->seek(0);
+        }
+        return;
+    }
+    const bool quick = duration_ > 0.0 && duration_ <= 1.2;
+    if (quick && time_ + seconds >= duration_) {
+        time_ = info_.previewTime;
+        simulation_->seek(static_cast<std::int64_t>(time_ / vfx::kSimulationStep));
+        simulation_->extract(frame_);
+        hold_ = 0.8;
+        update();
         return;
     }
     time_ += seconds < 0.1 ? seconds : 0.1;

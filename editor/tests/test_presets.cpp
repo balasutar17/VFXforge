@@ -354,17 +354,28 @@ TEST_CASE("an effect added from the library is a group, moved, delayed, sized an
     REQUIRE(s.undo());
     CHECK(offsetOf(*members(g)[0]).y == Catch::Approx(was.y));
 
-    // Delayed: it starts later, and the effect grows to fit it.
+    // Delayed: it starts later. A loop keeps its length (so the portal still
+    // joins up), and the group is cut off at its end.
     const double length = s.effect().duration;
     REQUIRE(s.delayGroup(g, 0.5));
     for (const Layer* l : members(g)) {
         CHECK(l->start == Catch::Approx(0.5));
+        CHECK(l->start + l->duration == Catch::Approx(length));
     }
-    CHECK(s.effect().duration >= length + 0.5 - 1e-9);
+    CHECK(s.effect().duration == length);
+    CHECK(loopJumps(s.effect()).empty());
     REQUIRE(s.delayGroup(g, -2.0));  // not before the start
     for (const Layer* l : members(g)) {
         CHECK(l->start == 0.0);
     }
+    REQUIRE(s.undo());
+    REQUIRE(s.undo());
+    // An effect that plays once grows to fit instead.
+    REQUIRE(s.set(Path::effect("loop"), Value(std::string("once"))));
+    REQUIRE(s.delayGroup(g, 0.5));
+    CHECK(s.effect().duration == Catch::Approx(length + 0.5));
+    REQUIRE(s.undo());
+    REQUIRE(s.undo());
 
     // Sized about the middle of its emitters: they all sit at one point, so
     // that point stays where it is.

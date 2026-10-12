@@ -31,7 +31,7 @@ layer buttons. Each click is one undo step:
 | Control | What it does |
 | --- | --- |
 | Move ← → ↑ ↓ (and Nearer, Further in 3D) | Moves every emitter of the group a quarter of a unit |
-| Starts − 0.1 s / + 0.1 s | Starts the whole group earlier or later, for "slam, *then* the portal opens, *then* the orbs". The effect grows to fit; nothing starts before the effect does. |
+| Starts − 0.1 s / + 0.1 s | Starts the whole group earlier or later, for "slam, *then* the portal opens, *then* the orbs". Nothing starts before the effect does. An effect that plays once grows to fit; a loop keeps its length (so everything else still joins up) and the group is cut off at the loop's end. |
 | Size Smaller / Larger | The whole group 10% smaller or larger, particles and how far they go, about the middle of its emitters |
 | Ungroup | The layers stay, no longer as a group |
 
@@ -49,6 +49,10 @@ when set, so older files are unchanged); Unity gets the layers as before.
   repeated to fill the longer loop.
 - Adding a 2D effect into a 3D one: it stands upright, facing the front.
 - Seen working only by tests and the build machines' screenshots so far.
+
+Also in 0.18: the library card of a quick burst (Hit Sparks, the flashes)
+stops on its best moment for a moment each time round, instead of being
+empty most of the time.
 
 ## Tests
 

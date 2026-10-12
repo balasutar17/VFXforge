@@ -272,7 +272,7 @@ int main(int argc, char* argv[]) {
                           << controller.session().effect().layers.size() - static_cast<std::size_t>(before)
                           << " layers, starts at " << start << " s, effect " << controller.duration() << " s\n";
                 if (!added || group != QStringLiteral("Guardian Orbs 3D") || std::fabs(start - 0.3) > 1e-6 ||
-                    controller.duration() < 2.3 - 1e-6) {
+                    std::fabs(controller.duration() - 4.0) > 0.02) {
                     groupsOut << "FAIL: adding an effect as a group did not work\n";
                     selfTest.result = 1;
                 }

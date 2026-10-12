@@ -40,6 +40,8 @@ private:
     std::unique_ptr<vfx::Simulation> simulation_;
     double time_ = 0.0;
     double quiet_ = 0.0;  // how long nothing has been on screen
+    double duration_ = 0.0;  // the effect's length
+    double hold_ = 0.0;      // how much longer a quick burst's card stays still
     vfx::RenderFrame frame_;
     vfx::editor::SpriteMesh mesh_;
 };

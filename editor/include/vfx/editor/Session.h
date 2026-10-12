@@ -106,7 +106,9 @@ public:
     // Moves the group's emitters (their Position) by this much.
     Status moveGroup(std::string_view group, double dx, double dy, double dz);
     // Makes the group start this much later (earlier when below zero, but
-    // not before the effect starts). The effect grows to fit.
+    // not before the effect starts). An effect that plays once grows to fit;
+    // a loop keeps its length, and a layer that would run past its end is
+    // cut off there.
     Status delayGroup(std::string_view group, double seconds);
     // Makes the group this many times as large, particles and reach, about
     // the middle of its emitters.

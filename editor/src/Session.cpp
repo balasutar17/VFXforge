@@ -648,16 +648,28 @@ Status Session::delayGroup(std::string_view group, double seconds) {
     std::vector<CommandPtr> steps;
     double end = effect().duration;
     bool any = false;
+    // A loop keeps its length, so everything else in it still joins up: a
+    // layer that would now run past the end is cut off there. An effect that
+    // plays once grows instead.
+    const bool loops = effect().loop == "loop";
     for (const Layer& layer : effect().layers) {
         if (layer.group != group) {
             continue;
         }
         any = true;
-        const double start = std::max(0.0, layer.start + seconds);
-        end = std::max(end, start + layer.duration);
-        if (start != layer.start) {
-            steps.push_back(std::make_unique<SetPropertyCommand>(Path::layerField(layer.id, "start"), Value(start)));
+        const double start = std::min(std::max(0.0, layer.start + seconds), loops ? effect().duration - 0.05 : 3600.0);
+        if (start == layer.start) {
+            continue;
         }
+        steps.push_back(std::make_unique<SetPropertyCommand>(Path::layerField(layer.id, "start"), Value(start)));
+        if (loops && start + layer.duration > effect().duration) {
+            steps.push_back(std::make_unique<SetPropertyCommand>(Path::layerField(layer.id, "duration"),
+                                                                 Value(effect().duration - start)));
+        }
+        end = std::max(end, start + layer.duration);
+    }
+    if (loops) {
+        end = effect().duration;
     }
     if (!any) {
         return makeError("There is no group called that to delay.");
