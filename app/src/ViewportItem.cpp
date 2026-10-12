@@ -7,6 +7,7 @@
 #include <QQuickWindow>
 #include <QSGSimpleTextureNode>
 #include <QSGTexture>
+#include <limits>
 #include <memory>
 
 #include "SpriteNode.h"
@@ -186,6 +187,8 @@ public:
     }
     QSGSimpleTextureNode* model = nullptr;
     std::unique_ptr<QSGTexture> modelTexture;
+    std::unique_ptr<QSGTexture> depthTexture;  // the model's distances, for the particle shaders
+    SpriteDepth depth;
     QSGNode* sprites = nullptr;
 };
 
@@ -243,8 +246,7 @@ QSGNode* ViewportItem::updatePaintNode(QSGNode* old, UpdatePaintNodeData*) {
     const bool hide = model && controller_ && controller_->hideBehindModel() && !modelPicture_.empty();
 
     if (controller_ && width() > 0 && height() > 0) {
-        vfx::editor::buildSpriteMesh(controller_->session().frame(), view, mesh_, images,
-                                     hide ? &modelPicture_ : nullptr);
+        vfx::editor::buildSpriteMesh(controller_->session().frame(), view, mesh_, images);
     }
     const int drawn = static_cast<int>(mesh_.drawn);
     if (drawn != drawnCount_) {
@@ -269,6 +271,45 @@ QSGNode* ViewportItem::updatePaintNode(QSGNode* old, UpdatePaintNodeData*) {
                 root->model->setTexture(texture);
                 root->modelTexture.reset(texture);  // the old one goes now that nothing uses it
             }
+            // Its distances, sixteen bits in red and green between the
+            // nearest and the furthest, blue where there is any model.
+            float nearest = std::numeric_limits<float>::max(), furthest = std::numeric_limits<float>::lowest();
+            for (const float d : modelPicture_.depth) {
+                if (std::isfinite(d)) {
+                    nearest = std::min(nearest, d);
+                    furthest = std::max(furthest, d);
+                }
+            }
+            root->depthTexture.reset();
+            if (nearest <= furthest) {
+                const float range = std::max(furthest - nearest, 1e-3f);
+                QImage distances(p.width, p.height, QImage::Format_RGBA8888);
+                for (int y = 0; y < p.height; ++y) {
+                    uchar* line = distances.scanLine(y);
+                    for (int x = 0; x < p.width; ++x) {
+                        const float d = modelPicture_.depth[static_cast<std::size_t>(y) * static_cast<std::size_t>(p.width) +
+                                                            static_cast<std::size_t>(x)];
+                        uchar* out = line + x * 4;
+                        if (std::isfinite(d)) {
+                            const auto q = static_cast<unsigned>(std::lround(std::clamp((d - nearest) / range, 0.0f, 1.0f) * 65535.0f));
+                            out[0] = static_cast<uchar>(q >> 8);
+                            out[1] = static_cast<uchar>(q & 0xffu);
+                            out[2] = 255;
+                        } else {
+                            out[0] = out[1] = out[2] = 0;
+                        }
+                        out[3] = 255;
+                    }
+                }
+                if (QSGTexture* t = window()->createTextureFromImage(distances)) {
+                    t->setFiltering(QSGTexture::Nearest);
+                    root->depthTexture.reset(t);
+                }
+                root->depth.nearest = nearest;
+                root->depth.furthest = nearest + range;
+            }
+            root->depth.perspective = !modelKey_.flat;
+            root->depth.fade = vfx::editor::kBehindFade;
             modelFresh_ = false;
         }
         root->model->setRect(boundingRect());
@@ -277,9 +318,12 @@ QSGNode* ViewportItem::updatePaintNode(QSGNode* old, UpdatePaintNodeData*) {
         delete root->model;
         root->model = nullptr;
         root->modelTexture.reset();
+        root->depthTexture.reset();
     }
 
-    QSGNode* sprites = updateSpriteNode(root->sprites, mesh_, images, window());
+    SpriteDepth depth = root->depth;
+    depth.texture = hide && root->model ? root->depthTexture.get() : nullptr;
+    QSGNode* sprites = updateSpriteNode(root->sprites, mesh_, images, window(), 512, size(), &depth);
     if (sprites != root->sprites) {
         if (root->sprites) {
             root->removeChildNode(root->sprites);

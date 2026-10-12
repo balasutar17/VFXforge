@@ -77,7 +77,8 @@ struct RenderBatch {
     bool eases = false;      // its particles carry an ease and a life
     float orbit = 0;         // radians per second about (centerX, centerY)
     float orbitSin = 0, orbitCos = 1;  // of one whole step's turn
-    float centerX = 0, centerY = 0;
+    float centerX = 0, centerY = 0, centerZ = 0;
+    bool ground = false;  // 3D: its flat parts lie on the ground, and Orbit turns about the upright
     float hold = 0;          // drawings per second; 0 for every step
     ShapeEdit shapeEdit;     // changes to the shape's own design
     // The step its particles are shown at: the frame's own step, or for a

@@ -601,3 +601,67 @@ TEST_CASE("The principles give these exact results on every machine") {
         CHECK(hashFrame(frame) == pin.frame);
     }
 }
+
+// ------------------------------------------------------------ ground plane
+
+TEST_CASE("In 3D, a circle or rectangle laid on the ground spreads over the floor, not the upright") {
+    for (const char* shape : {"circle", "rectangle"}) {
+        INFO(shape);
+        Effect effect = oneLayer(true);
+        Layer& layer = effect.layers[0];
+        burstOnly(layer, 400);
+        put(layer, "shape", "shape", text(shape));
+        put(layer, "shape", "radius", number(2));
+        put(layer, "shape", "size", vec(3, 2, 0));
+        put(layer, "shape", "plane", text("ground"));
+        put(layer, "initial", "speed", constant(0));
+        put(layer, "initial", "lifetime", constant(10));
+        removeModule(layer, "motion");
+        Simulation sim = simulate(effect, 1);
+        const ParticleView v = sim.particles(0);
+        REQUIRE(v.count == 400);
+        double spreadZ = 0;
+        for (std::uint32_t i = 0; i < v.count; ++i) {
+            REQUIRE(v.y[i] == Catch::Approx(0.0).margin(1e-6));
+            spreadZ += std::fabs(v.z[i]);
+        }
+        CHECK(spreadZ / v.count > 0.3);
+    }
+}
+
+TEST_CASE("In 3D, a ground layer's Orbit turns about the upright and leaves height alone") {
+    Effect effect = straight(50, true);
+    Layer& layer = effect.layers[0];
+    put(layer, "initial", "spread", number(180.0));
+    put(layer, "shape", "plane", text("ground"));
+    put(layer, "shape", "offset", vec(1.0, 0.5, -2.0));
+    Simulation plain = simulate(effect, 40);
+    put(layer, "motion", "orbit", number(120.0));
+    Simulation turned = simulate(effect, 40);
+    const ParticleView a = plain.particles(0), b = turned.particles(0);
+    REQUIRE(a.count == b.count);
+    double moved = 0;
+    for (std::uint32_t i = 0; i < a.count; ++i) {
+        REQUIRE(b.y[i] == Catch::Approx(a.y[i]).margin(1e-5));
+        REQUIRE(b.vy[i] == Catch::Approx(a.vy[i]).margin(1e-5));
+        const double ra = std::hypot(a.x[i] - 1.0, a.z[i] + 2.0);
+        const double rb = std::hypot(b.x[i] - 1.0, b.z[i] + 2.0);
+        REQUIRE(rb == Catch::Approx(ra).margin(2e-3));
+        moved += std::hypot(a.x[i] - b.x[i], a.z[i] - b.z[i]);
+    }
+    CHECK(moved / a.count > 0.1);
+}
+
+TEST_CASE("The ground plane means nothing in 2D, and upright changes nothing") {
+    Effect effect = straight(50, false);
+    Layer& layer = effect.layers[0];
+    put(layer, "motion", "orbit", number(90.0));
+    Simulation before = simulate(effect, 30);
+    put(layer, "shape", "plane", text("ground"));
+    Simulation flat = simulate(effect, 30);
+    const ParticleView a = before.particles(0), b = flat.particles(0);
+    for (std::uint32_t i = 0; i < a.count; ++i) {
+        REQUIRE(a.x[i] == b.x[i]);
+        REQUIRE(a.y[i] == b.y[i]);
+    }
+}

@@ -91,10 +91,14 @@ QSGNode* PresetPreview::updatePaintNode(QSGNode* old, UpdatePaintNodeData*) {
         view.centerX = info_.viewX;
         view.centerY = info_.viewY;
         view.unitsHigh = info_.viewHeight;
+        // A 3D preset is seen by the camera the viewport starts with.
+        view.targetX = info_.viewX;
+        view.targetY = info_.viewY;
+        view.distance = info_.viewHeight * 1.45f;
         vfx::editor::buildSpriteMesh(frame_, view, mesh_);
     }
     // A card is small: shapes from the library are drawn from small pictures.
-    return updateSpriteNode(old, mesh_, nullptr, window(), 128);
+    return updateSpriteNode(old, mesh_, nullptr, window(), 128, size());
 }
 
 // -------------------------------------------------------------- ShapeIcon
@@ -157,5 +161,5 @@ QSGNode* ShapeIcon::updatePaintNode(QSGNode* old, UpdatePaintNodeData*) {
         vfx::editor::buildSpriteMesh(frame, view, mesh_);
     }
     // An icon is tiny: a shape from the library is drawn from a tiny picture.
-    return updateSpriteNode(old, mesh_, nullptr, window(), 64);
+    return updateSpriteNode(old, mesh_, nullptr, window(), 64, size());
 }

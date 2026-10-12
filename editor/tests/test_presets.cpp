@@ -59,13 +59,13 @@ TEST_CASE("the library has presets in every promised category", "[presets]") {
         CHECK(names.insert(info.name).second);  // or a name
         CHECK(findPreset(info.id) == &info);
         for (const char c : info.id) {
-            CHECK(((c >= 'a' && c <= 'z') || c == '-'));
+            CHECK(((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-'));
         }
     }
 
     const auto categories = presetCategories();
     for (const char* wanted : {"Toon", "Blasts", "Fire", "Water", "Glow and magic", "Frames", "Shooting",
-                               "Rewards", "Weather"}) {
+                               "Rewards", "Weather", "3D"}) {
         INFO(wanted);
         CHECK(std::find(categories.begin(), categories.end(), wanted) != categories.end());
     }
@@ -91,7 +91,7 @@ TEST_CASE("every preset is a valid effect that saves and loads unchanged", "[pre
         INFO(info.id);
         const Effect effect = build(info.id);
         CHECK(effect.name == info.name);
-        CHECK(effect.space == "2d");
+        CHECK(effect.space == (info.category == "3D" ? "3d" : "2d"));
         CHECK(effect.loop == "loop");
         REQUIRE_FALSE(effect.layers.empty());
 

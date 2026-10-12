@@ -30,8 +30,16 @@ struct SpriteVertex {
     float dissolve = 0;        // how far it is eaten away: 0 whole, 1 gone
     float seed = 0;            // the particle's own random number, 0..1
     float soft = 0;            // dissolving: how soft the eaten edge is, 0 to 1
+    // How far this corner is from the viewer, for hiding what is behind a
+    // model pixel by pixel. In 3D it is one over the distance, which, unlike
+    // the distance, changes evenly across the screen; in 2D the distance
+    // itself (see depthFromKey).
+    float depth = 0;
 };
-static_assert(sizeof(SpriteVertex) == 68, "the graphics code copies these as raw bytes");
+static_assert(sizeof(SpriteVertex) == 72, "the graphics code copies these as raw bytes");
+
+// The distance a corner's depth stands for.
+inline float depthFromKey(float key, bool flat) { return flat ? key : (key > 0.0f ? 1.0f / key : 1e30f); }
 
 inline constexpr float kPictureShape = -1.0f;
 // A segment of a trail ribbon: u runs along it (0 at the particle, 1 at the
@@ -76,15 +84,13 @@ struct SpriteMesh {
     std::uint32_t drawn = 0;             // particles that made it on screen
 };
 
-struct ModelPicture;
-
 // Rebuilds the mesh from a frame. Reuse one mesh object from frame to frame
 // and no memory is allocated once it has grown to size. A layer whose
 // picture is not in images (or with no images given) draws its Shape instead.
-// With a model drawn for the same view (see Model.h), particles behind it
-// are left out, and those just behind its surface are faded.
+// Every corner carries its depth, so whatever draws the mesh can hide what
+// is behind a model pixel by pixel (see Model.h).
 void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mesh,
-                     const ImageSet* images = nullptr, const ModelPicture* model = nullptr);
+                     const ImageSet* images = nullptr);
 
 // Where a world point lands in the viewport. Returns false when a 3D point
 // is behind the camera. scale receives pixels per world unit at that point.

@@ -138,6 +138,10 @@ struct EmitterProgram {
     float sizeX = 0, sizeY = 0, sizeZ = 0;
     float coneAngle = 0;  // radians
     float offsetX = 0, offsetY = 0, offsetZ = 0;  // where the shape sits
+    // 3D: the layer's flat parts lie on the ground (the x-z plane) instead
+    // of upright (the x-y plane): its circle or rectangle, its particles
+    // that lie flat, and the axis Orbit turns about. Never set in 2D.
+    bool ground = false;
     bool offset = false;                          // any of them is not zero
 
     // What each particle starts with. A curve reads across the layer's duration.

@@ -797,6 +797,7 @@ float ModelPicture::seen(float viewX, float viewY, float particleDepth, float vi
 ModelPicture drawModel(const Model& model, const ModelPlace& place, const View& view, bool flat, int width,
                        int height, int smooth) {
     ModelPicture out;
+    out.flat = flat;
     if (width <= 0 || height <= 0 || model.triangles.empty()) {
         return out;
     }

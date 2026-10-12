@@ -17,13 +17,39 @@ layout(location = 1) in vec4 vColor;
 layout(location = 2) in vec4 vShape;     // which shape, a pixel across and down it, dissolve edge glow
 layout(location = 3) in vec4 vExtra;     // own position (x, y), how far eaten away, own random number
 layout(location = 4) in float vSoft;     // how soft a dissolving edge is, 0 to 1
+layout(location = 5) in float vDepth;    // how far away (see sprite.vert)
+layout(location = 6) in vec2 vScreen;    // where on the viewport, 0 to 1
 
 layout(location = 0) out vec4 fragColor;
 
 layout(std140, binding = 0) uniform buf {
     mat4 qt_Matrix;
     float qt_Opacity;
+    float modelOn;       // 1: what is behind the model is hidden
+    float perspective;   // 1: a corner's depth comes as one over the distance (3D)
+    float fade;          // how far behind the model's surface a particle fades out, in world units
+    vec2 itemSize;       // the viewport, in its own pixels
+    vec2 depthRange;     // the nearest and furthest of the model's surface
 };
+// The model the effect is made on (see vfx/editor/Model.h) hides what is
+// behind it, pixel by pixel: its distance at each pixel comes in a picture,
+// sixteen bits of it in red and green, with blue set where there is any
+// model at all. The picture renderer does the same sums in Picture.cpp.
+layout(binding = 2) uniform sampler2D modelDepth;
+
+float seenHere() {
+    if (modelOn < 0.5) {
+        return 1.0;
+    }
+    vec4 m = textureLod(modelDepth, vScreen, 0.0);
+    if (m.b < 0.5) {
+        return 1.0;
+    }
+    float surface = depthRange.x + (m.r * 65280.0 + m.g * 255.0) / 65535.0 * (depthRange.y - depthRange.x);
+    float here = perspective > 0.5 ? 1.0 / max(vDepth, 1e-6) : vDepth;
+    return clamp(1.0 - (here - surface) / max(fade, 1e-4), 0.0, 1.0);
+}
+
 
 layout(binding = 1) uniform sampler2D picture;
 
@@ -67,7 +93,7 @@ vec2 dissolveAt(vec2 own, float amount, float seed, float soft, float edge) {
     return vec2(keep, rim);
 }
 
-void main() {
+void shade() {
     if (vShape.x < -1.5) {
         // A trail ribbon behind a picture particle: drawn as in sprite.frag.
         float c = abs(vTexCoord.y * 2.0 - 1.0);
@@ -125,4 +151,9 @@ void main() {
         keep = eaten.x;
     }
     fragColor = vec4(rgb, alpha) * (keep * qt_Opacity);
+}
+
+void main() {
+    shade();
+    fragColor *= seenHere();
 }

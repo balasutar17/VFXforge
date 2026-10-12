@@ -304,11 +304,10 @@ TEST_CASE("particles behind the model are hidden, and those just behind fade", "
     CHECK(sharp.seen(cx, cy, surface + 1.0f, 200, 200) == 0.0f);
     CHECK(sharp.seen(10, 10, surface + 1.0f, 200, 200) == 1.0f);
 
-    // The mesh leaves out a particle behind the body (a flat effect's
-    // particles are at z = 0 unless moved) and keeps one in front of it.
-    SpriteMesh mesh;
-    buildSpriteMesh(oneParticle(0.0f, 1.6f, -1.0f, false), view, mesh, nullptr, nullptr);
-    // (Without a model everything is drawn.)
+    // Drawn by the picture renderer: a red particle behind the body is not
+    // seen, one in front of it is, one beside it is; from the other side of
+    // a 3D camera the two swap. Pixel by pixel, so one part of a particle
+    // can be hidden and the rest not.
     View orbit;
     orbit.width = orbit.height = 200;
     orbit.targetX = 0;
@@ -317,44 +316,75 @@ TEST_CASE("particles behind the model are hidden, and those just behind fade", "
     orbit.yaw = 0;
     orbit.pitch = 0;
     orbit.distance = 8;
-    const ModelPicture front = drawModel(dummy, ModelPlace{}, orbit, false, 200, 200);
-    buildSpriteMesh(oneParticle(0.0f, 1.6f, -1.0f, false), orbit, mesh, nullptr, &front);
-    CHECK(mesh.drawn == 0);  // behind the body
-    buildSpriteMesh(oneParticle(0.0f, 1.6f, 1.0f, false), orbit, mesh, nullptr, &front);
-    CHECK(mesh.drawn == 1);  // in front of it
-    buildSpriteMesh(oneParticle(1.6f, 1.6f, -1.0f, false), orbit, mesh, nullptr, &front);
-    CHECK(mesh.drawn == 1);  // beside it, though further back
-    // From the other side the same particles swap places.
+    const auto redAt = [&](const View& v, float x, float y, float z, float size) {
+        RenderFrame frame = oneParticle(x, y, z, false);
+        frame.instances[0].r = 1.0f;
+        frame.instances[0].g = frame.instances[0].b = 0.0f;
+        frame.instances[0].size = size;
+        frame.batches[0].shape = SpriteShape::Disc;
+        const ModelPicture drawnHere = drawModel(dummy, ModelPlace{}, v, false, 200, 200);
+        SpriteMesh m;
+        buildSpriteMesh(frame, v, m);
+        const Picture out = drawPictureOver(m, drawnHere, true, 200, 200, ScreenColor{0, 0, 0});
+        float px = 0, py = 0, sc = 0;
+        REQUIRE(projectPoint(v, false, x, y, z, px, py, sc));
+        const std::uint8_t* c = out.pixel(static_cast<int>(px), static_cast<int>(py));
+        return c[0] > 200 && c[1] < 60;
+    };
+    CHECK_FALSE(redAt(orbit, 0.0f, 1.6f, -1.0f, 0.2f));  // behind the body
+    CHECK(redAt(orbit, 0.0f, 1.6f, 1.0f, 0.2f));         // in front of it
+    CHECK(redAt(orbit, 1.6f, 1.6f, -1.0f, 0.2f));        // beside it, though further back
     orbit.yaw = 180;
-    const ModelPicture back = drawModel(dummy, ModelPlace{}, orbit, false, 200, 200);
-    buildSpriteMesh(oneParticle(0.0f, 1.6f, -1.0f, false), orbit, mesh, nullptr, &back);
-    CHECK(mesh.drawn == 1);
-    buildSpriteMesh(oneParticle(0.0f, 1.6f, 1.0f, false), orbit, mesh, nullptr, &back);
-    CHECK(mesh.drawn == 0);
-    // Just behind the surface: drawn, fainter.
+    CHECK(redAt(orbit, 0.0f, 1.6f, -1.0f, 0.2f));
+    CHECK_FALSE(redAt(orbit, 0.0f, 1.6f, 1.0f, 0.2f));
     orbit.yaw = 0;
-    const float near = 1.6f;
-    float px = 0, py = 0, scale = 0;
-    REQUIRE(projectPoint(orbit, false, 0.0f, near, 0.0f, px, py, scale));
-    const float surfaceDepth = front.depth[static_cast<std::size_t>(py) * 200u + static_cast<std::size_t>(px)];
-    // The camera is 8 units out along +z, so depth is 8 - z.
-    const float z = 8.0f - (surfaceDepth + kBehindFade * 0.5f);
-    buildSpriteMesh(oneParticle(0.0f, near, z, false), orbit, mesh, nullptr, &front);
-    REQUIRE(mesh.drawn == 1);
-    CHECK(mesh.vertices[0].a == Catch::Approx(0.5f).margin(0.08));
+    // A big particle behind the body: hidden where the body is, seen round it.
+    {
+        const ModelPicture front = drawModel(dummy, ModelPlace{}, orbit, false, 200, 200);
+        RenderFrame frame = oneParticle(0.0f, 1.6f, -1.0f, false);
+        frame.instances[0].r = 1.0f;
+        frame.instances[0].g = frame.instances[0].b = 0.0f;
+        frame.instances[0].size = 2.4f;
+        frame.batches[0].shape = SpriteShape::Disc;
+        SpriteMesh m;
+        buildSpriteMesh(frame, orbit, m);
+        const Picture out = drawPictureOver(m, front, true, 200, 200, ScreenColor{0, 0, 0});
+        float px = 0, py = 0, sc = 0;
+        REQUIRE(projectPoint(orbit, false, 0.0f, 1.6f, -1.0f, px, py, sc));
+        CHECK(out.pixel(static_cast<int>(px), static_cast<int>(py))[0] < 255);  // the body, not red
+        CHECK(out.pixel(static_cast<int>(px), static_cast<int>(py))[1] > 60);
+        const int side = static_cast<int>(px + 0.8f * sc);  // beside the body, inside the disc
+        CHECK(out.pixel(side, static_cast<int>(py))[0] > 200);
+        CHECK(out.pixel(side, static_cast<int>(py))[1] < 60);
+        // Not hiding: the disc is drawn over the body.
+        const Picture over = drawPictureOver(m, front, false, 200, 200, ScreenColor{0, 0, 0});
+        CHECK(over.pixel(static_cast<int>(px), static_cast<int>(py))[1] < 60);
+    }
+    // Every corner of a particle knows how far away it is: in 3D as one
+    // over the distance.
+    {
+        SpriteMesh m;
+        buildSpriteMesh(oneParticle(0.0f, 1.6f, 1.0f, false), orbit, m);
+        REQUIRE(m.vertices.size() == 4);
+        for (const SpriteVertex& v : m.vertices) {
+            CHECK(depthFromKey(v.depth, false) == Catch::Approx(7.0f).margin(1e-3));
+        }
+        buildSpriteMesh(oneParticle(0.0f, 1.6f, 0.0f, true), view, m);
+        CHECK(depthFromKey(m.vertices[0].depth, true) == 0.0f);
+    }
 }
 
 TEST_CASE("an effect is drawn over its model", "[model][picture]") {
     const Model dummy = practiceDummy();
     const View view = flatView(100, 4.0f, 1.5f);
-    const ModelPicture drawn = drawModel(dummy, ModelPlace{}, view, true, 100, 100);
+    const ModelPicture drawn = drawModel(dummy, ModelPlace{}, view, true, 200, 200);  // drawn sharper
     SpriteMesh mesh;
     RenderFrame frame = oneParticle(1.4f, 0.5f, 0.0f, true);
     frame.instances[0].r = 1.0f;
     frame.instances[0].g = frame.instances[0].b = 0.0f;
     frame.instances[0].size = 0.6f;
-    buildSpriteMesh(frame, view, mesh, nullptr, &drawn);
-    const Picture over = drawPictureOver(mesh, drawn.picture, ScreenColor{0, 0, 1});
+    buildSpriteMesh(frame, view, mesh);
+    const Picture over = drawPictureOver(mesh, drawn, true, 100, 100, ScreenColor{0, 0, 1});
     REQUIRE(over.width == 100);
     // The model where it is, the background beside it, the particle on top.
     const std::uint8_t* body = over.pixel(50, pixelY(view, 1.6f));

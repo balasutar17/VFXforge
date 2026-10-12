@@ -273,8 +273,12 @@ J shapeJson(const EmitterProgram& e) {
                 s["radius"] = round6(std::max(static_cast<double>(e.radius), tiny));
                 s["radiusThickness"] = e.fromEdge ? 0.0 : 1.0;
                 s["arc"] = 360.0;
-                s["rotation"] = rotJson(Rot{});
+                // On the ground: Unity's circle lies across X and Y, so it is laid down.
+                s["rotation"] = rotJson(e.ground ? Rot{90, 0, 0} : Rot{});
                 s["exact"] = false;  // Unity sends them outward, not every which way
+            } else if (e.ground) {
+                box(2.0 * e.radius, 0.0, 2.0 * e.radius, e.fromEdge, mix);
+                s["exact"] = false;  // a square stands in for the circle
             } else {
                 box(2.0 * e.radius, 2.0 * e.radius, 0.0, e.fromEdge, mix);
                 s["exact"] = false;  // a square stands in for the circle
@@ -284,11 +288,14 @@ J shapeJson(const EmitterProgram& e) {
         case ShapeType::Rectangle:
             if (everyWay) {
                 s["type"] = "box";
-                s["scale"] = J::array({round6(e.sizeX), round6(e.sizeY), 0.0});
+                s["scale"] = e.ground ? J::array({round6(e.sizeX), 0.0, round6(e.sizeY)})
+                                      : J::array({round6(e.sizeX), round6(e.sizeY), 0.0});
                 s["rotation"] = rotJson(Rot{});
                 s["edge"] = e.fromEdge;
                 s["sphericalDirection"] = 1.0;
                 s["exact"] = false;
+            } else if (e.ground) {
+                box(e.sizeX, 0.0, e.sizeY, e.fromEdge, mix);
             } else {
                 box(e.sizeX, e.sizeY, 0.0, e.fromEdge, mix);
             }
@@ -615,9 +622,10 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
         // Unity's Orbital velocity about Z, in radians a second, about the
         // layer's own Position. Unity has its own way of mixing a turn with
         // gravity and drag, so paths are alike rather than the same.
+        // A layer on the ground turns about the upright (Y) instead.
         J orbit = J::object();
-        orbit["z"] = round6(e.orbit);
-        orbit["center"] = J::array({round6(e.offsetX), round6(e.offsetY), 0.0});
+        orbit[e.ground ? "y" : "z"] = round6(e.orbit);
+        orbit["center"] = J::array({round6(e.offsetX), round6(e.offsetY), round6(e.offsetZ)});
         orbit["exact"] = false;
         out["orbit"] = std::move(orbit);
     } else {
@@ -718,7 +726,15 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
             // Lying back, in degrees. Unity turns the particle about its own
             // face first and leans it back second, as the preview does.
             render["tilt"] = round6(e.tilt);
+        } else if (onPlane && e.ground) {
+            // Lying on the ground in a 3D effect: leaned back all the way.
+            render["tilt"] = 90.0;
         }
+    }
+    // In 3D, ordinary particles are drawn far ones first, as the preview
+    // draws them. Glowing ones add their light, so their order does not show.
+    if (!e.flat && e.blend != BlendMode::Additive) {
+        render["sort"] = "distance";
     }
     const int shapeNumber = static_cast<int>(e.spriteShape);
     const bool ownPicture = drawnFromPicture(shapeNumber, e.shapeEdit);

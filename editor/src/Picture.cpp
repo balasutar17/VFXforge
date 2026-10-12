@@ -2,10 +2,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 #include "vfx/FileIO.h"
 #include "vfx/editor/Archive.h"
 #include "vfx/editor/Image.h"
+#include "vfx/editor/Model.h"
 #include "vfx/editor/ShapeLibrary.h"
 #include "vfx/editor/Shapes.h"
 
@@ -27,7 +29,7 @@ Edge edgeThrough(const SpriteVertex& p, const SpriteVertex& q) {
 void drawTriangle(std::vector<float>& canvas, int width, int height, const SpriteVertex& v0,
                   const SpriteVertex& v1, const SpriteVertex& v2, SpriteShape shape,
                   std::vector<std::uint32_t>& taken, std::uint32_t stamp, bool keepAlpha,
-                  const MipChain* picture, const ShapeEdit& edit) {
+                  const MipChain* picture, const ShapeEdit& edit, const ModelPicture* model) {
     const float area = edgeThrough(v0, v1).at(v2.x, v2.y);
     if (!(std::fabs(area) > 1e-9f)) {
         return;
@@ -81,6 +83,14 @@ void drawTriangle(std::vector<float>& canvas, int width, int height, const Sprit
             if (v0.dissolve > 0.0f) {
                 eaten = dissolveAt(w0 * v0.ownX + w1 * v1.ownX + w2 * v2.ownX,
                                    w0 * v0.ownY + w1 * v1.ownY + w2 * v2.ownY, v0.dissolve, v0.seed, v0.soft, v0.edge);
+                if (!(eaten.keep > 0.0f)) {
+                    continue;
+                }
+            }
+            if (model) {
+                // Behind the model, pixel by pixel.
+                const float depth = depthFromKey(w0 * v0.depth + w1 * v1.depth + w2 * v2.depth, model->flat);
+                eaten.keep *= model->seen(cx, cy, depth, static_cast<float>(width), static_cast<float>(height));
                 if (!(eaten.keep > 0.0f)) {
                     continue;
                 }
@@ -159,7 +169,7 @@ std::uint8_t toByte(float v, float nudge) {
 namespace {
 
 Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor background, bool transparent,
-               const ImageSet* images, const Picture* under = nullptr) {
+               const ImageSet* images, const Picture* under = nullptr, const ModelPicture* hideBehind = nullptr) {
     Picture out;
     out.width = width > 0 ? width : 0;
     out.height = height > 0 ? height : 0;
@@ -215,7 +225,7 @@ Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor backgr
             const int number = static_cast<int>(std::lround(v0.shape));
             const auto shape = static_cast<SpriteShape>(number >= 0 && number < shapeCount() ? number : 0);
             drawTriangle(canvas, out.width, out.height, v0, v1, v2, shape, taken, stamp,
-                         transparent, picture, edit);
+                         transparent, picture, edit, hideBehind);
         }
     }
 
@@ -250,9 +260,30 @@ Picture drawPicture(const SpriteMesh& mesh, int width, int height, ScreenColor b
     return render(mesh, width, height, background, false, images);
 }
 
-Picture drawPictureOver(const SpriteMesh& mesh, const Picture& under, ScreenColor background,
-                        const ImageSet* images) {
-    return render(mesh, under.width, under.height, background, false, images, &under);
+Picture drawPictureOver(const SpriteMesh& mesh, const ModelPicture& model, bool hideBehind, int width, int height,
+                        ScreenColor background, const ImageSet* images) {
+    // The model's picture may be sharper than the result: laid over it at
+    // the result's size.
+    Picture under;
+    const Picture* use = &model.picture;
+    if (model.picture.width != width || model.picture.height != height) {
+        under.width = width;
+        under.height = height;
+        under.rgba.assign(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4u, 0);
+        if (!model.empty()) {
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    const int sx = x * model.picture.width / width, sy = y * model.picture.height / height;
+                    std::memcpy(&under.rgba[(static_cast<std::size_t>(y) * static_cast<std::size_t>(width) +
+                                             static_cast<std::size_t>(x)) * 4u],
+                                model.picture.pixel(sx, sy), 4);
+                }
+            }
+        }
+        use = &under;
+    }
+    return render(mesh, width, height, background, false, images, use,
+                  hideBehind && !model.empty() ? &model : nullptr);
 }
 
 Picture drawPictureClear(const SpriteMesh& mesh, int width, int height, const ImageSet* images) {

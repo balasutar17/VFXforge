@@ -4,9 +4,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
+#include <vector>
 
 #include "vfx/editor/Image.h"
-#include "vfx/editor/Model.h"
 #include "vfx/editor/Session.h"
 #include "vfx/editor/ShapeLibrary.h"
 #include "Camera.h"
@@ -40,7 +41,7 @@ void addTrail(SpriteMesh& mesh, const Camera& camera, bool flat, const RenderBat
     }
     const int samples = std::min(steps, 24);
     struct Point {
-        float x, y, scale;
+        float x, y, scale, depth;
     };
     Point points[25];
     int count = 0;
@@ -59,12 +60,22 @@ void addTrail(SpriteMesh& mesh, const Camera& camera, bool flat, const RenderBat
             if (!project(camera, x, y, z, px, py, sc)) {
                 break;
             }
-            points[count++] = Point{px, py, sc};
+            const float d = camera::depthOf(camera, x, y, z);
+            points[count++] = Point{px, py, sc, flat ? d : 1.0f / d};
             next = static_cast<int>(std::lround(static_cast<double>(count) * steps / samples));
         }
         // Undo one step: the turn about the layer's centre first, because
         // it was made last.
-        if (batch.orbit != 0.0f) {
+        if (batch.orbit != 0.0f && batch.ground && !flat) {
+            // About the upright, the other way.
+            const float cs = batch.orbitCos, sn = batch.orbitSin;
+            const float rx = x - batch.centerX, rz = z - batch.centerZ;
+            x = batch.centerX + (rx * cs - rz * sn);
+            z = batch.centerZ + (rz * cs + rx * sn);
+            const float wx = vx, wz = vz;
+            vx = wx * cs - wz * sn;
+            vz = wz * cs + wx * sn;
+        } else if (batch.orbit != 0.0f) {
             const float cs = batch.orbitCos, sn = batch.orbitSin;
             const float rx = x - batch.centerX, ry = y - batch.centerY;
             x = batch.centerX + (rx * cs + ry * sn);
@@ -153,6 +164,7 @@ void addTrail(SpriteMesh& mesh, const Camera& camera, bool flat, const RenderBat
         v.b = cb * fade;
         v.a = additive ? 0.0f : alpha * fade;
         v.shape = kRibbonShape;
+        v.depth = points[i].depth;
         const float across = 2.0f * (width > 0.25f ? width : 0.25f);
         v.aaX = 1.0f;
         v.aaY = 2.0f / across;
@@ -176,7 +188,7 @@ bool projectPoint(const View& view, bool flat, float x, float y, float z, float&
 }
 
 void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mesh,
-                     const ImageSet* images, const ModelPicture* model) {
+                     const ImageSet* images) {
     mesh.vertices.clear();
     mesh.indices.clear();
     mesh.runs.clear();
@@ -209,7 +221,24 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
         const float insetV = picture ? 0.5f / static_cast<float>(picture->height) : 0.0f;
         const auto runStart = static_cast<std::uint32_t>(mesh.indices.size());
 
-        for (std::uint32_t n = 0; n < batch.count; ++n) {
+        // In 3D a layer of ordinary (not glowing) particles is drawn far
+        // ones first, so a near one is never covered by one behind it.
+        // Glowing particles add their light, so their order does not show,
+        // and in 2D every particle is equally far: both keep birth order.
+        thread_local std::vector<std::pair<float, std::uint32_t>> order;
+        const bool sorted = !frame.flat && !additive && batch.count > 1;
+        if (sorted) {
+            order.clear();
+            for (std::uint32_t n = 0; n < batch.count; ++n) {
+                const SpriteInstance& q = frame.instances[batch.first + n];
+                order.emplace_back(camera::depthOf(camera, q.x, q.y, q.z), n);
+            }
+            std::stable_sort(order.begin(), order.end(),
+                             [](const auto& a, const auto& b) { return a.first > b.first; });
+        }
+
+        for (std::uint32_t drawn = 0; drawn < batch.count; ++drawn) {
+            const std::uint32_t n = sorted ? order[drawn].second : drawn;
             const SpriteInstance& original = frame.instances[batch.first + n];
             if (!(original.a > 0.0f) || !(original.size > 0.0f)) {
                 continue;
@@ -219,22 +248,10 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
             if (!project(camera, original.x, original.y, z, px, py, scale)) {
                 continue;
             }
-            // Behind the model: left out, or faded just behind its surface.
-            SpriteInstance faded;
-            const SpriteInstance* use = &original;
-            if (model) {
-                const float seen =
-                    model->seen(px, py, camera::depthOf(camera, original.x, original.y, z), view.width, view.height);
-                if (!(seen > 0.0f)) {
-                    continue;
-                }
-                if (seen < 1.0f) {
-                    faded = original;
-                    faded.a *= seen;
-                    use = &faded;
-                }
-            }
-            const SpriteInstance& p = *use;
+            const SpriteInstance& p = original;
+            // Its depth, as every corner of it facing the camera has it.
+            const float centreDepth = camera::depthOf(camera, p.x, p.y, z);
+            const float centreKey = frame.flat ? centreDepth : 1.0f / centreDepth;
             const float half = p.size * 0.5f;
             const float halfPx = half * scale;
 
@@ -268,7 +285,10 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
                 // the swirls are adding.
                 const float pace = batch.eases ? p.ease : 1.0f;
                 float goX = p.vx * pace, goY = p.vy * pace, goZ = p.vz * pace;
-                if (batch.orbit != 0.0f) {
+                if (batch.orbit != 0.0f && batch.ground && !frame.flat) {
+                    goX += batch.orbit * (p.z - batch.centerZ);
+                    goZ -= batch.orbit * (p.x - batch.centerX);
+                } else if (batch.orbit != 0.0f) {
                     goX -= batch.orbit * (p.y - batch.centerY);
                     goY += batch.orbit * (p.x - batch.centerX);
                 }
@@ -355,13 +375,19 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
                     const float ox = (ownX * cs - ownY * sn) * half;
                     const float oy = (ownX * sn + ownY * cs) * half;
                     float s = 1;
-                    if (!project(camera, p.x + ox, p.y + oy, p.z, v.x, v.y, s)) {
+                    // Upright, the particle's own up is the world's; on the
+                    // ground it points away from the front.
+                    const bool down = batch.ground;
+                    const float wx = p.x + ox, wy = down ? p.y : p.y + oy, wz = down ? p.z - oy : p.z;
+                    if (!project(camera, wx, wy, wz, v.x, v.y, s)) {
                         visible = false;
                         break;
                     }
+                    v.depth = 1.0f / camera::depthOf(camera, wx, wy, wz);
                 } else {
                     v.x = px + cornerX[k] * axX + cornerY[k] * ayX;
                     v.y = py + cornerX[k] * axY + cornerY[k] * ayY;
+                    v.depth = centreKey;
                 }
                 if (picture) {
                     v.u = (static_cast<float>(cellX) + (cornerU[k] > 0.5f ? 1.0f : 0.0f)) /

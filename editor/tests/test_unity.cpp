@@ -629,3 +629,35 @@ TEST_CASE("a curve with smooth points reaches Unity as the bent curve", "[unity]
     const double middle = keys[kCurvePieces / 2 + 1][1].get<double>() - keys[kCurvePieces / 2][1].get<double>();
     CHECK(middle > 4.0 * early);
 }
+
+TEST_CASE("3D layers on the ground reach Unity lying down, turning about Y, sorted by distance",
+          "[unity][ground]") {
+    const J slam = describe(preset("ground-slam-3d"));
+    const J crack = layerNamed(slam, "Crack");
+    CHECK(crack["render"]["tilt"].get<double>() == Catch::Approx(90.0));
+    CHECK(crack["render"]["sort"] == "distance");
+    // A circle on the floor sending dust up becomes a box with no height,
+    // turned to face up: its flat side lies along the floor.
+    const J dust = layerNamed(slam, "Dust")["shape"];
+    CHECK(dust["type"] == "box");
+    CHECK(dust["rotation"][0].get<double>() == Catch::Approx(-90.0));
+    CHECK(dust["scale"][0].get<double>() == Catch::Approx(2.0));
+    CHECK(dust["scale"][1].get<double>() == Catch::Approx(2.0));
+    CHECK(dust["scale"][2].get<double>() == Catch::Approx(0.0).margin(1e-9));
+    // Glowing layers need no sorting.
+    CHECK_FALSE(layerNamed(slam, "Shockwave")["render"].contains("sort"));
+
+    const J orbs = describe(preset("guardian-orbs-3d"));
+    const J orbit = layerNamed(orbs, "Orbs")["orbit"];
+    REQUIRE(orbit.is_object());
+    CHECK(orbit.contains("y"));
+    CHECK_FALSE(orbit.contains("z"));
+    CHECK(orbit["center"][1].get<double>() == Catch::Approx(1.6));
+
+    std::string importer;
+    for (const UnityFile& f : unityHelperSources()) {
+        if (std::string(f.path) == "Editor/VFXForgeImporter.cs") importer = f.text;
+    }
+    CHECK(importer.find("orbitalY") != std::string::npos);
+    CHECK(importer.find("\"distance\"") != std::string::npos);
+}

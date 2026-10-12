@@ -27,7 +27,8 @@ const char* kUsage =
     "      Name every preset.\n"
     "  vfxshot preset <id> <out.png> [--time s] [--size WxH]\n"
     "      Any command that draws an effect also takes --model <file.obj|.glb|.gltf|dummy>\n"
-    "      and --place x,y,z,turn,height to draw it on a model.\n"
+    "      and --place x,y,z,turn,height to draw it on a model, and --orbit yaw,pitch\n"
+    "      to see a 3D effect from another side.\n"
     "      Draw one preset at one moment.\n"
     "  vfxshot sheet <out.png> [--category name] [--cell WxH]\n"
     "      Draw every preset (or one category) at four moments, one row each.\n"
@@ -62,6 +63,8 @@ bool parseSize(const std::string& text, int& width, int& height) {
 // A model to draw the effect on (--model), and where it stands (--place).
 std::optional<Model> gModel;
 ModelPlace gPlace;
+// Where a 3D effect is seen from (--orbit yaw,pitch).
+float gYaw = 30.0f, gPitch = 15.0f;
 
 Picture draw(const Effect& effect, double time, const View& view) {
     Simulation simulation(compileEffect(effect));
@@ -72,8 +75,9 @@ Picture draw(const Effect& effect, double time, const View& view) {
     if (gModel) {
         const ModelPicture model = drawModel(*gModel, gPlace, view, frame.flat, static_cast<int>(view.width),
                                              static_cast<int>(view.height));
-        buildSpriteMesh(frame, view, mesh, nullptr, &model);
-        return drawPictureOver(mesh, model.picture);
+        buildSpriteMesh(frame, view, mesh);
+        // As the app starts out: hidden behind the model in 3D, drawn over it in 2D.
+        return drawPictureOver(mesh, model, !frame.flat, static_cast<int>(view.width), static_cast<int>(view.height));
     }
     buildSpriteMesh(frame, view, mesh);
     return drawPicture(mesh, static_cast<int>(view.width), static_cast<int>(view.height));
@@ -86,6 +90,12 @@ View viewFor(const PresetInfo& info, int width, int height) {
     view.centerX = info.viewX;
     view.centerY = info.viewY;
     view.unitsHigh = info.viewHeight;
+    // A 3D effect is seen by a camera round the same point, as the app does.
+    view.targetX = info.viewX;
+    view.targetY = info.viewY;
+    view.distance = info.viewHeight * 1.45f;
+    view.yaw = gYaw;
+    view.pitch = gPitch;
     return view;
 }
 
@@ -116,6 +126,11 @@ int main(int argc, char** argv) {
     const std::string command = args[0];
     args.erase(args.begin());
 
+    const std::string orbit = option(args, "--orbit", "30,15");
+    if (std::sscanf(orbit.c_str(), "%f,%f", &gYaw, &gPitch) != 2) {
+        std::fputs(kUsage, stderr);
+        return 2;
+    }
     const std::string modelFile = option(args, "--model", "");
     if (!modelFile.empty()) {
         if (modelFile == "dummy") {

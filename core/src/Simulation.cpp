@@ -313,7 +313,7 @@ void Simulation::Emitter::advance() {
         // Turned about the layer's centre, position and heading together,
         // after the particle's own movement. A whole step's turn was worked
         // out once; a particle born part-way through the step turns less.
-        const float cx = e.offsetX, cy = e.offsetY;
+        const float cx = e.offsetX, cy = e.offsetY, cz = e.offsetZ;
         for (std::uint32_t i = 0; i < n; ++i) {
             const float a1 = age[i];
             float sn = e.orbitSin, cs = e.orbitCos;
@@ -322,6 +322,16 @@ void Simulation::Emitter::advance() {
                 det::sinCos(static_cast<double>(e.orbit) * static_cast<double>(a1 > 0.0f ? a1 : 0.0f), s, c);
                 sn = static_cast<float>(s);
                 cs = static_cast<float>(c);
+            }
+            if (e.ground) {
+                // About the upright: counter-clockwise seen from above.
+                const float rx = x[i] - cx, rz = z[i] - cz;
+                x[i] = cx + (rx * cs + rz * sn);
+                z[i] = cz + (rz * cs - rx * sn);
+                const float wx = vx[i], wz = vz[i];
+                vx[i] = wx * cs + wz * sn;
+                vz[i] = wz * cs - wx * sn;
+                continue;
             }
             const float rx = x[i] - cx, ry = y[i] - cy;
             x[i] = cx + (rx * cs - ry * sn);
@@ -483,6 +493,9 @@ void Simulation::Emitter::spawn(std::int64_t inPass, double offset, float progre
             det::sinCos(det::kTwoPi * static_cast<double>(u), s, c);
             const float r = e.fromEdge ? e.radius : e.radius * std::sqrt(v);
             pos = det::Vec3f{r * static_cast<float>(c), r * static_cast<float>(s), 0.0f};
+            if (e.ground) {
+                pos = det::Vec3f{pos.x, 0.0f, -pos.y};
+            }
             break;
         }
         case ShapeType::Rectangle: {
@@ -502,6 +515,9 @@ void Simulation::Emitter::spawn(std::int64_t inPass, double offset, float progre
                     d -= sx;
                     pos = det::Vec3f{-0.5f * sx, 0.5f * sy - (d < sy ? d : sy), 0.0f};
                 }
+            }
+            if (e.ground) {
+                pos = det::Vec3f{pos.x, 0.0f, -pos.y};
             }
             break;
         }
@@ -785,6 +801,8 @@ void Simulation::extract(RenderFrame& frame) const {
         batch.orbitCos = e.orbitCos;
         batch.centerX = e.offsetX;
         batch.centerY = e.offsetY;
+        batch.centerZ = e.offsetZ;
+        batch.ground = e.ground;
         batch.hold = e.hold;
         batch.shapeEdit = e.shapeEdit;
         batch.shownStep = isHeld ? em.heldStep : step_;
@@ -936,6 +954,10 @@ std::uint64_t hashFrame(const RenderFrame& frame) {
         }
         if (b.orbit != 0.0f) {
             h = det::mix64(h ^ 0x4F524249ull ^ bits(b.orbit));
+        }
+        if (b.ground) {
+            // Only a layer on the ground changes its fingerprint.
+            h = det::mix64(h ^ 0x47524E44ull);
         }
         if (b.hold > 0.0f) {
             h = det::mix64(h ^ 0x484F4C44ull ^ bits(b.hold));

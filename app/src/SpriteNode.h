@@ -8,20 +8,34 @@
 #pragma once
 
 #include <QSGNode>
+#include <QSizeF>
 
 #include "vfx/editor/SpriteMesh.h"
 
 class QQuickWindow;
+class QSGTexture;
 
 namespace vfx::editor {
 class ImageSet;
 }
 
+// A model's distances, as a picture the graphics card reads, so that the
+// particles behind the model are hidden pixel by pixel. Sixteen bits of
+// distance in red and green between nearest and furthest, blue where there
+// is any model.
+struct SpriteDepth {
+    QSGTexture* texture = nullptr;  // null: nothing is hidden
+    bool perspective = false;       // a 3D effect: corners carry one over their distance
+    float fade = 0.15f;
+    float nearest = 0.0f, furthest = 1.0f;
+};
+
 // Creates or refreshes the node for a mesh. Call from updatePaintNode.
-// images is needed only when the mesh draws the artist's pictures; window
-// when it draws those or shapes from the library (without it they are shown
-// as soft dots). shapePixels is how big a picture a library shape is drawn
-// from: the full size for the main view, far less for a small preview.
+// images is needed only when the mesh draws the artist's pictures. window
+// is needed always. shapePixels is how big a picture a library shape is
+// drawn from: the full size for the main view, far less for a small
+// preview. itemSize is the item's own size; depth, when given, hides what
+// is behind a model.
 QSGNode* updateSpriteNode(QSGNode* old, const vfx::editor::SpriteMesh& mesh,
-                          const vfx::editor::ImageSet* images = nullptr,
-                          QQuickWindow* window = nullptr, int shapePixels = 512);
+                          const vfx::editor::ImageSet* images, QQuickWindow* window, int shapePixels,
+                          QSizeF itemSize, const SpriteDepth* depth = nullptr);

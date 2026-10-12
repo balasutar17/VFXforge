@@ -63,10 +63,12 @@ The model is for **seeing the effect on**. It is not part of the effect:
   a running character cannot be checked against the run.
 - **Not FBX.** Export OBJ or glTF from your 3D program. Compressed glTF
   (Draco, meshopt) is not read; export without compression.
-- **Hidden by the particle's middle.** A particle is hidden, or faded, by
-  whether its centre is behind the model. A large puff half behind an
-  edge is all hidden or all shown (with a short fade as it passes behind
-  the surface), not cut along the edge.
+- **Hidden pixel by pixel** (since 0.17). Each pixel of a particle is
+  hidden, or faded over the last 0.15 units, by whether that point is
+  behind the model there, so a ring on the ground goes behind the feet
+  and comes out in front, and a big puff is cut along the model's edge.
+  (0.16 hid a whole particle by its middle.) Particles do not hide each
+  other: see-through ones are drawn far to near, glowing ones add up.
 - **Particles do not touch the model.** They pass through it, do not
   bounce off it, and cannot yet be made to come off its surface. Particles
   from the model's surface is the next step.

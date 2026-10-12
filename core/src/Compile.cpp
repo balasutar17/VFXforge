@@ -230,6 +230,7 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         e->offsetY = finite(offset.y);
         e->offsetZ = e->flat ? 0.0f : finite(offset.z);
         e->offset = e->offsetX != 0.0f || e->offsetY != 0.0f || e->offsetZ != 0.0f;
+        e->ground = !e->flat && shape.get<std::string>("plane") == "ground";
     }
 
     // -------------------------------------------------------- initial state

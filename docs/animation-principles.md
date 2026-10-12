@@ -107,7 +107,10 @@ arc and a burst becomes a spiral. Above 0 turns counter-clockwise.
 - Two layers with opposite Orbit make the crossed spirals of the Spiral
   Burst preset.
 - In a 3D effect it turns about the axis that points at the viewer; depth
-  is left alone.
+  is left alone. A layer whose Shape is set to **Lie on the ground**
+  (Plane: ground) turns about the upright instead, height left alone, so
+  orbs circle a character and a ring of runes turns on the floor (see
+  [3d-effects.md](3d-effects.md)).
 
 ## Curves made for one setting
 
@@ -178,7 +181,7 @@ them ignored (and kept, if it is saved there).
 | VFX Forge | Unity |
 | --- | --- |
 | Speed over Life | Velocity over Lifetime: **Speed Modifier**, as the same number, range or curve |
-| Orbit | Velocity over Lifetime: **Orbital Z** (radians a second), with the layer's Position as its Offset |
+| Orbit | Velocity over Lifetime: **Orbital Z** (radians a second), with the layer's Position as its Offset; **Orbital Y** for a 3D layer on the ground |
 | Squash and Stretch | Size over Lifetime with **Separate Axes**: width and height each on a curve that also carries the size |
 | Hold Frames | The **VFXForgeHold** script on the layer, which keeps its Particle System paused and moves it on one drawing at a time |
 
@@ -208,7 +211,8 @@ What is not the same:
   motes out and drawing them back (the Out and back curve). A radial
   direction, and a pull toward the centre, are not built.
 - **One Orbit per layer, the same all life long**, about one fixed centre
-  and one axis. No curve on it, and no orbit about a tilted axis in 3D.
+  and one axis (towards the viewer, or the upright for a layer on the
+  ground). No curve on it, and no orbit about a tilted axis in 3D.
 - **Hold Frames is not smeared.** Real animation on twos often adds smear
   drawings on fast moves; here a drawing is simply held.
 - **Reference to VFX does not measure any of these.** A clip animated on

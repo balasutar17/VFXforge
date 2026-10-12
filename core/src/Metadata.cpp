@@ -88,6 +88,12 @@ Registry::Registry() {
         P("offset", "Position", ValueKind::Vec3, Vec3{0, 0, 0})
             .range(-10000, 10000).ui(-10, 10)
             .help("Where this layer's particles appear, relative to the effect's centre."),
+        P("plane", "Plane", ValueKind::Enum, text("upright"))
+            .options({"upright", "ground"})
+            .help("In a 3D effect, which way this layer's flat parts lie: a circle or rectangle "
+                  "it is born on, particles that lie flat, and the turn of Orbit. Upright faces "
+                  "the front, like a 2D effect; Ground lies on the floor, for auras, portals and "
+                  "shockwaves. A 2D effect is always upright."),
     }));
 
     modules_.push_back(module("initial", "Initial State", Stage::Spawn, {

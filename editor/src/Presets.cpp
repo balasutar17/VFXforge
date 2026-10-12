@@ -1389,6 +1389,134 @@ Effect alert(const IdSource& id) {
     return e;
 }
 
+// ---------------------------------------------------------------------- 3D
+// Effects with depth, made to be seen from any side: round a character,
+// on the ground, rising past the camera.
+
+Effect aura3d(const IdSource& id) {
+    Effect e = begin3d(id, "Aura 3D", 2.0);
+    // A ring lying on the ground round the feet, breathing.
+    add(e, Make(id, "Ground ring").rate(1).life(2.0, 2.0).speed(0, 0).size(2.6, 2.6).color(0x5dff8a).gravity(0, 0)
+               .sizeOver({{0, 0.85}, {0.5, 1.0, true}, {1, 0.85, true}}).fade({{0, 0}, {0.25, 0.8}, {0.75, 0.8}, {1, 0}})
+               .look("softring").additive().ground().flatOnPlane());
+    add(e, Make(id, "Ground glow").rate(1).life(2.0, 2.0).speed(0, 0).size(3.4, 3.4).color(0x2fe37a).gravity(0, 0)
+               .fade({{0, 0}, {0.3, 0.35}, {0.7, 0.35}, {1, 0}}).additive().ground().flatOnPlane());
+    // Motes rising from the ring, turning round the character as they go.
+    add(e, Make(id, "Rising motes").rate(36).circle(1.05, true).life(1.2, 1.8).speed(0.8, 1.3).toward(0, 1, 0, 4)
+               .size(0.07, 0.13).color(0x9dffbe).gravity(0, 0).orbit(70).ground()
+               .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).additive().glow(2.0));
+    add(e, Make(id, "Crosses").rate(4).circle(0.9).life(1.2, 1.6).speed(0.9, 1.3).toward(0, 1, 0, 8).size(0.16, 0.24)
+               .color(0xd6ffe2).gravity(0, 0).ground().sizeOver({{0, 0}, {0.2, 1.1, true}, {0.35, 1, true}, {1, 0.6}})
+               .fade({{0, 1}, {0.75, 1}, {1, 0}}).look("plus").hold(12));
+    tools::keepWholePass(e);
+    return e;
+}
+
+Effect levelUp3d(const IdSource& id) {
+    Effect e = begin3d(id, "Level-up Pillar 3D", 2.0);
+    add(e, Make(id, "Shockwave").burst(1).life(0.6, 0.6).speed(0, 0).size(4.0, 4.0).color(0xffd76a).gravity(0, 0)
+               .sizeOver({{0, 0.1}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("shockwave").additive().ground()
+               .flatOnPlane());
+    add(e, Make(id, "Column").rate(40).circle(0.7, true).life(0.5, 0.8).speed(5, 7).toward(0, 1, 0, 0).size(0.07, 0.11)
+               .color(0xffe08a).gravity(0, 0).ground().additive().glow(1.6).streak(0.07));
+    add(e, Make(id, "Glow").rate(1).life(2.0, 2.0).speed(0, 0).at3(0, 1.4, 0).size(3.2, 3.2).color(0xffb02e)
+               .gravity(0, 0).fade({{0, 0}, {0.2, 0.3}, {0.8, 0.3}, {1, 0}}).additive());
+    add(e, Make(id, "Stars").rate(9).circle(0.9, true).life(1.1, 1.5).speed(1.4, 2.2).toward(0, 1, 0, 10)
+               .size(0.22, 0.32).color(0xfff1a8).gravity(0, -0.6).orbit(-90).ground().spin(-90, 90)
+               .sizeOver({{0, 0}, {0.15, 1.15, true}, {0.3, 1, true}, {0.85, 1}, {1, 0}}).solid().look("starfat")
+               .hold(12));
+    tools::keepWholePass(e);
+    return e;
+}
+
+Effect portal3d(const IdSource& id) {
+    Effect e = begin3d(id, "Portal 3D", 2.0);
+    add(e, Make(id, "Vortex").burst(1).life(2.0, 2.0).speed(0, 0).size(3.2, 3.2).color(0x9f6bff).gravity(0, 0)
+               .spin(140, 140).solid().look("vortex").additive().glow(1.4).ground().flatOnPlane());
+    add(e, Make(id, "Rim").burst(1).life(2.0, 2.0).speed(0, 0).size(3.3, 3.3).color(0xd6c2ff).gravity(0, 0)
+               .spin(-40, -40).solid().look("portalring").additive().ground().flatOnPlane());
+    add(e, Make(id, "Beams").rate(10).circle(1.2, true).life(0.5, 0.8).speed(3, 4.5).toward(0, 1, 0, 0)
+               .size(0.12, 0.2).color(0xb48cff).gravity(0, 0).ground().additive().streak(0.18)
+               .fade({{0, 0}, {0.2, 1}, {1, 0}}));
+    add(e, Make(id, "Motes").rate(40).circle(1.6, true).life(1.0, 1.6).speed(0.2, 0.6).toward(0, 1, 0, 20)
+               .size(0.06, 0.12).color(0xe9dcff).gravity(0, 0).orbit(160).ground()
+               .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).additive().glow(2.2));
+    tools::keepWholePass(e);
+    return e;
+}
+
+Effect groundSlam3d(const IdSource& id) {
+    Effect e = begin3d(id, "Ground Slam 3D", 1.6);
+    add(e, Make(id, "Shockwave").burst(1).life(0.5, 0.5).speed(0, 0).size(5.0, 5.0).color(0xfff0c4).gravity(0, 0)
+               .sizeOver({{0, 0.1}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("shockwave").additive().ground()
+               .flatOnPlane());
+    add(e, Make(id, "Crack").burst(1).life(1.2, 1.2).speed(0, 0).size(2.4, 2.4).color(0x3a2c22, 0.9).gravity(0, 0)
+               .fade({{0, 1}, {0.7, 1}, {1, 0}}).look("crack").ground().flatOnPlane());
+    add(e, Make(id, "Dust").burst(26).circle(1.0, true).life(0.8, 1.3).speed(1.5, 3.0).toward(0, 1, 0, 75)
+               .size(0.5, 0.9).color(0xc9b79a).gravity(0, -1.0).drag(2.5).spin(-60, 60).ground()
+               .sizeOver({{0, 0.4}, {0.3, 1.0, true}, {1, 1.3}}).fade({{0, 0.9}, {0.6, 0.7}, {1, 0}}).look("puff"));
+    add(e, Make(id, "Rocks").burst(16).circle(0.6).life(0.6, 1.0).speed(4, 7).toward(0, 1, 0, 40).size(0.12, 0.22)
+               .color(0x8a7a6a).gravity(0, -14).spin(-400, 400).ground().solid().look("rock"));
+    return e;
+}
+
+Effect fire3d(const IdSource& id) {
+    Effect e = begin3d(id, "Campfire 3D", 2.0);
+    add(e, Make(id, "Smoke").rate(6).sphere(0.3).at3(0, 0.9, 0).life(1.8, 2.4).speed(0.5, 0.8).toward(0, 1, 0, 15)
+               .size(0.5, 0.8).color(0x6b6f7a, 0.8).gravity(0, 0.2).spin(-30, 30)
+               .sizeOver({{0, 0.5}, {1, 1.6}}).fade({{0, 0}, {0.2, 0.7}, {1, 0}}).look("puff").turbulence(0.4, 1.5, 0.5));
+    add(e, Make(id, "Flames").rate(30).sphere(0.32).at3(0, 0.15, 0).life(0.5, 0.8).speed(1.0, 1.7).toward(0, 1, 0, 8)
+               .size(0.45, 0.75).color(0xff7a22).gravity(0, 0).sizeOver({{0, 0.5}, {0.3, 1}, {1, 0.15}})
+               .look("flame").additive().glow(1.3));
+    add(e, Make(id, "Core").rate(20).sphere(0.18).at3(0, 0.12, 0).life(0.3, 0.5).speed(0.6, 1.0).toward(0, 1, 0, 6)
+               .size(0.3, 0.45).color(0xffe08a).gravity(0, 0).sizeOver({{0, 0.6}, {1, 0.1}}).look("flame").additive()
+               .glow(1.6));
+    add(e, Make(id, "Embers").rate(10).sphere(0.3).at3(0, 0.3, 0).life(1.0, 1.8).speed(1.0, 2.0).toward(0, 1, 0, 20)
+               .size(0.04, 0.07).color(0xffb05a).gravity(0, 0.3).additive().glow(2.0).turbulence(0.8, 1.0, 0.8));
+    add(e, Make(id, "Logs").burst(1).life(2.0, 2.0).speed(0, 0).size(1.3, 1.3).color(0x5a3a22).gravity(0, 0).solid()
+               .look("bone").ground().flatOnPlane());
+    tools::keepWholePass(e);
+    return e;
+}
+
+Effect hitSparks3d(const IdSource& id) {
+    Effect e = begin3d(id, "Hit Sparks 3D", 0.8);
+    add(e, Make(id, "Flash").burst(1).life(0.14, 0.14).speed(0, 0).at3(0, 1.5, 0).size(1.8, 1.8).color(0xffffff)
+               .gravity(0, 0).sizeOver({{0, 0.5}, {1, 1.2}}).fade({{0, 1}, {1, 0}}).look("starflash").additive());
+    add(e, Make(id, "Sparks").burst(46).sphere(0.08).at3(0, 1.5, 0).life(0.25, 0.55).speed(6, 11).toward(0, 1, 0, 180)
+               .size(0.05, 0.09).color(0xffc060).gravity(0, -8).drag(3).additive().glow(1.8).streak(0.035));
+    add(e, Make(id, "Ring").burst(1).life(0.25, 0.25).speed(0, 0).at3(0, 1.5, 0).size(1.6, 1.6).color(0xffe2a0)
+               .gravity(0, 0).sizeOver({{0, 0.2}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("ring").additive());
+    return e;
+}
+
+Effect smokeColumn3d(const IdSource& id) {
+    Effect e = begin3d(id, "Smoke Column 3D", 3.0);
+    add(e, Make(id, "Smoke").rate(14).sphere(0.4).life(2.2, 3.0).speed(0.6, 1.0).toward(0, 1, 0, 18).size(0.7, 1.1)
+               .color(0xc2c6d0).gravity(0, 0.25).spin(-25, 25).sizeOver({{0, 0.4}, {1, 1.7}})
+               .fade({{0, 0}, {0.15, 1}, {0.7, 0.8}, {1, 0}}).look("puff").turbulence(0.5, 1.6, 0.5));
+    tools::keepWholePass(e);
+    return e;
+}
+
+Effect guardianOrbs3d(const IdSource& id) {
+    Effect e = begin3d(id, "Guardian Orbs 3D", 2.0);
+    // Three orbs going round a character at chest height, each leaving a
+    // trail. Each pops out from the middle and is carried once round by
+    // Orbit, a third of a turn after the one before, so they stay evenly
+    // spaced however long it plays.
+    add(e, Make(id, "Orbs").burst(1, 0.0).burst(1, 2.0 / 3.0).burst(1, 4.0 / 3.0).at3(0, 1.6, 0).life(2.0, 2.0)
+               .speed(2.9, 2.9).toward(1, 0, 0, 0).size(0.32, 0.32).color(0x6fd6ff).gravity(0, 0).orbit(180).ground()
+               .pace({{0, 14}, {0.07, -1.2, true}, {0.14, 0, true}, {1, 0}})
+               .sizeOver({{0, 0}, {0.08, 1.2, true}, {0.16, 1, true}, {0.94, 1}, {1, 0}}).solid().look("orb")
+               .additive().glow(1.6).trail(0.45, 0.18));
+    add(e, Make(id, "Sparkles").rate(30).circle(1.3, true).at3(0, 1.6, 0).life(0.4, 0.7).speed(0.1, 0.4)
+               .toward(0, 1, 0, 180).size(0.06, 0.12).color(0xd8f6ff).gravity(0, -0.5).orbit(180).ground()
+               .fade({{0, 1}, {1, 0}}).look("glint").additive().glow(2.0));
+    tools::keepWholePass(e);
+    return e;
+}
+
 struct Entry {
     PresetInfo info;
     Effect (*build)(const IdSource&);
@@ -1497,6 +1625,15 @@ const std::vector<Entry>& table() {
         {describe("poisoned", "Poisoned", "Status", "A skull in sickly fumes, with bubbles and drips.", 0, 0.7f, 4.8f, 1.6), poisoned},
         {describe("stunned", "Stunned", "Status", "Stars circling a dizzy spiral.", 0, 0, 4.4f, 1.0), stunned},
         {describe("alert", "Alert", "Status", "An exclamation mark that lands with a bang.", 0, 0, 5.6f, 0.2), alert},
+
+        {describe("aura-3d", "Aura 3D", "3D", "A ring on the ground and motes rising round a character, seen from any side.", 0, 1.2f, 5.5f, 1.2), aura3d},
+        {describe("level-up-3d", "Level-up Pillar 3D", "3D", "A shockwave on the ground, a column of light and stars circling up.", 0, 1.4f, 6.0f, 0.5), levelUp3d},
+        {describe("portal-3d", "Portal 3D", "3D", "A whirlpool lying on the ground, with beams and motes going round.", 0, 0.6f, 5.5f, 1.2), portal3d},
+        {describe("ground-slam-3d", "Ground Slam 3D", "3D", "A shockwave and a crack on the ground, dust and rocks thrown up.", 0, 0.6f, 6.0f, 0.2), groundSlam3d},
+        {describe("campfire-3d", "Campfire 3D", "3D", "Flames, embers and smoke that read from every side.", 0, 0.9f, 4.5f, 1.5), fire3d},
+        {describe("hit-sparks-3d", "Hit Sparks 3D", "3D", "A flash and sparks flying out every way, falling as they go.", 0, 1.4f, 4.5f, 0.1), hitSparks3d},
+        {describe("smoke-column-3d", "Smoke Column 3D", "3D", "Grey puffs rising and spreading, drawn far ones first.", 0, 1.6f, 6.0f, 2.5), smokeColumn3d},
+        {describe("guardian-orbs-3d", "Guardian Orbs 3D", "3D", "Three orbs going round a character with trails and sparkles.", 0, 1.4f, 5.0f, 0.8), guardianOrbs3d},
 
         {describe("gold-flash", "Gold Flash", "Flashes", "A burst of white spikes in a golden glow.", 0, 0, 5.6f, 0.08), goldFlash},
         {describe("ice-flash", "Ice Flash", "Flashes", "A burst of white spikes in a blue glow.", 0, 0, 5.6f, 0.08), iceFlash},

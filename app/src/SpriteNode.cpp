@@ -25,8 +25,16 @@ using vfx::editor::SpriteVertex;
 
 namespace {
 
-bool writeMatrixAndOpacity(QSGMaterialShader::RenderState& state) {
-    // Matches the uniform block in the shaders: a 4x4 matrix, then opacity.
+// What every node of one item shares: its size, and the model's distances.
+struct SpriteState {
+    QSizeF size;
+    SpriteDepth depth;
+    QSGTexture* blank = nullptr;  // bound when there is no model, as every sampler must be
+};
+
+bool writeUniforms(QSGMaterialShader::RenderState& state, const SpriteState* shared) {
+    // Matches the uniform block in the shaders: a 4x4 matrix, opacity, then
+    // modelOn, perspective, fade, itemSize (two) and depthRange (two).
     QByteArray* buffer = state.uniformData();
     if (buffer->size() < 68) {
         return false;
@@ -42,21 +50,45 @@ bool writeMatrixAndOpacity(QSGMaterialShader::RenderState& state) {
         std::memcpy(buffer->data() + 64, &opacity, 4);
         changed = true;
     }
+    if (buffer->size() >= 96 && shared) {
+        const bool on = shared->depth.texture != nullptr;
+        const float values[7] = {on ? 1.0f : 0.0f,
+                                 shared->depth.perspective ? 1.0f : 0.0f,
+                                 shared->depth.fade,
+                                 static_cast<float>(shared->size.width()),
+                                 static_cast<float>(shared->size.height()),
+                                 shared->depth.nearest,
+                                 shared->depth.furthest};
+        // modelOn, perspective, fade at 68..79; itemSize at 80; depthRange at 88.
+        std::memcpy(buffer->data() + 68, values, 3 * 4);
+        std::memcpy(buffer->data() + 80, values + 3, 4 * 4);
+        changed = true;
+    }
     return changed;
+}
+
+void bindDepth(QSGMaterialShader::RenderState& state, QSGTexture** texture, const SpriteState* shared) {
+    QSGTexture* t = shared ? (shared->depth.texture ? shared->depth.texture : shared->blank) : nullptr;
+    if (t) {
+        t->commitTextureOperations(state.rhi(), state.resourceUpdateBatch());
+    }
+    *texture = t;
 }
 
 // The built-in shapes. The vertex colours arrive already premultiplied, so
 // ordinary and additive particles share one draw call, and the shape is
 // chosen per particle inside the shader.
+class SpriteMaterial;
+
 class SpriteShader : public QSGMaterialShader {
 public:
     SpriteShader() {
         setShaderFileName(VertexStage, QStringLiteral(":/shaders/sprite.vert.qsb"));
         setShaderFileName(FragmentStage, QStringLiteral(":/shaders/sprite.frag.qsb"));
     }
-    bool updateUniformData(RenderState& state, QSGMaterial*, QSGMaterial*) override {
-        return writeMatrixAndOpacity(state);
-    }
+    bool updateUniformData(RenderState& state, QSGMaterial* material, QSGMaterial*) override;
+    void updateSampledImage(RenderState& state, int binding, QSGTexture** texture, QSGMaterial* material,
+                            QSGMaterial*) override;
 };
 
 class SpriteMaterial : public QSGMaterial {
@@ -69,8 +101,23 @@ public:
     QSGMaterialShader* createShader(QSGRendererInterface::RenderMode) const override {
         return new SpriteShader;
     }
-    int compare(const QSGMaterial*) const override { return 0; }
+    int compare(const QSGMaterial* other) const override {
+        const auto* o = static_cast<const SpriteMaterial*>(other);
+        return shared == o->shared ? 0 : (shared < o->shared ? -1 : 1);
+    }
+    const SpriteState* shared = nullptr;
 };
+
+bool SpriteShader::updateUniformData(RenderState& state, QSGMaterial* material, QSGMaterial*) {
+    return writeUniforms(state, static_cast<SpriteMaterial*>(material)->shared);
+}
+
+void SpriteShader::updateSampledImage(RenderState& state, int binding, QSGTexture** texture,
+                                      QSGMaterial* material, QSGMaterial*) {
+    if (binding == 2) {
+        bindDepth(state, texture, static_cast<SpriteMaterial*>(material)->shared);
+    }
+}
 
 // One of the artist's pictures, or one shape from the shape library.
 class ImageMaterial;
@@ -81,9 +128,7 @@ public:
         setShaderFileName(VertexStage, QStringLiteral(":/shaders/sprite.vert.qsb"));
         setShaderFileName(FragmentStage, QStringLiteral(":/shaders/image.frag.qsb"));
     }
-    bool updateUniformData(RenderState& state, QSGMaterial*, QSGMaterial*) override {
-        return writeMatrixAndOpacity(state);
-    }
+    bool updateUniformData(RenderState& state, QSGMaterial* material, QSGMaterial*) override;
     void updateSampledImage(RenderState& state, int binding, QSGTexture** texture,
                             QSGMaterial* material, QSGMaterial*) override;
 };
@@ -100,13 +145,25 @@ public:
     }
     int compare(const QSGMaterial* other) const override {
         const auto* o = static_cast<const ImageMaterial*>(other);
-        return texture == o->texture ? 0 : (texture < o->texture ? -1 : 1);
+        if (texture != o->texture) {
+            return texture < o->texture ? -1 : 1;
+        }
+        return shared == o->shared ? 0 : (shared < o->shared ? -1 : 1);
     }
     QSGTexture* texture = nullptr;
+    const SpriteState* shared = nullptr;
 };
+
+bool ImageShader::updateUniformData(RenderState& state, QSGMaterial* material, QSGMaterial*) {
+    return writeUniforms(state, static_cast<ImageMaterial*>(material)->shared);
+}
 
 void ImageShader::updateSampledImage(RenderState& state, int binding, QSGTexture** texture,
                                      QSGMaterial* material, QSGMaterial*) {
+    if (binding == 2) {
+        bindDepth(state, texture, static_cast<ImageMaterial*>(material)->shared);
+        return;
+    }
     if (binding != 1) {
         return;
     }
@@ -131,8 +188,8 @@ const QSGGeometry::AttributeSet& spriteAttributes() {
         // random number.
         QSGGeometry::Attribute::createWithAttributeType(4, 4, QSGGeometry::FloatType,
                                                         QSGGeometry::UnknownAttribute),
-        // How soft a dissolving edge is.
-        QSGGeometry::Attribute::createWithAttributeType(5, 1, QSGGeometry::FloatType,
+        // How soft a dissolving edge is, and how far away the corner is.
+        QSGGeometry::Attribute::createWithAttributeType(5, 2, QSGGeometry::FloatType,
                                                         QSGGeometry::UnknownAttribute),
     };
     static const QSGGeometry::AttributeSet set = {6, static_cast<int>(sizeof(SpriteVertex)),
@@ -157,6 +214,8 @@ public:
         std::unique_ptr<QSGTexture> texture;
     };
     std::map<std::uint64_t, Uploaded> textures;
+    SpriteState shared;
+    std::unique_ptr<QSGTexture> blank;
 };
 
 // How many library shapes' pictures a node keeps on the graphics card
@@ -217,11 +276,21 @@ QSGGeometryNode* makeRunNode() {
 }  // namespace
 
 QSGNode* updateSpriteNode(QSGNode* old, const vfx::editor::SpriteMesh& mesh,
-                          const vfx::editor::ImageSet* images, QQuickWindow* window, int shapePixels) {
+                          const vfx::editor::ImageSet* images, QQuickWindow* window, int shapePixels,
+                          QSizeF itemSize, const SpriteDepth* depth) {
     auto* root = static_cast<SpriteRoot*>(old);
     if (!root) {
         root = new SpriteRoot;
     }
+    // What every node of the item shares, for its shaders.
+    if (!root->blank && window) {
+        QImage nothing(1, 1, QImage::Format_RGBA8888);
+        nothing.fill(Qt::transparent);
+        root->blank.reset(window->createTextureFromImage(nothing));
+    }
+    root->shared.blank = root->blank.get();
+    root->shared.size = itemSize;
+    root->shared.depth = depth ? *depth : SpriteDepth{};
 
     // The artist's pictures that are gone, or have changed, are let go. A
     // library shape's picture never changes; those are kept from frame to
@@ -302,6 +371,14 @@ QSGNode* updateSpriteNode(QSGNode* old, const vfx::editor::SpriteMesh& mesh,
             image->texture = texture;
             child->markDirty(QSGNode::DirtyMaterial);
         }
+        // Its shaders read the item's size and the model's distances, which
+        // may change from frame to frame.
+        if (image) {
+            image->shared = &root->shared;
+        } else if (auto* shape = dynamic_cast<SpriteMaterial*>(child->material())) {
+            shape->shared = &root->shared;
+        }
+        child->markDirty(QSGNode::DirtyMaterial);
 
         // A run's particles use a block of the vertices that is all its own.
         const std::uint32_t firstVertex = run.firstIndex / 6 * 4;

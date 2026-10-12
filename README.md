@@ -54,6 +54,10 @@ What exists so far:
 - **effects on a 3D model**: bring in a character or prop (.obj, .glb,
   .gltf), or use the practice dummy, and make the effect on it; particles
   behind it are hidden; see [docs/models.md](docs/models.md)
+- **3D effects**: layers that lie on the ground and turn about the
+  upright, see-through particles sorted by distance, particles hidden
+  pixel by pixel behind a model, and a 3D preset category; see
+  [docs/3d-effects.md](docs/3d-effects.md)
 - **turbulence and dissolve**: particles carried about by moving air, so
   smoke winds and embers wander; and particles eaten away in ragged patches
   as they die, softly like smoke or with a white-hot edge like burning

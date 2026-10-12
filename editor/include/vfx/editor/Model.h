@@ -64,6 +64,7 @@ Result<Model> loadModel(const std::filesystem::path& file);
 struct ModelPicture {
     Picture picture;
     std::vector<float> depth;
+    bool flat = true;  // drawn for a 2D effect
 
     bool empty() const { return picture.width <= 0 || picture.height <= 0; }
 

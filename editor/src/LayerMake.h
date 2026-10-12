@@ -175,6 +175,23 @@ public:
     // still turns in its own plane. (Every layer has a Lie Flat control.)
     Make& lieFlat(double degrees) { return put("sprite", "tilt", degrees); }
 
+    // ---- 3D
+    // The layer's flat parts lie on the ground: its circle or rectangle,
+    // and the turn of Orbit.
+    Make& ground() { return put("shape", "plane", std::string("ground")); }
+    // Each particle lies flat on the layer's plane (with ground(), on the floor).
+    Make& flatOnPlane() { return put("sprite", "facing", std::string("plane")); }
+    Make& sphere(double radius, bool edge = false) {
+        put("shape", "shape", std::string("sphere"));
+        put("shape", "radius", radius);
+        return put("shape", "emitFrom", std::string(edge ? "edge" : "volume"));
+    }
+    Make& at3(double x, double y, double z) { return put("shape", "offset", Vec3{x, y, z}); }
+    Make& toward(double x, double y, double z, double spread) {
+        put("initial", "direction", Vec3{x, y, z});
+        return put("initial", "spread", spread);
+    }
+
     // A ribbon behind each particle, with a Simple control for its length.
     Make& trail(double seconds, double width) {
         put("sprite", "trail", seconds);
@@ -285,6 +302,13 @@ inline Effect begin(const IdSource& newId, const char* name, double duration) {
     effect.duration = duration;
     effect.loop = "loop";
     effect.seed = 7;
+    return effect;
+}
+
+// A 3D effect: the same, with depth.
+inline Effect begin3d(const IdSource& newId, const char* name, double duration) {
+    Effect effect = begin(newId, name, duration);
+    effect.space = "3d";
     return effect;
 }
 

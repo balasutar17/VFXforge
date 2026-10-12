@@ -596,3 +596,67 @@ TEST_CASE("a dissolving particle carries what the drawing needs, and takes its t
     CHECK(b.vertices.front().r == Catch::Approx(0.5f * a.vertices.front().r));
     CHECK(b.vertices.front().dissolve == 0.0f);
 }
+
+TEST_CASE("in 3D, see-through particles are drawn far to near; glowing ones as they come", "[mesh][camera]") {
+    View v;
+    v.width = 800;
+    v.height = 600;
+    v.yaw = 0;
+    v.pitch = 0;
+    v.distance = 10;
+
+    SpriteInstance near, far;
+    near.size = far.size = 1.0f;
+    near.z = 3.0f;   // closer to the camera, which sits on +Z
+    far.z = -3.0f;
+    RenderFrame frame = oneParticle(near, BlendMode::Alpha, false);
+    frame.instances.push_back(far);
+    frame.batches[0].count = 2;
+
+    SpriteMesh mesh;
+    buildSpriteMesh(frame, v, mesh);
+    REQUIRE(mesh.drawn == 2);
+    // 3D keys are 1 / distance: the first quad drawn is the further one.
+    const float first = depthFromKey(mesh.vertices.front().depth, false);
+    const float last = depthFromKey(mesh.vertices.back().depth, false);
+    CHECK(first > last);
+
+    frame.batches[0].blend = BlendMode::Additive;
+    SpriteMesh glow;
+    buildSpriteMesh(frame, v, glow);
+    REQUIRE(glow.drawn == 2);
+    CHECK(depthFromKey(glow.vertices.front().depth, false) < depthFromKey(glow.vertices.back().depth, false));
+}
+
+TEST_CASE("in 3D, a flat sprite on a ground layer lies on the floor", "[mesh][camera]") {
+    View v;
+    v.width = 800;
+    v.height = 600;
+    v.yaw = 0;
+    v.distance = 10;
+
+    SpriteInstance p;
+    p.size = 1.0f;
+    RenderFrame frame = oneParticle(p, BlendMode::Alpha, false);
+    frame.batches[0].facing = Facing::Plane;
+    frame.batches[0].ground = true;
+
+    auto aspect = [&](float pitch) {
+        v.pitch = pitch;
+        SpriteMesh m;
+        buildSpriteMesh(frame, v, m);
+        REQUIRE(m.drawn == 1);
+        float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f;
+        for (const auto& vert : m.vertices) {
+            minX = std::min(minX, vert.x);
+            maxX = std::max(maxX, vert.x);
+            minY = std::min(minY, vert.y);
+            maxY = std::max(maxY, vert.y);
+        }
+        return (maxY - minY) / (maxX - minX);
+    };
+    // Seen from 30 degrees up, the floor is squashed to about half (a little
+    // more, as its near edge is closer); from straight above, it is square.
+    CHECK(aspect(30) == Catch::Approx(0.55f).margin(0.08f));
+    CHECK(aspect(89) == Catch::Approx(1.0f).margin(0.05f));
+}

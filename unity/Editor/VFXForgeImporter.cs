@@ -19,7 +19,7 @@ using UnityEngine;
 
 namespace VFXForge.EditorTools
 {
-    [ScriptedImporter(5, "vfxforge")]
+    [ScriptedImporter(6, "vfxforge")]
     public class VFXForgeImporter : ScriptedImporter
     {
         public const string ShaderPath = "Assets/VFXForge/Shaders/VFXForgeParticle.shader";
@@ -286,11 +286,12 @@ namespace VFXForge.EditorTools
                 velocity.speedModifier = eases ? Curve(layer, "speedModifier", 1) : new ParticleSystem.MinMaxCurve(1f);
                 if (orbitInfo != null)
                 {
-                    // Turning about the axis that points at the viewer, round
-                    // the layer's own position.
+                    // Turning about the axis that points at the viewer (or, for
+                    // a layer on the ground, about the upright), round the
+                    // layer's own position.
                     Vector3 center = Vec(orbitInfo, "center", Vector3.zero);
                     velocity.orbitalX = 0f;
-                    velocity.orbitalY = 0f;
+                    velocity.orbitalY = (float)Num(orbitInfo, "y", 0);
                     velocity.orbitalZ = (float)Num(orbitInfo, "z", 0);
                     velocity.orbitalOffsetX = center.x;
                     velocity.orbitalOffsetY = center.y;
@@ -402,7 +403,9 @@ namespace VFXForge.EditorTools
                     }
                 }
             }
-            renderer.sortMode = ParticleSystemSortMode.YoungestInFront;
+            // Far ones first in 3D, as VFX Forge draws them; otherwise newest on top.
+            renderer.sortMode = Str(renderInfo, "sort", "") == "distance" ? ParticleSystemSortMode.Distance
+                                                                          : ParticleSystemSortMode.YoungestInFront;
             renderer.sortingOrder = (int)Num(renderInfo, "order", 0);
             renderer.minParticleSize = 0f;
             renderer.maxParticleSize = 10f;
