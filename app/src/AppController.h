@@ -189,7 +189,14 @@ public:
 
     // ---------------------------------------------------------- library
     Q_INVOKABLE bool openPreset(const QString& id);  // replaces the open effect
-    Q_INVOKABLE bool addPreset(const QString& id);   // adds its layers to the open effect
+    Q_INVOKABLE bool addPreset(const QString& id);   // adds its layers to the open effect, as a group
+    // A group of layers (an effect added from the library), changed as one.
+    Q_INVOKABLE void moveGroup(const QString& group, double dx, double dy, double dz);
+    Q_INVOKABLE void delayGroup(const QString& group, double seconds);
+    Q_INVOKABLE void sizeGroup(const QString& group, double factor);
+    Q_INVOKABLE void setGroupEnabled(const QString& group, bool enabled);
+    Q_INVOKABLE void removeGroup(const QString& group);
+    Q_INVOKABLE void ungroup(const QString& group);
 
     // --------------------------------------------------------- backdrop
     Q_INVOKABLE void setBackdrop(const QUrl& image);
@@ -356,6 +363,7 @@ signals:
 
 private:
     enum Refresh { Values = 0, Structure = 1 };
+    void groupDone(const vfx::Status& status, const QString& said);
 
     // Call after anything that may have changed the document.
     void changed(Refresh what);

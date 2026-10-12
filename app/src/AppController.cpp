@@ -273,7 +273,31 @@ void AppController::rebuildLayers() {
         row.insert(QStringLiteral("locked"), layer.locked);
         row.insert(QStringLiteral("role"), text(layer.role));
         row.insert(QStringLiteral("id"), text(vfx::formatId('l', layer.id)));
+        row.insert(QStringLiteral("start"), layer.start);
+        row.insert(QStringLiteral("group"), text(layer.group));
         list.push_back(row);
+    }
+    // Each layer of a group knows whether it is the first of its run (the
+    // list shows the group's heading above it) and how many there are.
+    for (int i = 0; i < list.size(); ++i) {
+        QVariantMap row = list[i].toMap();
+        const QString group = row.value(QStringLiteral("group")).toString();
+        const bool first = !group.isEmpty() &&
+                           (i == 0 || list[i - 1].toMap().value(QStringLiteral("group")).toString() != group);
+        int count = 0, shown = 0;
+        double start = 1e9;
+        for (const vfx::Layer& layer : session_.effect().layers) {
+            if (text(layer.group) == group) {
+                ++count;
+                shown += layer.enabled ? 1 : 0;
+                start = std::min(start, layer.start);
+            }
+        }
+        row.insert(QStringLiteral("groupFirst"), first);
+        row.insert(QStringLiteral("groupCount"), group.isEmpty() ? 0 : count);
+        row.insert(QStringLiteral("groupShown"), shown > 0);
+        row.insert(QStringLiteral("groupStart"), group.isEmpty() ? 0.0 : start);
+        list[i] = row;
     }
     layers_ = std::move(list);
 
@@ -1732,6 +1756,57 @@ bool AppController::openPreset(const QString& id) {
     return true;
 }
 
+// ---------------------------------------------------------------- groups
+
+void AppController::groupDone(const vfx::Status& status, const QString& said) {
+    if (!report(status)) {
+        return;
+    }
+    changed(Structure);
+    emit playbackChanged();
+    if (!said.isEmpty()) {
+        say(said);
+    }
+}
+
+void AppController::moveGroup(const QString& group, double dx, double dy, double dz) {
+    session_.endEdit();
+    groupDone(session_.moveGroup(utf8(group), dx, dy, dz), {});
+}
+
+void AppController::delayGroup(const QString& group, double seconds) {
+    session_.endEdit();
+    const double before = session_.effect().duration;
+    vfx::Status done = session_.delayGroup(utf8(group), seconds);
+    const double after = session_.effect().duration;
+    groupDone(done, after > before + 1e-9
+                        ? QStringLiteral("The effect is now %1 s long, so all of %2 fits.").arg(after, 0, 'f', 2).arg(group)
+                        : QString());
+}
+
+void AppController::sizeGroup(const QString& group, double factor) {
+    session_.endEdit();
+    groupDone(session_.sizeGroup(utf8(group), factor), {});
+}
+
+void AppController::setGroupEnabled(const QString& group, bool enabled) {
+    groupDone(session_.setGroupEnabled(utf8(group), enabled), {});
+}
+
+void AppController::removeGroup(const QString& group) {
+    const int before = static_cast<int>(session_.effect().layers.size());
+    vfx::Status done = session_.removeGroup(utf8(group));
+    if (done) {
+        const int removed = before - static_cast<int>(session_.effect().layers.size());
+        selected_ = std::max(0, std::min(selected_, before - removed - 1));
+    }
+    groupDone(done, QStringLiteral("Removed %1. Undo brings it back.").arg(group));
+}
+
+void AppController::ungroup(const QString& group) {
+    groupDone(session_.ungroup(utf8(group)), QStringLiteral("%1 is no longer a group; its layers stay.").arg(group));
+}
+
 bool AppController::addPreset(const QString& id) {
     const int before = static_cast<int>(session_.effect().layers.size());
     int added = 0;
@@ -1741,7 +1816,8 @@ bool AppController::addPreset(const QString& id) {
     selected_ = before;  // the first of the new layers
     changed(Structure);
     const vfx::editor::PresetInfo* info = vfx::editor::findPreset(utf8(id));
-    say(QStringLiteral("Added %1 (%2 layers). Undo takes it out again.")
+    emit playbackChanged();  // it may have made the effect longer
+    say(QStringLiteral("Added %1 (%2 layers) as a group: move, delay or size it under Layers. Undo takes it out again.")
             .arg(info ? text(info->name) : id)
             .arg(added));
     return true;

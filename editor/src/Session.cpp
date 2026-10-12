@@ -17,6 +17,8 @@
 #include "vfx/editor/Presets.h"
 #include "vfx/editor/SoundLibrary.h"
 
+#include "EffectTools.h"
+
 namespace vfx::editor {
 
 namespace {
@@ -515,21 +517,50 @@ Status Session::addPreset(std::string_view presetId, int* added) {
         return made.error();
     }
     const PresetInfo* info = findPreset(presetId);
+    // The group's name: the preset's, numbered when it is there already.
+    const std::string base = info ? info->name : std::string("Preset");
+    const std::vector<std::string> existing = groups();
+    std::string group = base;
+    for (int n = 2; std::find(existing.begin(), existing.end(), group) != existing.end(); ++n) {
+        group = base + " " + std::to_string(n);
+    }
     std::vector<CommandPtr> steps;
     // The preset's sounds and pictures come too; one this effect already has
     // (the same file) is used again rather than added twice.
     std::map<std::uint64_t, Id> same;
     for (const Asset& asset : made.value().assets) {
-        Id existing;
+        Id existingAsset;
         for (const Asset& a : effect().assets) {
             if (a.path == asset.path && a.kind == asset.kind) {
-                existing = a.id;
+                existingAsset = a.id;
             }
         }
-        if (existing.valid()) {
-            same[asset.id.value] = existing;
+        if (existingAsset.valid()) {
+            same[asset.id.value] = existingAsset;
         } else {
             steps.push_back(std::make_unique<AddAssetCommand>(asset));
+        }
+    }
+    // A loop added to a loop that lasts a whole number of times as long is
+    // played that many times over, so it does not stop part way through.
+    const double length = made.value().duration;
+    const double times = effect().duration / length;
+    const int repeats = static_cast<int>(std::lround(times));
+    if (effect().loop == "loop" && made.value().loop == "loop" && repeats >= 2 && std::fabs(times - repeats) < 1e-3) {
+        for (Layer& layer : made.value().layers) {
+            if (layer.start > 1e-9 || std::fabs(layer.duration - length) > 1e-6) {
+                continue;
+            }
+            layer.duration = effect().duration;
+            if (BurstList* bursts = tools::property<BurstList>(layer, "emission", "bursts")) {
+                const std::vector<Burst> once = bursts->items;
+                for (int n = 1; n < repeats; ++n) {
+                    for (Burst b : once) {
+                        b.time += n * length;
+                        bursts->items.push_back(b);
+                    }
+                }
+            }
         }
     }
     int count = 0;
@@ -543,15 +574,186 @@ Status Session::addPreset(std::string_view presetId, int* added) {
                 }
             }
         }
+        layer.group = group;
         steps.push_back(std::make_unique<AddLayerCommand>(std::move(layer)));
         ++count;
     }
-    Status pushed = state_->commands.push(std::make_unique<CompositeCommand>(
-        "Add " + (info ? info->name : std::string("Preset")), std::move(steps)));
+    if (made.value().duration > effect().duration + 1e-9) {
+        steps.push_back(std::make_unique<SetPropertyCommand>(Path::effect("duration"), Value(made.value().duration)));
+    }
+    Status pushed = state_->commands.push(std::make_unique<CompositeCommand>("Add " + base, std::move(steps)));
     if (pushed && added) {
         *added = count;
     }
     return pushed;
+}
+
+std::vector<std::string> Session::groups() const {
+    std::vector<std::string> names;
+    for (const Layer& layer : effect().layers) {
+        if (!layer.group.empty() && std::find(names.begin(), names.end(), layer.group) == names.end()) {
+            names.push_back(layer.group);
+        }
+    }
+    return names;
+}
+
+namespace {
+
+// The commands that turn `before` into `after`: one for each value of each
+// module that differs.
+void changesTo(const Layer& before, const Layer& after, std::vector<CommandPtr>& steps) {
+    for (std::size_t m = 0; m < before.modules.size() && m < after.modules.size(); ++m) {
+        const Module& a = before.modules[m];
+        const Module& b = after.modules[m];
+        if (!a.desc || a.id != b.id) {
+            continue;
+        }
+        for (std::size_t i = 0; i < a.values.size() && i < b.values.size(); ++i) {
+            if (!(a.values[i] == b.values[i])) {
+                steps.push_back(std::make_unique<SetPropertyCommand>(
+                    Path::property(before.id, a.id, a.desc->properties[i].key), b.values[i]));
+            }
+        }
+    }
+}
+
+std::string groupStep(const char* verb, std::string_view group) {
+    return std::string(verb) + " " + std::string(group);
+}
+
+}  // namespace
+
+Status Session::moveGroup(std::string_view group, double dx, double dy, double dz) {
+    std::vector<CommandPtr> steps;
+    for (const Layer& layer : effect().layers) {
+        if (layer.group != group) {
+            continue;
+        }
+        Layer moved = layer;
+        if (Vec3* offset = tools::property<Vec3>(moved, "shape", "offset")) {
+            offset->x += dx;
+            offset->y += dy;
+            offset->z += dz;
+        }
+        changesTo(layer, moved, steps);
+    }
+    if (steps.empty()) {
+        return makeError("There is no group called that to move.");
+    }
+    return state_->commands.push(std::make_unique<CompositeCommand>(groupStep("Move", group), std::move(steps)));
+}
+
+Status Session::delayGroup(std::string_view group, double seconds) {
+    std::vector<CommandPtr> steps;
+    double end = effect().duration;
+    bool any = false;
+    for (const Layer& layer : effect().layers) {
+        if (layer.group != group) {
+            continue;
+        }
+        any = true;
+        const double start = std::max(0.0, layer.start + seconds);
+        end = std::max(end, start + layer.duration);
+        if (start != layer.start) {
+            steps.push_back(std::make_unique<SetPropertyCommand>(Path::layerField(layer.id, "start"), Value(start)));
+        }
+    }
+    if (!any) {
+        return makeError("There is no group called that to delay.");
+    }
+    if (steps.empty()) {
+        return {};  // already at the very start
+    }
+    if (end > effect().duration + 1e-9) {
+        steps.insert(steps.begin(),
+                     std::make_unique<SetPropertyCommand>(Path::effect("duration"), Value(std::ceil(end * 1000.0 - 1e-6) / 1000.0)));
+    }
+    return state_->commands.push(std::make_unique<CompositeCommand>(groupStep("Delay", group), std::move(steps)));
+}
+
+Status Session::sizeGroup(std::string_view group, double factor) {
+    if (!(factor > 0.0)) {
+        return makeError("A group can only be made larger or smaller.");
+    }
+    // The middle of the group's emitters, which stays where it is.
+    Vec3 middle{0, 0, 0};
+    int count = 0;
+    for (const Layer& layer : effect().layers) {
+        if (layer.group == group) {
+            if (const Vec3* offset = tools::property<Vec3>(layer, "shape", "offset")) {
+                middle.x += offset->x;
+                middle.y += offset->y;
+                middle.z += offset->z;
+                ++count;
+            }
+        }
+    }
+    if (count > 0) {
+        middle.x /= count;
+        middle.y /= count;
+        middle.z /= count;
+    }
+    std::vector<CommandPtr> steps;
+    for (const Layer& layer : effect().layers) {
+        if (layer.group != group) {
+            continue;
+        }
+        Layer sized = layer;
+        tools::scaleEverything(sized, factor);
+        if (Vec3* offset = tools::property<Vec3>(sized, "shape", "offset")) {
+            const Vec3* was = tools::property<Vec3>(layer, "shape", "offset");
+            offset->x = middle.x + (was->x - middle.x) * factor;
+            offset->y = middle.y + (was->y - middle.y) * factor;
+            offset->z = middle.z + (was->z - middle.z) * factor;
+        }
+        changesTo(layer, sized, steps);
+    }
+    if (steps.empty()) {
+        return makeError("There is no group called that to size.");
+    }
+    return state_->commands.push(std::make_unique<CompositeCommand>(groupStep(factor > 1.0 ? "Enlarge" : "Shrink", group),
+                                                                    std::move(steps)));
+}
+
+Status Session::setGroupEnabled(std::string_view group, bool enabled) {
+    std::vector<CommandPtr> steps;
+    for (const Layer& layer : effect().layers) {
+        if (layer.group == group && layer.enabled != enabled) {
+            steps.push_back(std::make_unique<SetPropertyCommand>(Path::layerField(layer.id, "enabled"), Value(enabled)));
+        }
+    }
+    if (steps.empty()) {
+        return {};
+    }
+    return state_->commands.push(
+        std::make_unique<CompositeCommand>(groupStep(enabled ? "Show" : "Hide", group), std::move(steps)));
+}
+
+Status Session::removeGroup(std::string_view group) {
+    std::vector<CommandPtr> steps;
+    for (const Layer& layer : effect().layers) {
+        if (layer.group == group) {
+            steps.push_back(std::make_unique<RemoveLayerCommand>(layer.id));
+        }
+    }
+    if (steps.empty()) {
+        return makeError("There is no group called that to remove.");
+    }
+    return state_->commands.push(std::make_unique<CompositeCommand>(groupStep("Remove", group), std::move(steps)));
+}
+
+Status Session::ungroup(std::string_view group) {
+    std::vector<CommandPtr> steps;
+    for (const Layer& layer : effect().layers) {
+        if (layer.group == group) {
+            steps.push_back(std::make_unique<SetPropertyCommand>(Path::layerField(layer.id, "group"), Value(std::string())));
+        }
+    }
+    if (steps.empty()) {
+        return makeError("There is no group called that.");
+    }
+    return state_->commands.push(std::make_unique<CompositeCommand>(groupStep("Ungroup", group), std::move(steps)));
 }
 
 Status Session::undo() { return state_->commands.undo(); }

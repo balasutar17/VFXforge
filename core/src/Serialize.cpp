@@ -150,6 +150,9 @@ J effectToJson(const Effect& e) {
         if (l.locked) {
             lo["locked"] = true;
         }
+        if (!l.group.empty()) {
+            lo["group"] = l.group;
+        }
 
         J controls = J::array();
         for (const auto& c : l.controls) {
@@ -585,6 +588,7 @@ struct Loader {
         l.duration = fieldAs<double>(j, fields, "duration", where);
         l.role = fieldAs<std::string>(j, fields, "role", where);
         l.locked = fieldAs<bool>(j, fields, "locked", where);
+        l.group = fieldAs<std::string>(j, fields, "group", where);
 
         if (auto controls = j.find("controls"); controls != j.end()) {
             if (!controls.value().is_array()) {
@@ -630,7 +634,7 @@ struct Loader {
             }
         }
 
-        l.extra = extras(j, {"id", "name", "enabled", "start", "duration", "role", "locked", "controls", "modules"});
+        l.extra = extras(j, {"id", "name", "enabled", "start", "duration", "role", "locked", "group", "controls", "modules"});
         return l;
     }
 

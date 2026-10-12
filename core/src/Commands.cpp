@@ -99,6 +99,9 @@ Status validateLayer(const Layer& layer) {
     if (auto s = validateValue(*fields.find("role"), Value(layer.role)); !s) {
         return s;
     }
+    if (auto s = validateValue(*fields.find("group"), Value(layer.group)); !s) {
+        return s;
+    }
     for (const auto& control : layer.controls) {
         if (!control.id.valid() || control.label.size() > kMaxTextLength ||
             !isValidUtf8(control.label)) {

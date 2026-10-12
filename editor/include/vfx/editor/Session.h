@@ -92,8 +92,29 @@ public:
     Status removeLayer(Id layer);
 
     // Adds every layer of a library preset to the open effect, as one undo
-    // step. How many layers were added is returned through added.
+    // step, as a group named after the preset ("Portal 3D", or "Portal 3D 2"
+    // when there is one already). How many layers were added is returned
+    // through added. When the preset lasts longer than the effect, the
+    // effect is made as long, so none of it is cut off.
     Status addPreset(std::string_view presetId, int* added = nullptr);
+
+    // ---------------------------------------------------------- groups
+    // The groups in the effect, in the order their first layers come.
+    std::vector<std::string> groups() const;
+    // Each is one undo step, and changes every layer of the group, locked
+    // or not, through its ordinary properties.
+    // Moves the group's emitters (their Position) by this much.
+    Status moveGroup(std::string_view group, double dx, double dy, double dz);
+    // Makes the group start this much later (earlier when below zero, but
+    // not before the effect starts). The effect grows to fit.
+    Status delayGroup(std::string_view group, double seconds);
+    // Makes the group this many times as large, particles and reach, about
+    // the middle of its emitters.
+    Status sizeGroup(std::string_view group, double factor);
+    Status setGroupEnabled(std::string_view group, bool enabled);
+    Status removeGroup(std::string_view group);
+    // The layers stay; they are simply no longer a group.
+    Status ungroup(std::string_view group);
     // ------------------------------------------------- the artist's pictures
     // Copies a PNG into the project's images folder and makes the layer draw
     // it, as one undo step. originalName is only used to name the copy.

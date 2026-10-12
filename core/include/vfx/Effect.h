@@ -76,6 +76,10 @@ struct Layer {
     std::string role;
     // A locked layer is left alone by tools that adjust the whole effect.
     bool locked = false;
+    // The group the layer belongs to, by name: the layers of an effect added
+    // from the library are one group, moved, delayed, sized, hidden and
+    // removed together. Empty for none.
+    std::string group;
     std::vector<SimpleControl> controls;
     std::vector<Module> modules;
     Extras extra;

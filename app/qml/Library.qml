@@ -195,11 +195,13 @@ Rectangle {
                     }
 
                     VButton {
-                        visible: hover.hovered
+                        objectName: "addToEffect"
                         anchors.right: stage.right
                         anchors.bottom: stage.bottom
                         anchors.margins: 6
-                        text: "Add to my effect"
+                        opacity: hover.hovered ? 1.0 : 0.8
+                        text: "+ Add"
+                        tip: "Add this to the effect you have open, as a group you can move, delay and size"
                         onClicked: root.addRequested(cell.modelData.id)
                     }
                 }
@@ -214,7 +216,7 @@ Rectangle {
             anchors.leftMargin: 24
             anchors.rightMargin: 24
             anchors.bottomMargin: 12
-            text: "Click a card to open it as a new effect. “Add to my effect” puts its layers into the effect you already have."
+            text: "Click a card to open it as a new effect. “+ Add” puts it into the effect you already have, as a group you can move, delay and size."
             color: theme.faint
             font.pixelSize: theme.smallFontSize
             elide: Text.ElideRight

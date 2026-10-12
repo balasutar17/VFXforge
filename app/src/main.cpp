@@ -19,6 +19,8 @@
 #include <QStringList>
 #include <QTextStream>
 #include <QTimer>
+
+#include <cmath>
 #include <QUrl>
 #include <QVariantMap>
 #include <QtQml>
@@ -237,7 +239,48 @@ int main(int argc, char* argv[]) {
                 QTextStream(&selfTest.report) << "FAIL: the library shows no previews\n";
                 selfTest.result = 1;
             }
-            finish();
+            // The 3D cards, each playing.
+            if (QObject* library = window->findChild<QObject*>(QStringLiteral("library"))) {
+                library->setProperty("category", QStringLiteral("3D"));
+            }
+            QTimer::singleShot(1800, &application, [&, window, software, finish]() {
+                const int lit3d = capture(window, selfTest, QStringLiteral("-library-3d"), QStringLiteral("the 3D cards"));
+                if (!software && lit3d < 500) {
+                    QTextStream(&selfTest.report) << "FAIL: the 3D cards show nothing\n";
+                    selfTest.result = 1;
+                }
+                // Two effects in one: Portal 3D, with Guardian Orbs 3D added as
+                // a group, then moved up, started later and made larger.
+                controller.setLibraryOpen(false);
+                controller.openPreset(QStringLiteral("portal-3d"));
+                const int before = static_cast<int>(controller.session().effect().layers.size());
+                const bool added = controller.addPreset(QStringLiteral("guardian-orbs-3d"));
+                const auto groups = controller.session().groups();
+                const QString group = groups.empty() ? QString() : QString::fromStdString(groups.front());
+                controller.moveGroup(group, 0.0, 0.5, 0.0);
+                controller.delayGroup(group, 0.3);
+                controller.sizeGroup(group, 1.1);
+                double start = -1;
+                for (const vfx::Layer& l : controller.session().effect().layers) {
+                    if (l.group == group.toStdString()) {
+                        start = l.start;
+                    }
+                }
+                controller.selectLayer(before);
+                QTextStream groupsOut(&selfTest.report);
+                groupsOut << "groups: added " << (added ? "yes" : "NO") << ", group \"" << group << "\", "
+                          << controller.session().effect().layers.size() - static_cast<std::size_t>(before)
+                          << " layers, starts at " << start << " s, effect " << controller.duration() << " s\n";
+                if (!added || group != QStringLiteral("Guardian Orbs 3D") || std::fabs(start - 0.3) > 1e-6 ||
+                    controller.duration() < 2.3 - 1e-6) {
+                    groupsOut << "FAIL: adding an effect as a group did not work\n";
+                    selfTest.result = 1;
+                }
+                QTimer::singleShot(900, &application, [&, window, finish]() {
+                    capture(window, selfTest, QStringLiteral("-groups"), QStringLiteral("two effects in one, as groups"));
+                    finish();
+                });
+            });
         };
 
         // Reference to VFX, start to finish: read a picture and a clip,

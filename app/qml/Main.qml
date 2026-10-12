@@ -430,19 +430,95 @@ ApplicationWindow {
                         model: app.layers
                         boundsBehavior: Flickable.StopAtBounds
 
-                        delegate: Rectangle {
-                            id: layerRow
+                        // Groups folded shut, by name. Kept here, not in the effect.
+                        property var folded: ({})
+                        function toggleFold(group) {
+                            var next = Object.assign({}, folded)
+                            next[group] = !next[group]
+                            folded = next
+                        }
+
+                        delegate: Item {
+                            id: layerItem
                             required property var modelData
                             required property int index
+                            readonly property string group: modelData.group || ""
+                            readonly property bool inGroup: group !== ""
+                            readonly property bool isFolded: inGroup && layerList.folded[group] === true
+                            width: layerList.width
+                            height: (modelData.groupFirst ? groupHead.height + 2 : 0) + (isFolded ? 0 : 32)
+
+                            // The group's heading, above its first layer.
+                            Rectangle {
+                                id: groupHead
+                                objectName: "groupHeading"
+                                visible: layerItem.modelData.groupFirst === true
+                                width: parent.width
+                                height: visible ? 28 : 0
+                                radius: 5
+                                color: theme.raised
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: layerList.toggleFold(layerItem.group)
+                                }
+                                Text {
+                                    id: foldMark
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 8
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: layerItem.isFolded ? "\u25b8" : "\u25be"
+                                    color: theme.dim
+                                    font.pixelSize: theme.fontSize
+                                }
+                                Text {
+                                    anchors.left: foldMark.right
+                                    anchors.leftMargin: 6
+                                    anchors.right: groupShown.left
+                                    anchors.rightMargin: 4
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: layerItem.group + "  \u00b7  " + layerItem.modelData.groupCount
+                                    color: layerItem.modelData.groupShown ? theme.text : theme.faint
+                                    font.pixelSize: theme.fontSize
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                }
+                                VCheck {
+                                    id: groupShown
+                                    anchors.right: groupRemove.left
+                                    anchors.rightMargin: 2
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    checked: layerItem.modelData.groupShown === true
+                                    onToggled: function(nowChecked) { app.setGroupEnabled(layerItem.group, nowChecked) }
+                                }
+                                VButton {
+                                    id: groupRemove
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 4
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    implicitWidth: 26
+                                    implicitHeight: 22
+                                    quiet: true
+                                    text: "\u00d7"
+                                    tip: "Remove the whole group"
+                                    onClicked: app.removeGroup(layerItem.group)
+                                }
+                            }
+
+                        Rectangle {
+                            id: layerRow
+                            readonly property var modelData: layerItem.modelData
+                            readonly property int index: layerItem.index
                             readonly property bool selected: index === app.selectedLayer
 
-                            width: layerList.width
+                            visible: !layerItem.isFolded
+                            anchors.bottom: parent.bottom
+                            anchors.right: parent.right
+                            width: layerList.width - (layerItem.inGroup ? 12 : 0)
                             height: 32
                             radius: 5
                             color: selected ? theme.raised : (rowArea.containsMouse ? theme.hover : "transparent")
                             border.width: selected ? 1 : 0
                             border.color: theme.accent
-
                             MouseArea {
                                 id: rowArea
                                 anchors.fill: parent
@@ -493,6 +569,7 @@ ApplicationWindow {
                                 onClicked: app.removeLayer(layerRow.index)
                             }
                         }
+                        }
                     }
 
                     RowLayout {
@@ -516,6 +593,79 @@ ApplicationWindow {
                         text: "Add a layer"
                         tip: "Add another emitter to this effect"
                         onClicked: app.addLayer()
+                    }
+
+                    // The group of the selected layer: moved, delayed and
+                    // sized as one. Each click is one undo step.
+                    ColumnLayout {
+                        id: groupPanel
+                        objectName: "groupPanel"
+                        readonly property var row: app.selectedLayer >= 0 && app.selectedLayer < app.layers.length
+                                                   ? app.layers[app.selectedLayer] : null
+                        readonly property string group: row && row.group ? row.group : ""
+                        readonly property real step: 0.25
+                        Layout.fillWidth: true
+                        visible: group !== ""
+                        spacing: 4
+
+                        Item { Layout.preferredHeight: 4 }
+                        Text {
+                            Layout.fillWidth: true
+                            text: "GROUP  " + groupPanel.group
+                            color: theme.dim
+                            font.pixelSize: theme.smallFontSize
+                            font.bold: true
+                            elide: Text.ElideRight
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+                            Text { Layout.preferredWidth: 44; text: "Move"; color: theme.dim; font.pixelSize: theme.smallFontSize }
+                            VButton { Layout.fillWidth: true; text: "\u2190"; tip: "Move the group left"; onClicked: app.moveGroup(groupPanel.group, -groupPanel.step, 0, 0) }
+                            VButton { Layout.fillWidth: true; text: "\u2192"; tip: "Move the group right"; onClicked: app.moveGroup(groupPanel.group, groupPanel.step, 0, 0) }
+                            VButton { Layout.fillWidth: true; text: "\u2191"; tip: "Move the group up"; onClicked: app.moveGroup(groupPanel.group, 0, groupPanel.step, 0) }
+                            VButton { Layout.fillWidth: true; text: "\u2193"; tip: "Move the group down"; onClicked: app.moveGroup(groupPanel.group, 0, -groupPanel.step, 0) }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: app.threeD
+                            spacing: 4
+                            Item { Layout.preferredWidth: 44 }
+                            VButton { Layout.fillWidth: true; text: "Nearer"; tip: "Move the group towards the front"; onClicked: app.moveGroup(groupPanel.group, 0, 0, groupPanel.step) }
+                            VButton { Layout.fillWidth: true; text: "Further"; tip: "Move the group towards the back"; onClicked: app.moveGroup(groupPanel.group, 0, 0, -groupPanel.step) }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+                            Text {
+                                Layout.preferredWidth: 44
+                                text: "Starts"
+                                color: theme.dim
+                                font.pixelSize: theme.smallFontSize
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: (groupPanel.row ? groupPanel.row.groupStart : 0).toFixed(2) + " s"
+                                color: theme.text
+                                font.pixelSize: theme.fontSize
+                            }
+                            VButton { text: "\u2212 0.1 s"; tip: "Start the group a tenth of a second earlier"; onClicked: app.delayGroup(groupPanel.group, -0.1) }
+                            VButton { text: "+ 0.1 s"; tip: "Start the group a tenth of a second later (the effect grows to fit)"; onClicked: app.delayGroup(groupPanel.group, 0.1) }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+                            Text { Layout.preferredWidth: 44; text: "Size"; color: theme.dim; font.pixelSize: theme.smallFontSize }
+                            VButton { Layout.fillWidth: true; text: "Smaller"; tip: "The whole group 10% smaller, particles and reach"; onClicked: app.sizeGroup(groupPanel.group, 1.0 / 1.1) }
+                            VButton { Layout.fillWidth: true; text: "Larger"; tip: "The whole group 10% larger, particles and reach"; onClicked: app.sizeGroup(groupPanel.group, 1.1) }
+                        }
+                        VButton {
+                            Layout.fillWidth: true
+                            quiet: true
+                            text: "Ungroup"
+                            tip: "Keep the layers, but no longer as a group"
+                            onClicked: app.ungroup(groupPanel.group)
+                        }
                     }
                 }
             }
@@ -965,6 +1115,7 @@ ApplicationWindow {
 
     Library {
         id: library
+        objectName: "library"
         anchors.fill: parent
         visible: app.libraryOpen
         onCloseRequested: app.libraryOpen = false

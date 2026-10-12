@@ -54,6 +54,9 @@ What exists so far:
 - **effects on a 3D model**: bring in a character or prop (.obj, .glb,
   .gltf), or use the practice dummy, and make the effect on it; particles
   behind it are hidden; see [docs/models.md](docs/models.md)
+- **combining effects**: add any library effect into the one you have open
+  as a group, then move, delay, size, hide or remove it as one; see
+  [docs/combining-effects.md](docs/combining-effects.md)
 - **3D effects**: layers that lie on the ground and turn about the
   upright, see-through particles sorted by distance, particles hidden
   pixel by pixel behind a model, and a 3D preset category; see

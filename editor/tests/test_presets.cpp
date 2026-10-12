@@ -303,3 +303,100 @@ TEST_CASE("a ring that turns part of a turn each loop is found, and Seamless loo
     effect.loop = "once";
     CHECK(loopJumps(effect).empty());
 }
+
+TEST_CASE("an effect added from the library is a group, moved, delayed, sized and removed as one",
+          "[presets][session][groups]") {
+    Session s;
+    REQUIRE(s.openPreset("portal-3d"));
+    const std::size_t own = s.effect().layers.size();
+    CHECK(s.groups().empty());  // an opened preset is the effect itself, not a group in it
+
+    REQUIRE(s.addPreset("guardian-orbs-3d"));
+    REQUIRE(s.addPreset("guardian-orbs-3d"));
+    REQUIRE(s.groups() == std::vector<std::string>{"Guardian Orbs 3D", "Guardian Orbs 3D 2"});
+    const std::string g = "Guardian Orbs 3D";
+    auto members = [&](const std::string& name) {
+        std::vector<const Layer*> out;
+        for (const Layer& l : s.effect().layers) {
+            if (l.group == name) {
+                out.push_back(&l);
+            }
+        }
+        return out;
+    };
+    auto offsetOf = [](const Layer& l) {
+        for (const Module& m : l.modules) {
+            if (m.type == "shape") {
+                return std::get<Vec3>(*m.find("offset"));
+            }
+        }
+        return Vec3{};
+    };
+    REQUIRE(members(g).size() == 2);
+    for (const Layer* l : members(g)) {
+        CHECK_FALSE(l->id == Id{});
+    }
+
+    // A 2-second loop added to a 4-second one plays twice over.
+    for (const Layer* l : members(g)) {
+        CHECK(l->duration == Catch::Approx(s.effect().duration));
+    }
+
+    // Moved together, one undo step; the other group stays put.
+    const Vec3 was = offsetOf(*members(g)[0]);
+    const Vec3 other = offsetOf(*members(g + " 2")[0]);
+    REQUIRE(s.moveGroup(g, 0.5, 0.25, -1.0));
+    CHECK(s.commands().undoName() == "Move Guardian Orbs 3D");
+    CHECK(offsetOf(*members(g)[0]).x == Catch::Approx(was.x + 0.5));
+    CHECK(offsetOf(*members(g)[0]).y == Catch::Approx(was.y + 0.25));
+    CHECK(offsetOf(*members(g)[0]).z == Catch::Approx(was.z - 1.0));
+    CHECK(offsetOf(*members(g + " 2")[0]).y == Catch::Approx(other.y));
+    REQUIRE(s.undo());
+    CHECK(offsetOf(*members(g)[0]).y == Catch::Approx(was.y));
+
+    // Delayed: it starts later, and the effect grows to fit it.
+    const double length = s.effect().duration;
+    REQUIRE(s.delayGroup(g, 0.5));
+    for (const Layer* l : members(g)) {
+        CHECK(l->start == Catch::Approx(0.5));
+    }
+    CHECK(s.effect().duration >= length + 0.5 - 1e-9);
+    REQUIRE(s.delayGroup(g, -2.0));  // not before the start
+    for (const Layer* l : members(g)) {
+        CHECK(l->start == 0.0);
+    }
+
+    // Sized about the middle of its emitters: they all sit at one point, so
+    // that point stays where it is.
+    REQUIRE(s.sizeGroup(g, 2.0));
+    CHECK(offsetOf(*members(g)[0]).y == Catch::Approx(was.y));
+    CHECK_FALSE(s.sizeGroup(g, 0.0));
+
+    // Hidden and shown, removed, and ungrouped.
+    REQUIRE(s.setGroupEnabled(g, false));
+    for (const Layer* l : members(g)) {
+        CHECK_FALSE(l->enabled);
+    }
+    REQUIRE(s.removeGroup(g));
+    CHECK(members(g).empty());
+    CHECK(s.effect().layers.size() == own + 2);
+    REQUIRE(s.undo());
+    CHECK(members(g).size() == 2);
+    REQUIRE(s.ungroup(g + " 2"));
+    CHECK(s.groups() == std::vector<std::string>{g});
+    CHECK(s.effect().layers.size() == own + 4);
+
+    // Unknown groups are refused.
+    CHECK_FALSE(s.moveGroup("no such group", 1, 0, 0));
+    CHECK_FALSE(s.removeGroup("no such group"));
+
+    // A group is saved with the effect and read back.
+    const auto text = writeEffect(s.effect());
+    const auto back = readEffect(text);
+    REQUIRE(back.ok());
+    int grouped = 0;
+    for (const Layer& l : back.value().effect.layers) {
+        grouped += l.group == g ? 1 : 0;
+    }
+    CHECK(grouped == 2);
+}

@@ -337,6 +337,8 @@ Registry::Registry() {
             .help("What the layer is for: glow, core, ring, sparks, streaks, body, smoke, trail."),
         P("locked", "Locked", ValueKind::Bool, Value(false))
             .help("A locked layer is left alone by Refine and by rebuilding from a reference."),
+        P("group", "Group", ValueKind::Text, text(""))
+            .help("The group the layer belongs to: an effect added from the library is one group."),
     });
 }
 
