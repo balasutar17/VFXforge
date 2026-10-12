@@ -964,7 +964,7 @@ Effect emberFlash(const IdSource& id) { return flash(id, "Ember Flash", 0xc0401a
 // A sprite that is there for the whole of a looping effect must hand over
 // to its next self without a blink; see keepWholePass.
 Effect seamless(Effect e) {
-    tools::keepWholePass(e);
+    tools::smoothLoop(e);
     return e;
 }
 
@@ -1273,12 +1273,14 @@ Effect trophyWin(const IdSource& id) {
 }
 
 Effect runeWard(const IdSource& id) {
-    Effect e = begin(id, "Rune Ward", 4.0);
+    // Eighteen seconds a pass: the outer circle turns once in it and the
+    // inner one twice the other way, so the loop has no seam.
+    Effect e = begin(id, "Rune Ward", 18.0);
     add(e, Make(id, "Glow").rate(2).life(1.6, 1.6).speed(0, 0).size(6.4, 6.4).color(0x7a4dff).gravity(0, 0)
                .fade({{0, 0}, {0.5, 0.22}, {1, 0}}).additive().lieFlat(64));
-    add(e, Make(id, "Outer circle").burst(1).life(4.0, 4.0).speed(0, 0).size(5.6, 5.6).color(0xb79cff).gravity(0, 0)
+    add(e, Make(id, "Outer circle").burst(1).life(18.0, 18.0).speed(0, 0).size(5.6, 5.6).color(0xb79cff).gravity(0, 0)
                .spin(20, 20).solid().look("triad").additive().glow(1.5).lieFlat(64));
-    add(e, Make(id, "Inner circle").burst(1).life(4.0, 4.0).speed(0, 0).size(2.9, 2.9).color(0xe2d6ff).gravity(0, 0)
+    add(e, Make(id, "Inner circle").burst(1).life(18.0, 18.0).speed(0, 0).size(2.9, 2.9).color(0xe2d6ff).gravity(0, 0)
                .spin(-40, -40).solid().look("pentacle").additive().glow(1.5).lieFlat(64));
     const char* runes[3] = {"runea", "runeb", "runec"};
     const char* names[3] = {"Runes of arms", "Runes of the lozenge", "Runes of the stroke"};
@@ -1294,7 +1296,7 @@ Effect runeWard(const IdSource& id) {
     add(e, Make(id, "Motes").rate(14).rect(4.4, 0.6).life(0.9, 1.5).speed(0.8, 1.8).aim(90, 6).size(0.06, 0.12)
                .color(0xcbb8ff).gravity(0, 0).fade({{0, 0}, {0.2, 1}, {0.7, 1}, {1, 0}}).additive().glow(2.0)
                .turbulence(0.6, 1.2, 0.6));
-    tools::keepWholePass(e);
+    tools::smoothLoop(e);
     return e;
 }
 
@@ -1369,7 +1371,7 @@ Effect stunned(const IdSource& id) {
                .spin(300, 300).solid().look("spiral").additive().glow(1.3));
     add(e, Make(id, "Trail dots").rate(22).circle(1.25, true).life(0.35, 0.55).speed(0, 0).size(0.08, 0.16)
                .color(0xfff6cf).gravity(0, 0).orbit(150).sizeOver({{0, 1}, {1, 0}}).solid().look("disc"));
-    tools::keepWholePass(e);
+    tools::smoothLoop(e);
     return e;
 }
 
@@ -1408,7 +1410,7 @@ Effect aura3d(const IdSource& id) {
     add(e, Make(id, "Crosses").rate(4).circle(0.9).life(1.2, 1.6).speed(0.9, 1.3).toward(0, 1, 0, 8).size(0.16, 0.24)
                .color(0xd6ffe2).gravity(0, 0).ground().sizeOver({{0, 0}, {0.2, 1.1, true}, {0.35, 1, true}, {1, 0.6}})
                .fade({{0, 1}, {0.75, 1}, {1, 0}}).look("plus").hold(12));
-    tools::keepWholePass(e);
+    tools::smoothLoop(e);
     return e;
 }
 
@@ -1425,23 +1427,25 @@ Effect levelUp3d(const IdSource& id) {
                .size(0.22, 0.32).color(0xfff1a8).gravity(0, -0.6).orbit(-90).ground().spin(-90, 90)
                .sizeOver({{0, 0}, {0.15, 1.15, true}, {0.3, 1, true}, {0.85, 1}, {1, 0}}).solid().look("starfat")
                .hold(12));
-    tools::keepWholePass(e);
+    tools::smoothLoop(e);
     return e;
 }
 
 Effect portal3d(const IdSource& id) {
-    Effect e = begin3d(id, "Portal 3D", 2.0);
-    add(e, Make(id, "Vortex").burst(1).life(2.0, 2.0).speed(0, 0).size(3.2, 3.2).color(0x9f6bff).gravity(0, 0)
-               .spin(140, 140).solid().look("vortex").additive().glow(1.4).ground().flatOnPlane());
-    add(e, Make(id, "Rim").burst(1).life(2.0, 2.0).speed(0, 0).size(3.3, 3.3).color(0xd6c2ff).gravity(0, 0)
-               .spin(-40, -40).solid().look("portalring").additive().ground().flatOnPlane());
+    // Four seconds a pass, so the whirl and the rim each turn a whole number
+    // of times in it and nothing jumps when the loop starts again.
+    Effect e = begin3d(id, "Portal 3D", 4.0);
+    add(e, Make(id, "Vortex").burst(1).life(4.0, 4.0).speed(0, 0).size(3.2, 3.2).color(0x9f6bff).gravity(0, 0)
+               .spin(180, 180).solid().look("vortex").additive().glow(1.4).ground().flatOnPlane());
+    add(e, Make(id, "Rim").burst(1).life(4.0, 4.0).speed(0, 0).size(3.3, 3.3).color(0xd6c2ff).gravity(0, 0)
+               .spin(-45, -45).solid().look("portalring").additive().ground().flatOnPlane());
     add(e, Make(id, "Beams").rate(10).circle(1.2, true).life(0.5, 0.8).speed(3, 4.5).toward(0, 1, 0, 0)
                .size(0.12, 0.2).color(0xb48cff).gravity(0, 0).ground().additive().streak(0.18)
                .fade({{0, 0}, {0.2, 1}, {1, 0}}));
     add(e, Make(id, "Motes").rate(40).circle(1.6, true).life(1.0, 1.6).speed(0.2, 0.6).toward(0, 1, 0, 20)
                .size(0.06, 0.12).color(0xe9dcff).gravity(0, 0).orbit(160).ground()
                .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).additive().glow(2.2));
-    tools::keepWholePass(e);
+    tools::smoothLoop(e);
     return e;
 }
 
@@ -1475,7 +1479,7 @@ Effect fire3d(const IdSource& id) {
                .size(0.04, 0.07).color(0xffb05a).gravity(0, 0.3).additive().glow(2.0).turbulence(0.8, 1.0, 0.8));
     add(e, Make(id, "Logs").burst(1).life(2.0, 2.0).speed(0, 0).size(1.3, 1.3).color(0x5a3a22).gravity(0, 0).solid()
                .look("bone").ground().flatOnPlane());
-    tools::keepWholePass(e);
+    tools::smoothLoop(e);
     return e;
 }
 
@@ -1495,7 +1499,7 @@ Effect smokeColumn3d(const IdSource& id) {
     add(e, Make(id, "Smoke").rate(14).sphere(0.4).life(2.2, 3.0).speed(0.6, 1.0).toward(0, 1, 0, 18).size(0.7, 1.1)
                .color(0xc2c6d0).gravity(0, 0.25).spin(-25, 25).sizeOver({{0, 0.4}, {1, 1.7}})
                .fade({{0, 0}, {0.15, 1}, {0.7, 0.8}, {1, 0}}).look("puff").turbulence(0.5, 1.6, 0.5));
-    tools::keepWholePass(e);
+    tools::smoothLoop(e);
     return e;
 }
 
@@ -1513,7 +1517,7 @@ Effect guardianOrbs3d(const IdSource& id) {
     add(e, Make(id, "Sparkles").rate(30).circle(1.3, true).at3(0, 1.6, 0).life(0.4, 0.7).speed(0.1, 0.4)
                .toward(0, 1, 0, 180).size(0.06, 0.12).color(0xd8f6ff).gravity(0, -0.5).orbit(180).ground()
                .fade({{0, 1}, {1, 0}}).look("glint").additive().glow(2.0));
-    tools::keepWholePass(e);
+    tools::smoothLoop(e);
     return e;
 }
 

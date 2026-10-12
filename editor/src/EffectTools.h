@@ -7,6 +7,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "vfx/Effect.h"
 #include "vfx/Value.h"
@@ -61,6 +62,12 @@ void scaleTime(Layer& layer, double factor);
 // steps (a change of under a hundredth of a second), such sprites live
 // exactly that long, and they are born half a step into the pass.
 void keepWholePass(Effect& effect);
+// Such a sprite that turns must turn a whole number of times in a pass, or
+// it jumps back each time the loop starts again. loopJumps names the layers
+// that would; smoothLoop rounds their turning to the nearest whole number of
+// turns a pass (at least one), and keeps them whole-pass as above.
+std::vector<std::string> loopJumps(const Effect& effect);
+void smoothLoop(Effect& effect);
 void setColour(Layer& layer, const Color& colour, bool keepOpacity);
 void setShape(Layer& layer, const char* shape);
 

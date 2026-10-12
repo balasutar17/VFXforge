@@ -41,6 +41,7 @@ enum class Refine {
     Anticipate,     // pieces back away before they fly; shapes draw in before they grow
     Overshoot,      // flying pieces go past where they will rest and come back
     Curl,           // flying pieces curve round the centre instead of going straight
+    SmoothLoop,     // nothing jumps when a looping effect starts again
     MatchColours,   // needs a reference: its colours again
     MatchDuration,  // needs a clip: its length again
 };
@@ -63,5 +64,10 @@ const RefineInfo* findRefinement(std::string_view key);
 // for refinements that do not need the reference.
 Result<Effect> refine(const Effect& effect, Refine what, const ReferenceAnalysis* analysis, const IdSource& newId,
                       std::string* said = nullptr);
+
+// The layers of a looping effect that jump back when the loop starts again:
+// a ring or circle that lasts the whole loop and turns, but not a whole
+// number of times in it. Refine::SmoothLoop mends them.
+std::vector<std::string> loopJumps(const Effect& effect);
 
 }  // namespace vfx::editor

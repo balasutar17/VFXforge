@@ -12,6 +12,7 @@
 #include "vfx/Simulation.h"
 #include "vfx/editor/Picture.h"
 #include "vfx/editor/CurveTools.h"
+#include "vfx/editor/Refine.h"
 #include "vfx/editor/Presets.h"
 #include "vfx/editor/Session.h"
 #include "vfx/editor/SpriteMesh.h"
@@ -240,4 +241,65 @@ TEST_CASE("a preset opens as a fresh effect and can be added to another", "[pres
     CHECK(s.effect().name == "Fire Blast");
     CHECK(s.generation() == generation + 1);
     CHECK_FALSE(s.commands().canUndo());
+}
+
+namespace {
+
+void put(Layer& layer, const char* type, const char* key, Value value) {
+    for (Module& m : layer.modules) {
+        if (m.type == type) {
+            *m.find(key) = std::move(value);
+        }
+    }
+}
+
+const Value* findValue(const Layer& layer, const char* type, const char* key) {
+    for (const Module& m : layer.modules) {
+        if (m.type == type) {
+            return m.find(key);
+        }
+    }
+    return nullptr;
+}
+
+}  // namespace
+
+TEST_CASE("no looping preset jumps when its loop starts again", "[presets][loop]") {
+    for (const PresetInfo& info : presets()) {
+        INFO(info.id);
+        CHECK(loopJumps(build(info.id)).empty());
+    }
+}
+
+TEST_CASE("a ring that turns part of a turn each loop is found, and Seamless loop mends it", "[presets][loop]") {
+    Effect effect = build("portal-3d");
+    REQUIRE(effect.duration == Catch::Approx(4.0).margin(0.02));
+    // Turning 140 degrees a second, as Portal 3D first did, the whirl is
+    // 200 degrees short of a whole turn when the loop starts again.
+    for (Layer& l : effect.layers) {
+        if (l.name == "Vortex") {
+            put(l, "motion", "spin", Value(Scalar::constant(140.0)));
+        }
+    }
+    const auto jumping = loopJumps(effect);
+    REQUIRE(jumping.size() == 1);
+    CHECK(jumping[0] == "Vortex");
+
+    IdGenerator ids(3);
+    const IdSource newId = [&ids]() { return ids.next(); };
+    std::string said;
+    const auto mended = refine(effect, Refine::SmoothLoop, nullptr, newId, &said);
+    REQUIRE(mended.ok());
+    CHECK(loopJumps(mended.value()).empty());
+    CHECK(said.find("Vortex") != std::string::npos);
+    for (const Layer& l : mended.value().layers) {
+        if (l.name == "Vortex") {
+            const Value* spin = findValue(l, "motion", "spin");
+            REQUIRE(spin);
+            CHECK(std::get<Scalar>(*spin).a * mended.value().duration == Catch::Approx(720.0));  // two whole turns
+        }
+    }
+    // A loop that plays once has nothing to mend.
+    effect.loop = "once";
+    CHECK(loopJumps(effect).empty());
 }

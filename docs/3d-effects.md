@@ -73,3 +73,27 @@ sprite squashed when seen from low and square from above.
 `editor/tests/test_unity.cpp`: tilt 90, distance sort, the laid-down box
 and Orbital Y. `editor/tests/test_model.cpp`: hiding pixel by pixel.
 `editor/tests/test_presets.cpp`: every 3D preset a valid 3D effect.
+
+## 0.17.1: the jump at the loop
+
+Bala saw Portal 3D jump every two seconds. The whirl and the rim are each
+one sprite that lasts the whole loop and turns. At 140 degrees a second
+over a two-second loop the whirl turned 280 degrees, so when the loop
+started again it snapped back 280 degrees (the rim, 80). Rune Ward had the
+same fault.
+
+- **Found for you.** When a ring or circle that lasts the whole loop turns
+  part of a turn each loop, a **Fix loop jump** button appears beside Loop
+  under the timeline; its tooltip names the layers.
+- **Mended in one click** (that button, or **Motion... > Seamless loop**):
+  each such layer's Spin is rounded to the nearest whole number of turns a
+  loop (at least one), as one undo step. A layer that fades out, or shrinks
+  to nothing, at both ends of its life is left alone: nothing shows at the
+  join.
+- **The presets.** Portal 3D is now 4 seconds a loop, the whirl turning
+  twice and the rim half as fast the other way. Rune Ward is 18 seconds a
+  loop, its circles turning at their old speeds (once, and twice the other
+  way). Every looping preset is checked by a test.
+- Not checked yet: Orbit on a sprite that lasts the whole loop, random
+  start angles, and shapes that repeat round the circle (a crosshair looks
+  the same after a quarter turn; the check asks for a whole turn anyway).

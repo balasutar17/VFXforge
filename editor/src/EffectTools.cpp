@@ -1,6 +1,7 @@
 #include "EffectTools.h"
 
 #include "vfx/Program.h"
+#include "vfx/editor/CurveTools.h"
 
 #include <algorithm>
 #include <cmath>
@@ -190,6 +191,108 @@ void scaleBrightness(Layer& layer, double factor) {
         }
     } else {
         colour->a = std::clamp(level, 0.0, 1.0);
+    }
+}
+
+namespace {
+
+// A single sprite that lives through the whole pass of a looping effect:
+// one burst at the very start, nothing else emitted, living (about) as long
+// as the effect.
+bool livesWholePass(const Effect& effect, const Layer& layer) {
+    const double step = kSimulationStep;
+    if (!layer.enabled || std::fabs(layer.start) > 0.5 * step) {
+        return false;
+    }
+    const Scalar* rate = property<Scalar>(layer, "emission", "rate");
+    const BurstList* bursts = property<BurstList>(layer, "emission", "bursts");
+    const Scalar* life = property<Scalar>(layer, "initial", "lifetime");
+    if (!bursts || !life || life->kind != Scalar::Kind::Constant) {
+        return false;
+    }
+    if (rate && !(rate->kind == Scalar::Kind::Constant && rate->a == 0.0)) {
+        return false;
+    }
+    if (bursts->items.size() != 1 || bursts->items[0].time < 0.0 || bursts->items[0].time > step) {
+        return false;
+    }
+    return life->a >= effect.duration - step && life->a <= effect.duration + 1.5 * step;
+}
+
+// How far round a whole-pass sprite turns in one pass, in turns; nullopt
+// when it does not turn at a steady rate.
+const Scalar* steadySpin(const Layer& layer) {
+    const Scalar* spin = property<Scalar>(layer, "motion", "spin");
+    if (!spin || spin->kind == Scalar::Kind::Curve) {
+        return nullptr;
+    }
+    return spin;
+}
+
+double wholeTurns(double degreesPerSecond, double duration) {
+    const double turns = std::round(degreesPerSecond * duration / 360.0);
+    if (turns == 0.0 && degreesPerSecond != 0.0) {
+        return degreesPerSecond > 0.0 ? 1.0 : -1.0;
+    }
+    return turns;
+}
+
+bool turnsWhole(double degreesPerSecond, double duration) {
+    const double turns = degreesPerSecond * duration / 360.0;
+    return std::fabs(turns - std::round(turns)) < 1e-6;
+}
+
+// Hidden as one pass hands over to the next: faded out, or shrunk to
+// nothing, at both ends of its life.
+bool hiddenAtSeam(const Layer& layer) {
+    for (const char* key : {"opacity", "size"}) {
+        const Scalar* over = property<Scalar>(layer, "overLife", key);
+        if (over && over->kind == Scalar::Kind::Curve && !over->keys.empty() &&
+            std::fabs(curveAt(over->keys, 0.0)) < 0.05 && std::fabs(curveAt(over->keys, 1.0)) < 0.05) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool jumpsAtLoop(const Effect& effect, const Layer& layer) {
+    if (!livesWholePass(effect, layer) || hiddenAtSeam(layer)) {
+        return false;
+    }
+    const Scalar* spin = steadySpin(layer);
+    if (!spin || (spin->a == 0.0 && spin->b == 0.0)) {
+        return false;
+    }
+    return spin->kind == Scalar::Kind::Random ? spin->a != spin->b : !turnsWhole(spin->a, effect.duration);
+}
+
+}  // namespace
+
+std::vector<std::string> loopJumps(const Effect& effect) {
+    std::vector<std::string> names;
+    if (effect.loop != "loop" || !(effect.duration > 0.0)) {
+        return names;
+    }
+    for (const Layer& layer : effect.layers) {
+        if (jumpsAtLoop(effect, layer)) {
+            names.push_back(layer.name);
+        }
+    }
+    return names;
+}
+
+void smoothLoop(Effect& effect) {
+    if (effect.loop != "loop" || !(effect.duration > 0.0)) {
+        return;
+    }
+    keepWholePass(effect);
+    for (Layer& layer : effect.layers) {
+        if (layer.locked || !jumpsAtLoop(effect, layer)) {
+            continue;
+        }
+        Scalar* spin = property<Scalar>(layer, "motion", "spin");
+        const double speed = spin->kind == Scalar::Kind::Random ? 0.5 * (spin->a + spin->b) : spin->a;
+        *spin = Scalar::constant(wholeTurns(speed, effect.duration) * 360.0 / effect.duration);
     }
 }
 

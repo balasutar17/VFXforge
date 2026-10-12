@@ -326,7 +326,7 @@ QVariantMap shapeRow(const vfx::editor::CurveShape& shape) {
 
 // The one-click changes the main window offers, by their keys in Refine.h.
 const char* const kMotionChanges[] = {"on-twos", "smooth-timing", "squash-stretch",
-                                      "anticipate", "overshoot", "curl"};
+                                      "anticipate", "overshoot", "curl", "smooth-loop"};
 
 }  // namespace
 
@@ -354,6 +354,21 @@ QVariantList AppController::motionChanges() const {
         }
     }
     return list;
+}
+
+QString AppController::loopJump() const {
+    const std::vector<std::string> names = vfx::editor::loopJumps(session_.effect());
+    if (names.empty()) {
+        return {};
+    }
+    QString list;
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        list += (i == 0 ? QString() : i + 1 == names.size() ? QStringLiteral(" and ") : QStringLiteral(", ")) +
+                QString::fromStdString(names[i]);
+    }
+    return list + (names.size() == 1 ? QStringLiteral(" jumps") : QStringLiteral(" jump")) +
+           QStringLiteral(" back when the loop starts again: it turns part of a turn each loop. "
+                          "Click to make it turn a whole number of times.");
 }
 
 void AppController::applyMotionChange(const QString& key) {

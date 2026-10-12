@@ -32,6 +32,9 @@ class AppController : public QObject {
     Q_PROPERTY(bool readOnly READ readOnly NOTIFY documentChanged)
     Q_PROPERTY(bool threeD READ threeD NOTIFY documentChanged)
     Q_PROPERTY(bool loop READ loop NOTIFY documentChanged)
+    // The layers that jump back when the loop starts again, as a sentence;
+    // empty when nothing does. smoothLoop() mends them, as one undo step.
+    Q_PROPERTY(QString loopJump READ loopJump NOTIFY documentChanged)
     Q_PROPERTY(double duration READ duration NOTIFY documentChanged)
     Q_PROPERTY(double frameRate READ frameRate NOTIFY documentChanged)
     Q_PROPERTY(int frameCount READ frameCount NOTIFY documentChanged)
@@ -227,6 +230,8 @@ public:
     // Makes one of motionChanges to every layer that is not locked, as one
     // undo step, and says what it did.
     Q_INVOKABLE void applyMotionChange(const QString& key);
+    Q_INVOKABLE void smoothLoop() { applyMotionChange(QStringLiteral("smooth-loop")); }
+    QString loopJump() const;
 
     Q_INVOKABLE void selectLayer(int index);
     Q_INVOKABLE void addLayer();

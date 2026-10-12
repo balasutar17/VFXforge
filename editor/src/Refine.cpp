@@ -40,11 +40,14 @@ const std::vector<RefineInfo>& refinements() {
         {Refine::Anticipate, "anticipate", "Anticipation", "Flying pieces back away before they go, and big shapes draw in a little before they grow."},
         {Refine::Overshoot, "overshoot", "Overshoot", "Flying pieces go past where they will come to rest, and settle back."},
         {Refine::Curl, "curl", "Curl", "Flying pieces curve round the centre instead of going straight out. Again for more."},
+        {Refine::SmoothLoop, "smooth-loop", "Seamless loop", "Rings and circles that last the whole loop turn a whole number of times in it, so nothing jumps when the loop starts again."},
         {Refine::MatchColours, "match-colours", "Reference colours again", "Sets each layer back to the colour measured in the reference.", true, false},
         {Refine::MatchDuration, "match-duration", "Reference length again", "Stretches or squeezes the effect to last as long as the clip.", true, true},
     };
     return all;
 }
+
+std::vector<std::string> loopJumps(const Effect& effect) { return tools::loopJumps(effect); }
 
 const RefineInfo* findRefinement(std::string_view key) {
     for (const RefineInfo& r : refinements()) {
@@ -483,6 +486,26 @@ Result<Effect> refine(const Effect& effect, Refine what, const ReferenceAnalysis
                  });
             note = begun ? "Flying pieces in " + count(touched, "layer", "layers") + " now curve round the centre."
                          : "Half as much curl again in " + count(touched, "layer", "layers") + ".";
+            break;
+        }
+        case Refine::SmoothLoop: {
+            if (out.loop != "loop") {
+                note = "The effect plays once, so it has no loop to smooth.";
+                break;
+            }
+            const std::vector<std::string> jumping = tools::loopJumps(out);
+            tools::smoothLoop(out);
+            touched = static_cast<int>(jumping.size());
+            if (jumping.empty()) {
+                note = "Nothing jumps when the loop starts again.";
+            } else {
+                std::string names;
+                for (std::size_t i = 0; i < jumping.size(); ++i) {
+                    names += (i == 0 ? "" : i + 1 == jumping.size() ? " and " : ", ") + jumping[i];
+                }
+                note = names + (jumping.size() == 1 ? " now turns" : " now turn") +
+                       " a whole number of times each loop, so the loop has no jump.";
+            }
             break;
         }
         case Refine::MatchColours: {

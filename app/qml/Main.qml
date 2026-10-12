@@ -689,6 +689,14 @@ ApplicationWindow {
                             checked: app.loop
                             onToggled: function(nowChecked) { app.setLoop(nowChecked) }
                         }
+                        VButton {
+                            objectName: "loopJumpButton"
+                            Layout.leftMargin: 4
+                            visible: app.loop && app.loopJump !== ""
+                            text: "\u26a0 Fix loop jump"
+                            tip: app.loopJump
+                            onClicked: app.smoothLoop()
+                        }
                         VCheck {
                             Layout.leftMargin: 6
                             text: "Sound"
