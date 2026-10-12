@@ -577,7 +577,7 @@ int main(int argc, char* argv[]) {
                                     motion << "one-click changes: " << offered << " offered; Smooth gave Hold Frames " << smooth
                                            << ", On twos gave " << twos << " (\"" << said << "\"); Wobble has "
                                            << wobble.size() << " points\n";
-                                    if (offered != 6 || smooth != 0.0 || twos != 12.0 || !undoable || wobble.size() < 5) {
+                                    if (offered != 7 || smooth != 0.0 || twos != 12.0 || !undoable || wobble.size() < 5) {
                                         motion << "FAIL: the one-click motion changes did not work\n";
                                         selfTest.result = 1;
                                     }
