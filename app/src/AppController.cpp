@@ -598,6 +598,103 @@ void AppController::rebuildControls() {
     controls_ = std::move(list);
 }
 
+// ------------------------------------------------------------- handles
+
+QVariantMap AppController::gizmo() const {
+    QVariantMap g;
+    const vfx::Id layer = selectedLayerId();
+    const std::vector<vfx::Id> targets = layer.valid() ? session_.transformTargets(layer) : std::vector<vfx::Id>{};
+    g.insert(QStringLiteral("visible"), !targets.empty());
+    if (targets.empty()) {
+        return g;
+    }
+    const vfx::Vec3 p = session_.pivotOf(targets);
+    g.insert(QStringLiteral("x"), p.x);
+    g.insert(QStringLiteral("y"), p.y);
+    g.insert(QStringLiteral("z"), p.z);
+    const vfx::Layer& l = session_.effect().layers[static_cast<std::size_t>(selected_)];
+    g.insert(QStringLiteral("label"), text(l.group.empty() ? l.name : l.group));
+    g.insert(QStringLiteral("count"), static_cast<int>(targets.size()));
+    g.insert(QStringLiteral("dragging"), session_.transforming());
+    return g;
+}
+
+bool AppController::beginGizmo(const QString& kind) {
+    const vfx::Id layer = selectedLayerId();
+    if (!layer.valid()) {
+        return false;
+    }
+    const std::vector<vfx::Id> targets = session_.transformTargets(layer);
+    const vfx::Layer& l = session_.effect().layers[static_cast<std::size_t>(selected_)];
+    const QString what = text(l.group.empty() ? l.name : l.group);
+    const QString verb = kind == QStringLiteral("turn") ? QStringLiteral("Turn")
+                         : kind == QStringLiteral("size") ? QStringLiteral("Size")
+                                                         : QStringLiteral("Move");
+    gizmoPivot_ = session_.pivotOf(targets);
+    gizmoKind_ = kind;
+    if (!report(session_.beginTransform(targets, utf8(verb + QLatin1Char(' ') + what)))) {
+        return false;
+    }
+    emit gizmoChanged();
+    return true;
+}
+
+void AppController::dragGizmo(double dx, double dy, double dz, double turn, double factor) {
+    if (!session_.transforming()) {
+        return;
+    }
+    vfx::editor::LayerTransform t;
+    t.pivot = gizmoPivot_;
+    t.move = vfx::Vec3{dx, dy, dz};
+    t.turn = turn;
+    t.factor = std::clamp(factor, 0.02, 50.0);
+    gizmoTransform_ = t;
+    if (!report(session_.updateTransform(t))) {
+        session_.cancelTransform();
+    }
+    emit documentChanged();
+    emit redraw();
+    emit gizmoChanged();
+}
+
+void AppController::endGizmo() {
+    if (!session_.transforming()) {
+        return;
+    }
+    session_.endTransform();
+    changed(Structure);
+    const vfx::editor::LayerTransform& t = gizmoTransform_;
+    if (gizmoKind_ == QStringLiteral("turn")) {
+        say(QStringLiteral("Turned %1\u00b0. Undo turns it back.").arg(t.turn, 0, 'f', 0));
+    } else if (gizmoKind_ == QStringLiteral("size")) {
+        say(QStringLiteral("Now %1% of the size. Undo puts it back.").arg(t.factor * 100.0, 0, 'f', 0));
+    } else {
+        say(QStringLiteral("Moved. Undo puts it back."));
+    }
+    gizmoTransform_ = {};
+    emit gizmoChanged();
+}
+
+void AppController::cancelGizmo() {
+    session_.cancelTransform();
+    gizmoTransform_ = {};
+    changed(Structure);
+    emit gizmoChanged();
+}
+
+void AppController::turnSelection(double degrees) {
+    const vfx::Id layer = selectedLayerId();
+    if (!layer.valid()) {
+        return;
+    }
+    const std::vector<vfx::Id> targets = session_.transformTargets(layer);
+    vfx::editor::LayerTransform t;
+    t.pivot = session_.pivotOf(targets);
+    t.turn = degrees;
+    session_.endEdit();
+    groupDone(session_.transformLayers(targets, t, "Turn"), {});
+}
+
 void AppController::changed(Refresh what) {
     if (what == Structure) {
         rebuildLayers();  // also keeps the selection on a layer that exists
@@ -606,6 +703,7 @@ void AppController::changed(Refresh what) {
         refreshControls();
     }
     emit documentChanged();
+    emit gizmoChanged();
     emit redraw();
 }
 
@@ -787,6 +885,7 @@ void AppController::selectLayer(int index) {
     session_.endEdit();
     selected_ = index;
     emit selectionChanged();
+    emit gizmoChanged();
     refreshControls();
 }
 

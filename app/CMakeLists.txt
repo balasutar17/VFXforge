@@ -62,6 +62,7 @@ qt_add_resources(vfxforge "vfxforge_qml"
         qml/ExportPanel.qml
         qml/ControlSound.qml
         qml/ReferenceWorkspace.qml
+        qml/Gizmo.qml
         samples/toon-flame-4x2.png
         samples/reference-flash.png
         samples/reference-burst.gif

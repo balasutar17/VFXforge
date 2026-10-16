@@ -35,6 +35,9 @@ class AppController : public QObject {
     // The layers that jump back when the loop starts again, as a sentence;
     // empty when nothing does. smoothLoop() mends them, as one undo step.
     Q_PROPERTY(QString loopJump READ loopJump NOTIFY documentChanged)
+    // The viewport's handles: where they stand (the middle of the selected
+    // layer, or of its whole group) and what they change.
+    Q_PROPERTY(QVariantMap gizmo READ gizmo NOTIFY gizmoChanged)
     Q_PROPERTY(double duration READ duration NOTIFY documentChanged)
     Q_PROPERTY(double frameRate READ frameRate NOTIFY documentChanged)
     Q_PROPERTY(int frameCount READ frameCount NOTIFY documentChanged)
@@ -197,6 +200,16 @@ public:
     Q_INVOKABLE void setGroupEnabled(const QString& group, bool enabled);
     Q_INVOKABLE void removeGroup(const QString& group);
     Q_INVOKABLE void ungroup(const QString& group);
+    // A drag of one of the viewport's handles ("move", "turn" or "size").
+    // Each update is the whole change since the drag began; the drag
+    // undoes as one step.
+    Q_INVOKABLE bool beginGizmo(const QString& kind);
+    Q_INVOKABLE void dragGizmo(double dx, double dy, double dz, double turn, double factor);
+    Q_INVOKABLE void endGizmo();
+    Q_INVOKABLE void cancelGizmo();
+    // The same in one click: for the Group panel's buttons.
+    Q_INVOKABLE void turnSelection(double degrees);
+    QVariantMap gizmo() const;
 
     // --------------------------------------------------------- backdrop
     Q_INVOKABLE void setBackdrop(const QUrl& image);
@@ -340,6 +353,7 @@ signals:
     void documentChanged();
     void layersChanged();
     void selectionChanged();
+    void gizmoChanged();
     void controlsChanged();
     // Either side of the list of controls being rebuilt: first so that the
     // panel can note where it is scrolled to, then whether to go back there.
@@ -364,6 +378,9 @@ signals:
 private:
     enum Refresh { Values = 0, Structure = 1 };
     void groupDone(const vfx::Status& status, const QString& said);
+    vfx::editor::LayerTransform gizmoTransform_;
+    vfx::Vec3 gizmoPivot_{};
+    QString gizmoKind_;
 
     // Call after anything that may have changed the document.
     void changed(Refresh what);

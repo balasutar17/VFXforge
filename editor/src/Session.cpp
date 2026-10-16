@@ -768,6 +768,117 @@ Status Session::ungroup(std::string_view group) {
     return state_->commands.push(std::make_unique<CompositeCommand>(groupStep("Ungroup", group), std::move(steps)));
 }
 
+std::vector<Id> Session::transformTargets(Id layerId) const {
+    std::vector<Id> ids;
+    const int index = layerIndex(effect(), layerId);
+    if (index < 0) {
+        return ids;
+    }
+    const Layer& layer = effect().layers[static_cast<std::size_t>(index)];
+    if (layer.group.empty()) {
+        ids.push_back(layer.id);
+        return ids;
+    }
+    for (const Layer& l : effect().layers) {
+        if (l.group == layer.group) {
+            ids.push_back(l.id);
+        }
+    }
+    return ids;
+}
+
+Vec3 Session::pivotOf(const std::vector<Id>& layers) const {
+    std::vector<const Layer*> found;
+    for (const Id id : layers) {
+        if (const int i = layerIndex(effect(), id); i >= 0) {
+            found.push_back(&effect().layers[static_cast<std::size_t>(i)]);
+        }
+    }
+    return middleOf(found);
+}
+
+namespace {
+
+// The commands that turn each of `from` into its transformed self.
+std::vector<CommandPtr> transformSteps(const std::vector<Layer>& from, const LayerTransform& t, bool threeD,
+                                       const Effect& now) {
+    std::vector<CommandPtr> steps;
+    for (const Layer& original : from) {
+        const int i = layerIndex(now, original.id);
+        if (i < 0) {
+            continue;
+        }
+        changesTo(now.layers[static_cast<std::size_t>(i)], transformLayer(original, t, threeD), steps);
+    }
+    return steps;
+}
+
+}  // namespace
+
+Status Session::transformLayers(const std::vector<Id>& layers, const LayerTransform& t, std::string stepName) {
+    std::vector<Layer> from;
+    for (const Id id : layers) {
+        if (const int i = layerIndex(effect(), id); i >= 0) {
+            from.push_back(effect().layers[static_cast<std::size_t>(i)]);
+        }
+    }
+    if (from.empty()) {
+        return makeError("There is nothing selected to change.");
+    }
+    std::vector<CommandPtr> steps = transformSteps(from, t, effect().space == "3d", effect());
+    if (steps.empty()) {
+        return {};
+    }
+    return state_->commands.push(std::make_unique<CompositeCommand>(std::move(stepName), std::move(steps)));
+}
+
+Status Session::beginTransform(const std::vector<Id>& layers, std::string stepName) {
+    cancelTransform();
+    endEdit();
+    for (const Id id : layers) {
+        if (const int i = layerIndex(effect(), id); i >= 0) {
+            transformFrom_.push_back(effect().layers[static_cast<std::size_t>(i)]);
+        }
+    }
+    if (transformFrom_.empty()) {
+        return makeError("There is nothing selected to change.");
+    }
+    transformName_ = std::move(stepName);
+    state_->commands.beginTransaction(transformName_);
+    return {};
+}
+
+Status Session::updateTransform(const LayerTransform& t) {
+    if (transformFrom_.empty()) {
+        return makeError("Nothing is being changed.");
+    }
+    // Back to where the drag began, then the whole change from there.
+    state_->commands.cancelTransaction();
+    state_->commands.beginTransaction(transformName_);
+    for (CommandPtr& step : transformSteps(transformFrom_, t, effect().space == "3d", effect())) {
+        if (Status pushed = state_->commands.push(std::move(step)); !pushed) {
+            return pushed;
+        }
+    }
+    return {};
+}
+
+void Session::endTransform() {
+    if (transformFrom_.empty()) {
+        return;
+    }
+    transformFrom_.clear();
+    endEdit();
+}
+
+void Session::cancelTransform() {
+    if (transformFrom_.empty()) {
+        return;
+    }
+    transformFrom_.clear();
+    state_->commands.cancelTransaction();
+}
+
 Status Session::undo() { return state_->commands.undo(); }
 Status Session::redo() { return state_->commands.redo(); }
 

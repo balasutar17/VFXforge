@@ -39,6 +39,9 @@ public:
     Q_INVOKABLE void frame(double x, double y, double unitsHigh);
     // The camera as it is now, for exports that should show the same view.
     Q_INVOKABLE QVariantMap viewState() const;
+    // Where a world point lands in the viewport: {x, y, scale (pixels per
+    // unit there), ok (false when it is behind the camera)}.
+    Q_INVOKABLE QVariantMap project(double x, double y, double z) const;
 
 signals:
     void controllerChanged();

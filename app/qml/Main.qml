@@ -656,6 +656,12 @@ ApplicationWindow {
                             Text { text: "size"; color: theme.text; font.pixelSize: theme.smallFontSize }
                             VButton { implicitWidth: 26; implicitHeight: 26; text: "+"; tip: "The whole group 10% larger, particles and reach"; onClicked: app.sizeGroup(groupPanel.group, 1.1) }
                         }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 3
+                            VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u21ba 15\u00b0"; tip: "Turn the group 15 degrees counter-clockwise"; onClicked: app.turnSelection(15) }
+                            VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u21bb 15\u00b0"; tip: "Turn the group 15 degrees clockwise"; onClicked: app.turnSelection(-15) }
+                        }
                     }
                 }
             }
@@ -735,6 +741,21 @@ ApplicationWindow {
                         onDoubleClicked: viewport.resetView()
                     }
 
+                    // The handles: drag to move, turn and size the selected
+                    // layer, or its whole group.
+                    Gizmo {
+                        id: gizmo
+                        anchors.fill: parent
+                        visible: handlesButton.checked
+                        viewport: viewport
+                        threeD: app.threeD
+                        target: app.gizmo
+                        onBegin: function(kind) { app.beginGizmo(kind) }
+                        onDrag: function(dx, dy, dz, turn, factor) { app.dragGizmo(dx, dy, dz, turn, factor) }
+                        onEnd: app.endGizmo()
+                        onCancel: app.cancelGizmo()
+                    }
+
                     Text {
                         anchors.left: parent.left
                         anchors.top: parent.top
@@ -744,6 +765,20 @@ ApplicationWindow {
                         font.pixelSize: theme.smallFontSize
                     }
                     VButton {
+                        id: handlesButton
+                        objectName: "handlesButton"
+                        anchors.right: resetViewButton.left
+                        anchors.top: parent.top
+                        anchors.topMargin: 8
+                        anchors.rightMargin: 4
+                        quiet: true
+                        checked: true
+                        text: "Handles"
+                        tip: "Show the handles to move, turn and size the selected layer (or its group) by dragging"
+                        onClicked: checked = !checked
+                    }
+                    VButton {
+                        id: resetViewButton
                         anchors.right: parent.right
                         anchors.top: parent.top
                         anchors.margins: 8

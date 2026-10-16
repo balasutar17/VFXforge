@@ -66,6 +66,18 @@ QPointF ViewportItem::origin() const {
     return QPointF(static_cast<double>(x), static_cast<double>(y));
 }
 
+QVariantMap ViewportItem::project(double x, double y, double z) const {
+    float px = 0, py = 0, scale = 0;
+    const bool ok = vfx::editor::projectPoint(currentView(), flat(), static_cast<float>(x), static_cast<float>(y),
+                                              static_cast<float>(z), px, py, scale);
+    QVariantMap out;
+    out.insert(QStringLiteral("x"), static_cast<double>(px));
+    out.insert(QStringLiteral("y"), static_cast<double>(py));
+    out.insert(QStringLiteral("scale"), static_cast<double>(scale));
+    out.insert(QStringLiteral("ok"), ok);
+    return out;
+}
+
 bool ViewportItem::originVisible() const {
     float x = 0, y = 0, scale = 0;
     return vfx::editor::projectPoint(currentView(), flat(), 0, 0, 0, x, y, scale) && x >= 0 &&

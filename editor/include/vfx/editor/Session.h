@@ -26,6 +26,7 @@
 #include "vfx/editor/Audio.h"
 #include "vfx/editor/Image.h"
 #include "vfx/editor/Reconstruct.h"
+#include "vfx/editor/Transform.h"
 
 namespace vfx::editor {
 
@@ -117,6 +118,23 @@ public:
     Status removeGroup(std::string_view group);
     // The layers stay; they are simply no longer a group.
     Status ungroup(std::string_view group);
+
+    // ------------------------------------------- moving, turning, sizing
+    // What the viewport's handles change: the layer's whole group when it
+    // is in one, otherwise the layer alone.
+    std::vector<Id> transformTargets(Id layer) const;
+    // The middle of those layers' Positions: where the handles stand.
+    Vec3 pivotOf(const std::vector<Id>& layers) const;
+    // A change made in one go, as one undo step.
+    Status transformLayers(const std::vector<Id>& layers, const LayerTransform& t, std::string stepName);
+    // A drag of a handle. Each update replaces the one before (it is always
+    // measured from where the drag began), and the whole drag undoes as one
+    // step. Cancelling puts everything back as it was.
+    Status beginTransform(const std::vector<Id>& layers, std::string stepName);
+    Status updateTransform(const LayerTransform& t);
+    void endTransform();
+    void cancelTransform();
+    bool transforming() const { return !transformFrom_.empty(); }
     // ------------------------------------------------- the artist's pictures
     // Copies a PNG into the project's images folder and makes the layer draw
     // it, as one undo step. originalName is only used to name the copy.
@@ -228,6 +246,8 @@ private:
     std::uint64_t generation_ = 0;
     ImageSet images_;
     std::vector<std::string> imageProblems_;
+    std::vector<Layer> transformFrom_;  // the layers as a handle drag found them
+    std::string transformName_;
     SoundSet sounds_;
     std::vector<std::string> soundProblems_;
 

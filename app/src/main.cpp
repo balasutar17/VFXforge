@@ -276,6 +276,26 @@ int main(int argc, char* argv[]) {
                     groupsOut << "FAIL: adding an effect as a group did not work\n";
                     selfTest.result = 1;
                 }
+                // The handles: a quarter turn of the group about the upright,
+                // dragged in steps as a hand would, undone as one step.
+                const QVariantMap handles = controller.gizmo();
+                const std::size_t undoBefore = controller.session().commands().undoCount();
+                bool turned = controller.beginGizmo(QStringLiteral("turn"));
+                for (int i = 1; i <= 9; ++i) {
+                    controller.dragGizmo(0, 0, 0, 10.0 * i, 1.0);
+                }
+                controller.endGizmo();
+                const bool oneStep = controller.session().commands().undoCount() == undoBefore + 1;
+                turned = turned && oneStep &&
+                         controller.session().commands().undoName() == "Turn Guardian Orbs 3D";
+                groupsOut << "handles: on \"" << handles.value(QStringLiteral("label")).toString() << "\" ("
+                          << handles.value(QStringLiteral("count")).toInt() << " layers), pivot height "
+                          << handles.value(QStringLiteral("y")).toDouble() << "; a dragged quarter turn "
+                          << (turned ? "is one undo step" : "did NOT work") << "\n";
+                if (!handles.value(QStringLiteral("visible")).toBool() || !turned) {
+                    groupsOut << "FAIL: the handles did not work\n";
+                    selfTest.result = 1;
+                }
                 QTimer::singleShot(900, &application, [&, window, finish]() {
                     capture(window, selfTest, QStringLiteral("-groups"), QStringLiteral("two effects in one, as groups"));
                     finish();
