@@ -855,12 +855,12 @@ Status Session::updateTransform(const LayerTransform& t) {
     // Back to where the drag began, then the whole change from there.
     state_->commands.cancelTransaction();
     state_->commands.beginTransaction(transformName_);
-    for (CommandPtr& step : transformSteps(transformFrom_, t, effect().space == "3d", effect())) {
-        if (Status pushed = state_->commands.push(std::move(step)); !pushed) {
-            return pushed;
-        }
+    // As one command, so the step keeps the drag's name ("Turn Orbs").
+    std::vector<CommandPtr> steps = transformSteps(transformFrom_, t, effect().space == "3d", effect());
+    if (steps.empty()) {
+        return {};
     }
-    return {};
+    return state_->commands.push(std::make_unique<CompositeCommand>(transformName_, std::move(steps)));
 }
 
 void Session::endTransform() {

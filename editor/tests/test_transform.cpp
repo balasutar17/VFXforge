@@ -111,6 +111,18 @@ TEST_CASE("a handle drag changes the layer's whole group, live, and undoes as on
     const Vec3 portalWas = offsetOf(layerById(s, portalLayer));
     const std::size_t undoBefore = s.commands().undoCount();
 
+    REQUIRE(s.beginTransform(group, "Turn Guardian Orbs 3D"));
+    {
+        // A drag that changes a single setting is still named for the drag.
+        LayerTransform turn;
+        turn.pivot = pivot;
+        turn.turn = 30;
+        REQUIRE(s.updateTransform(turn));
+    }
+    s.endTransform();
+    CHECK(s.commands().undoName() == "Turn Guardian Orbs 3D");
+    REQUIRE(s.undo());
+
     REQUIRE(s.beginTransform(group, "Move Guardian Orbs 3D"));
     for (int i = 1; i <= 20; ++i) {  // a drag: each update measured from the start
         LayerTransform t;
