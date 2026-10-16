@@ -33,6 +33,7 @@
 #include "vfx/editor/SoundLibrary.h"
 #include "vfx/editor/Presets.h"
 #include "vfx/editor/Refine.h"
+#include "vfx/editor/Selection.h"
 #include "vfx/editor/ShapeLibrary.h"
 #include "vfx/editor/UnityExport.h"
 
@@ -303,6 +304,82 @@ void AppController::rebuildLayers() {
 
     const int count = static_cast<int>(session_.effect().layers.size());
     selected_ = count == 0 ? -1 : std::clamp(selected_, 0, count - 1);
+    syncSelection();
+
+    // The list as shown: a heading for each group as its layers begin,
+    // nested ones indented under their parents; the layers inside a folded
+    // group are left out.
+    const vfx::Effect& e = session_.effect();
+    const vfx::editor::ResolvedSelection chosen = selectedNothing_ ? vfx::editor::ResolvedSelection{}
+                                                                    : session_.resolve(selection_);
+    auto isChosen = [&](vfx::Id id) {
+        return std::find(chosen.targets.begin(), chosen.targets.end(), id) != chosen.targets.end() ||
+               std::find(chosen.locked.begin(), chosen.locked.end(), id) != chosen.locked.end();
+    };
+    auto hiddenBy = [&](const std::string& path) {
+        // Inside a folded group (not counting the group itself).
+        for (std::string p = vfx::editor::parentGroup(path); !p.empty(); p = vfx::editor::parentGroup(p)) {
+            if (folded_.contains(text(p))) {
+                return true;
+            }
+        }
+        return false;
+    };
+    QVariantList rows;
+    std::string open;  // the group path the previous layer was in
+    for (std::size_t i = 0; i < e.layers.size(); ++i) {
+        const vfx::Layer& layer = e.layers[i];
+        // Headings for each step of this layer's path not already open.
+        std::string shared = open;
+        while (!shared.empty() && !vfx::editor::inGroup(layer, shared)) {
+            shared = vfx::editor::parentGroup(shared);
+        }
+        std::vector<std::string> steps;
+        for (std::string p = layer.group; p.size() > shared.size(); p = vfx::editor::parentGroup(p)) {
+            steps.insert(steps.begin(), p);
+        }
+        for (const std::string& path : steps) {
+            if (hiddenBy(path)) {
+                continue;
+            }
+            int members = 0, shown = 0, locked = 0;
+            double start = 1e9;
+            for (const vfx::Layer& l : e.layers) {
+                if (vfx::editor::inGroup(l, path)) {
+                    ++members;
+                    shown += l.enabled ? 1 : 0;
+                    locked += l.locked ? 1 : 0;
+                    start = std::min(start, l.start);
+                }
+            }
+            QVariantMap row;
+            row.insert(QStringLiteral("kind"), QStringLiteral("group"));
+            row.insert(QStringLiteral("path"), text(path));
+            row.insert(QStringLiteral("name"), text(vfx::editor::groupName(path)));
+            row.insert(QStringLiteral("depth"), vfx::editor::groupDepth(path) - 1);
+            row.insert(QStringLiteral("count"), members);
+            row.insert(QStringLiteral("shown"), shown > 0);
+            row.insert(QStringLiteral("locked"), locked == members);
+            row.insert(QStringLiteral("start"), start);
+            row.insert(QStringLiteral("folded"), folded_.contains(text(path)));
+            row.insert(QStringLiteral("selected"), !selectedNothing_ && std::find(selection_.groups.begin(),
+                                                                                  selection_.groups.end(), path) !=
+                                                                            selection_.groups.end());
+            rows.push_back(row);
+        }
+        open = layer.group;
+        if (hiddenBy(layer.group + "/x") ) {
+            continue;  // inside a folded group
+        }
+        QVariantMap row = layers_[static_cast<int>(i)].toMap();
+        row.insert(QStringLiteral("kind"), QStringLiteral("layer"));
+        row.insert(QStringLiteral("index"), static_cast<int>(i));
+        row.insert(QStringLiteral("depth"), vfx::editor::groupDepth(layer.group));
+        row.insert(QStringLiteral("selected"), !selectedNothing_ && isChosen(layer.id));
+        row.insert(QStringLiteral("active"), static_cast<int>(i) == selected_ && !selectedNothing_);
+        rows.push_back(row);
+    }
+    layerRows_ = std::move(rows);
 }
 
 std::vector<ControlView> AppController::views() const {
@@ -598,56 +675,374 @@ void AppController::rebuildControls() {
     controls_ = std::move(list);
 }
 
+// ------------------------------------------------------------- selection
+
+// After anything that may have changed the layers: the selection keeps only
+// what still exists, and follows the active layer when something else chose
+// it (adding, removing, opening).
+void AppController::syncSelection() {
+    const vfx::Effect& e = session_.effect();
+    const vfx::Id active = selectedLayerId();
+    std::vector<vfx::Id> kept;
+    for (const vfx::Id id : selection_.layers) {
+        if (vfx::findLayer(e, id)) {
+            kept.push_back(id);
+        }
+    }
+    selection_.layers = kept;
+    const std::vector<std::string> paths = vfx::editor::groupPaths(e);
+    std::vector<std::string> keptGroups;
+    for (const std::string& g : selection_.groups) {
+        if (std::find(paths.begin(), paths.end(), g) != paths.end()) {
+            keptGroups.push_back(g);
+        }
+    }
+    selection_.groups = keptGroups;
+    if (active != selectionFor_) {
+        // The active layer was changed from elsewhere: select it alone.
+        selection_ = {};
+        if (active.valid()) {
+            selection_.layers.push_back(active);
+        }
+        selectedNothing_ = false;
+        pivotShift_ = {};
+    }
+    selection_.active = active;
+    selectionFor_ = active;
+    if (selection_.empty() && active.valid() && !selectedNothing_) {
+        selection_.layers.push_back(active);
+    }
+}
+
+// After a click changed the selection.
+void AppController::selectionEdited() {
+    selectionFor_ = selectedLayerId();
+    selection_.active = selectionFor_;
+    pivotShift_ = {};
+    session_.endEdit();
+    rebuildLayers();
+    emit layersChanged();
+    emit selectionChanged();
+    emit gizmoChanged();
+    refreshControls();
+}
+
+void AppController::clickLayer(int index, int modifiers) {
+    const auto& layers = session_.effect().layers;
+    if (index < 0 || index >= static_cast<int>(layers.size())) {
+        return;
+    }
+    const vfx::Id id = layers[static_cast<std::size_t>(index)].id;
+    const bool add = (modifiers & (int(Qt::ControlModifier) | int(Qt::MetaModifier))) != 0;
+    const bool range = (modifiers & int(Qt::ShiftModifier)) != 0;
+    selectedNothing_ = false;
+    if (range && selected_ >= 0) {
+        // Everything between the active layer and this one, in the list's order.
+        const int from = std::min(selected_, index), to = std::max(selected_, index);
+        if (!add) {
+            selection_.layers.clear();
+            selection_.groups.clear();
+        }
+        for (int i = from; i <= to; ++i) {
+            const vfx::Id each = layers[static_cast<std::size_t>(i)].id;
+            if (std::find(selection_.layers.begin(), selection_.layers.end(), each) == selection_.layers.end()) {
+                selection_.layers.push_back(each);
+            }
+        }
+    } else if (add) {
+        const auto at = std::find(selection_.layers.begin(), selection_.layers.end(), id);
+        if (at != selection_.layers.end()) {
+            selection_.layers.erase(at);
+            if (index == selected_ && !selection_.layers.empty()) {
+                index = vfx::layerIndex(session_.effect(), selection_.layers.back());
+            }
+        } else {
+            selection_.layers.push_back(id);
+        }
+    } else {
+        selection_ = {};
+        selection_.layers.push_back(id);
+    }
+    selected_ = index;
+    selectionEdited();
+}
+
+void AppController::clickGroup(const QString& path, int modifiers) {
+    const std::string g = utf8(path);
+    const bool add = (modifiers & (int(Qt::ControlModifier) | int(Qt::MetaModifier))) != 0;
+    if (add) {
+        const auto at = std::find(selection_.groups.begin(), selection_.groups.end(), g);
+        if (at != selection_.groups.end()) {
+            selection_.groups.erase(at);
+        } else {
+            selection_.groups.push_back(g);
+        }
+    } else {
+        selection_ = {};
+        selection_.groups.push_back(g);
+    }
+    selectedNothing_ = false;
+    // Its first layer is the active one, so its settings are shown.
+    const auto& layers = session_.effect().layers;
+    for (std::size_t i = 0; i < layers.size(); ++i) {
+        if (vfx::editor::inGroup(layers[i], g)) {
+            selected_ = static_cast<int>(i);
+            break;
+        }
+    }
+    selectionEdited();
+}
+
+void AppController::selectNone() {
+    if (selection_.empty() && selectedNothing_) {
+        return;
+    }
+    selection_ = {};
+    selectedNothing_ = true;
+    selectionEdited();
+    say(QStringLiteral("Nothing selected: the handles are hidden. Click a layer to select it."));
+}
+
+void AppController::clickViewport(int layerIndex, int modifiers) {
+    if (layerIndex < 0) {
+        if ((modifiers & (int(Qt::ControlModifier) | int(Qt::MetaModifier) | int(Qt::ShiftModifier))) == 0) {
+            selectNone();
+        }
+        return;
+    }
+    clickLayer(layerIndex, modifiers);
+}
+
+void AppController::toggleFold(const QString& path) {
+    if (folded_.contains(path)) {
+        folded_.remove(path);
+    } else {
+        folded_.insert(path);
+    }
+    rebuildLayers();
+    emit layersChanged();
+}
+
+QString AppController::selectedGroup() const {
+    return selection_.layers.empty() && selection_.groups.size() == 1 ? text(selection_.groups.front()) : QString();
+}
+
+int AppController::selectionCount() const {
+    return static_cast<int>(session_.resolve(selection_).targets.size());
+}
+
+void AppController::groupSelection() {
+    const vfx::editor::ResolvedSelection r = session_.resolve(selection_);
+    std::vector<vfx::Id> ids = r.targets;
+    ids.insert(ids.end(), r.locked.begin(), r.locked.end());
+    if (ids.empty()) {
+        say(QStringLiteral("Select the layers to put in a group first."), true);
+        return;
+    }
+    std::string made;
+    session_.endEdit();
+    if (!report(session_.groupLayers(ids, "Group", &made))) {
+        return;
+    }
+    selection_ = {};
+    selection_.groups.push_back(made);
+    const vfx::Layer* first = nullptr;
+    for (const vfx::Layer& l : session_.effect().layers) {
+        if (vfx::editor::inGroup(l, made)) {
+            first = &l;
+            break;
+        }
+    }
+    selected_ = first ? vfx::layerIndex(session_.effect(), first->id) : selected_;
+    selectionFor_ = selectedLayerId();
+    changed(Structure);
+    say(QStringLiteral("Made %1 layers into the group “%2”. Double-click its name to rename it.")
+            .arg(static_cast<int>(ids.size()))
+            .arg(text(vfx::editor::groupName(made))));
+}
+
+void AppController::ungroupSelection() {
+    const QString g = selectedGroup();
+    if (g.isEmpty()) {
+        say(QStringLiteral("Select a group to ungroup it."), true);
+        return;
+    }
+    ungroup(g);
+}
+
 // ------------------------------------------------------------- handles
+
+void AppController::setGizmoMode(const QString& mode) {
+    if (mode != gizmoMode_ && (mode == QStringLiteral("move") || mode == QStringLiteral("turn") ||
+                               mode == QStringLiteral("size"))) {
+        gizmoMode_ = mode;
+        emit gizmoChanged();
+    }
+}
+
+void AppController::setPivotMode(const QString& mode) {
+    if (mode != pivotMode_ && (mode == QStringLiteral("center") || mode == QStringLiteral("active") ||
+                                mode == QStringLiteral("individual"))) {
+        pivotMode_ = mode;
+        pivotShift_ = {};
+        emit gizmoChanged();
+    }
+}
+
+void AppController::setGizmoSpace(const QString& space) {
+    if (space != gizmoSpace_ && (space == QStringLiteral("world") || space == QStringLiteral("local"))) {
+        gizmoSpace_ = space;
+        emit gizmoChanged();
+    }
+}
+
+vfx::Vec3 AppController::currentPivot(const std::vector<vfx::Id>& targets) const {
+    vfx::Vec3 p = session_.pivotOf(targets);
+    if (pivotMode_ == QStringLiteral("active")) {
+        const vfx::Id active = selectedLayerId();
+        if (std::find(targets.begin(), targets.end(), active) != targets.end()) {
+            p = session_.pivotOf({active});
+        }
+    }
+    return vfx::Vec3{p.x + pivotShift_.x, p.y + pivotShift_.y, p.z + pivotShift_.z};
+}
+
+// The gizmo's three axes: the world's, or the active layer's own (its
+// Direction is its up; right is across that in the picture).
+std::vector<vfx::Vec3> AppController::gizmoAxes() const {
+    std::vector<vfx::Vec3> world{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+    if (gizmoSpace_ != QStringLiteral("local")) {
+        return world;
+    }
+    const vfx::Layer* active = vfx::findLayer(session_.effect(), selectedLayerId());
+    if (!active) {
+        return world;
+    }
+    vfx::Vec3 up{0, 1, 0};
+    for (const vfx::Module& m : active->modules) {
+        if (m.type == "initial") {
+            if (const vfx::Value* v = m.find("direction"); v && std::holds_alternative<vfx::Vec3>(*v)) {
+                up = std::get<vfx::Vec3>(*v);
+            }
+        }
+    }
+    if (!threeD()) {
+        up.z = 0;
+    }
+    const double len = std::sqrt(up.x * up.x + up.y * up.y + up.z * up.z);
+    if (!(len > 1e-9)) {
+        return world;
+    }
+    up = vfx::Vec3{up.x / len, up.y / len, up.z / len};
+    // Right: across up and the way the picture faces (Z); when up is along Z, across X.
+    vfx::Vec3 ref = std::fabs(up.z) > 0.99 ? vfx::Vec3{1, 0, 0} : vfx::Vec3{0, 0, 1};
+    vfx::Vec3 right{up.y * ref.z - up.z * ref.y, up.z * ref.x - up.x * ref.z, up.x * ref.y - up.y * ref.x};
+    const double rl = std::sqrt(right.x * right.x + right.y * right.y + right.z * right.z);
+    right = vfx::Vec3{right.x / rl, right.y / rl, right.z / rl};
+    const vfx::Vec3 front{right.y * up.z - right.z * up.y, right.z * up.x - right.x * up.z, right.x * up.y - right.y * up.x};
+    return {right, up, front};
+}
 
 QVariantMap AppController::gizmo() const {
     QVariantMap g;
-    const vfx::Id layer = selectedLayerId();
-    const std::vector<vfx::Id> targets = layer.valid() ? session_.transformTargets(layer) : std::vector<vfx::Id>{};
-    g.insert(QStringLiteral("visible"), !targets.empty());
-    if (targets.empty()) {
+    const vfx::editor::ResolvedSelection r = selectedNothing_ ? vfx::editor::ResolvedSelection{}
+                                                               : session_.resolve(selection_);
+    // Every layer's emitter, for clicking on in the viewport.
+    QVariantList markers;
+    const auto& layers = session_.effect().layers;
+    for (std::size_t i = 0; i < layers.size(); ++i) {
+        const vfx::Layer& l = layers[i];
+        const vfx::Vec3 p = session_.pivotOf({l.id});
+        QVariantMap m;
+        m.insert(QStringLiteral("x"), p.x);
+        m.insert(QStringLiteral("y"), p.y);
+        m.insert(QStringLiteral("z"), p.z);
+        m.insert(QStringLiteral("index"), static_cast<int>(i));
+        m.insert(QStringLiteral("selected"),
+                 std::find(r.targets.begin(), r.targets.end(), l.id) != r.targets.end() ||
+                     std::find(r.locked.begin(), r.locked.end(), l.id) != r.locked.end());
+        markers.push_back(m);
+    }
+    g.insert(QStringLiteral("markers"), markers);
+    const bool lockedOnly = r.targets.empty() && !r.locked.empty();
+    g.insert(QStringLiteral("visible"), !r.targets.empty() || lockedOnly);
+    g.insert(QStringLiteral("locked"), lockedOnly);
+    g.insert(QStringLiteral("lockedCount"), static_cast<int>(r.locked.size()));
+    if (r.targets.empty() && !lockedOnly) {
         return g;
     }
-    const vfx::Vec3 p = session_.pivotOf(targets);
+    const vfx::Vec3 p = lockedOnly ? session_.pivotOf(r.locked) : currentPivot(r.targets);
     g.insert(QStringLiteral("x"), p.x);
     g.insert(QStringLiteral("y"), p.y);
     g.insert(QStringLiteral("z"), p.z);
-    const vfx::Layer& l = session_.effect().layers[static_cast<std::size_t>(selected_)];
-    g.insert(QStringLiteral("label"), text(l.group.empty() ? l.name : l.group));
-    g.insert(QStringLiteral("count"), static_cast<int>(targets.size()));
+    QVariantList axes;
+    for (const vfx::Vec3& a : gizmoAxes()) {
+        axes.push_back(QVariantList{a.x, a.y, a.z});
+    }
+    g.insert(QStringLiteral("axes"), axes);
+    // What the handles change, in words.
+    QString label;
+    if (!selection_.groups.empty() && selection_.layers.empty() && selection_.groups.size() == 1) {
+        label = text(vfx::editor::groupName(selection_.groups.front()));
+    } else if (r.targets.size() == 1) {
+        label = text(vfx::findLayer(session_.effect(), r.targets.front())->name);
+    } else {
+        label = QStringLiteral("%1 layers").arg(static_cast<int>(r.targets.size()));
+    }
+    g.insert(QStringLiteral("label"), label);
+    g.insert(QStringLiteral("count"), static_cast<int>(r.targets.size()));
     g.insert(QStringLiteral("dragging"), session_.transforming());
     return g;
 }
 
 bool AppController::beginGizmo(const QString& kind) {
-    const vfx::Id layer = selectedLayerId();
-    if (!layer.valid()) {
+    const vfx::editor::ResolvedSelection r = selectedNothing_ ? vfx::editor::ResolvedSelection{}
+                                                               : session_.resolve(selection_);
+    if (r.targets.empty()) {
+        if (!r.locked.empty()) {
+            say(QStringLiteral("Locked: unlock it to move, turn or size it."), true);
+        }
         return false;
     }
-    const std::vector<vfx::Id> targets = session_.transformTargets(layer);
-    const vfx::Layer& l = session_.effect().layers[static_cast<std::size_t>(selected_)];
-    const QString what = text(l.group.empty() ? l.name : l.group);
+    const QString what = gizmo().value(QStringLiteral("label")).toString();
     const QString verb = kind == QStringLiteral("turn") ? QStringLiteral("Turn")
                          : kind == QStringLiteral("size") ? QStringLiteral("Size")
                                                          : QStringLiteral("Move");
-    gizmoPivot_ = session_.pivotOf(targets);
+    gizmoPivot_ = currentPivot(r.targets);
     gizmoKind_ = kind;
-    if (!report(session_.beginTransform(targets, utf8(verb + QLatin1Char(' ') + what)))) {
+    if (!report(session_.beginTransform(r.targets, utf8(verb + QLatin1Char(' ') + what)))) {
         return false;
     }
     emit gizmoChanged();
     return true;
 }
 
-void AppController::dragGizmo(double dx, double dy, double dz, double turn, double factor) {
+void AppController::dragGizmo(const QVariantMap& change) {
     if (!session_.transforming()) {
         return;
     }
+    auto vec = [&](const char* key, double fallback) {
+        const QVariantList v = change.value(QString::fromLatin1(key)).toList();
+        if (v.size() != 3) {
+            return vfx::Vec3{fallback, fallback, fallback};
+        }
+        return vfx::Vec3{v[0].toDouble(), v[1].toDouble(), v[2].toDouble()};
+    };
     vfx::editor::LayerTransform t;
     t.pivot = gizmoPivot_;
-    t.move = vfx::Vec3{dx, dy, dz};
-    t.turn = turn;
-    t.factor = std::clamp(factor, 0.02, 50.0);
+    t.move = vec("move", 0.0);
+    t.turn = change.value(QStringLiteral("turn"), 0.0).toDouble();
+    const int axis = std::clamp(change.value(QStringLiteral("axis"), 1).toInt(), 0, 2);
+    if (gizmoSpace_ == QStringLiteral("local")) {
+        t.axis = 3;
+        t.axisVector = gizmoAxes()[static_cast<std::size_t>(axis)];
+    } else {
+        t.axis = threeD() ? axis : 2;
+    }
+    t.factor = std::clamp(change.value(QStringLiteral("factor"), 1.0).toDouble(), 0.02, 50.0);
+    const vfx::Vec3 sc = vec("scale", 1.0);
+    t.scale = vfx::Vec3{std::clamp(sc.x, 0.02, 50.0), std::clamp(sc.y, 0.02, 50.0), std::clamp(sc.z, 0.02, 50.0)};
+    t.individual = pivotMode_ == QStringLiteral("individual");
     gizmoTransform_ = t;
     if (!report(session_.updateTransform(t))) {
         session_.cancelTransform();
@@ -665,9 +1060,12 @@ void AppController::endGizmo() {
     changed(Structure);
     const vfx::editor::LayerTransform& t = gizmoTransform_;
     if (gizmoKind_ == QStringLiteral("turn")) {
-        say(QStringLiteral("Turned %1\u00b0. Undo turns it back.").arg(t.turn, 0, 'f', 0));
+        say(QStringLiteral("Turned %1°. Undo turns it back.").arg(t.turn, 0, 'f', 0));
     } else if (gizmoKind_ == QStringLiteral("size")) {
-        say(QStringLiteral("Now %1% of the size. Undo puts it back.").arg(t.factor * 100.0, 0, 'f', 0));
+        const double shown = t.factor != 1.0 ? t.factor : std::max({t.scale.x, t.scale.y, t.scale.z}) != 1.0
+                                                               ? std::max({t.scale.x, t.scale.y, t.scale.z})
+                                                               : std::min({t.scale.x, t.scale.y, t.scale.z});
+        say(QStringLiteral("Now %1% of the size. Undo puts it back.").arg(shown * 100.0, 0, 'f', 0));
     } else {
         say(QStringLiteral("Moved. Undo puts it back."));
     }
@@ -680,19 +1078,30 @@ void AppController::cancelGizmo() {
     gizmoTransform_ = {};
     changed(Structure);
     emit gizmoChanged();
+    say(QStringLiteral("Put back as it was."));
+}
+
+void AppController::movePivot(double dx, double dy, double dz) {
+    pivotShift_ = vfx::Vec3{pivotShift_.x + dx, pivotShift_.y + dy, pivotShift_.z + dz};
+    emit gizmoChanged();
+}
+
+void AppController::resetPivot() {
+    pivotShift_ = {};
+    emit gizmoChanged();
 }
 
 void AppController::turnSelection(double degrees) {
-    const vfx::Id layer = selectedLayerId();
-    if (!layer.valid()) {
+    const vfx::editor::ResolvedSelection r = session_.resolve(selection_);
+    if (r.targets.empty()) {
         return;
     }
-    const std::vector<vfx::Id> targets = session_.transformTargets(layer);
     vfx::editor::LayerTransform t;
-    t.pivot = session_.pivotOf(targets);
+    t.pivot = currentPivot(r.targets);
     t.turn = degrees;
+    t.individual = pivotMode_ == QStringLiteral("individual");
     session_.endEdit();
-    groupDone(session_.transformLayers(targets, t, "Turn"), {});
+    groupDone(session_.transformLayers(r.targets, t, "Turn"), {});
 }
 
 void AppController::changed(Refresh what) {
@@ -879,14 +1288,10 @@ void AppController::newVariation() {
 
 void AppController::selectLayer(int index) {
     const int count = static_cast<int>(session_.effect().layers.size());
-    if (index < 0 || index >= count || index == selected_) {
+    if (index < 0 || index >= count) {
         return;
     }
-    session_.endEdit();
-    selected_ = index;
-    emit selectionChanged();
-    emit gizmoChanged();
-    refreshControls();
+    clickLayer(index, 0);
 }
 
 void AppController::addLayer() {
@@ -1892,6 +2297,11 @@ void AppController::setGroupEnabled(const QString& group, bool enabled) {
     groupDone(session_.setGroupEnabled(utf8(group), enabled), {});
 }
 
+void AppController::setGroupLocked(const QString& group, bool locked) {
+    groupDone(session_.setGroupLocked(utf8(group), locked),
+              locked ? QStringLiteral("Locked: the handles leave it alone.") : QStringLiteral("Unlocked."));
+}
+
 void AppController::removeGroup(const QString& group) {
     const int before = static_cast<int>(session_.effect().layers.size());
     vfx::Status done = session_.removeGroup(utf8(group));
@@ -1913,6 +2323,18 @@ bool AppController::addPreset(const QString& id) {
         return false;
     }
     selected_ = before;  // the first of the new layers
+    // The new group is selected, so its handles are ready to move it.
+    if (before < static_cast<int>(session_.effect().layers.size())) {
+        const vfx::Layer& first = session_.effect().layers[static_cast<std::size_t>(before)];
+        selection_ = {};
+        if (!first.group.empty()) {
+            selection_.groups.push_back(first.group);
+        } else {
+            selection_.layers.push_back(first.id);
+        }
+        selectedNothing_ = false;
+        selectionFor_ = first.id;
+    }
     changed(Structure);
     const vfx::editor::PresetInfo* info = vfx::editor::findPreset(utf8(id));
     emit playbackChanged();  // it may have made the effect longer

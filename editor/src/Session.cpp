@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <map>
 #include <system_error>
+#include <unordered_map>
 #include <utility>
 
 #include "vfx/Command.h"
@@ -518,7 +519,7 @@ Status Session::addPreset(std::string_view presetId, int* added) {
     }
     const PresetInfo* info = findPreset(presetId);
     // The group's name: the preset's, numbered when it is there already.
-    const std::string base = info ? info->name : std::string("Preset");
+    const std::string base = cleanGroupName(info ? info->name : std::string("Preset"));
     const std::vector<std::string> existing = groups();
     std::string group = base;
     for (int n = 2; std::find(existing.begin(), existing.end(), group) != existing.end(); ++n) {
@@ -588,15 +589,7 @@ Status Session::addPreset(std::string_view presetId, int* added) {
     return pushed;
 }
 
-std::vector<std::string> Session::groups() const {
-    std::vector<std::string> names;
-    for (const Layer& layer : effect().layers) {
-        if (!layer.group.empty() && std::find(names.begin(), names.end(), layer.group) == names.end()) {
-            names.push_back(layer.group);
-        }
-    }
-    return names;
-}
+std::vector<std::string> Session::groups() const { return groupPaths(effect()); }
 
 namespace {
 
@@ -625,23 +618,15 @@ std::string groupStep(const char* verb, std::string_view group) {
 }  // namespace
 
 Status Session::moveGroup(std::string_view group, double dx, double dy, double dz) {
-    std::vector<CommandPtr> steps;
-    for (const Layer& layer : effect().layers) {
-        if (layer.group != group) {
-            continue;
-        }
-        Layer moved = layer;
-        if (Vec3* offset = tools::property<Vec3>(moved, "shape", "offset")) {
-            offset->x += dx;
-            offset->y += dy;
-            offset->z += dz;
-        }
-        changesTo(layer, moved, steps);
+    Selection chosen;
+    chosen.groups.push_back(std::string(group));
+    const ResolvedSelection r = resolveSelection(effect(), chosen);
+    if (r.empty()) {
+        return makeError(r.locked.empty() ? "There is no group called that to move." : "That group is locked.");
     }
-    if (steps.empty()) {
-        return makeError("There is no group called that to move.");
-    }
-    return state_->commands.push(std::make_unique<CompositeCommand>(groupStep("Move", group), std::move(steps)));
+    LayerTransform t;
+    t.move = Vec3{dx, dy, dz};
+    return transformLayers(r.targets, t, groupStep("Move", groupName(group)));
 }
 
 Status Session::delayGroup(std::string_view group, double seconds) {
@@ -653,7 +638,7 @@ Status Session::delayGroup(std::string_view group, double seconds) {
     // plays once grows instead.
     const bool loops = effect().loop == "loop";
     for (const Layer& layer : effect().layers) {
-        if (layer.group != group) {
+        if (!inGroup(layer, group) || layer.locked) {
             continue;
         }
         any = true;
@@ -688,50 +673,23 @@ Status Session::sizeGroup(std::string_view group, double factor) {
     if (!(factor > 0.0)) {
         return makeError("A group can only be made larger or smaller.");
     }
-    // The middle of the group's emitters, which stays where it is.
-    Vec3 middle{0, 0, 0};
-    int count = 0;
-    for (const Layer& layer : effect().layers) {
-        if (layer.group == group) {
-            if (const Vec3* offset = tools::property<Vec3>(layer, "shape", "offset")) {
-                middle.x += offset->x;
-                middle.y += offset->y;
-                middle.z += offset->z;
-                ++count;
-            }
-        }
+    Selection chosen;
+    chosen.groups.push_back(std::string(group));
+    const ResolvedSelection r = resolveSelection(effect(), chosen);
+    if (r.empty()) {
+        return makeError(r.locked.empty() ? "There is no group called that to size." : "That group is locked.");
     }
-    if (count > 0) {
-        middle.x /= count;
-        middle.y /= count;
-        middle.z /= count;
-    }
-    std::vector<CommandPtr> steps;
-    for (const Layer& layer : effect().layers) {
-        if (layer.group != group) {
-            continue;
-        }
-        Layer sized = layer;
-        tools::scaleEverything(sized, factor);
-        if (Vec3* offset = tools::property<Vec3>(sized, "shape", "offset")) {
-            const Vec3* was = tools::property<Vec3>(layer, "shape", "offset");
-            offset->x = middle.x + (was->x - middle.x) * factor;
-            offset->y = middle.y + (was->y - middle.y) * factor;
-            offset->z = middle.z + (was->z - middle.z) * factor;
-        }
-        changesTo(layer, sized, steps);
-    }
-    if (steps.empty()) {
-        return makeError("There is no group called that to size.");
-    }
-    return state_->commands.push(std::make_unique<CompositeCommand>(groupStep(factor > 1.0 ? "Enlarge" : "Shrink", group),
-                                                                    std::move(steps)));
+    // About the middle of its emitters, which stays where it is.
+    LayerTransform t;
+    t.pivot = pivotOf(r.targets);
+    t.factor = factor;
+    return transformLayers(r.targets, t, groupStep(factor > 1.0 ? "Enlarge" : "Shrink", groupName(group)));
 }
 
 Status Session::setGroupEnabled(std::string_view group, bool enabled) {
     std::vector<CommandPtr> steps;
     for (const Layer& layer : effect().layers) {
-        if (layer.group == group && layer.enabled != enabled) {
+        if (inGroup(layer, group) && layer.enabled != enabled) {
             steps.push_back(std::make_unique<SetPropertyCommand>(Path::layerField(layer.id, "enabled"), Value(enabled)));
         }
     }
@@ -742,10 +700,31 @@ Status Session::setGroupEnabled(std::string_view group, bool enabled) {
         std::make_unique<CompositeCommand>(groupStep(enabled ? "Show" : "Hide", group), std::move(steps)));
 }
 
+Status Session::setGroupLocked(std::string_view group, bool locked) {
+    std::vector<CommandPtr> steps;
+    bool any = false;
+    for (const Layer& layer : effect().layers) {
+        if (inGroup(layer, group)) {
+            any = true;
+            if (layer.locked != locked) {
+                steps.push_back(std::make_unique<SetPropertyCommand>(Path::layerField(layer.id, "locked"), Value(locked)));
+            }
+        }
+    }
+    if (!any) {
+        return makeError("There is no group called that.");
+    }
+    if (steps.empty()) {
+        return {};
+    }
+    return state_->commands.push(
+        std::make_unique<CompositeCommand>(groupStep(locked ? "Lock" : "Unlock", groupName(group)), std::move(steps)));
+}
+
 Status Session::removeGroup(std::string_view group) {
     std::vector<CommandPtr> steps;
     for (const Layer& layer : effect().layers) {
-        if (layer.group == group) {
+        if (inGroup(layer, group)) {
             steps.push_back(std::make_unique<RemoveLayerCommand>(layer.id));
         }
     }
@@ -756,36 +735,92 @@ Status Session::removeGroup(std::string_view group) {
 }
 
 Status Session::ungroup(std::string_view group) {
+    // One level: the group's own layers go up to its parent, and groups
+    // inside it become groups of the parent.
+    const std::string parent = parentGroup(group);
     std::vector<CommandPtr> steps;
     for (const Layer& layer : effect().layers) {
-        if (layer.group == group) {
-            steps.push_back(std::make_unique<SetPropertyCommand>(Path::layerField(layer.id, "group"), Value(std::string())));
+        if (!inGroup(layer, group)) {
+            continue;
         }
+        const std::string rest = layer.group.size() > group.size() ? layer.group.substr(group.size() + 1) : std::string();
+        std::string next = parent;
+        if (!rest.empty()) {
+            next = next.empty() ? rest : next + "/" + rest;
+        }
+        steps.push_back(std::make_unique<SetPropertyCommand>(Path::layerField(layer.id, "group"), Value(next)));
     }
     if (steps.empty()) {
         return makeError("There is no group called that.");
     }
-    return state_->commands.push(std::make_unique<CompositeCommand>(groupStep("Ungroup", group), std::move(steps)));
+    return state_->commands.push(std::make_unique<CompositeCommand>(groupStep("Ungroup", groupName(group)), std::move(steps)));
 }
 
-std::vector<Id> Session::transformTargets(Id layerId) const {
-    std::vector<Id> ids;
-    const int index = layerIndex(effect(), layerId);
-    if (index < 0) {
-        return ids;
-    }
-    const Layer& layer = effect().layers[static_cast<std::size_t>(index)];
-    if (layer.group.empty()) {
-        ids.push_back(layer.id);
-        return ids;
-    }
-    for (const Layer& l : effect().layers) {
-        if (l.group == layer.group) {
-            ids.push_back(l.id);
+Status Session::groupLayers(const std::vector<Id>& layers, std::string_view name, std::string* made) {
+    std::vector<Id> chosen;
+    for (const Layer& layer : effect().layers) {  // in the effect's order
+        if (std::find(layers.begin(), layers.end(), layer.id) != layers.end()) {
+            chosen.push_back(layer.id);
         }
     }
-    return ids;
+    if (chosen.empty()) {
+        return makeError("Select the layers to put in a group first.");
+    }
+    // The new group goes inside the deepest group they all share.
+    std::string shared = findLayer(effect(), chosen.front())->group;
+    for (const Id id : chosen) {
+        const Layer& l = *findLayer(effect(), id);
+        while (!shared.empty() && !inGroup(l, shared)) {
+            shared = parentGroup(shared);
+        }
+    }
+    const std::string base = cleanGroupName(name);
+    const std::vector<std::string> existing = groups();
+    std::string path;
+    for (int n = 1;; ++n) {
+        const std::string leaf = n == 1 ? base : base + " " + std::to_string(n);
+        path = shared.empty() ? leaf : shared + "/" + leaf;
+        if (std::find(existing.begin(), existing.end(), path) == existing.end()) {
+            break;
+        }
+    }
+    std::vector<CommandPtr> steps;
+    // Together in the list, where the first of them is.
+    std::vector<Id> order;
+    for (const Layer& l : effect().layers) {
+        order.push_back(l.id);
+    }
+    std::vector<Id> wanted;
+    const std::size_t at = static_cast<std::size_t>(layerIndex(effect(), chosen.front()));
+    for (std::size_t i = 0; i < order.size(); ++i) {
+        if (i == at) {
+            wanted.insert(wanted.end(), chosen.begin(), chosen.end());
+        }
+        if (std::find(chosen.begin(), chosen.end(), order[i]) == chosen.end()) {
+            wanted.push_back(order[i]);
+        }
+    }
+    for (std::size_t i = 0; i < wanted.size(); ++i) {
+        if (order[i] != wanted[i]) {
+            const auto from = std::find(order.begin(), order.end(), wanted[i]);
+            const Id moving = *from;
+            order.erase(from);
+            order.insert(order.begin() + static_cast<std::ptrdiff_t>(i), moving);
+            steps.push_back(std::make_unique<MoveLayerCommand>(moving, static_cast<int>(i)));
+        }
+    }
+    for (const Id id : chosen) {
+        // Out of any group of its own below the shared one, into the new one.
+        steps.push_back(std::make_unique<SetPropertyCommand>(Path::layerField(id, "group"), Value(path)));
+    }
+    Status pushed = state_->commands.push(std::make_unique<CompositeCommand>("Group " + groupName(path), std::move(steps)));
+    if (pushed && made) {
+        *made = path;
+    }
+    return pushed;
 }
+
+ResolvedSelection Session::resolve(const Selection& selection) const { return resolveSelection(effect(), selection); }
 
 Vec3 Session::pivotOf(const std::vector<Id>& layers) const {
     std::vector<const Layer*> found;
@@ -803,8 +838,15 @@ namespace {
 std::vector<CommandPtr> transformSteps(const std::vector<Layer>& from, const LayerTransform& t, bool threeD,
                                        const Effect& now) {
     std::vector<CommandPtr> steps;
+    // Found by ID once: an effect may have hundreds of layers.
+    std::unordered_map<std::uint64_t, std::size_t> where;
+    where.reserve(now.layers.size());
+    for (std::size_t k = 0; k < now.layers.size(); ++k) {
+        where.emplace(now.layers[k].id.value, k);
+    }
     for (const Layer& original : from) {
-        const int i = layerIndex(now, original.id);
+        const auto found = where.find(original.id.value);
+        const int i = found == where.end() ? -1 : static_cast<int>(found->second);
         if (i < 0) {
             continue;
         }

@@ -18,16 +18,36 @@
 #include "vfx/Effect.h"
 #include "vfx/Value.h"
 
+#include <vector>
+
 namespace vfx::editor {
 
 struct LayerTransform {
     Vec3 pivot{0, 0, 0};  // what Turn and Size happen about
     Vec3 move{0, 0, 0};
-    double turn = 0;      // degrees
-    double factor = 1;    // Size: 2 is twice as large
+
+    // Turn, in degrees about one axis (counter-clockwise looking down the
+    // axis towards its start, as everywhere in VFX Forge). axis -1 is the
+    // usual one: Z (the picture) in 2D, Y (the upright) in 3D. 0 is X, 1 Y,
+    // 2 Z; 3 is axisVector (any direction, of length 1: a layer's own axes).
+    // A 2D effect only turns about Z.
+    double turn = 0;
+    int axis = -1;
+    Vec3 axisVector{0, 1, 0};
+
+    // Size. factor makes everything larger: the particles, how far they go
+    // and how far apart the emitters are. scale stretches along one axis
+    // only: how far apart the emitters are that way, and the emitter's own
+    // width, height or depth; the particles keep their size.
+    double factor = 1;
+    Vec3 scale{1, 1, 1};
+
+    // Each layer turns and sizes about its own Position instead of the pivot.
+    bool individual = false;
 
     bool identity() const {
-        return move.x == 0 && move.y == 0 && move.z == 0 && turn == 0 && factor == 1;
+        return move.x == 0 && move.y == 0 && move.z == 0 && turn == 0 && factor == 1 && scale.x == 1 &&
+               scale.y == 1 && scale.z == 1;
     }
 };
 

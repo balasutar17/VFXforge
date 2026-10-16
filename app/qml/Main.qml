@@ -96,6 +96,12 @@ ApplicationWindow {
     Shortcut { enabled: !root.asking; sequence: "Ctrl+E"; onActivated: app.exportOpen = true }
     Shortcut { enabled: !root.asking && reference.open; sequence: "Escape"; onActivated: reference.open = false }
     Shortcut { enabled: !root.asking; sequence: "Ctrl+R"; onActivated: reference.open = true }
+    // The handles: W move, E turn, R size (as in most 3D programs).
+    Shortcut { enabled: !root.asking && !app.libraryOpen; sequence: "W"; onActivated: app.gizmoMode = "move" }
+    Shortcut { enabled: !root.asking && !app.libraryOpen; sequence: "E"; onActivated: app.gizmoMode = "turn" }
+    Shortcut { enabled: !root.asking && !app.libraryOpen; sequence: "R"; onActivated: app.gizmoMode = "size" }
+    Shortcut { enabled: !root.asking; sequence: "Ctrl+G"; onActivated: app.groupSelection() }
+    Shortcut { enabled: !root.asking; sequence: "Ctrl+Shift+G"; onActivated: app.ungroupSelection() }
 
     FileDialog {
         id: backdropDialog
@@ -421,155 +427,199 @@ ApplicationWindow {
                     Item { Layout.preferredHeight: 6 }
                     PanelTitle { Layout.fillWidth: true; text: "Layers" }
 
+                    // The layers, under the headings of the groups they are in
+                    // (groups can hold groups). Click to select one; Cmd-click
+                    // (Ctrl-click) to add or take away; Shift-click for all
+                    // between. Click a heading to select the whole group; its
+                    // triangle folds it.
                     ListView {
                         id: layerList
+                        objectName: "layerList"
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         Layout.minimumHeight: 100
                         clip: true
                         spacing: 2
-                        model: app.layers
+                        model: app.layerRows
                         boundsBehavior: Flickable.StopAtBounds
 
-                        // Groups folded shut, by name. Kept here, not in the effect.
-                        property var folded: ({})
-                        function toggleFold(group) {
-                            var next = Object.assign({}, folded)
-                            next[group] = !next[group]
-                            folded = next
-                        }
-
                         delegate: Item {
-                            id: layerItem
+                            id: rowItem
                             required property var modelData
                             required property int index
-                            readonly property string group: modelData.group || ""
-                            readonly property bool inGroup: group !== ""
-                            readonly property bool isFolded: inGroup && layerList.folded[group] === true
+                            readonly property bool isGroup: modelData.kind === "group"
+                            readonly property real indent: (modelData.depth || 0) * 12
                             width: layerList.width
-                            height: (modelData.groupFirst ? groupHead.height + 2 : 0) + (isFolded ? 0 : 32)
+                            height: isGroup ? 28 : 32
 
-                            // The group's heading, above its first layer.
+                            // ---- a group's heading
                             Rectangle {
-                                id: groupHead
-                                objectName: "groupHeading"
-                                visible: layerItem.modelData.groupFirst === true
-                                width: parent.width
-                                height: visible ? 28 : 0
+                                visible: rowItem.isGroup
+                                anchors.fill: parent
+                                anchors.leftMargin: rowItem.indent
                                 radius: 5
-                                color: theme.raised
+                                color: rowItem.modelData.selected ? theme.hover : theme.raised
+                                border.width: rowItem.modelData.selected ? 1 : 0
+                                border.color: theme.accent
                                 MouseArea {
                                     anchors.fill: parent
-                                    onClicked: layerList.toggleFold(layerItem.group)
+                                    acceptedButtons: Qt.LeftButton
+                                    onClicked: function(mouse) { app.clickGroup(rowItem.modelData.path, mouse.modifiers) }
                                 }
                                 Text {
                                     id: foldMark
                                     anchors.left: parent.left
-                                    anchors.leftMargin: 8
+                                    anchors.leftMargin: 6
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: layerItem.isFolded ? "\u25b8" : "\u25be"
+                                    width: 14
+                                    text: rowItem.modelData.folded ? "\u25b8" : "\u25be"
                                     color: theme.dim
                                     font.pixelSize: theme.fontSize
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        anchors.margins: -4
+                                        onClicked: app.toggleFold(rowItem.modelData.path)
+                                    }
                                 }
                                 Text {
                                     anchors.left: foldMark.right
-                                    anchors.leftMargin: 6
-                                    anchors.right: groupShown.left
+                                    anchors.leftMargin: 4
+                                    anchors.right: groupLock.left
                                     anchors.rightMargin: 4
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: layerItem.group + "  \u00b7  " + layerItem.modelData.groupCount
-                                    color: layerItem.modelData.groupShown ? theme.text : theme.faint
+                                    text: rowItem.modelData.name + "  \u00b7  " + rowItem.modelData.count
+                                    color: rowItem.modelData.shown ? theme.text : theme.faint
                                     font.pixelSize: theme.fontSize
                                     font.bold: true
                                     elide: Text.ElideRight
+                                }
+                                VButton {
+                                    id: groupLock
+                                    anchors.right: groupShown.left
+                                    anchors.rightMargin: 2
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    implicitWidth: 24
+                                    implicitHeight: 22
+                                    quiet: true
+                                    checked: rowItem.modelData.locked === true
+                                    text: checked ? "\uD83D\uDD12" : "\uD83D\uDD13"
+                                    tip: checked ? "Locked: the handles leave this group alone. Click to unlock."
+                                                 : "Lock the group so the handles leave it alone"
+                                    onClicked: app.setGroupLocked(rowItem.modelData.path, !checked)
                                 }
                                 VCheck {
                                     id: groupShown
                                     anchors.right: groupRemove.left
                                     anchors.rightMargin: 2
                                     anchors.verticalCenter: parent.verticalCenter
-                                    checked: layerItem.modelData.groupShown === true
-                                    onToggled: function(nowChecked) { app.setGroupEnabled(layerItem.group, nowChecked) }
+                                    checked: rowItem.modelData.shown === true
+                                    onToggled: function(nowChecked) { app.setGroupEnabled(rowItem.modelData.path, nowChecked) }
                                 }
                                 VButton {
                                     id: groupRemove
                                     anchors.right: parent.right
                                     anchors.rightMargin: 4
                                     anchors.verticalCenter: parent.verticalCenter
-                                    implicitWidth: 26
+                                    implicitWidth: 24
                                     implicitHeight: 22
                                     quiet: true
                                     text: "\u00d7"
                                     tip: "Remove the whole group"
-                                    onClicked: app.removeGroup(layerItem.group)
+                                    onClicked: app.removeGroup(rowItem.modelData.path)
                                 }
                             }
 
-                        Rectangle {
-                            id: layerRow
-                            readonly property var modelData: layerItem.modelData
-                            readonly property int index: layerItem.index
-                            readonly property bool selected: index === app.selectedLayer
-
-                            visible: !layerItem.isFolded
-                            anchors.bottom: parent.bottom
-                            anchors.right: parent.right
-                            width: layerList.width - (layerItem.inGroup ? 12 : 0)
-                            height: 32
-                            radius: 5
-                            color: selected ? theme.raised : (rowArea.containsMouse ? theme.hover : "transparent")
-                            border.width: selected ? 1 : 0
-                            border.color: theme.accent
-                            MouseArea {
-                                id: rowArea
+                            // ---- a layer
+                            Rectangle {
+                                id: layerRow
+                                visible: !rowItem.isGroup
+                                readonly property bool active: rowItem.modelData.active === true
+                                readonly property bool chosen: rowItem.modelData.selected === true
                                 anchors.fill: parent
-                                hoverEnabled: true
-                                onClicked: app.selectLayer(layerRow.index)
-                            }
-                            VCheck {
-                                id: enabledBox
-                                anchors.left: parent.left
-                                anchors.leftMargin: 8
-                                anchors.verticalCenter: parent.verticalCenter
-                                checked: layerRow.modelData.enabled
-                                onToggled: function(nowChecked) { app.setLayerEnabled(layerRow.index, nowChecked) }
-                            }
-                            Text {
-                                visible: !layerRow.selected
-                                anchors.left: enabledBox.right
-                                anchors.leftMargin: 8
-                                anchors.right: parent.right
-                                anchors.rightMargin: 8
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: layerRow.modelData.name
-                                color: layerRow.modelData.enabled ? theme.text : theme.faint
-                                font.pixelSize: theme.fontSize
-                                elide: Text.ElideRight
-                            }
-                            VTextField {
-                                visible: layerRow.selected
-                                anchors.left: enabledBox.right
-                                anchors.leftMargin: 6
-                                anchors.right: removeButton.left
-                                anchors.rightMargin: 4
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: layerRow.modelData.name
-                                onEdited: function(newText) { app.renameLayer(layerRow.index, newText) }
-                            }
-                            VButton {
-                                id: removeButton
-                                visible: layerRow.selected
-                                anchors.right: parent.right
-                                anchors.rightMargin: 4
-                                anchors.verticalCenter: parent.verticalCenter
-                                implicitWidth: 26
-                                implicitHeight: 24
-                                quiet: true
-                                text: "×"
-                                tip: "Remove this layer"
-                                onClicked: app.removeLayer(layerRow.index)
+                                anchors.leftMargin: rowItem.indent
+                                radius: 5
+                                color: chosen ? theme.raised : (rowArea.containsMouse ? theme.hover : "transparent")
+                                border.width: chosen ? 1 : 0
+                                border.color: active ? theme.accent : theme.line
+
+                                MouseArea {
+                                    id: rowArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: function(mouse) { app.clickLayer(rowItem.modelData.index, mouse.modifiers) }
+                                }
+                                VCheck {
+                                    id: enabledBox
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 8
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    checked: rowItem.modelData.enabled === true
+                                    onToggled: function(nowChecked) { app.setLayerEnabled(rowItem.modelData.index, nowChecked) }
+                                }
+                                Text {
+                                    visible: !layerRow.active
+                                    anchors.left: enabledBox.right
+                                    anchors.leftMargin: 8
+                                    anchors.right: lockMark.left
+                                    anchors.rightMargin: 4
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: rowItem.modelData.name || ""
+                                    color: rowItem.modelData.enabled ? theme.text : theme.faint
+                                    font.pixelSize: theme.fontSize
+                                    elide: Text.ElideRight
+                                }
+                                VTextField {
+                                    visible: layerRow.active
+                                    anchors.left: enabledBox.right
+                                    anchors.leftMargin: 6
+                                    anchors.right: lockMark.left
+                                    anchors.rightMargin: 4
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: rowItem.modelData.name || ""
+                                    onEdited: function(newText) { app.renameLayer(rowItem.modelData.index, newText) }
+                                }
+                                Text {
+                                    id: lockMark
+                                    anchors.right: removeButton.left
+                                    anchors.rightMargin: 2
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: rowItem.modelData.locked ? "\uD83D\uDD12" : ""
+                                    font.pixelSize: theme.smallFontSize
+                                }
+                                VButton {
+                                    id: removeButton
+                                    visible: layerRow.active
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 4
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    implicitWidth: layerRow.active ? 26 : 0
+                                    implicitHeight: 24
+                                    quiet: true
+                                    text: "\u00d7"
+                                    tip: "Remove this layer"
+                                    onClicked: app.removeLayer(rowItem.modelData.index)
+                                }
                             }
                         }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+                        visible: app.selectionCount > 1 || app.selectedGroup !== ""
+                        VButton {
+                            Layout.fillWidth: true
+                            visible: app.selectionCount > 1 && app.selectedGroup === ""
+                            text: "Group " + app.selectionCount + " layers"
+                            tip: "Make the selected layers a group (Cmd+G)"
+                            onClicked: app.groupSelection()
+                        }
+                        VButton {
+                            Layout.fillWidth: true
+                            visible: app.selectedGroup !== ""
+                            text: "Ungroup"
+                            tip: "Keep the layers, one group level up (Cmd+Shift+G)"
+                            onClicked: app.ungroupSelection()
                         }
                     }
 
@@ -601,9 +651,14 @@ ApplicationWindow {
                     ColumnLayout {
                         id: groupPanel
                         objectName: "groupPanel"
-                        readonly property var row: app.selectedLayer >= 0 && app.selectedLayer < app.layers.length
-                                                   ? app.layers[app.selectedLayer] : null
-                        readonly property string group: row && row.group ? row.group : ""
+                        readonly property string group: app.selectedGroup
+                        readonly property var row: {
+                            var rows = app.layerRows
+                            for (var i = 0; i < rows.length; ++i)
+                                if (rows[i].kind === "group" && rows[i].path === group)
+                                    return rows[i]
+                            return null
+                        }
                         readonly property real step: 0.25
                         Layout.fillWidth: true
                         visible: group !== ""
@@ -615,7 +670,7 @@ ApplicationWindow {
                             spacing: 4
                             Text {
                                 Layout.fillWidth: true
-                                text: "GROUP  " + groupPanel.group
+                                text: "GROUP  " + groupPanel.group.split("/").pop()
                                 color: theme.dim
                                 font.pixelSize: theme.smallFontSize
                                 font.bold: true
@@ -646,7 +701,7 @@ ApplicationWindow {
                             Text {
                                 Layout.fillWidth: true
                                 horizontalAlignment: Text.AlignHCenter
-                                text: "starts " + (groupPanel.row ? groupPanel.row.groupStart : 0).toFixed(1) + " s"
+                                text: "starts " + (groupPanel.row ? groupPanel.row.start : 0).toFixed(1) + " s"
                                 color: theme.text
                                 font.pixelSize: theme.smallFontSize
                             }
@@ -713,10 +768,17 @@ ApplicationWindow {
                         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                         property real lastX: 0
                         property real lastY: 0
+                        property real travelled: 0
                         onPressed: function(mouse) {
                             lastX = mouse.x
                             lastY = mouse.y
+                            travelled = 0
                             forceActiveFocus()
+                        }
+                        onReleased: function(mouse) {
+                            // A click (not a drag) on nothing: nothing selected.
+                            if (travelled < 4 && mouse.button === Qt.LeftButton && handlesButton.checked)
+                                app.clickViewport(-1, mouse.modifiers)
                         }
                         onPositionChanged: function(mouse) {
                             if ((mouse.modifiers & Qt.AltModifier) && app.hasBackdrop && viewport.unitScale > 0) {
@@ -727,6 +789,7 @@ ApplicationWindow {
                                 var secondary = mouse.buttons !== Qt.LeftButton || (mouse.modifiers & Qt.ShiftModifier)
                                 viewport.dragBy(mouse.x - lastX, mouse.y - lastY, secondary ? true : false)
                             }
+                            travelled += Math.abs(mouse.x - lastX) + Math.abs(mouse.y - lastY)
                             lastX = mouse.x
                             lastY = mouse.y
                         }
@@ -750,10 +813,80 @@ ApplicationWindow {
                         viewport: viewport
                         threeD: app.threeD
                         target: app.gizmo
+                        mode: app.gizmoMode
                         onBegin: function(kind) { app.beginGizmo(kind) }
-                        onDrag: function(dx, dy, dz, turn, factor) { app.dragGizmo(dx, dy, dz, turn, factor) }
+                        onDrag: function(change) { app.dragGizmo(change) }
                         onEnd: app.endGizmo()
                         onCancel: app.cancelGizmo()
+                        onPivotMoved: function(dx, dy, dz) { app.movePivot(dx, dy, dz) }
+                        onPicked: function(index, modifiers) { app.clickViewport(index, modifiers) }
+                    }
+
+                    // Which handles, and what they turn and size about.
+                    Column {
+                        objectName: "gizmoBar"
+                        visible: handlesButton.checked
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.leftMargin: 8
+                        anchors.topMargin: 30
+                        spacing: 4
+                        Row {
+                            spacing: 2
+                            Repeater {
+                                model: [
+                                    { key: "move", label: "\u2725 Move", tip: "Move (W): drag the middle, or an arrow to keep to one axis" },
+                                    { key: "turn", label: "\u21bb Turn", tip: "Turn (E): drag a ring" },
+                                    { key: "size", label: "\u2922 Size", tip: "Size (R): drag the middle for everything, an axis box to stretch" }
+                                ]
+                                delegate: VButton {
+                                    required property var modelData
+                                    implicitHeight: 24
+                                    text: modelData.label
+                                    tip: modelData.tip
+                                    checked: app.gizmoMode === modelData.key
+                                    onClicked: app.gizmoMode = modelData.key
+                                }
+                            }
+                        }
+                        Row {
+                            spacing: 2
+                            visible: app.selectionCount > 0
+                            Repeater {
+                                model: [
+                                    { key: "center", label: "Middle", tip: "Turn and size about the middle of everything selected" },
+                                    { key: "active", label: "Active", tip: "Turn and size about the layer clicked last" },
+                                    { key: "individual", label: "Each", tip: "Turn and size each layer about its own position" }
+                                ]
+                                delegate: VButton {
+                                    required property var modelData
+                                    implicitHeight: 22
+                                    quiet: true
+                                    text: modelData.label
+                                    tip: modelData.tip
+                                    checked: app.pivotMode === modelData.key
+                                    onClicked: app.pivotMode = modelData.key
+                                }
+                            }
+                            Item { width: 6; height: 1 }
+                            VButton {
+                                implicitHeight: 22
+                                quiet: true
+                                text: app.gizmoSpace === "local" ? "Local" : "World"
+                                checked: app.gizmoSpace === "local"
+                                tip: app.gizmoSpace === "local"
+                                     ? "The handles follow the layer's own axes: up is the way it sends particles. Click for the world's axes."
+                                     : "The handles follow the world's axes. Click for the layer's own axes (up is the way it sends particles)."
+                                onClicked: app.gizmoSpace = app.gizmoSpace === "local" ? "world" : "local"
+                            }
+                            VButton {
+                                implicitHeight: 22
+                                quiet: true
+                                text: "Reset pivot"
+                                tip: "Put the pivot back after Option-dragging it"
+                                onClicked: app.resetPivot()
+                            }
+                        }
                     }
 
                     Text {

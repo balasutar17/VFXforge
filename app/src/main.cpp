@@ -25,6 +25,7 @@
 #include <QVariantMap>
 #include <QtQml>
 
+#include "vfx/Serialize.h"
 #include "AppController.h"
 #include "PreviewItems.h"
 #include "ReferenceController.h"
@@ -282,7 +283,7 @@ int main(int argc, char* argv[]) {
                 const std::size_t undoBefore = controller.session().commands().undoCount();
                 bool turned = controller.beginGizmo(QStringLiteral("turn"));
                 for (int i = 1; i <= 9; ++i) {
-                    controller.dragGizmo(0, 0, 0, 10.0 * i, 1.0);
+                    controller.dragGizmo(QVariantMap{{QStringLiteral("turn"), 10.0 * i}, {QStringLiteral("axis"), 1}});
                 }
                 controller.endGizmo();
                 const bool oneStep = controller.session().commands().undoCount() == undoBefore + 1;
@@ -296,6 +297,40 @@ int main(int argc, char* argv[]) {
                     groupsOut << "FAIL: the handles did not work\n";
                     selfTest.result = 1;
                 }
+                // Selection: one layer of the group alone, then two layers
+                // from different places; the handles reach only those.
+                const int orbsIndex = before;
+                controller.clickLayer(orbsIndex, 0);
+                const int alone = controller.gizmo().value(QStringLiteral("count")).toInt();
+                controller.clickLayer(0, int(Qt::ControlModifier));
+                const int two = controller.gizmo().value(QStringLiteral("count")).toInt();
+                const std::string beforeMove = vfx::writeEffect(controller.session().effect());
+                controller.beginGizmo(QStringLiteral("move"));
+                controller.dragGizmo(QVariantMap{{QStringLiteral("move"), QVariantList{0.5, 0.0, 0.0}}});
+                controller.endGizmo();
+                int touched = 0;
+                {
+                    auto parsed = vfx::readEffect(beforeMove);
+                    const vfx::Effect& was = parsed.value().effect;
+                    for (std::size_t i = 0; i < was.layers.size(); ++i) {
+                        const vfx::Layer& a = was.layers[i];
+                        const vfx::Layer& b = controller.session().effect().layers[i];
+                        bool same = a.modules.size() == b.modules.size();
+                        for (std::size_t m = 0; same && m < a.modules.size(); ++m) {
+                            same = a.modules[m].values == b.modules[m].values;
+                        }
+                        touched += same ? 0 : 1;
+                    }
+                }
+                groupsOut << "selection: a layer of a group alone reaches " << alone << ", Cmd-click adds one: " << two
+                          << "; moving them changed " << touched << " layers\n";
+                if (alone != 1 || two != 2 || touched != 2) {
+                    groupsOut << "FAIL: the handles reached more than the selection\n";
+                    selfTest.result = 1;
+                }
+                // The turn rings, for the picture.
+                controller.clickGroup(group, 0);
+                controller.setGizmoMode(QStringLiteral("turn"));
                 QTimer::singleShot(900, &application, [&, window, finish]() {
                     capture(window, selfTest, QStringLiteral("-groups"), QStringLiteral("two effects in one, as groups"));
                     finish();

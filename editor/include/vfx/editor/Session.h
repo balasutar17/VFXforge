@@ -26,6 +26,7 @@
 #include "vfx/editor/Audio.h"
 #include "vfx/editor/Image.h"
 #include "vfx/editor/Reconstruct.h"
+#include "vfx/editor/Selection.h"
 #include "vfx/editor/Transform.h"
 
 namespace vfx::editor {
@@ -115,14 +116,21 @@ public:
     // the middle of its emitters.
     Status sizeGroup(std::string_view group, double factor);
     Status setGroupEnabled(std::string_view group, bool enabled);
+    // A locked layer is left alone by the handles (and by Refine).
+    Status setGroupLocked(std::string_view group, bool locked);
     Status removeGroup(std::string_view group);
-    // The layers stay; they are simply no longer a group.
+    // One level: the group's layers (and groups) move up into its parent.
     Status ungroup(std::string_view group);
+    // Makes the layers a new group, inside the deepest group they all share
+    // (out of any group of their own below it), and puts them together in
+    // the list. made receives the new group's path.
+    Status groupLayers(const std::vector<Id>& layers, std::string_view name, std::string* made = nullptr);
+    // Groups are paths ("Fire/Sparks"); every operation above reaches the
+    // groups inside too. Move, Delay and Size leave locked layers alone.
 
     // ------------------------------------------- moving, turning, sizing
-    // What the viewport's handles change: the layer's whole group when it
-    // is in one, otherwise the layer alone.
-    std::vector<Id> transformTargets(Id layer) const;
+    // What a change to a selection reaches (see Selection.h).
+    ResolvedSelection resolve(const Selection& selection) const;
     // The middle of those layers' Positions: where the handles stand.
     Vec3 pivotOf(const std::vector<Id>& layers) const;
     // A change made in one go, as one undo step.

@@ -101,10 +101,14 @@ TEST_CASE("a handle drag changes the layer's whole group, live, and undoes as on
     const Id orbs = s.effect().layers.back().id;
     const Id portalLayer = s.effect().layers.front().id;
 
-    // A layer of a group brings the whole group; one of no group, itself.
-    const auto group = s.transformTargets(orbs);
+    // The group selected brings all of it; a layer selected, only itself.
+    Selection whole;
+    whole.groups.push_back("Guardian Orbs 3D");
+    const auto group = s.resolve(whole).targets;
     REQUIRE(group.size() == 2);
-    CHECK(s.transformTargets(portalLayer) == std::vector<Id>{portalLayer});
+    Selection one;
+    one.layers.push_back(orbs);
+    CHECK(s.resolve(one).targets == std::vector<Id>{orbs});
 
     const Vec3 pivot = s.pivotOf(group);
     CHECK(pivot.y == Approx(1.6));

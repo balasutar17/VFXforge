@@ -11,6 +11,7 @@
 #include <QColor>
 #include <QImage>
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QUrl>
@@ -38,6 +39,18 @@ class AppController : public QObject {
     // The viewport's handles: where they stand (the middle of the selected
     // layer, or of its whole group) and what they change.
     Q_PROPERTY(QVariantMap gizmo READ gizmo NOTIFY gizmoChanged)
+    // move, turn or size: which handles the viewport shows.
+    Q_PROPERTY(QString gizmoMode READ gizmoMode WRITE setGizmoMode NOTIFY gizmoChanged)
+    // center, active or individual: what Turn and Size happen about.
+    Q_PROPERTY(QString pivotMode READ pivotMode WRITE setPivotMode NOTIFY gizmoChanged)
+    // world, or local (the active layer's own axes: up is the way it sends particles).
+    Q_PROPERTY(QString gizmoSpace READ gizmoSpace WRITE setGizmoSpace NOTIFY gizmoChanged)
+    // The Layers list as shown: group headings (nested) and layers, with
+    // what is selected. Folded groups hide what is inside them.
+    Q_PROPERTY(QVariantList layerRows READ layerRows NOTIFY layersChanged)
+    // The one group selected on its own, or empty.
+    Q_PROPERTY(QString selectedGroup READ selectedGroup NOTIFY layersChanged)
+    Q_PROPERTY(int selectionCount READ selectionCount NOTIFY layersChanged)
     Q_PROPERTY(double duration READ duration NOTIFY documentChanged)
     Q_PROPERTY(double frameRate READ frameRate NOTIFY documentChanged)
     Q_PROPERTY(int frameCount READ frameCount NOTIFY documentChanged)
@@ -198,15 +211,46 @@ public:
     Q_INVOKABLE void delayGroup(const QString& group, double seconds);
     Q_INVOKABLE void sizeGroup(const QString& group, double factor);
     Q_INVOKABLE void setGroupEnabled(const QString& group, bool enabled);
+    Q_INVOKABLE void setGroupLocked(const QString& group, bool locked);
     Q_INVOKABLE void removeGroup(const QString& group);
     Q_INVOKABLE void ungroup(const QString& group);
     // A drag of one of the viewport's handles ("move", "turn" or "size").
     // Each update is the whole change since the drag began; the drag
     // undoes as one step.
+    // kind is move, turn or size. A drag's change, as a map: move [x, y, z]
+    // (world units), turn (degrees) about axis (0, 1, 2 of the gizmo's axes),
+    // factor (size of everything), scale [x, y, z] (stretch along the world
+    // axes). Each drag is the whole change since it began; it undoes as one step.
     Q_INVOKABLE bool beginGizmo(const QString& kind);
-    Q_INVOKABLE void dragGizmo(double dx, double dy, double dz, double turn, double factor);
+    Q_INVOKABLE void dragGizmo(const QVariantMap& change);
     Q_INVOKABLE void endGizmo();
     Q_INVOKABLE void cancelGizmo();
+    // Moves the pivot only (Option-drag of the middle); nothing else moves.
+    Q_INVOKABLE void movePivot(double dx, double dy, double dz);
+    Q_INVOKABLE void resetPivot();
+
+    // Selecting. modifiers are Qt's: Cmd/Ctrl adds or takes away, Shift
+    // selects everything between the active layer and this one.
+    Q_INVOKABLE void clickLayer(int index, int modifiers);
+    Q_INVOKABLE void clickGroup(const QString& path, int modifiers);
+    Q_INVOKABLE void selectNone();
+    Q_INVOKABLE void toggleFold(const QString& path);
+    // A click in the viewport: the layer whose emitter is within a few
+    // pixels of it (see gizmo().markers) is selected, otherwise nothing.
+    Q_INVOKABLE void clickViewport(int layerIndex, int modifiers);
+    // The selected layers become a group (Cmd+G); the selected group is
+    // ungrouped one level (Cmd+Shift+G).
+    Q_INVOKABLE void groupSelection();
+    Q_INVOKABLE void ungroupSelection();
+    QString gizmoMode() const { return gizmoMode_; }
+    void setGizmoMode(const QString& mode);
+    QString pivotMode() const { return pivotMode_; }
+    void setPivotMode(const QString& mode);
+    QString gizmoSpace() const { return gizmoSpace_; }
+    void setGizmoSpace(const QString& space);
+    QVariantList layerRows() const { return layerRows_; }
+    QString selectedGroup() const;
+    int selectionCount() const;
     // The same in one click: for the Group panel's buttons.
     Q_INVOKABLE void turnSelection(double degrees);
     QVariantMap gizmo() const;
@@ -381,6 +425,19 @@ private:
     vfx::editor::LayerTransform gizmoTransform_;
     vfx::Vec3 gizmoPivot_{};
     QString gizmoKind_;
+    QString gizmoMode_ = QStringLiteral("move");
+    QString pivotMode_ = QStringLiteral("center");
+    QString gizmoSpace_ = QStringLiteral("world");
+    vfx::editor::Selection selection_;
+    bool selectedNothing_ = false;     // the artist clicked away: no handles
+    vfx::Id selectionFor_;             // the active layer the selection was made for
+    vfx::Vec3 pivotShift_{};           // moved by hand, until the selection changes
+    QSet<QString> folded_;
+    QVariantList layerRows_;
+    void syncSelection();
+    void selectionEdited();
+    vfx::Vec3 currentPivot(const std::vector<vfx::Id>& targets) const;
+    std::vector<vfx::Vec3> gizmoAxes() const;
 
     // Call after anything that may have changed the document.
     void changed(Refresh what);

@@ -27,6 +27,7 @@ add_library(vfx_editor STATIC
     src/ReferenceTime.cpp
     src/Session.cpp
     src/Transform.cpp
+    src/Selection.cpp
     src/ShapeLibrary.cpp
     src/Shapes.cpp
     src/SoundLibrary.cpp
