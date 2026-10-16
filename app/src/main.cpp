@@ -267,7 +267,7 @@ int main(int argc, char* argv[]) {
                         start = l.start;
                     }
                 }
-                controller.selectLayer(before);
+                controller.clickGroup(group, 0);  // the whole group: its heading clicked
                 QTextStream groupsOut(&selfTest.report);
                 groupsOut << "groups: added " << (added ? "yes" : "NO") << ", group \"" << group << "\", "
                           << controller.session().effect().layers.size() - static_cast<std::size_t>(before)
