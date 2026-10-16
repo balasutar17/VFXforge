@@ -1521,6 +1521,420 @@ Effect guardianOrbs3d(const IdSource& id) {
     return e;
 }
 
+// ---- 3D game effects: the staples of a 3D action or casual game, each
+// made to be seen from any side. (0.21)
+
+// A tint key from a screen colour: the colour the particle is multiplied by
+// at that moment of its life (so give the layer a white Color).
+Tint hexTint(double t, unsigned rgb) {
+    const Color c = hex(rgb, 1.0);
+    return Tint{t, c.r, c.g, c.b, 1.0};
+}
+
+Effect laserBeam3d(const IdSource& id) {
+    Effect e = begin3d(id, "Laser Beam 3D", 2.0);
+    // Charging at the gun end, then a beam that lasts and an impact where it lands.
+    add(e, Make(id, "Charge").from(0.0, 0.5).rate(40).sphere(0.9, true).at3(-3, 1.5, 0).life(0.25, 0.35)
+               .speed(0, 0).size(0.05, 0.09).color(0x9fd8ff).gravity(0, 0).sizeOver({{0, 0}, {0.5, 1}, {1, 0}})
+               .additive().glow(2.0));
+    add(e, Make(id, "Charge glow").from(0.0, 1.7).burst(1).life(1.7, 1.7).at3(-3, 1.5, 0).speed(0, 0).size(1.3, 1.3)
+               .color(0x3fa9ff).gravity(0, 0).sizeOver({{0, 0.1}, {0.25, 1.0, true}, {0.35, 0.8}, {0.9, 0.8}, {1, 0}})
+               .fade({{0, 0.4}, {0.25, 1}, {0.9, 0.9}, {1, 0}}).additive().glow(1.6));
+    add(e, Make(id, "Beam glow").from(0.45, 1.25).rate(90).at3(-3, 1.5, 0).life(0.2, 0.2).speed(30, 30)
+               .toward(1, 0, 0, 0).size(0.75, 0.75).color(0x2f8cff, 0.6).gravity(0, 0).fade({{0, 1}, {0.85, 1}, {1, 0}})
+               .look("beam").additive().glow(1.2).streak(0.05));
+    add(e, Make(id, "Beam core").from(0.45, 1.25).rate(110).at3(-3, 1.5, 0).life(0.2, 0.2).speed(30, 30)
+               .toward(1, 0, 0, 0).size(0.22, 0.26).color(0xe9f7ff).gravity(0, 0).look("beam").additive().glow(2.2)
+               .streak(0.05));
+    add(e, Make(id, "Beam sparks").from(0.45, 1.25).rate(70).sphere(0.18).at3(-3, 1.5, 0).life(0.15, 0.25)
+               .speed(20, 28).toward(1, 0, 0, 2).size(0.04, 0.07).color(0xbfe6ff).gravity(0, 0).additive().glow(2.0)
+               .streak(0.01).turbulence(3.0, 0.4, 2.0));
+    add(e, Make(id, "Impact flash").from(0.6, 1.1).rate(22).at3(3, 1.5, 0).life(0.08, 0.14).speed(0, 0)
+               .size(1.2, 1.8).turn(0, 360).color(0xdff2ff).gravity(0, 0).fade({{0, 1}, {1, 0}}).look("starflash")
+               .additive().glow(1.6));
+    add(e, Make(id, "Impact sparks").from(0.6, 1.1).rate(70).at3(3, 1.5, 0).life(0.25, 0.5).speed(4, 8)
+               .toward(-1, 0.3, 0, 70).size(0.04, 0.08).color(0x7cc8ff).gravity(0, -9).drag(1.5).additive().glow(2.0)
+               .streak(0.03));
+    add(e, Make(id, "Scorch").from(0.7, 1.3).burst(1).life(1.3, 1.3).at3(3, 1.5, 0).speed(0, 0).size(0.9, 0.9)
+               .color(0x1b2a44, 0.7).gravity(0, 0).fade({{0, 0}, {0.1, 0.8}, {0.7, 0.8}, {1, 0}}).look("impact"));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect tornado3d(const IdSource& id) {
+    Effect e = begin3d(id, "Tornado 3D", 3.0);
+    // Dust drawn in at the foot and carried round and up a widening funnel.
+    add(e, Make(id, "Funnel dust").rate(55).circle(0.35, true).life(1.6, 2.1).speed(2.0, 2.6).toward(0, 1, 0, 20)
+               .size(0.35, 0.55).turn(0, 360).color(0xbca78a, 0.75).gravity(0, 0).orbit(420).ground().spin(-90, 90)
+               .sizeOver({{0, 0.5}, {1, 2.2}}).fade({{0, 0}, {0.15, 0.8}, {0.75, 0.6}, {1, 0}}).look("dustcloud"));
+    add(e, Make(id, "Wind streaks").rate(70).circle(0.45, true).life(1.0, 1.4).speed(2.6, 3.4).toward(0, 1, 0, 22)
+               .size(0.05, 0.08).color(0xffffff, 0.7).gravity(0, 0).orbit(560).ground().additive()
+               .fade({{0, 0}, {0.2, 1}, {0.8, 0.8}, {1, 0}}).streak(0.06));
+    add(e, Make(id, "Debris").rate(10).circle(0.5, true).life(1.5, 2.0).speed(1.6, 2.4).toward(0, 1, 0, 25)
+               .size(0.12, 0.22).turn(0, 360).color(0x6f5b44).gravity(0, 0).orbit(380).ground().spin(-400, 400)
+               .fade({{0, 0}, {0.1, 1}, {0.85, 1}, {1, 0}}).solid().look("rock"));
+    add(e, Make(id, "Leaves").rate(6).circle(0.6, true).life(1.6, 2.0).speed(1.8, 2.6).toward(0, 1, 0, 28)
+               .size(0.16, 0.24).turn(0, 360).color(0x7fae4a).gravity(0, 0).orbit(330).ground().spin(-300, 300)
+               .fade({{0, 0}, {0.1, 1}, {0.85, 1}, {1, 0}}).solid().look("leaf"));
+    add(e, Make(id, "Ground dust").rate(14).circle(1.1, true).life(1.0, 1.4).speed(0.2, 0.5).toward(0, 1, 0, 60)
+               .size(0.6, 0.9).turn(0, 360).color(0xa8977d, 0.55).gravity(0, 0).orbit(200).ground()
+               .sizeOver({{0, 0.6}, {1, 1.4}}).fade({{0, 0}, {0.3, 0.6}, {1, 0}}).look("puff"));
+    add(e, Make(id, "Ground ring").rate(2).life(1.5, 1.5).speed(0, 0).size(2.8, 2.8).color(0x8f7c62, 0.5)
+               .gravity(0, 0).spin(240, 240).fade({{0, 0}, {0.5, 0.5}, {1, 0}}).look("smokering").ground().flatOnPlane());
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect standingPortal3d(const IdSource& id) {
+    Effect e = begin3d(id, "Standing Portal 3D", 4.0);
+    // A gateway standing upright: a whirl inside a turning rim, motes drawn round it.
+    add(e, Make(id, "Back glow").burst(1).life(4.0, 4.0).at3(0, 1.8, 0).speed(0, 0).size(4.4, 4.4).color(0x2f9cff, 0.45)
+               .gravity(0, 0).additive().flatOnPlane());
+    add(e, Make(id, "Whirl").burst(1).life(4.0, 4.0).at3(0, 1.8, 0).speed(0, 0).size(3.0, 3.0).color(0x47c6ff)
+               .gravity(0, 0).spin(-180, -180).solid().look("vortex").additive().glow(1.4).flatOnPlane());
+    add(e, Make(id, "Rim").burst(1).life(4.0, 4.0).at3(0, 1.8, 0).speed(0, 0).size(3.3, 3.3).color(0xc8f2ff)
+               .gravity(0, 0).spin(45, 45).solid().look("portalring").additive().glow(1.3).flatOnPlane());
+    add(e, Make(id, "Runes").burst(1).life(4.0, 4.0).at3(0, 1.8, 0).speed(0, 0).size(3.9, 3.9).color(0x8fe0ff, 0.6)
+               .gravity(0, 0).spin(-22.5, -22.5).solid().look("dashring").additive().flatOnPlane());
+    add(e, Make(id, "Drawn motes").rate(40).circle(1.75, true).at3(0, 1.8, 0).life(0.9, 1.3).speed(0.1, 0.3)
+               .toward(0, 0, 1, 40).size(0.05, 0.1).color(0xd8f6ff).gravity(0, 0).orbit(-160)
+               .sizeOver({{0, 1}, {1, 0.2}}).fade({{0, 0}, {0.2, 1}, {1, 0}}).additive().glow(2.2));
+    add(e, Make(id, "Edge sparks").rate(16).circle(1.6, true).at3(0, 1.8, 0).life(0.4, 0.7).speed(0.8, 1.6)
+               .toward(0, 1, 0, 180).size(0.04, 0.07).color(0x9ce8ff).gravity(0, -1.5).additive().glow(2.0)
+               .streak(0.04));
+    add(e, Make(id, "Floor light").burst(1).life(4.0, 4.0).speed(0, 0).size(3.4, 3.4).color(0x2f9cff, 0.35).gravity(0, 0)
+               .fade({{0, 0}, {0.15, 1}, {0.85, 1}, {1, 0}}).additive().ground().flatOnPlane());
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect gunfire3d(const IdSource& id) {
+    Effect e = begin3d(id, "Gunfire 3D", 1.0);
+    // Four shots a second from the left, each with its flash, tracer, shell and hit.
+    const double shots[] = {0.0, 0.25, 0.5, 0.75};
+    Make flash(id, "Muzzle flash"), glow(id, "Muzzle glow"), tracer(id, "Tracers"), shell(id, "Shells"),
+        smoke(id, "Smoke"), hit(id, "Hit sparks"), puff(id, "Hit dust");
+    for (const double t : shots) {
+        flash.burst(1, t);
+        glow.burst(1, t);
+        tracer.burst(1, t + 0.01);
+        shell.burst(1, t + 0.02);
+        smoke.burst(2, t + 0.02);
+        hit.burst(22, t + 0.12);
+        puff.burst(2, t + 0.12);
+    }
+    add(e, flash.at3(-2.0, 1.4, 0).life(0.07, 0.07).speed(0, 0).size(1.4, 1.7).turn(0, 360).color(0xfff2c2)
+               .gravity(0, 0).look("crossflare").additive().glow(1.8));
+    add(e, glow.at3(-2.0, 1.4, 0).life(0.12, 0.12).speed(0, 0).size(2.0, 2.0).color(0xff9a2e, 0.8).gravity(0, 0)
+               .fade({{0, 1}, {1, 0}}).additive());
+    add(e, tracer.at3(-1.9, 1.4, 0).life(0.11, 0.11).speed(40, 40).toward(1, 0, 0, 0.6).size(0.24, 0.24)
+               .color(0xffd27a).gravity(0, 0).look("beam").additive().glow(2.4).streak(0.05));
+    Make hitFlash(id, "Hit flash");
+    for (const double t : shots) {
+        hitFlash.burst(1, t + 0.12);
+    }
+    add(e, hitFlash.at3(2.4, 1.4, 0).life(0.08, 0.08).speed(0, 0).size(0.9, 1.2).turn(0, 360).color(0xffe6b0)
+               .gravity(0, 0).look("starflash").additive().glow(1.6));
+    add(e, shell.at3(-2.2, 1.5, 0).life(0.7, 0.8).speed(2.5, 3.2).toward(-0.3, 1, -0.6, 15).size(0.11, 0.12)
+               .turn(0, 360).color(0xd8a640).gravity(0, -12).spin(-900, 900).solid().look("capsule"));
+    add(e, smoke.at3(-1.8, 1.4, 0).life(0.5, 0.8).speed(0.4, 0.9).toward(1, 0.4, 0, 30).size(0.25, 0.4)
+               .turn(0, 360).color(0xc9c9c9, 0.35).gravity(0, 0.4).drag(2).sizeOver({{0, 0.4}, {1, 1.6}})
+               .fade({{0, 0.8}, {1, 0}}).look("puff").turbulence(0.3, 0.8, 0.6));
+    add(e, hit.at3(2.4, 1.4, 0).life(0.15, 0.35).speed(3, 7).toward(-1, 0.4, 0, 60).size(0.05, 0.09)
+               .color(0xffc062).gravity(0, -10).drag(2).additive().glow(2.0).streak(0.03));
+    add(e, puff.at3(2.4, 1.4, 0).life(0.4, 0.6).speed(0.3, 0.8).toward(-1, 0.3, 0, 50).size(0.25, 0.35)
+               .turn(0, 360).color(0xb7a68f, 0.5).gravity(0, 0.2).drag(2).sizeOver({{0, 0.5}, {1, 1.4}})
+               .fade({{0, 0.8}, {1, 0}}).look("dustcloud"));
+    return e;
+}
+
+Effect lightRays3d(const IdSource& id) {
+    Effect e = begin3d(id, "Holy Light 3D", 4.0);
+    // Shafts of light falling on a spot, dust glinting in them.
+    add(e, Make(id, "Shafts").rate(7).circle(0.8).at3(0, 5.2, 0).life(1.6, 2.2).speed(0.6, 0.9).toward(0, -1, 0, 0)
+               .size(0.9, 1.4).color(0xfff1b8, 0.4).gravity(0, 0).ground().fade({{0, 0}, {0.35, 1}, {0.7, 1}, {1, 0}})
+               .look("beam").additive().streak(4.5));
+    add(e, Make(id, "Column").rate(2).at3(0, 2.4, 0).life(2.0, 2.0).speed(0, 0).size(2.6, 2.6)
+               .color(0xffe08a, 0.4).gravity(0, 0).fade({{0, 0}, {0.5, 1}, {1, 0}}).look("lightcone").additive());
+    add(e, Make(id, "Floor halo").burst(1).life(4.0, 4.0).speed(0, 0).size(2.6, 2.6).color(0xffe39a, 0.7).gravity(0, 0)
+               .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).look("halo").additive().ground().flatOnPlane());
+    add(e, Make(id, "Floor glow").burst(1).life(4.0, 4.0).speed(0, 0).size(3.4, 3.4).color(0xffc85a, 0.35)
+               .gravity(0, 0).fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).additive().ground().flatOnPlane());
+    add(e, Make(id, "Dust").rate(18).sphere(1.0).at3(0, 2.0, 0).life(1.6, 2.6).speed(0.05, 0.2).toward(0, -1, 0, 90)
+               .size(0.04, 0.08).color(0xfff7d6).gravity(0, -0.05).fade({{0, 0}, {0.3, 1}, {0.7, 1}, {1, 0}})
+               .look("glint").additive().glow(1.8).turbulence(0.15, 1.0, 0.3));
+    add(e, Make(id, "Feathers").rate(1.5).circle(0.8).at3(0, 4.5, 0).life(2.4, 3.0).speed(0.4, 0.6)
+               .toward(0, -1, 0, 20).size(0.22, 0.3).turn(0, 360).color(0xfffbef).gravity(0, 0).spin(-60, 60).ground()
+               .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).solid().look("feather").turbulence(0.3, 1.2, 0.4));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect waterSplash3d(const IdSource& id) {
+    Effect e = begin3d(id, "Water Splash 3D", 1.6);
+    // Something drops into water: a crown of drops, spray and widening ripples.
+    add(e, Make(id, "Crown").burst(36).circle(0.35, true).life(0.6, 0.9).speed(4, 6).toward(0, 1, 0, 30)
+               .size(0.08, 0.14).color(0x7fd2ff).gravity(0, -14).ground().solid().look("droplet").streak(0.02));
+    add(e, Make(id, "Column").burst(14).circle(0.12).life(0.5, 0.7).speed(5, 7.5).toward(0, 1, 0, 6)
+               .size(0.1, 0.16).color(0xd6f2ff).gravity(0, -14).ground().solid().look("droplet").streak(0.02));
+    add(e, Make(id, "Splash").burst(1).life(0.35, 0.35).at3(0, 0.45, 0).speed(0, 0).size(1.5, 1.5)
+               .color(0xb9e8ff, 0.9).gravity(0, 0).sizeOver({{0, 0.3}, {0.4, 1.1, true}, {1, 1.2}})
+               .fade({{0, 1}, {0.6, 0.8}, {1, 0}}).look("splash"));
+    add(e, Make(id, "Spray").burst(16).circle(0.4).life(0.5, 0.9).speed(0.8, 1.8).toward(0, 1, 0, 60)
+               .size(0.3, 0.5).turn(0, 360).color(0xffffff, 0.45).gravity(0, -1).drag(2).ground()
+               .sizeOver({{0, 0.5}, {1, 1.5}}).fade({{0, 0.8}, {1, 0}}).look("puff"));
+    add(e, Make(id, "Ripples").burst(1, 0.0).burst(1, 0.22).burst(1, 0.45).life(1.0, 1.0).speed(0, 0).size(3.2, 3.2)
+               .color(0xa8e2ff, 0.8).gravity(0, 0).sizeOver({{0, 0.1}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}})
+               .look("ripple").additive().ground().flatOnPlane());
+    add(e, Make(id, "Drips").burst(10, 0.5).circle(0.9, true).life(0.3, 0.5).speed(1.2, 2.0).toward(0, 1, 0, 25)
+               .size(0.05, 0.08).color(0x9fdcff).gravity(0, -12).ground().solid().look("droplet"));
+    return e;
+}
+
+Effect fireball3d(const IdSource& id) {
+    Effect e = begin3d(id, "Fireball 3D", 2.2);
+    // Flies from left to right, trailing flame and smoke, and bursts where it lands.
+    add(e, Make(id, "Fireball").burst(1).at3(-3, 1.5, 0).life(1.5, 1.5).speed(4, 4).toward(1, 0, 0, 0)
+               .size(0.9, 0.9).color(0xffa13a).gravity(0, 0).look("fireball").additive().glow(1.6).streak(0.0)
+               .trail(0.35, 0.55));
+    add(e, Make(id, "Core").burst(1).at3(-3, 1.5, 0).life(1.5, 1.5).speed(4, 4).toward(1, 0, 0, 0).size(0.5, 0.5)
+               .color(0xfff1b0).gravity(0, 0).additive().glow(2.0));
+    add(e, Make(id, "Flame tail").burst(70).sphere(0.15).at3(-3, 1.5, 0).life(1.5, 1.5).speed(2.6, 3.95)
+               .toward(1, 0, 0, 3).size(0.25, 0.5).turn(0, 360).color(0xffffff).gravity(0, 0.3).spin(-180, 180)
+               .tint({hexTint(0, 0xffd27a), hexTint(0.5, 0xff7a22), hexTint(1, 0x8a2a10)}).sizeOver({{0, 1}, {1, 0.3}})
+               .fade({{0, 0.9}, {0.8, 0.5}, {1, 0}}).look("flame").additive().glow(1.2).turbulence(0.3, 0.6, 1.0));
+    add(e, Make(id, "Smoke tail").burst(30).sphere(0.2).at3(-3, 1.5, 0).life(1.5, 1.5).speed(1.6, 3.4)
+               .toward(1, 0.05, 0, 6).size(0.3, 0.5).turn(0, 360).color(0x4f4a48, 0.45).gravity(0, 0.4).spin(-60, 60)
+               .sizeOver({{0, 0.5}, {1, 1.6}}).fade({{0, 0.6}, {1, 0}}).look("puff").turbulence(0.3, 0.8, 0.6));
+    add(e, Make(id, "Blast").from(1.5, 0.7).burst(1).at3(3, 1.5, 0).life(0.45, 0.45).speed(0, 0).size(2.4, 2.4)
+               .color(0xffb347).gravity(0, 0).sizeOver({{0, 0.2}, {0.3, 1.1, true}, {1, 1.2}})
+               .fade({{0, 1}, {0.5, 0.8}, {1, 0}}).look("pow").additive().glow(1.4));
+    add(e, Make(id, "Embers").from(1.5, 0.7).burst(30).at3(3, 1.5, 0).life(0.3, 0.6).speed(3, 7).toward(-1, 0.5, 0, 80)
+               .size(0.04, 0.08).color(0xffc062).gravity(0, -6).drag(2).additive().glow(2.0).streak(0.03));
+    add(e, Make(id, "Blast smoke").from(1.5, 0.7).burst(8).sphere(0.3).at3(3, 1.5, 0).life(0.5, 0.7).speed(0.5, 1.2)
+               .toward(0, 1, 0, 120).size(0.5, 0.8).turn(0, 360).color(0x5a5250, 0.6).gravity(0, 0.6).drag(2)
+               .sizeOver({{0, 0.5}, {1, 1.5}}).fade({{0, 0.8}, {1, 0}}).look("puff"));
+    return e;
+}
+
+Effect explosion3d(const IdSource& id) {
+    Effect e = begin3d(id, "Explosion 3D", 2.0);
+    add(e, Make(id, "Flash").burst(1).at3(0, 1.0, 0).life(0.12, 0.12).speed(0, 0).size(4.0, 4.0).color(0xfff6d6)
+               .gravity(0, 0).fade({{0, 1}, {1, 0}}).additive().glow(1.5));
+    add(e, Make(id, "Fireball").burst(14).sphere(0.4).at3(0, 1.0, 0).life(0.5, 0.8).speed(1.5, 3.0)
+               .toward(0, 1, 0, 120).size(0.9, 1.3).turn(0, 360).color(0xffffff).gravity(0, 1).drag(3).spin(-90, 90)
+               .tint({hexTint(0, 0xfff1b0), hexTint(0.3, 0xff8a2a), hexTint(1, 0x6a2410)}).sizeOver({{0, 0.4}, {0.3, 1.1, true}, {1, 1.3}})
+               .fade({{0, 1}, {0.6, 0.8}, {1, 0}}).look("fireball").additive().glow(1.3));
+    add(e, Make(id, "Smoke").burst(16).sphere(0.6).at3(0, 1.2, 0).life(1.2, 1.8).speed(0.8, 1.8).toward(0, 1, 0, 80)
+               .size(0.9, 1.3).turn(0, 360).color(0x3d3a3a, 0.7).gravity(0, 0.8).drag(2.5).spin(-40, 40)
+               .sizeOver({{0, 0.5}, {1, 1.8}}).fade({{0, 0}, {0.15, 0.8}, {1, 0}}).look("puff")
+               .turbulence(0.3, 1.2, 0.5));
+    add(e, Make(id, "Debris").burst(18).sphere(0.3).at3(0, 0.8, 0).life(0.9, 1.3).speed(5, 9).toward(0, 1, 0, 70)
+               .size(0.1, 0.2).turn(0, 360).color(0x4c3a30).gravity(0, -16).spin(-700, 700).solid().look("rock"));
+    add(e, Make(id, "Sparks").burst(50).at3(0, 1.0, 0).life(0.3, 0.7).speed(6, 12).toward(0, 1, 0, 100)
+               .size(0.03, 0.06).color(0xffc062).gravity(0, -8).drag(1.5).additive().glow(2.0).streak(0.03));
+    add(e, Make(id, "Shockwave").burst(1).life(0.45, 0.45).speed(0, 0).size(6.0, 6.0).color(0xffe0b0).gravity(0, 0)
+               .sizeOver({{0, 0.1}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("shockwave").additive().ground()
+               .flatOnPlane());
+    add(e, Make(id, "Scorch").burst(1).life(2.0, 2.0).speed(0, 0).size(3.0, 3.0).color(0x1a1412, 0.85).gravity(0, 0)
+               .fade({{0, 0}, {0.05, 1}, {0.75, 1}, {1, 0}}).look("crack").ground().flatOnPlane());
+    return e;
+}
+
+Effect lightning3d(const IdSource& id) {
+    Effect e = begin3d(id, "Lightning Strike 3D", 1.5);
+    // A bolt from the sky, flickering three times, then crackling on the ground.
+    add(e, Make(id, "Bolt").burst(1, 0.0).burst(1, 0.09).burst(1, 0.2).at3(0, 3.2, 0).life(0.07, 0.07).speed(0, 0)
+               .size(6.5, 6.5).turn(82, 98).color(0xe6f3ff).gravity(0, 0).look("bolt").additive().glow(2.2));
+    add(e, Make(id, "Sky flash").burst(1, 0.0).burst(1, 0.2).at3(0, 3.5, 0).life(0.12, 0.12).speed(0, 0).size(8, 8)
+               .color(0x9fc6ff, 0.5).gravity(0, 0).fade({{0, 1}, {1, 0}}).additive());
+    add(e, Make(id, "Ground flash").burst(1).life(0.3, 0.3).speed(0, 0).size(3.4, 3.4).color(0xbfe0ff).gravity(0, 0)
+               .fade({{0, 1}, {1, 0}}).additive().glow(1.5).ground().flatOnPlane());
+    add(e, Make(id, "Arcs").rate(18).circle(0.9).life(0.06, 0.1).speed(0, 0).size(0.5, 0.9).turn(0, 360)
+               .color(0xcfe6ff).gravity(0, 0).from(0.05, 0.9).look("zigzag").additive().glow(2.0).ground());
+    add(e, Make(id, "Sparks").burst(40).life(0.3, 0.7).speed(3, 7).toward(0, 1, 0, 75).size(0.03, 0.06)
+               .color(0xa8d4ff).gravity(0, -9).drag(1.5).additive().glow(2.0).streak(0.03));
+    add(e, Make(id, "Scorch").burst(1).life(1.5, 1.5).speed(0, 0).size(2.0, 2.0).color(0x161b26, 0.85).gravity(0, 0)
+               .fade({{0, 0}, {0.05, 1}, {0.7, 1}, {1, 0}}).look("crack").ground().flatOnPlane());
+    add(e, Make(id, "Smoke").burst(6).circle(0.4).life(0.8, 1.2).speed(0.4, 0.9).toward(0, 1, 0, 30).size(0.5, 0.8)
+               .turn(0, 360).color(0x6b7280, 0.5).gravity(0, 0.4).ground().sizeOver({{0, 0.5}, {1, 1.6}})
+               .fade({{0, 0}, {0.2, 0.7}, {1, 0}}).look("puff"));
+    return e;
+}
+
+Effect shieldBubble3d(const IdSource& id) {
+    Effect e = begin3d(id, "Shield Bubble 3D", 2.0);
+    // A hexagon-patterned bubble round a character, rippling, sparks running over it.
+    add(e, Make(id, "Bubble").burst(1).at3(0, 1.4, 0).life(2.0, 2.0).speed(0, 0).size(3.6, 3.6).color(0x5fd0ff, 0.55)
+               .gravity(0, 0).sizeOver({{0, 0.97}, {0.5, 1.0, true}, {1, 0.97, true}})
+               .fade({{0, 0.7}, {0.5, 1}, {1, 0.7}}).look("hexshield").additive());
+    add(e, Make(id, "Rim glow").burst(1).at3(0, 1.4, 0).life(2.0, 2.0).speed(0, 0).size(3.8, 3.8).color(0x2fa8ff, 0.6)
+               .gravity(0, 0).look("softring").additive().glow(1.3));
+    add(e, Make(id, "Ripples").burst(1, 0.0).burst(1, 1.0).at3(0, 1.4, 0).life(0.8, 0.8).speed(0, 0).size(3.6, 3.6)
+               .color(0xbff0ff).gravity(0, 0).sizeOver({{0, 0.6}, {1, 1.0, true}}).fade({{0, 0.8}, {1, 0}})
+               .look("ring").additive());
+    add(e, Make(id, "Sparks").rate(30).sphere(1.75, true).at3(0, 1.4, 0).life(0.4, 0.7).speed(0, 0.1).size(0.04, 0.08)
+               .color(0xe0f8ff).gravity(0, 0).orbit(120).ground().fade({{0, 0}, {0.3, 1}, {1, 0}}).additive().glow(2.2));
+    add(e, Make(id, "Floor ring").burst(1).life(2.0, 2.0).speed(0, 0).size(3.2, 3.2).color(0x5fd0ff, 0.6).gravity(0, 0)
+               .fade({{0, 0.8}, {0.5, 1}, {1, 0.8}}).solid().look("softring").additive().ground()
+               .flatOnPlane());
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect teleport3d(const IdSource& id) {
+    Effect e = begin3d(id, "Teleport 3D", 2.0);
+    // A ring closes in on the floor, light pours up, a flash, and sparkles fall away.
+    add(e, Make(id, "Closing ring").burst(1).life(0.8, 0.8).speed(0, 0).size(3.2, 3.2).color(0x9b8cff).gravity(0, 0)
+               .sizeOver({{0, 1}, {1, 0.15, true}}).fade({{0, 0}, {0.2, 1}, {1, 0.6}}).look("doublering").additive()
+               .glow(1.5).ground().flatOnPlane());
+    add(e, Make(id, "Up-rush").from(0.3, 0.8).rate(80).circle(0.6, true).life(0.4, 0.6).speed(6, 9).toward(0, 1, 0, 2)
+               .size(0.06, 0.1).color(0xd9d2ff).gravity(0, 0).ground().additive().glow(1.8).streak(0.07));
+    add(e, Make(id, "Column").from(0.4, 0.8).burst(1).at3(0, 1.6, 0).life(0.8, 0.8).speed(0, 0).size(3.4, 3.4)
+               .color(0x8f7bff, 0.7).gravity(0, 0).sizeOver({{0, 0.4}, {0.4, 1.0, true}, {1, 0.6}})
+               .fade({{0, 0}, {0.3, 1}, {1, 0}}).look("lightcone").additive());
+    add(e, Make(id, "Flash").from(0.8, 0.4).burst(1).at3(0, 1.4, 0).life(0.2, 0.2).speed(0, 0).size(3.0, 3.0)
+               .color(0xf2efff).gravity(0, 0).fade({{0, 1}, {1, 0}}).look("starflash").additive().glow(1.6));
+    add(e, Make(id, "Sparkles").from(0.8, 1.2).burst(30).sphere(0.9).at3(0, 1.4, 0).life(0.6, 1.1).speed(0.4, 1.4)
+               .toward(0, 1, 0, 180).size(0.08, 0.16).turn(0, 45).color(0xe6e0ff).gravity(0, -1.2).drag(1)
+               .sizeOver({{0, 1}, {1, 0}}).look("twinkle").additive().glow(1.8));
+    return e;
+}
+
+Effect frostNova3d(const IdSource& id) {
+    Effect e = begin3d(id, "Frost Nova 3D", 2.0);
+    add(e, Make(id, "Frost wave").burst(1).life(0.6, 0.6).speed(0, 0).size(6.0, 6.0).color(0xbfeeff).gravity(0, 0)
+               .sizeOver({{0, 0.1}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("shockwave").additive().ground()
+               .flatOnPlane());
+    add(e, Make(id, "Ice floor").burst(1).life(2.0, 2.0).speed(0, 0).size(4.2, 4.2).color(0x8fd8ff, 0.3).gravity(0, 0)
+               .sizeOver({{0, 0.2}, {0.3, 1.0, true}}).fade({{0, 0}, {0.1, 1}, {0.75, 1}, {1, 0}}).look("snowflake")
+               .additive().ground().flatOnPlane());
+    add(e, Make(id, "Shards").burst(16).circle(1.6, true).life(1.4, 1.6).speed(0, 0).size(0.5, 0.9).turn(-20, 20)
+               .color(0xd8f4ff).gravity(0, 0).ground().sizeOver({{0, 0}, {0.1, 1.15, true}, {0.2, 1, true}, {0.8, 1}, {1, 0}})
+               .solid().look("crystal"));
+    add(e, Make(id, "Ice chips").burst(30).circle(0.5).life(0.5, 0.9).speed(3, 6).toward(0, 1, 0, 70).size(0.06, 0.12)
+               .turn(0, 360).color(0xe8f8ff).gravity(0, -12).spin(-600, 600).ground().solid().look("shard"));
+    add(e, Make(id, "Cold mist").burst(14).circle(1.6).life(1.0, 1.6).speed(0.2, 0.5).toward(0, 1, 0, 40)
+               .size(0.7, 1.0).turn(0, 360).color(0xd6f1ff, 0.4).gravity(0, 0).ground().sizeOver({{0, 0.5}, {1, 1.4}})
+               .fade({{0, 0}, {0.2, 0.6}, {1, 0}}).look("puff"));
+    add(e, Make(id, "Snowflakes").rate(10).circle(1.8).at3(0, 2.5, 0).life(1.5, 2.0).speed(0.3, 0.6)
+               .toward(0, -1, 0, 20).size(0.08, 0.14).turn(0, 360).color(0xffffff).gravity(0, 0).spin(-60, 60).ground()
+               .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).look("snowflake").additive());
+    return e;
+}
+
+Effect poisonCloud3d(const IdSource& id) {
+    Effect e = begin3d(id, "Poison Cloud 3D", 3.0);
+    add(e, Make(id, "Cloud").rate(12).circle(1.4).at3(0, 0.3, 0).life(2.0, 2.6).speed(0.1, 0.3).toward(0, 1, 0, 60)
+               .size(1.0, 1.4).turn(0, 360).color(0x5bc44a, 0.5).gravity(0, 0).spin(-25, 25).ground()
+               .sizeOver({{0, 0.6}, {1, 1.3}}).fade({{0, 0}, {0.25, 0.7}, {0.75, 0.6}, {1, 0}}).look("puff")
+               .turbulence(0.25, 1.4, 0.4));
+    add(e, Make(id, "Dark core").rate(5).circle(0.9).at3(0, 0.2, 0).life(2.0, 2.6).speed(0.05, 0.15)
+               .toward(0, 1, 0, 60).size(0.9, 1.2).turn(0, 360).color(0x2d6b2a, 0.55).gravity(0, 0).ground()
+               .sizeOver({{0, 0.6}, {1, 1.3}}).fade({{0, 0}, {0.3, 0.7}, {1, 0}}).look("puff"));
+    add(e, Make(id, "Bubbles").rate(8).circle(1.2).at3(0, 0.1, 0).life(0.8, 1.4).speed(0.5, 1.0).toward(0, 1, 0, 10)
+               .size(0.12, 0.22).color(0xb6ff7a).gravity(0, 0).ground()
+               .sizeOver({{0, 0.3}, {0.8, 1.0}, {0.9, 1.4, true}, {1, 0}}).look("bubble").additive());
+    add(e, Make(id, "Skulls").rate(1).circle(0.8).at3(0, 0.6, 0).life(1.4, 1.4).speed(0.5, 0.7).toward(0, 1, 0, 10)
+               .size(0.3, 0.36).color(0xc8ff9a).gravity(0, 0).ground()
+               .sizeOver({{0, 0}, {0.15, 1.15, true}, {0.3, 1, true}, {1, 0.9}}).fade({{0, 1}, {0.75, 1}, {1, 0}})
+               .solid().look("skull").hold(12));
+    add(e, Make(id, "Floor stain").burst(1).life(3.0, 3.0).speed(0, 0).size(3.6, 3.6).color(0x3f9b2f, 0.5).gravity(0, 0)
+               .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).look("splat").ground().flatOnPlane());
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect meteor3d(const IdSource& id) {
+    Effect e = begin3d(id, "Meteor Strike 3D", 2.4);
+    // From high on the left, down in a second, and a crater-making blast.
+    add(e, Make(id, "Meteor").burst(1).at3(-3.5, 7, 0).life(1.0, 1.0).speed(7.83, 7.83).toward(0.447, -0.894, 0, 0)
+               .size(1.0, 1.0).color(0xffa24a).gravity(0, 0).look("rock").solid().spin(-360, 360));
+    add(e, Make(id, "Burning").burst(1).at3(-3.5, 7, 0).life(1.0, 1.0).speed(7.83, 7.83).toward(0.447, -0.894, 0, 0)
+               .size(1.6, 1.6).color(0xff7a22).gravity(0, 0).look("fireball").additive().glow(1.5).streak(0.0)
+               .trail(0.3, 0.7));
+    add(e, Make(id, "Fire tail").burst(60).sphere(0.25).at3(-3.5, 7, 0).life(1.0, 1.0).speed(4.5, 7.7)
+               .toward(0.447, -0.894, 0, 3).size(0.3, 0.6).turn(0, 360).color(0xffffff).gravity(0, 0).spin(-200, 200)
+               .tint({hexTint(0, 0xffd27a), hexTint(0.6, 0xff6a1a), hexTint(1, 0x5a1a0a)}).sizeOver({{0, 1}, {1, 0.3}})
+               .fade({{0, 0.9}, {1, 0}}).look("flame").additive().glow(1.2));
+    add(e, Make(id, "Impact flash").from(1.0, 0.4).burst(1).at3(0, 0.5, 0).life(0.15, 0.15).speed(0, 0).size(5, 5)
+               .color(0xfff1c2).gravity(0, 0).fade({{0, 1}, {1, 0}}).additive().glow(1.5));
+    add(e, Make(id, "Blast").from(1.0, 1.0).burst(12).sphere(0.4).at3(0, 0.5, 0).life(0.5, 0.8).speed(1.5, 3)
+               .toward(0, 1, 0, 110).size(1.0, 1.4).turn(0, 360).color(0xffffff).gravity(0, 1).drag(3)
+               .tint({hexTint(0, 0xfff1b0), hexTint(0.3, 0xff8a2a), hexTint(1, 0x5a1e0c)}).sizeOver({{0, 0.4}, {0.3, 1.1, true}, {1, 1.3}})
+               .fade({{0, 1}, {1, 0}}).look("fireball").additive());
+    add(e, Make(id, "Rocks").from(1.0, 1.4).burst(20).circle(0.6).life(0.9, 1.3).speed(5, 9).toward(0, 1, 0, 55)
+               .size(0.12, 0.24).turn(0, 360).color(0x4a3a2e).gravity(0, -16).spin(-600, 600).ground().solid()
+               .look("rock"));
+    add(e, Make(id, "Dust").from(1.0, 1.4).burst(18).circle(1.0, true).life(0.9, 1.4).speed(1.5, 3)
+               .toward(0, 1, 0, 80).size(0.7, 1.1).turn(0, 360).color(0x8f7c62, 0.7).gravity(0, -0.5).drag(2.5).ground()
+               .sizeOver({{0, 0.5}, {1, 1.6}}).fade({{0, 0.8}, {1, 0}}).look("dustcloud"));
+    add(e, Make(id, "Shockwave").from(1.0, 0.6).burst(1).life(0.5, 0.5).speed(0, 0).size(7, 7).color(0xffd9a0)
+               .gravity(0, 0).sizeOver({{0, 0.1}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("shockwave").additive()
+               .ground().flatOnPlane());
+    add(e, Make(id, "Crater").from(1.0, 1.4).burst(1).life(1.4, 1.4).speed(0, 0).size(3.2, 3.2).color(0x1a1412, 0.9)
+               .gravity(0, 0).fade({{0, 1}, {0.7, 1}, {1, 0}}).look("crack").ground().flatOnPlane());
+    return e;
+}
+
+Effect lootBeam3d(const IdSource& id) {
+    Effect e = begin3d(id, "Loot Beam 3D", 2.0);
+    // A dropped treasure: a tall beam of its colour, a ring on the floor, a gem turning above.
+    add(e, Make(id, "Beam").rate(30).circle(0.25).life(0.8, 1.0).speed(5, 6).toward(0, 1, 0, 0).size(0.35, 0.5)
+               .color(0xffb340, 0.5).gravity(0, 0).ground().fade({{0, 0}, {0.2, 1}, {0.7, 0.8}, {1, 0}}).look("beam")
+               .additive().streak(0.12));
+    add(e, Make(id, "Beam core").rate(30).circle(0.08).life(0.7, 0.9).speed(5, 6).toward(0, 1, 0, 0).size(0.12, 0.16)
+               .color(0xfff4d0).gravity(0, 0).ground().additive().glow(1.8).streak(0.12));
+    add(e, Make(id, "Floor ring").burst(1).life(2.0, 2.0).speed(0, 0).size(1.6, 1.6).color(0xffc85a).gravity(0, 0)
+               .spin(180, 180).fade({{0, 0.8}, {0.5, 1}, {1, 0.8}}).look("dashring").additive().ground().flatOnPlane());
+    add(e, Make(id, "Floor glow").burst(1).life(2.0, 2.0).speed(0, 0).size(2.4, 2.4).color(0xff9f2a, 0.5).gravity(0, 0)
+               .additive().ground().flatOnPlane());
+    add(e, Make(id, "Gem").burst(1).at3(0, 0.6, 0).life(2.0, 2.0).speed(0, 0).size(0.55, 0.55).color(0xffd36a)
+               .gravity(0, 0).solid().look("gem"));
+    add(e, Make(id, "Twinkles").rate(8).sphere(0.5).at3(0, 0.7, 0).life(0.4, 0.7).speed(0, 0.2).size(0.12, 0.2)
+               .turn(0, 45).color(0xffffff).gravity(0, 0).sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).look("twinkle").additive()
+               .glow(1.6));
+    add(e, Make(id, "Rising motes").rate(14).circle(0.5, true).life(1.0, 1.4).speed(0.8, 1.4).toward(0, 1, 0, 6)
+               .size(0.04, 0.07).color(0xffe39a).gravity(0, 0).orbit(90).ground().fade({{0, 0}, {0.2, 1}, {1, 0}})
+               .additive().glow(2.0));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect swordSlash3d(const IdSource& id) {
+    Effect e = begin3d(id, "Sword Slash 3D", 1.2);
+    // Two quick strokes, one down to the right and one back across, with sparks.
+    // (Turn the group with the handles to slant it along any swing.)
+    add(e, Make(id, "Slash").burst(1, 0.0).burst(1, 0.4).at3(0, 1.5, 0).life(0.22, 0.22).speed(0, 0).size(3.0, 3.2)
+               .turn(-35, 35).color(0xe6f4ff).gravity(0, 0)
+               .sizeOver({{0, 0.7}, {0.3, 1.05, true}, {1, 1.1}}).fade({{0, 1}, {0.5, 0.9}, {1, 0}}).look("slash")
+               .additive().glow(1.8).flatOnPlane());
+    add(e, Make(id, "Afterglow").burst(1, 0.0).burst(1, 0.4).at3(0, 1.5, 0).life(0.3, 0.3).speed(0, 0).size(3.4, 3.6)
+               .turn(-35, 35).color(0x3f8cff, 0.7).gravity(0, 0).sizeOver({{0, 0.75}, {0.3, 1.1, true}, {1, 1.2}})
+               .fade({{0, 0.9}, {1, 0}}).look("slash").additive().glow(1.2).flatOnPlane());
+    add(e, Make(id, "Sparks").burst(20, 0.05).burst(20, 0.45).sphere(0.4).at3(0.6, 1.4, 0).life(0.2, 0.45).speed(4, 8)
+               .toward(1, 0.2, 0, 70).size(0.03, 0.06).color(0xd6ecff).gravity(0, -8).drag(2).additive().glow(2.0)
+               .streak(0.03));
+    add(e, Make(id, "Speed lines").burst(1, 0.0).burst(1, 0.4).at3(0, 1.5, 0).life(0.15, 0.15).speed(0, 0)
+               .size(3.2, 3.2).turn(0, 360).color(0xbfe0ff, 0.18).gravity(0, 0).fade({{0, 1}, {1, 0}}).look("speedlines")
+               .additive());
+    return e;
+}
+
+Effect rain3d(const IdSource& id) {
+    Effect e = begin3d(id, "Rain 3D", 2.0);
+    // Rain over an area, splashing and rippling where it lands.
+    add(e, Make(id, "Rain").rate(260).rect(8, 8).at3(0, 7, 0).life(0.7, 0.7).speed(10, 10).toward(0.08, -1, 0, 1)
+               .size(0.09, 0.11).color(0xd6e8ff, 0.9).gravity(0, 0).ground().look("raindash").additive().glow(1.2).streak(0.06));
+    add(e, Make(id, "Splashes").rate(60).rect(8, 8).life(0.12, 0.2).speed(0, 0).at3(0, 0.08, 0).size(0.3, 0.45)
+               .color(0xe6f2ff, 0.9).gravity(0, 0).ground().sizeOver({{0, 0.4}, {1, 1}}).fade({{0, 1}, {1, 0}})
+               .look("splash"));
+    add(e, Make(id, "Ripples").rate(50).rect(8, 8).life(0.5, 0.7).speed(0, 0).size(0.5, 0.8).color(0xb8d4ff, 0.8)
+               .gravity(0, 0).sizeOver({{0, 0.2}, {1, 1, true}}).fade({{0, 1}, {1, 0}}).look("ring").ground()
+               .flatOnPlane());
+    return e;
+}
+
 struct Entry {
     PresetInfo info;
     Effect (*build)(const IdSource&);
@@ -1638,6 +2052,23 @@ const std::vector<Entry>& table() {
         {describe("hit-sparks-3d", "Hit Sparks 3D", "3D", "A flash and sparks flying out every way, falling as they go.", 0, 1.4f, 4.5f, 0.1), hitSparks3d},
         {describe("smoke-column-3d", "Smoke Column 3D", "3D", "Grey puffs rising and spreading, drawn far ones first.", 0, 1.6f, 6.0f, 2.5), smokeColumn3d},
         {describe("guardian-orbs-3d", "Guardian Orbs 3D", "3D", "Three orbs going round a character with trails and sparkles.", 0, 1.4f, 5.0f, 0.8), guardianOrbs3d},
+        {describe("standing-portal-3d", "Standing Portal 3D", "3D", "An upright gateway: a whirl in a turning rim, motes drawn round its edge.", 0, 1.8f, 5.5f, 1.0), standingPortal3d},
+        {describe("holy-light-3d", "Holy Light 3D", "3D", "Shafts of light falling on a spot, glinting dust and drifting feathers.", 0, 2.4f, 6.0f, 2.0), lightRays3d},
+        {describe("shield-bubble-3d", "Shield Bubble 3D", "3D", "A hexagon bubble round a character, rippling, with sparks running over it.", 0, 1.4f, 5.0f, 0.5), shieldBubble3d},
+        {describe("teleport-3d", "Teleport 3D", "3D", "A ring closes on the floor, light rushes up, a flash and falling sparkles.", 0, 1.5f, 5.0f, 0.75), teleport3d},
+        {describe("loot-beam-3d", "Loot Beam 3D", "3D", "A dropped treasure: a tall beam, a ring on the floor and a turning gem.", 0, 1.8f, 5.0f, 1.0), lootBeam3d},
+        {describe("tornado-3d", "Tornado 3D", "3D", "Dust, leaves and stones whirled up a widening funnel.", 0, 2.2f, 6.5f, 2.0), tornado3d},
+        {describe("poison-cloud-3d", "Poison Cloud 3D", "3D", "A low green cloud with bubbles and rising skulls.", 0, 1.0f, 5.0f, 2.0), poisonCloud3d},
+        {describe("rain-3d", "Rain 3D", "3D", "Rain falling over an area, splashing and rippling where it lands.", 0, 1.6f, 6.0f, 1.0), rain3d},
+        {describe("water-splash-3d", "Water Splash 3D", "3D", "A crown of drops, spray and widening ripples.", 0, 1.0f, 4.5f, 0.25), waterSplash3d},
+        {describe("laser-beam-3d", "Laser Beam 3D", "3D Combat", "Charges, fires a long beam with crackling sparks, and burns where it hits.", 0, 1.5f, 6.5f, 0.9), laserBeam3d},
+        {describe("gunfire-3d", "Gunfire 3D", "3D Combat", "Four shots a second: flash, tracer, flying shell, smoke and sparks on the target.", 0, 1.4f, 5.5f, 0.06), gunfire3d},
+        {describe("fireball-3d", "Fireball 3D", "3D Combat", "A fireball flies trailing flame and smoke and bursts where it lands.", 0, 1.5f, 5.0f, 1.0), fireball3d},
+        {describe("explosion-3d", "Explosion 3D", "3D Combat", "Flash, rolling fireball, smoke, flying rocks and sparks, a shockwave and a scorch.", 0, 1.4f, 6.0f, 0.3), explosion3d},
+        {describe("lightning-strike-3d", "Lightning Strike 3D", "3D Combat", "A bolt from the sky flickers three times and crackles on the ground.", 0, 2.2f, 6.5f, 0.1), lightning3d},
+        {describe("meteor-strike-3d", "Meteor Strike 3D", "3D Combat", "A burning rock falls from the sky and blasts a crater.", -1.0f, 2.5f, 7.5f, 1.15), meteor3d},
+        {describe("frost-nova-3d", "Frost Nova 3D", "3D Combat", "A freezing wave: ice spikes rise round the caster, chips fly, mist and snow.", 0, 1.0f, 5.0f, 0.4), frostNova3d},
+        {describe("sword-slash-3d", "Sword Slash 3D", "3D Combat", "Two quick sword strokes with an afterglow and sparks.", 0, 1.5f, 4.5f, 0.05), swordSlash3d},
 
         {describe("gold-flash", "Gold Flash", "Flashes", "A burst of white spikes in a golden glow.", 0, 0, 5.6f, 0.08), goldFlash},
         {describe("ice-flash", "Ice Flash", "Flashes", "A burst of white spikes in a blue glow.", 0, 0, 5.6f, 0.08), iceFlash},

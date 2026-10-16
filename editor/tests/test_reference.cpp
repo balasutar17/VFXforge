@@ -1428,7 +1428,7 @@ TEST_CASE("the ground presets, photographed, are read back as what they are", "[
     // (Each is looked at three times in its life: its particles are
     // scattered differently each time.)
     for (const PresetInfo& info : presets()) {
-        if (info.category == "Ground and portals" || info.category == "3D" ||
+        if (info.category == "Ground and portals" || info.category.rfind("3D", 0) == 0 ||
             info.id == "buff-up") {  // Buff Up has a ring on the floor too; the 3D ones lie on it
             continue;
         }

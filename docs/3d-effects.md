@@ -97,3 +97,27 @@ same fault.
 - Not checked yet: Orbit on a sprite that lasts the whole loop, random
   start angles, and shapes that repeat round the circle (a crosshair looks
   the same after a quarter turn; the check asks for a whole turn anyway).
+
+## 0.21: seventeen more 3D effects
+
+The usual effects of a 3D game, built while Bala gathers reference GIFs
+(to be matched next). Each loops cleanly (tested), lies on the ground or
+stands where a game would want it, and has a Library card.
+
+**3D**: Standing Portal (an upright gateway), Holy Light (shafts of light,
+dust, feathers), Shield Bubble (hexagon bubble with ripples), Teleport
+(closing ring, up-rush, flash), Loot Beam (treasure drop), Tornado (dust,
+leaves and stones up a funnel), Poison Cloud (with bubbles and skulls),
+Rain (over an area, splashing and rippling), Water Splash (crown, spray,
+ripples).
+
+**3D Combat** (a new category): Laser Beam (charge, beam, impact), Gunfire
+(flash, tracer, shell, smoke, hit), Fireball (flies, trails, bursts),
+Explosion (flash, fireball, smoke, debris, sparks, shockwave, scorch),
+Lightning Strike, Meteor Strike, Frost Nova, Sword Slash (turn it with the
+handles to follow any swing).
+
+Not done: projectiles cannot follow a path other than a straight line, and
+the trail behind a fireball or meteor is made of particles thrown with it
+at a little less speed, so it lengthens as it flies rather than staying
+the same length.
