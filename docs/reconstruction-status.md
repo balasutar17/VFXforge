@@ -17,16 +17,19 @@ verdict):
 | Effect | Before | After |
 | --- | --- | --- |
 | Orange spark frame | 63% | 90% |
+| Corner fire frame | 66% | 84% |
 | Neon electric frame | 58% | 83% |
-| Plain orange box | 56% | 79% |
 | Purple smoke frame | 74% | 83% |
+| Plain orange box | 56% | 80% |
 | Cyan lightning column | 69% | 78% |
 | Yellow lightning column | 68% | 75% |
-| Corner fire frame | 66% | 73% |
-| Saber | 57% | 66% |
-| Gold lightning square | 71% | 74% |
+| Saber | 57% | 72% |
+| Gold lightning square | 71% | 70% |
 | Blue smoke frame | 68% | 69% |
 | Sun orb, comet (not lines) | 87%, 49% | unchanged |
+
+The gold square is a tangle of lightning on a square: it is now read as an
+outline with crackle, which looks closer, but measures about the same.
 
 A flipbook of the same column measures 96%: it is the reference itself.
 

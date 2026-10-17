@@ -124,6 +124,7 @@ comet. Each bright part is now also looked at on its own
 | Core and halo | The core's width from how deep its middle lies inside it; the halo read ring by ring outward until it fades, or stops fading (where the light behind begins) |
 | Crackling | Strands: a bundle of thin crooked lines is several times wider than any one strand; side branches; a bend in an open stroke. Sparkles stuck to a clean line do not count |
 | Sparkles | Small bright spots off the line, near it: how many, how big, how far off |
+| Blobs at its ends | A bright round blob where a stroke ends (a fireball at each corner of a frame made of two strokes): much more than a line's end holds, little of the rim round it lit (a column's glowing foot runs past it), and brighter in its middle than the line |
 | Light between | What is left once the lines, halos and sparkles are taken out, when it lies between or inside them: its box, colour, and brightness from one end to the other |
 | Rays, not lines | Several straight strokes pointing out from the middle every which way are rays or streaks thrown out, and are left to that reading. A round ring stays a ring |
 
@@ -200,10 +201,11 @@ middle, as read:
 | Its halo | Larger, fainter dots along the same path |
 | Crackling | The built-in bolt (thin branching strands) laid along the path, overlapping so they braid, redrawn 15 times a second when it flickers |
 | Sparkles | Twinkles on and just off the path (not on a crackling line, whose bits are its crackle) |
+| A blob at an end | One soft sprite there, as large and bright as seen, brightening and dimming with its line |
 | Light running round | A bright patch travelling round it at the speed seen |
 | Drawn on | The path starts where the drawing starts and is drawn the same way, at the same speed; both ways at once becomes two halves |
 | Light between | Soft streaks rising from its bright end, fading as the brightness does; or an even wash |
-| Brightness over time | Each line's layers follow it, through how many dots are lit |
+| Brightness over time | Each line's layers follow it through their Opacity, read across the layer's time; the dots stay as close together throughout, so a dimming line does not thin into beads |
 
 From a clip, one-shot layers get **curves** made from the measurements:
 size over life from the extent, opacity from the brightness, colour over
@@ -340,9 +342,9 @@ and the device's limit. Work runs on a background thread and can be stopped.
   its longest way; a crossing's other arms are left to the halo and
   crackle. Crackle is the built-in bolt, not the reference's own strands.
   The light between lines is one box with brightness along its length, not
-  a painted gradient. Brightness over time is followed through how many
-  dots are lit, so a line that dims deeply also thins to beads. Only the
-  first line's colours are restored by "reference colours again".
+  a painted gradient. A blob at a stroke's end is one soft sprite, not the
+  fire or flare it may be. Only the first line's colours are restored by
+  "reference colours again".
 - **Not built:** heat haze and distortion, beams and cones as meshes, true depth, emitters that move along a path (a travelling effect's
   particle layers start from where it began).
 - **Built-in shapes are approximations** of hand-drawn art. Cut-outs are
