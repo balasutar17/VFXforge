@@ -1,0 +1,91 @@
+qt.multimedia.ffmpeg: Using Qt multimedia with FFmpeg version 7.1.2 LGPL version 2.1 or later
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/var/folders/n6/hn37q6pj7sj_9dmqqc2113800000gn/T/vfxforge-selftest-reference-burst.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.16.100
+  Duration: 00:00:01.00, start: 0.000000, bitrate: 103 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 256x256, 94 kb/s, 24 fps, 24 tbr, 12288 tbn (default)
+      Metadata:
+        handler_name    : VideoHandler
+        vendor_id       : [0][0][0][0]
+        encoder         : Lavc60.31.102 libx264
+IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver
+Input #0, matroska,webm, from '/var/folders/n6/hn37q6pj7sj_9dmqqc2113800000gn/T/vfxforge-selftest-reference-burst.webm':
+  Metadata:
+    ENCODER         : Lavf60.16.100
+  Duration: 00:00:01.00, start: 0.000000, bitrate: 154 kb/s
+  Stream #0:0: Video: vp9 (Profile 0), yuv420p(tv, progressive), 256x256, SAR 1:1 DAR 1:1, 24 fps, 24 tbr, 1k tbn
+      Metadata:
+        ENCODER         : Lavc60.31.102 libvpx-vp9
+        DURATION        : 00:00:01.000000000
+SELF-TEST VFX Forge 0.23.0
+graphics: 6 (QSGRendererInterface::GraphicsApi)
+shaders present: yes
+particles alive: 65
+frame: 50  time: 1.67875
+frames per second: 54
+presets in the library: 135
+picture of the starter effect: 1024x642, 2164 lit pixels in the middle
+preset: Rainbow Burst, 40 particles
+picture of a preset: 1024x642, 8634 lit pixels in the middle
+sample sheet and picture shader present: yes
+sound output: yes
+library sounds: 18
+picture effect: Toon Fire, 24 particles, 1 picture(s)
+picture of a painted sprite sheet: 1024x642, 8672 lit pixels in the middle
+export the sound (mixdown and to Unity): yes
+export to a Unity project: yes
+export a .unitypackage: yes
+export frames and a sheet: yes
+reference formats: Pictures: BMP, GIF, JPEG, JPG, PNG, WEBP. Clips: GIF, animated WebP, and MP4, WebM or MOV video.
+reference picture: reference-flash.png (256 × 256 pixels · a still picture); findings: 12
+built from the picture: reference-flash.png (256 × 256 pixels · a still picture); findings: 12; built: 3 layers, measured 94% alike
+rebuild is one undo step: yes
+picture of the reference workspace: 1024x642, 12930 lit pixels in the middle
+reference GIF: reference-burst.gif (256 × 256 pixels · 24 frames · 1.00 s · 24.0 frames a second); findings: 15
+built from the GIF: reference-burst.gif (256 × 256 pixels · 24 frames · 1.00 s · 24.0 frames a second); findings: 15; built: 4 layers, measured 54% alike
+picture of the reference workspace with a clip: 1024x642, 8930 lit pixels in the middle
+reference portal: reference-portal.gif (208 × 174 pixels · 20 frames · 2.00 s · 10.0 frames a second); findings: 18
+read as lying on the ground: yes, turning measured: yes
+built from the portal: reference-portal.gif (208 × 174 pixels · 20 frames · 2.00 s · 10.0 frames a second); findings: 18; built: 6 layers, measured 90% alike
+layers lying flat: 4
+picture of the reference workspace with a ground effect: 1024x642, 10781 lit pixels in the middle
+reference sheet: 3 effects found
+picture of the reference workspace with a sheet of several effects: 1024x642, 8091 lit pixels in the middle
+picked from the sheet: reference-sheet.gif (74 × 180 pixels · 12 frames · 0.60 s · 20.0 frames a second); findings: 15 (strokes 2, fill yes)
+built from the sheet's column with a flipbook: reference-sheet.gif (74 × 180 pixels · 12 frames · 0.60 s · 20.0 frames a second); findings: 15; built: 8 layers, measured 96% alike
+picture of the reference workspace with a flipbook: 1024x642, 6004 lit pixels in the middle
+video reference-burst.mp4: read, vfxforge-selftest-reference-burst.mp4 (256 × 256 pixels · 24 frames · 1.00 s · 24.0 frames a second); findings: 16
+video reference-burst.webm: read, vfxforge-selftest-reference-burst.webm (256 × 256 pixels · 24 frames · 1.00 s · 24.0 frames a second); findings: 17
+ground preset: Magic Circle, 30 particles
+picture of a ground preset: 1024x642, 20141 lit pixels in the middle
+dissolve preset: Burn Away, 55 particles
+picture of a dissolving preset: 1024x642, 20673 lit pixels in the middle
+turbulence preset: Spirit Wisps, 72 particles
+picture of a turbulent preset: 1024x642, 6787 lit pixels in the middle
+advanced view: 67 rows; kinds: section, number, bursts, choice, vector, flag, range, direction, color, curve, gradient, shape, sound
+picture of the advanced view: 1024x642, 7999 lit pixels in the middle
+curve shape applied: 4 points, smooth: yes, drawn as 37 pieces; speed turned into a curve: yes; gradient stops: 4, strip 48
+picture of the curve and gradient editors: 1024x642, 8627 lit pixels in the middle
+cartoon motion preset: Bouncy Pop, 5 particles; Squash and Stretch is a curve with 20 shapes on offer; Hold Frames 12
+picture of a squash and stretch preset: 1024x642, 20473 lit pixels in the middle
+one-click changes: 7 offered; Smooth gave Hold Frames 0, On twos gave 12 ("4 layers are now shown on twos: twelve drawings a second."); Wobble has 7 points
+picture of the Motion menu and the stretch curve: 1024x642, 16704 lit pixels in the middle
+shape library: 143 shapes, 143 of them in one of 9 groups; the selected layer draws "trophy"
+picture of a preset made with library shapes: 1024x642, 13719 lit pixels in the middle
+picture of the shape picker: 1024x642, 11572 lit pixels in the middle
+shape settings: "starfat" has 3 sliders; given 8 points; picking "starsix" left 0; undo brought back 8
+picture of a changed shape and its sliders: 1024x642, 13923 lit pixels in the middle
+model: shown, "Practice dummy", 4332 triangles, particles behind it shown
+picture of an effect on the practice dummy: 1024x642, 11126 lit pixels in the middle
+picture of the library: 1024x642, 3097 lit pixels in the middle
+picture of the 3D cards: 1024x642, 3921 lit pixels in the middle
+groups: added yes, group "Guardian Orbs 3D", 2 layers, starts at 0.3 s, effect 4 s
+handles: on "Guardian Orbs 3D" (2 layers), pivot height 2.1; a dragged quarter turn is one undo step
+selection: a layer of a group alone reaches 1, Cmd-click adds one: 2; moving them changed 2 layers
+picture of two effects in one, as groups: 1024x642, 10232 lit pixels in the middle
+target: coin set, crown set; 4 layers follow it; outline points 200 then 200, crown top at 1.0043
+picture of an outline effect fitted to a symbol: 1024x642, 43687 lit pixels in the middle
+SELF-TEST PASS
