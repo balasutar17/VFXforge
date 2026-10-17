@@ -178,7 +178,8 @@ TEST_CASE("the brief's workflow: a symbol, a golden outline fitted to it, change
     REQUIRE(s.setTarget("crown.png", encodePng(crown()), 2.4));
     l = findLayer(s.effect(), outline);
     double top = -1e9;
-    for (const Point2& p : std::get<PointList>(valueOf(*l, "shape", "path")).points) {
+    const PointList crownPath = std::get<PointList>(valueOf(*l, "shape", "path"));
+    for (const Point2& p : crownPath.points) {
         top = std::max(top, p.y);
     }
     CHECK(top == Approx(0.7).margin(0.06));
