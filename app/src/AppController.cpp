@@ -13,6 +13,8 @@
 #include <QAudioBuffer>
 #include <QAudioDecoder>
 #include <QCoreApplication>
+#include <QImage>
+#include <QBuffer>
 #include <QFile>
 #include <QFileInfo>
 #include <QImageReader>
@@ -162,7 +164,7 @@ bool handledElsewhere(const ControlView& c) {
             }
         }
     }
-    return c.desc->kind == vfx::ValueKind::Asset;
+    return c.desc->kind == vfx::ValueKind::Asset || c.desc->kind == vfx::ValueKind::Points;
 }
 
 double clampTo(const vfx::PropertyDesc& desc, double v) {
@@ -2541,6 +2543,139 @@ void AppController::storeBackdrop() {
         settings.setValue(key + QStringLiteral("/opacity"), backdrop_.opacity);
     }
     emit backdropChanged();
+}
+
+// ------------------------------------------------------------- target
+
+bool AppController::hasTarget() const {
+    return vfx::findAsset(session_.effect(), session_.effect().target.id) != nullptr;
+}
+
+QUrl AppController::targetSource() const {
+    const vfx::Asset* asset = vfx::findAsset(session_.effect(), session_.effect().target.id);
+    if (!asset) {
+        return {};
+    }
+    const auto file = session_.projectFolder() / vfx::pathFromUtf8(asset->path);
+    return QUrl::fromLocalFile(QString::fromStdU16String(file.u16string()));
+}
+
+QString AppController::targetName() const {
+    const vfx::Asset* asset = vfx::findAsset(session_.effect(), session_.effect().target.id);
+    return asset ? QFileInfo(text(asset->path)).fileName() : QString();
+}
+
+double AppController::targetHeight() const {
+    const QUrl source = targetSource();
+    const QString key = source.toLocalFile();
+    if (key != targetAspectFor_) {
+        targetAspectFor_ = key;
+        targetAspect_ = 1.0;
+        QImageReader reader(key);
+        const QSize size = reader.size();
+        if (size.width() > 0 && size.height() > 0) {
+            targetAspect_ = static_cast<double>(size.height()) / size.width();
+        }
+    }
+    return session_.effect().targetWidth * targetAspect_;
+}
+
+int AppController::fittedLayers() const {
+    int n = 0;
+    for (const vfx::Layer& l : session_.effect().layers) {
+        for (const vfx::Module& m : l.modules) {
+            if (m.type == "shape") {
+                const vfx::Value* fit = m.find("fitTarget");
+                n += fit && std::holds_alternative<bool>(*fit) && std::get<bool>(*fit) ? 1 : 0;
+            }
+        }
+    }
+    return n;
+}
+
+bool AppController::setTargetFile(const QUrl& image) {
+    const QString path = image.isLocalFile() ? image.toLocalFile() : image.toString();
+    if (path.isEmpty() || !QFileInfo::exists(path)) {
+        say(QStringLiteral("That picture could not be found on this computer."), true);
+        return false;
+    }
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        say(QStringLiteral("That picture could not be read."), true);
+        return false;
+    }
+    QByteArray bytes = file.readAll();
+    QString name = QFileInfo(path).fileName();
+    // Anything other than a PNG is turned into one, keeping its see-through parts.
+    if (!bytes.startsWith("\x89PNG")) {
+        QImage picture;
+        if (!picture.loadFromData(bytes)) {
+            say(QStringLiteral("That file is not a picture this version can read. Try a PNG with a see-through background."), true);
+            return false;
+        }
+        QByteArray png;
+        QBuffer buffer(&png);
+        buffer.open(QIODevice::WriteOnly);
+        picture.convertToFormat(QImage::Format_RGBA8888).save(&buffer, "PNG");
+        bytes = png;
+        name = QFileInfo(path).completeBaseName() + QStringLiteral(".png");
+    }
+    session_.endEdit();
+    if (!report(session_.setTarget(utf8(name), std::string_view(bytes.constData(), static_cast<std::size_t>(bytes.size()))))) {
+        return false;
+    }
+    changed(Structure);
+    const int fitted = fittedLayers();
+    say(fitted > 0 ? QStringLiteral("The target is %1; %2 layers follow its outline.").arg(name).arg(fitted)
+                   : QStringLiteral("The target is %1. Select layers and click Fit to its outline, or open a "
+                                    "Symbol Outlines effect from the Library.").arg(name));
+    return true;
+}
+
+void AppController::clearTarget() {
+    if (report(session_.clearTarget())) {
+        changed(Structure);
+        say(QStringLiteral("The target is gone; the layers keep the outline they had. Undo brings it back."));
+    }
+}
+
+void AppController::placeTarget(double width, double x, double y) {
+    session_.endEdit();
+    if (report(session_.placeTarget(width, vfx::Vec3{x, y, session_.effect().targetPosition.z}))) {
+        changed(Structure);
+    }
+}
+
+void AppController::fitSelectionToTarget() {
+    const vfx::editor::ResolvedSelection r = session_.resolve(selection_);
+    if (r.targets.empty()) {
+        say(QStringLiteral("Select the layers to fit to the target first."), true);
+        return;
+    }
+    session_.endEdit();
+    if (report(session_.fitToTarget(r.targets))) {
+        changed(Structure);
+        say(QStringLiteral("%1 layers now follow the target's outline. Try Travel, Padding and Thickness under Shape.")
+                .arg(static_cast<int>(r.targets.size())));
+    }
+}
+
+void AppController::setPreviewMode(const QString& mode) {
+    if (mode != previewMode_ && (mode == QStringLiteral("composite") || mode == QStringLiteral("effect") ||
+                                 mode == QStringLiteral("target"))) {
+        previewMode_ = mode;
+        emit previewChanged();
+        emit redraw();
+    }
+}
+
+void AppController::setPreviewBackground(const QString& background) {
+    if (background != previewBackground_ &&
+        (background == QStringLiteral("dark") || background == QStringLiteral("black") ||
+         background == QStringLiteral("white") || background == QStringLiteral("checker"))) {
+        previewBackground_ = background;
+        emit previewChanged();
+    }
 }
 
 void AppController::setBackdrop(const QUrl& image) {

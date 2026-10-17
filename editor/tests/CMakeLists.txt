@@ -12,6 +12,7 @@ add_executable(vfx_editor_tests
     test_shape_edits.cpp
     test_transform.cpp
     test_selection.cpp
+    test_target.cpp
     test_shape_library.cpp
     test_shapes.cpp
     test_sprite_mesh.cpp

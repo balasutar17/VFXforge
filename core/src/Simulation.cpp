@@ -484,8 +484,91 @@ void Simulation::Emitter::spawn(std::int64_t inPass, double offset, float progre
     const float u = random(kChShapeU);
     const float v = random(kChShapeV);
     const float w = random(kChShapeW);
+    float pathAngle = 0.0f;  // degrees: which way the path runs where the particle is born
 
     switch (shape) {
+        case ShapeType::Path: {
+            // Where along the path: anywhere, near a running head, or behind
+            // the head of a path being drawn on. Spread evenly rather than at
+            // random: each particle a golden-ratio step on from the one
+            // before, so a line of many short-lived particles has no gaps.
+            const float even = static_cast<float>((index * 0x9E3779B97F4A7C15ull) >> 40) * (1.0f / 16777216.0f);
+            float along = even;
+            if (e.travel != 0.0f) {
+                const float time = progress * static_cast<float>(e.duration);
+                if (e.travelDraw) {
+                    float reached = std::fabs(e.travel) * time;
+                    reached = reached < 1.0f ? reached : 1.0f;
+                    along = e.travel > 0.0f ? even * reached : 1.0f - even * reached;
+                } else {
+                    const int head = static_cast<int>(v * static_cast<float>(e.travelHeads));
+                    float at = e.travel * time + static_cast<float>(head < e.travelHeads ? head : e.travelHeads - 1) /
+                                                      static_cast<float>(e.travelHeads);
+                    at -= std::floor(at);
+                    along = e.travel > 0.0f ? at - e.travelSpan * even : at + e.travelSpan * even;
+                    along -= std::floor(along);
+                    if (!e.pathClosed) {
+                        // An open line is run along from end to end, not round.
+                        along = along < 0.0f ? 0.0f : (along > 1.0f ? 1.0f : along);
+                    }
+                }
+            }
+            const float target = along * e.pathTotal;
+            // The segment it falls on.
+            std::size_t lo = 1, hi = e.pathCum.size() - 1;
+            while (lo < hi) {
+                const std::size_t mid = (lo + hi) / 2;
+                if (e.pathCum[mid] < target) {
+                    lo = mid + 1;
+                } else {
+                    hi = mid;
+                }
+            }
+            const std::size_t j = lo, k = lo - 1;
+            const float segment = e.pathCum[j] - e.pathCum[k];
+            const float t = segment > 0.0f ? (target - e.pathCum[k]) / segment : 0.0f;
+            const float dx = e.pathX[j] - e.pathX[k], dy = e.pathY[j] - e.pathY[k];
+            const float len = std::sqrt(dx * dx + dy * dy);
+            const float tx = len > 0.0f ? dx / len : 1.0f, ty = len > 0.0f ? dy / len : 0.0f;
+            const float nx = -ty * e.pathOutward, ny = tx * e.pathOutward;
+            pos = det::Vec3f{e.pathX[k] + dx * t, e.pathY[k] + dy * t, 0.0f};
+            if (!e.fromEdge && e.pathClosed) {
+                // Inside the outline: points in its box, kept when inside.
+                // A few tries, then the outline itself.
+                for (std::uint64_t attempt = 0; attempt < 24; ++attempt) {
+                    const std::uint64_t h = det::mix64(key ^ (0x50415448ull + attempt * 0x9E3779B97F4A7C15ull));
+                    const float px = e.pathMinX + (e.pathMaxX - e.pathMinX) * det::unitFloat(h);
+                    const float py = e.pathMinY + (e.pathMaxY - e.pathMinY) * det::unitFloat(det::mix64(h));
+                    bool inside = false;
+                    for (std::size_t a = 0, b = e.pathX.size() - 1; a < e.pathX.size(); b = a++) {
+                        if ((e.pathY[a] > py) != (e.pathY[b] > py) &&
+                            px < (e.pathX[b] - e.pathX[a]) * (py - e.pathY[a]) / (e.pathY[b] - e.pathY[a]) + e.pathX[a]) {
+                            inside = !inside;
+                        }
+                    }
+                    if (inside) {
+                        pos = det::Vec3f{px, py, 0.0f};
+                        break;
+                    }
+                }
+            } else if (e.pathThickness > 0.0f) {
+                const float across = (w - 0.5f) * e.pathThickness;
+                pos = det::Vec3f{pos.x + nx * across, pos.y + ny * across, 0.0f};
+            }
+            if (e.aim == 1) {
+                dir = det::Vec3f{nx, ny, 0.0f};
+            } else if (e.aim == 2) {
+                dir = e.travel < 0.0f ? det::Vec3f{-tx, -ty, 0.0f} : det::Vec3f{tx, ty, 0.0f};
+            }
+            pathAngle = static_cast<float>(det::atan2(static_cast<double>(ty), static_cast<double>(tx)) * 57.29577951308232);
+            if (e.ground) {
+                pos = det::Vec3f{pos.x, 0.0f, -pos.y};
+                if (e.aim != 0) {
+                    dir = det::Vec3f{dir.x, 0.0f, -dir.y};
+                }
+            }
+            break;
+        }
         case ShapeType::Point:
             break;
         case ShapeType::Circle: {
@@ -637,7 +720,7 @@ void Simulation::Emitter::spawn(std::int64_t inPass, double offset, float progre
     f[kAge][i] = -static_cast<float>(clipped);
     f[kLife][i] = lifetime;
     f[kSize][i] = size;
-    f[kRot][i] = sample(e.rotation, random(kChRotation), progress);
+    f[kRot][i] = sample(e.rotation, random(kChRotation), progress) + (e.pathAlign ? pathAngle : 0.0f);
     f[kSpin][i] = e.spin.isCurve() ? 0.0f : sample(e.spin, random(kChSpin), 0.0f);
     f[kR][i] = e.color[0];
     f[kG][i] = e.color[1];

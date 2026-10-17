@@ -28,6 +28,7 @@ add_library(vfx_editor STATIC
     src/Session.cpp
     src/Transform.cpp
     src/Selection.cpp
+    src/Silhouette.cpp
     src/ShapeLibrary.cpp
     src/Shapes.cpp
     src/SoundLibrary.cpp

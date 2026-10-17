@@ -326,6 +326,25 @@ J shapeJson(const EmitterProgram& e) {
             s["randomDirection"] = round6(mix);
             s["exact"] = !e.flat && spreadDeg == 0.0;
             break;
+
+        case ShapeType::Path: {
+            // Unity has no path to emit along: a box round it stands in, and the
+            // points go along for a script that wants them.
+            const double w = std::max(static_cast<double>(e.pathMaxX - e.pathMinX), tiny);
+            const double h = std::max(static_cast<double>(e.pathMaxY - e.pathMinY), tiny);
+            if (e.ground) {
+                box(w, 0.0, h, e.fromEdge, mix);
+            } else {
+                box(w, h, 0.0, e.fromEdge, mix);
+            }
+            J points = J::array();
+            for (std::size_t i = 0; i < e.pathX.size(); ++i) {
+                points.push_back(J::array({round6(e.pathX[i]), round6(e.pathY[i])}));
+            }
+            s["path"] = std::move(points);
+            s["exact"] = false;
+            break;
+        }
     }
     if (e.offset) {
         s["position"] = J::array({round6(e.offsetX), round6(e.offsetY), round6(e.offsetZ)});

@@ -27,6 +27,7 @@
 #include "vfx/editor/Image.h"
 #include "vfx/editor/Reconstruct.h"
 #include "vfx/editor/Selection.h"
+#include "vfx/editor/Silhouette.h"
 #include "vfx/editor/Transform.h"
 
 namespace vfx::editor {
@@ -99,6 +100,24 @@ public:
     // through added. When the preset lasts longer than the effect, the
     // effect is made as long, so none of it is cut off.
     Status addPreset(std::string_view presetId, int* added = nullptr);
+
+    // ---------------------------------------------------------- the target
+    // The picture the effect is made for (a slot symbol, a logo). Setting
+    // it copies the PNG into the project, like a layer's picture, and fits
+    // every layer set to Fit to target to its silhouette, as one undo step.
+    // A new target fits the same layers again: the effect's own settings
+    // stay as they were, only the paths change.
+    Status setTarget(std::string_view originalName, std::string_view pngBytes, double width = 0.0);
+    Status clearTarget();
+    // Moves or resizes the target, and the layers fitted to it with it.
+    Status placeTarget(double width, const Vec3& position);
+    // Makes these layers follow the target's outline: Path shape, Fit to
+    // target on, the path traced from the target. Fails when there is no target.
+    Status fitToTarget(const std::vector<Id>& layers);
+    // The target's picture, decoded (null when there is none or it is missing).
+    std::shared_ptr<const Image> targetImage() const;
+    // Its outline as the layers get it (empty when there is no target).
+    Result<Silhouette> targetSilhouette() const;
 
     // ---------------------------------------------------------- groups
     // The groups in the effect, in the order their first layers come.

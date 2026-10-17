@@ -8,6 +8,37 @@
 
 namespace vfx::det {
 
+double atan2(double y, double x) {
+    if (!(x == x) || !(y == y)) {
+        return 0.0;
+    }
+    const double ax = x < 0 ? -x : x, ay = y < 0 ? -y : y;
+    if (ax == 0.0 && ay == 0.0) {
+        return 0.0;
+    }
+    // atan of the smaller over the larger, in [0, 1], halved twice so the
+    // series converges fast: atan(t) = 2 atan(t / (1 + sqrt(1 + t*t))).
+    const bool swap = ay > ax;
+    double t = swap ? ax / ay : ay / ax;
+    t = t / (1.0 + std::sqrt(1.0 + t * t));
+    t = t / (1.0 + std::sqrt(1.0 + t * t));
+    // t <= tan(pi/16) ~ 0.199: the Taylor series to t^23 is well within 1e-12.
+    const double t2 = t * t;
+    double sum = 0.0, term = t;
+    for (int k = 0; k < 12; ++k) {
+        sum += term / static_cast<double>(2 * k + 1) * (k % 2 == 0 ? 1.0 : -1.0);
+        term *= t2;
+    }
+    double angle = 4.0 * sum;
+    if (swap) {
+        angle = kPi / 2.0 - angle;
+    }
+    if (x < 0) {
+        angle = kPi - angle;
+    }
+    return y < 0 ? -angle : angle;
+}
+
 void sinCos(double x, double& sine, double& cosine) {
     if (!(x == x) || x > 1e300 || x < -1e300) {  // not a number, or infinite
         sine = 0.0;

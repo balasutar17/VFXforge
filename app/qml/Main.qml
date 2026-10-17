@@ -112,6 +112,14 @@ ApplicationWindow {
     }
 
     FileDialog {
+        id: targetDialog
+        title: "Choose the symbol the effect is for"
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["Pictures (*.png *.jpg *.jpeg *.webp *.bmp)", "All files (*)"]
+        onAccepted: app.setTargetFile(selectedFile)
+    }
+
+    FileDialog {
         id: modelDialog
         title: "Choose a 3D model to make the effect on"
         fileMode: FileDialog.OpenFile
@@ -301,6 +309,45 @@ ApplicationWindow {
                         text: "Try another variation"
                         tip: "Same settings, different random result"
                         onClicked: app.newVariation()
+                    }
+
+                    Item { Layout.preferredHeight: 6 }
+                    PanelTitle { Layout.fillWidth: true; text: "Target"; detail: app.targetName }
+                    VButton {
+                        Layout.fillWidth: true
+                        visible: !app.hasTarget
+                        text: "Import a symbol…"
+                        tip: "The picture the effect is for: a slot symbol, a logo, a gem. A PNG with a see-through "
+                             + "background works best. Effects from Symbol Outlines follow its shape."
+                        onClicked: targetDialog.open()
+                    }
+                    GridLayout {
+                        Layout.fillWidth: true
+                        visible: app.hasTarget
+                        columns: 2
+                        columnSpacing: 8
+                        rowSpacing: 6
+                        Text { text: "Width (units)"; color: theme.dim; font.pixelSize: theme.fontSize; Layout.fillWidth: true }
+                        VNumberField { value: app.targetWidth; decimals: 2; onEdited: function(v) { app.placeTarget(v, app.targetX, app.targetY) } }
+                        Text { text: "X"; color: theme.dim; font.pixelSize: theme.fontSize }
+                        VNumberField { value: app.targetX; decimals: 2; onEdited: function(v) { app.placeTarget(app.targetWidth, v, app.targetY) } }
+                        Text { text: "Y"; color: theme.dim; font.pixelSize: theme.fontSize }
+                        VNumberField { value: app.targetY; decimals: 2; onEdited: function(v) { app.placeTarget(app.targetWidth, app.targetX, v) } }
+                    }
+                    VButton {
+                        Layout.fillWidth: true
+                        visible: app.hasTarget
+                        text: "Fit selected layers to it"
+                        tip: "The selected layers send their particles from the target's outline (Shape: Path, Fit to target). "
+                             + "Padding, Thickness and Travel under Shape shape the outline effect."
+                        onClicked: app.fitSelectionToTarget()
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: app.hasTarget
+                        spacing: 6
+                        VButton { Layout.fillWidth: true; text: "Change…"; tip: "Another symbol: the fitted layers follow its shape"; onClicked: targetDialog.open() }
+                        VButton { Layout.fillWidth: true; text: "Remove"; onClicked: app.clearTarget() }
                     }
 
                     Item { Layout.preferredHeight: 6 }
@@ -731,8 +778,27 @@ ApplicationWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    color: theme.viewport
+                    color: app.previewBackground === "black" ? "#000000"
+                         : app.previewBackground === "white" ? "#ffffff" : theme.viewport
                     clip: true
+
+                    // A checkerboard behind everything, to judge see-through parts.
+                    Canvas {
+                        anchors.fill: parent
+                        visible: app.previewBackground === "checker"
+                        onWidthChanged: requestPaint()
+                        onHeightChanged: requestPaint()
+                        onVisibleChanged: requestPaint()
+                        onPaint: {
+                            var g = getContext("2d")
+                            var cell = 12
+                            for (var y = 0; y < height; y += cell)
+                                for (var x = 0; x < width; x += cell) {
+                                    g.fillStyle = ((x / cell + y / cell) % 2 === 0) ? "#5a5a5a" : "#3c3c3c"
+                                    g.fillRect(x, y, cell, cell)
+                                }
+                        }
+                    }
 
                     // The backdrop: a picture to work against, behind everything.
                     Image {
@@ -748,6 +814,22 @@ ApplicationWindow {
                         y: viewport.origin.y - app.backdropY * viewport.unitScale - height / 2
                     }
 
+                    // The target: the symbol the effect is made for, under the effect.
+                    Image {
+                        id: targetPicture
+                        objectName: "targetPicture"
+                        property var middle: { app.targetX; app.targetY; viewport.unitScale; viewport.origin; viewport.width; viewport.height; return viewport.project(app.targetX, app.targetY, 0) }
+                        visible: app.hasTarget && app.previewMode !== "effect" && middle.ok
+                        source: app.targetSource
+                        asynchronous: true
+                        smooth: true
+                        mipmap: true
+                        width: app.targetWidth * middle.scale
+                        height: app.targetHeight * middle.scale
+                        x: middle.x - width / 2
+                        y: middle.y - height / 2
+                    }
+
                     // Where the effect starts from.
                     Item {
                         visible: viewport.originVisible
@@ -761,6 +843,7 @@ ApplicationWindow {
                         id: viewport
                         anchors.fill: parent
                         controller: app
+                        visible: app.previewMode !== "target"
                     }
 
                     MouseArea {
@@ -896,6 +979,40 @@ ApplicationWindow {
                         text: app.particleCount + " particles   " + app.framesPerSecond + " frames per second"
                         color: theme.dim
                         font.pixelSize: theme.smallFontSize
+                    }
+                    Row {
+                        objectName: "previewBar"
+                        anchors.right: handlesButton.left
+                        anchors.top: parent.top
+                        anchors.topMargin: 8
+                        anchors.rightMargin: 8
+                        spacing: 2
+                        Repeater {
+                            model: app.hasTarget ? [
+                                { key: "composite", label: "Both", tip: "The target with the effect on it" },
+                                { key: "effect", label: "Effect", tip: "The effect alone" },
+                                { key: "target", label: "Target", tip: "The target alone" }
+                            ] : []
+                            delegate: VButton {
+                                required property var modelData
+                                quiet: true
+                                implicitHeight: 24
+                                text: modelData.label
+                                tip: modelData.tip
+                                checked: app.previewMode === modelData.key
+                                onClicked: app.previewMode = modelData.key
+                            }
+                        }
+                        Item { width: 6; height: 1 }
+                        VButton {
+                            quiet: true
+                            implicitHeight: 24
+                            readonly property var order: ["dark", "black", "white", "checker"]
+                            readonly property var names: ({ dark: "Dark", black: "Black", white: "White", checker: "Checker" })
+                            text: "\u25d0 " + names[app.previewBackground]
+                            tip: "The background behind the effect: dark, black, white or a checkerboard for see-through parts. Click to change."
+                            onClicked: app.previewBackground = order[(order.indexOf(app.previewBackground) + 1) % order.length]
+                        }
                     }
                     VButton {
                         id: handlesButton

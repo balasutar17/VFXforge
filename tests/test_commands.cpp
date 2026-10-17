@@ -74,6 +74,7 @@ TEST_CASE("Set property: every property of every module applies and reverts") {
                         changed = Gradient{{{0, Color{1, 0, 0, 1}}, {0.5, Color{0, 1, 0, 0.5}}}};
                         break;
                     case ValueKind::Bursts: changed = BurstList{{{0.25, 12}}}; break;
+                    case ValueKind::Points: changed = PointList{{{0, 0}, {1, 0}, {0.5, 1}}}; break;
                     case ValueKind::Enum: changed = p.options.back(); break;
                     case ValueKind::Asset: {
                         const bool has = std::get<AssetRef>(*module.find(p.key)).id.valid();
@@ -88,7 +89,7 @@ TEST_CASE("Set property: every property of every module applies and reverts") {
             }
         }
     }
-    CHECK(checked == 104);
+    CHECK(checked == 126);
 }
 
 TEST_CASE("Set property: effect and layer fields") {

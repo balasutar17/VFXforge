@@ -187,6 +187,35 @@ public:
         return put("shape", "emitFrom", std::string(edge ? "edge" : "volume"));
     }
     Make& at3(double x, double y, double z) { return put("shape", "offset", Vec3{x, y, z}); }
+
+    // ---- the Path shape
+    Make& path(PointList points, bool closed = true) {
+        put("shape", "shape", std::string("path"));
+        put("shape", "path", std::move(points));
+        put("shape", "closed", closed);
+        return put("shape", "emitFrom", std::string("edge"));
+    }
+    // A straight line from (x0, y0) to (x1, y1).
+    Make& line(double x0, double y0, double x1, double y1) {
+        return path(PointList{{{x0, y0}, {x1, y1}}}, false);
+    }
+    Make& fillPath() { return put("shape", "emitFrom", std::string("volume")); }
+    // Follows the effect's target picture when there is one.
+    Make& fitTarget() { return put("shape", "fitTarget", true); }
+    Make& padding(double units) { return put("shape", "padding", units); }
+    Make& band(double width) { return put("shape", "thickness", width); }
+    Make& travel(double roundsPerSecond, double span = 0.2, std::int64_t heads = 1) {
+        put("shape", "travel", roundsPerSecond);
+        put("shape", "travelSpan", span);
+        return put("shape", "travelHeads", Value(heads));
+    }
+    Make& drawOn(double roundsPerSecond) {
+        put("shape", "travel", roundsPerSecond);
+        return put("shape", "travelMode", std::string("draw"));
+    }
+    Make& sendOut() { return put("shape", "aim", std::string("outward")); }
+    Make& sendAlong() { return put("shape", "aim", std::string("along")); }
+    Make& alongPath() { return put("shape", "alignToPath", true); }
     Make& toward(double x, double y, double z, double spread) {
         put("initial", "direction", Vec3{x, y, z});
         return put("initial", "spread", spread);

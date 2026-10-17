@@ -95,6 +95,22 @@ Layer transformLayer(const Layer& layer, const LayerTransform& t, bool threeD) {
             *radius *= ground ? 0.5 * (sc.x + sc.z) : threeD ? (sc.x + sc.y + sc.z) / 3.0 : 0.5 * (sc.x + sc.y);
         }
     }
+    // A Path's own points, which are relative to the Position: sized and
+    // stretched, and turned when the turn is in their plane.
+    if (PointList* path = tools::property<PointList>(out, "shape", "path")) {
+        const double sx = f * sc.x, sy = f * (ground ? sc.z : sc.y);
+        const bool inPlane = !threeD || (ground ? axis == 1 : axis == 2);
+        const double c = std::cos(degrees * kDeg), sn = std::sin(degrees * kDeg);
+        for (Point2& q : path->points) {
+            double x = q.x * sx, y = q.y * sy;
+            if (t.turn != 0.0 && inPlane) {
+                const double nx = x * c - y * sn, ny = x * sn + y * c;
+                x = nx;
+                y = ny;
+            }
+            q = Point2{x, y};
+        }
+    }
     // Turn.
     if (t.turn != 0.0) {
         if (Vec3* direction = tools::property<Vec3>(out, "initial", "direction")) {

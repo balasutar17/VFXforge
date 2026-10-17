@@ -96,6 +96,20 @@ class AppController : public QObject {
 
     // A picture shown behind the effect, to work against. It is not part of
     // the effect and is remembered on this computer only.
+    // The target: the picture (a slot symbol, a logo) the effect is made for.
+    // Saved with the effect. Layers set to Fit to target follow its outline.
+    Q_PROPERTY(bool hasTarget READ hasTarget NOTIFY documentChanged)
+    Q_PROPERTY(QUrl targetSource READ targetSource NOTIFY documentChanged)
+    Q_PROPERTY(QString targetName READ targetName NOTIFY documentChanged)
+    Q_PROPERTY(double targetWidth READ targetWidth NOTIFY documentChanged)
+    Q_PROPERTY(double targetHeight READ targetHeight NOTIFY documentChanged)
+    Q_PROPERTY(double targetX READ targetX NOTIFY documentChanged)
+    Q_PROPERTY(double targetY READ targetY NOTIFY documentChanged)
+    Q_PROPERTY(int fittedLayers READ fittedLayers NOTIFY documentChanged)
+    // What the viewport shows: composite (target and effect), effect, target.
+    Q_PROPERTY(QString previewMode READ previewMode WRITE setPreviewMode NOTIFY previewChanged)
+    // Behind it all: dark (the editor's), black, white, checker.
+    Q_PROPERTY(QString previewBackground READ previewBackground WRITE setPreviewBackground NOTIFY previewChanged)
     Q_PROPERTY(QUrl backdropSource READ backdropSource NOTIFY backdropChanged)
     Q_PROPERTY(QString backdropName READ backdropName NOTIFY backdropChanged)
     Q_PROPERTY(bool hasBackdrop READ hasBackdrop NOTIFY backdropChanged)
@@ -255,6 +269,26 @@ public:
     Q_INVOKABLE void turnSelection(double degrees);
     QVariantMap gizmo() const;
 
+    // ----------------------------------------------------------- target
+    // Any picture Qt can read (PNG, JPG, WebP...); it is kept as a PNG.
+    Q_INVOKABLE bool setTargetFile(const QUrl& image);
+    Q_INVOKABLE void clearTarget();
+    Q_INVOKABLE void placeTarget(double width, double x, double y);
+    // Makes the selected layers follow the target's outline.
+    Q_INVOKABLE void fitSelectionToTarget();
+    bool hasTarget() const;
+    QUrl targetSource() const;
+    QString targetName() const;
+    double targetWidth() const { return session_.effect().targetWidth; }
+    double targetHeight() const;
+    double targetX() const { return session_.effect().targetPosition.x; }
+    double targetY() const { return session_.effect().targetPosition.y; }
+    int fittedLayers() const;
+    QString previewMode() const { return previewMode_; }
+    void setPreviewMode(const QString& mode);
+    QString previewBackground() const { return previewBackground_; }
+    void setPreviewBackground(const QString& background);
+
     // --------------------------------------------------------- backdrop
     Q_INVOKABLE void setBackdrop(const QUrl& image);
     Q_INVOKABLE void clearBackdrop();
@@ -410,6 +444,7 @@ signals:
     void redraw();
     void libraryOpenChanged();
     void backdropChanged();
+    void previewChanged();
     void modelChanged();
     void exportOpenChanged();
     void exportsChanged();
@@ -426,6 +461,10 @@ private:
     vfx::Vec3 gizmoPivot_{};
     QString gizmoKind_;
     QString gizmoMode_ = QStringLiteral("move");
+    QString previewMode_ = QStringLiteral("composite");
+    QString previewBackground_ = QStringLiteral("dark");
+    mutable double targetAspect_ = 1.0;  // height over width of the target's picture
+    mutable QString targetAspectFor_;
     QString pivotMode_ = QStringLiteral("center");
     QString gizmoSpace_ = QStringLiteral("world");
     vfx::editor::Selection selection_;

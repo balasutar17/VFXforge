@@ -71,7 +71,7 @@ struct BurstF {
     std::uint32_t count = 0;
 };
 
-enum class ShapeType : std::uint8_t { Point, Circle, Rectangle, Sphere, Box, Cone };
+enum class ShapeType : std::uint8_t { Point, Circle, Rectangle, Sphere, Box, Cone, Path };
 enum class BlendMode : std::uint8_t { Alpha, Additive };
 enum class Facing : std::uint8_t { Camera, Plane };
 // How a sprite sheet steps through its pictures.
@@ -143,6 +143,23 @@ struct EmitterProgram {
     // that lie flat, and the axis Orbit turns about. Never set in 2D.
     bool ground = false;
     bool offset = false;                          // any of them is not zero
+
+    // The Path shape: a line or outline of the artist's own, or traced from
+    // a picture. Its points already carry Padding (moved out along the
+    // outline's own normals, corners mitred), and cum holds the length up to
+    // each point; a closed path repeats its first point at the end.
+    std::vector<float> pathX, pathY, pathCum;
+    float pathTotal = 0;
+    float pathOutward = 1;    // which side of the line is outside: +1 left, -1 right
+    float pathMinX = 0, pathMinY = 0, pathMaxX = 0, pathMaxY = 0;
+    bool pathClosed = true;
+    float pathThickness = 0;
+    float travel = 0;         // rounds per second along the path; 0 = everywhere
+    float travelSpan = 0.2f;  // share of the path the running energy covers
+    int travelHeads = 1;
+    bool travelDraw = false;  // draws the path on from its start instead of running round it
+    std::uint8_t aim = 0;     // 0 the layer's Direction, 1 straight out from the path, 2 along it
+    bool pathAlign = false;   // each particle's Rotation follows the path
 
     // What each particle starts with. A curve reads across the layer's duration.
     ScalarF lifetime, speed, size, rotation;

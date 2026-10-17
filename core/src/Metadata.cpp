@@ -72,8 +72,9 @@ Registry::Registry() {
 
     modules_.push_back(module("shape", "Shape", Stage::Spawn, {
         P("shape", "Shape", ValueKind::Enum, text("point"))
-            .options({"point", "circle", "rectangle", "sphere", "box", "cone"})
-            .help("Where new particles appear."),
+            .options({"point", "circle", "rectangle", "sphere", "box", "cone", "path"})
+            .help("Where new particles appear. Path: along a line or outline of your own, "
+                  "or one traced from a picture (a slot symbol's silhouette)."),
         P("radius", "Radius", ValueKind::Float, num(1.0))
             .range(0, 10000).ui(0, 10)
             .help("Size of a circle, sphere or cone base."),
@@ -94,6 +95,41 @@ Registry::Registry() {
                   "it is born on, particles that lie flat, and the turn of Orbit. Upright faces "
                   "the front, like a 2D effect; Ground lies on the floor, for auras, portals and "
                   "shockwaves. A 2D effect is always upright."),
+        P("path", "Path", ValueKind::Points,
+          PointList{{{-1, -1}, {1, -1}, {1, 1}, {-1, 1}}})
+            .help("The points of the Path shape, in the effect's units, relative to Position. "
+                  "Traced from a picture with Fit to target."),
+        P("fitTarget", "Fit to Target", ValueKind::Bool, Value(false))
+            .help("The Path follows the effect's target picture: traced from its silhouette again "
+                  "whenever the target changes, so the effect fits any symbol."),
+        P("closed", "Closed", ValueKind::Bool, Value(true))
+            .help("A closed path goes all the way round (an outline); an open one is a line."),
+        P("padding", "Padding", ValueKind::Float, num(0.0))
+            .range(-100, 100).ui(-1, 1)
+            .help("Moves the path outward (above 0) or inward (below 0) from where it was drawn or traced."),
+        P("thickness", "Thickness", ValueKind::Float, num(0.0))
+            .range(0, 100).ui(0, 1)
+            .help("How wide a band along the path particles appear in."),
+        P("travel", "Travel", ValueKind::Float, num(0.0))
+            .unit("rounds per second").range(-50, 50).ui(-3, 3)
+            .help("Energy running along the path: particles appear only near a moving head, "
+                  "this many times round a second (below 0 the other way). 0: all along at once."),
+        P("travelSpan", "Travel Length", ValueKind::Float, num(0.2))
+            .range(0.001, 1).ui(0.01, 1)
+            .help("How much of the path the running energy covers at once, from a dot to all of it."),
+        P("travelHeads", "Travel Heads", ValueKind::Int, integer(1))
+            .range(1, 16).ui(1, 8)
+            .help("How many heads run along the path, evenly spaced."),
+        P("travelMode", "Travel Mode", ValueKind::Enum, text("run"))
+            .options({"run", "draw"})
+            .help("Run: the energy runs round and round. Draw: the path is drawn on from its start, "
+                  "once, at Travel rounds per second (with long-lived particles it stays drawn)."),
+        P("alignToPath", "Align to Path", ValueKind::Bool, Value(false))
+            .help("Each particle is turned to lie along the path: for crackles and streaks that follow an outline."),
+        P("aim", "Send", ValueKind::Enum, text("direction"))
+            .options({"direction", "outward", "along"})
+            .help("Which way particles from a path are sent: the layer's Direction, straight out "
+                  "from the path (in for below 0 speed), or along it."),
     }));
 
     modules_.push_back(module("initial", "Initial State", Stage::Spawn, {
@@ -324,6 +360,12 @@ Registry::Registry() {
         P("loop", "Loop", ValueKind::Enum, text("loop")).options({"once", "loop"}),
         P("frameRate", "Frame Rate", ValueKind::Float, num(30.0))
             .unit("frames per second").range(1, 240).ui(12, 60),
+        P("target", "Target", ValueKind::Asset, AssetRef{})
+            .help("The picture the effect is made for: layers set to Fit to target follow its silhouette."),
+        P("targetWidth", "Target Width", ValueKind::Float, num(3.0))
+            .range(0.01, 10000).ui(0.5, 10).help("How wide the target is drawn, in units."),
+        P("targetPosition", "Target Position", ValueKind::Vec3, Vec3{0, 0, 0})
+            .range(-10000, 10000).ui(-10, 10).help("Where the middle of the target is."),
     });
 
     layer_ = module("layer", "Layer", Stage::Update, {
@@ -514,6 +556,18 @@ Status validateValue(const PropertyDesc& d, const Value& value) {
             }
             return {};
         }
+        case ValueKind::Points: {
+            const auto& p = std::get<PointList>(value);
+            if (p.points.size() > kMaxPathPoints) {
+                return bad(d, "has too many points.");
+            }
+            for (const auto& pt : p.points) {
+                if (!std::isfinite(pt.x) || !std::isfinite(pt.y) || std::fabs(pt.x) > 10000 || std::fabs(pt.y) > 10000) {
+                    return bad(d, "has a point that is not valid.");
+                }
+            }
+            return {};
+        }
         case ValueKind::Bursts: {
             const auto& b = std::get<BurstList>(value);
             if (b.items.size() > kMaxBursts) {
@@ -619,6 +673,20 @@ Value repairValue(const PropertyDesc& d, const Value& value) {
                                          return x.t == y.t;
                                      }),
                          g.keys.end());
+            break;
+        }
+        case ValueKind::Points: {
+            auto& p = std::get<PointList>(out);
+            if (p.points.size() > kMaxPathPoints) {
+                p.points.resize(kMaxPathPoints);
+            }
+            std::vector<Point2> kept;
+            for (const auto& pt : p.points) {
+                if (std::isfinite(pt.x) && std::isfinite(pt.y)) {
+                    kept.push_back(Point2{std::clamp(pt.x, -10000.0, 10000.0), std::clamp(pt.y, -10000.0, 10000.0)});
+                }
+            }
+            p.points = std::move(kept);
             break;
         }
         case ValueKind::Bursts: {

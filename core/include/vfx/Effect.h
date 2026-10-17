@@ -93,6 +93,13 @@ struct Effect {
     double duration = 2.0;     // seconds
     std::string loop = "loop"; // "once" or "loop"
     double frameRate = 30.0;   // frames per second for the timeline and export
+    // The target: a picture (a slot symbol, a logo) the effect is made for.
+    // Layers set to Fit to target take their Path from its silhouette. It
+    // is drawn behind the effect to work against; it is not exported with
+    // the effect's frames. Written to the file only when there is one.
+    AssetRef target;
+    double targetWidth = 3.0;          // in the effect's units
+    Vec3 targetPosition{0, 0, 0};      // where its middle is
     std::vector<Asset> assets;
     std::vector<Layer> layers;
     Extras extra;

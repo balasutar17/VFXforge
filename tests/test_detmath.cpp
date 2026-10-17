@@ -308,3 +308,15 @@ TEST_CASE("The simulation sources use no platform-dependent maths") {
         }
     }
 }
+
+TEST_CASE("atan2 matches the library's to within a hair, all the way round") {
+    for (int i = 0; i < 3600; ++i) {
+        double s = 0, c = 1;
+        det::sinCos(i * det::kTwoPi / 3600.0, s, c);
+        for (const double r : {0.001, 1.0, 250.0}) {
+            REQUIRE(det::atan2(s * r, c * r) == Catch::Approx(std::atan2(s * r, c * r)).margin(1e-9));
+        }
+    }
+    CHECK(det::atan2(0, 0) == 0.0);
+    CHECK(det::atan2(0, -1) == Catch::Approx(det::kPi));
+}

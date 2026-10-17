@@ -84,7 +84,18 @@
           "angle": 25.0,
           "emitFrom": "volume",
           "offset": [0.0, 0.0, 0.0],
-          "plane": "upright"
+          "plane": "upright",
+          "path": {"points": [[-1.0, -1.0], [1.0, -1.0], [1.0, 1.0], [-1.0, 1.0]]},
+          "fitTarget": false,
+          "closed": true,
+          "padding": 0.0,
+          "thickness": 0.0,
+          "travel": 0.0,
+          "travelSpan": 0.2,
+          "travelHeads": 1,
+          "travelMode": "run",
+          "alignToPath": false,
+          "aim": "direction"
         },
         {
           "id": "m-e89911b266b19078",

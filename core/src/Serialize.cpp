@@ -90,6 +90,15 @@ J valueToJson(const Value& value) {
             }
             return items;
         }
+        J operator()(const PointList& v) const {
+            J items = J::array();
+            for (const auto& p : v.points) {
+                items.push_back(J::array({p.x, p.y}));
+            }
+            J o = J::object();
+            o["points"] = std::move(items);
+            return o;
+        }
         J operator()(const AssetRef& v) const {
             return v.id.valid() ? J(formatId('a', v.id)) : J(nullptr);
         }
@@ -121,6 +130,11 @@ J effectToJson(const Effect& e) {
     root["duration"] = e.duration;
     root["loop"] = e.loop;
     root["frameRate"] = e.frameRate;
+    if (e.target.id.valid()) {
+        root["target"] = formatId('a', e.target.id);
+        root["targetWidth"] = e.targetWidth;
+        root["targetPosition"] = J::array({e.targetPosition.x, e.targetPosition.y, e.targetPosition.z});
+    }
 
     J assets = J::array();
     for (const auto& a : e.assets) {
@@ -343,6 +357,26 @@ bool readValue(const J& j, ValueKind kind, Value& out) {
                 g.keys.push_back(key);
             }
             out = std::move(g);
+            return true;
+        }
+        case ValueKind::Points: {
+            if (!j.is_object()) {
+                return false;
+            }
+            auto it = j.find("points");
+            if (it == j.end() || !it.value().is_array() || it.value().size() > kMaxPathPoints) {
+                return false;
+            }
+            PointList list;
+            list.points.reserve(it.value().size());
+            for (const auto& p : it.value()) {
+                Point2 pt;
+                if (!p.is_array() || p.size() != 2 || !readNumber(p[0], pt.x) || !readNumber(p[1], pt.y)) {
+                    return false;
+                }
+                list.points.push_back(pt);
+            }
+            out = std::move(list);
             return true;
         }
         case ValueKind::Bursts: {
@@ -653,6 +687,9 @@ struct Loader {
         e.duration = fieldAs<double>(root, fields, "duration", where);
         e.loop = fieldAs<std::string>(root, fields, "loop", where);
         e.frameRate = fieldAs<double>(root, fields, "frameRate", where);
+        e.target = fieldAs<AssetRef>(root, fields, "target", where);
+        e.targetWidth = fieldAs<double>(root, fields, "targetWidth", where);
+        e.targetPosition = fieldAs<Vec3>(root, fields, "targetPosition", where);
 
         if (auto assets = root.find("assets"); assets != root.end()) {
             if (!assets.value().is_array()) {
@@ -706,7 +743,8 @@ struct Loader {
         }
 
         e.extra = extras(root, {"format", "formatVersion", "id", "name", "space", "seed",
-                                "duration", "loop", "frameRate", "assets", "layers"});
+                                "duration", "loop", "frameRate", "target", "targetWidth", "targetPosition",
+                                "assets", "layers"});
         return e;
     }
 };

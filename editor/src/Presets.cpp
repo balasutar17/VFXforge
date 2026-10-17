@@ -1,4 +1,5 @@
 #include "vfx/editor/Presets.h"
+#include "vfx/editor/Silhouette.h"
 
 #include <cmath>
 #include <initializer_list>
@@ -1935,6 +1936,362 @@ Effect rain3d(const IdSource& id) {
     return e;
 }
 
+// ---- Slot-game symbol and frame effects (0.22), built on the Path shape.
+// Outlines follow the effect's target picture when there is one (Fit to
+// target), and a rounded square the size of a symbol when there is not.
+
+PointList symbolSquare() { return roundedRect(2.4, 2.4, 0.35, 6); }
+
+// A bright line along a path, `thickness` wide: soft dots close together,
+// each living a moment, so it shimmers. length is the path's, to keep the
+// dots as close on a long path as on a short one.
+Make& glowLine(Make& m, unsigned colour, double thickness, double length, double alpha = 1.0) {
+    const double life = 0.12;
+    const double alive = length / (thickness * 0.5);
+    return m.rate(std::round(alive / life)).life(life * 0.8, life * 1.2).speed(0, 0)
+        .size(thickness * 4.0, thickness * 4.4).color(colour, alpha * 0.6).gravity(0, 0).additive().glow(1.6);
+}
+
+Effect goldOutline(const IdSource& id) {
+    Effect e = begin(id, "Gold Outline", 2.0);
+    Make line(id, "Gold line");
+    add(e, glowLine(line.path(symbolSquare()).fitTarget(), 0xffd36a, 0.06, 9.0, 0.9));
+    add(e, Make(id, "Halo").path(symbolSquare()).fitTarget().rate(500).life(0.3, 0.4).speed(0, 0).size(0.35, 0.45)
+               .color(0xffa21f, 0.12).gravity(0, 0).fade({{0, 0}, {0.5, 1}, {1, 0}}).additive());
+    add(e, Make(id, "Running sparks").path(symbolSquare()).fitTarget().travel(0.5, 0.06, 2).rate(220).life(0.25, 0.45)
+               .speed(0.1, 0.4).sendOut().size(0.05, 0.1).color(0xfff0b0).gravity(0, -0.4).fade({{0, 1}, {1, 0}})
+               .additive().glow(2.2).streak(0.04));
+    add(e, Make(id, "Heads").path(symbolSquare()).fitTarget().travel(0.5, 0.01, 2).rate(40).life(0.12, 0.16).speed(0, 0)
+               .size(0.5, 0.6).turn(0, 360).color(0xfff6d8).gravity(0, 0).look("starflash").additive().glow(1.8));
+    add(e, Make(id, "Glints").path(symbolSquare()).fitTarget().rate(6).life(0.4, 0.6).speed(0, 0).size(0.18, 0.3)
+               .turn(0, 45).color(0xffffff).gravity(0, 0).sizeOver({{0, 0}, {0.4, 1, true}, {1, 0}}).look("twinkle")
+               .additive().glow(1.8));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect rareOutline(const IdSource& id) {
+    Effect e = begin(id, "Rare Outline", 2.0);
+    Make line(id, "Blue line");
+    add(e, glowLine(line.path(symbolSquare()).fitTarget(), 0x6fc6ff, 0.05, 9.0, 0.85));
+    add(e, Make(id, "Crackle").path(symbolSquare()).fitTarget().band(0.06).rate(90).life(0.05, 0.09).speed(0, 0)
+               .size(0.35, 0.55).color(0xd6f0ff).gravity(0, 0).alongPath().look("zigzag").additive().glow(2.0).hold(15));
+    add(e, Make(id, "Arcs").path(symbolSquare()).fitTarget().padding(0.06).rate(14).life(0.06, 0.1).speed(0, 0)
+               .size(0.4, 0.7).turn(-30, 30).color(0x9fe0ff).gravity(0, 0).alongPath().look("bolt").additive().glow(2.0));
+    add(e, Make(id, "Halo").path(symbolSquare()).fitTarget().rate(500).life(0.3, 0.4).speed(0, 0).size(0.35, 0.45)
+               .color(0x1f7bff, 0.12).gravity(0, 0).fade({{0, 0}, {0.5, 1}, {1, 0}}).additive());
+    return e;
+}
+
+Effect epicOutline(const IdSource& id) {
+    Effect e = begin(id, "Epic Outline", 2.0);
+    Make line(id, "Violet line");
+    add(e, glowLine(line.path(symbolSquare()).fitTarget(), 0xd9a6ff, 0.05, 9.0, 0.85));
+    add(e, Make(id, "Smoke").path(symbolSquare()).fitTarget().rate(120).life(0.5, 0.9).speed(0.1, 0.3).sendOut()
+               .size(0.25, 0.4).turn(0, 360).color(0x9b4dff, 0.5).gravity(0, 0).spin(-60, 60)
+               .sizeOver({{0, 0.5}, {1, 1.5}}).fade({{0, 0}, {0.2, 0.7}, {1, 0}}).look("smoke").additive()
+               .turbulence(0.4, 0.5, 0.8));
+    add(e, Make(id, "Motes").path(symbolSquare()).fitTarget().rate(30).life(0.6, 1.0).speed(0.2, 0.5).sendOut()
+               .size(0.03, 0.06).color(0xf2dcff).gravity(0, 0.2).fade({{0, 1}, {1, 0}}).additive().glow(2.2));
+    return e;
+}
+
+Effect legendaryOutline(const IdSource& id) {
+    Effect e = begin(id, "Legendary Outline", 2.0);
+    Make line(id, "Hot line");
+    add(e, glowLine(line.path(symbolSquare()).fitTarget(), 0xffe9a8, 0.06, 9.0));
+    add(e, Make(id, "Flames").path(symbolSquare()).fitTarget().rate(420).life(0.3, 0.55).speed(0.4, 0.9)
+               .toward(0, 1, 0, 25).size(0.25, 0.45).turn(-10, 10).color(0xffffff).gravity(0, 0.6)
+               .tint({hexTint(0, 0xfff1b0), hexTint(0.4, 0xff8a1f), hexTint(1, 0xa8200a)})
+               .sizeOver({{0, 0.6}, {0.3, 1}, {1, 0.2}}).fade({{0, 0.9}, {1, 0}}).look("flame").additive().glow(1.3)
+               .turbulence(0.4, 0.4, 1.2));
+    add(e, Make(id, "Comets").path(symbolSquare()).fitTarget().travel(0.75, 0.08, 2).rate(160).life(0.2, 0.35)
+               .speed(0, 0.2).size(0.18, 0.28).color(0xfff6d8).gravity(0, 0).sizeOver({{0, 1}, {1, 0}}).additive()
+               .glow(2.2));
+    add(e, Make(id, "Embers").path(symbolSquare()).fitTarget().rate(30).life(0.6, 1.2).speed(0.5, 1.2).toward(0, 1, 0, 40)
+               .size(0.03, 0.06).color(0xffc062).gravity(0, 0.4).additive().glow(2.0).turbulence(0.6, 0.6, 1.0));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect outlineDrawOn(const IdSource& id) {
+    Effect e = begin(id, "Outline Trace", 2.0);
+    // The outline is drawn round once, a spark leading, then glows and fades.
+    add(e, Make(id, "Traced line").path(symbolSquare()).fitTarget().drawOn(1.0).from(0, 1.0).rate(900).life(1.0, 1.0)
+               .speed(0, 0).size(0.16, 0.18).color(0xffd36a).gravity(0, 0).alongPath()
+               .fade({{0, 1}, {0.6, 1}, {1, 0}}).look("glowbar").additive().glow(1.6));
+    add(e, Make(id, "Spark").path(symbolSquare()).fitTarget().travel(1.0, 0.004).from(0, 1.0).rate(80).life(0.08, 0.1)
+               .speed(0, 0).size(0.6, 0.7).turn(0, 360).color(0xffffff).gravity(0, 0).look("starflash").additive()
+               .glow(2.0));
+    add(e, Make(id, "Spark trail").path(symbolSquare()).fitTarget().travel(1.0, 0.02).from(0, 1.0).rate(200)
+               .life(0.2, 0.4).speed(0.2, 0.6).toward(0, 1, 0, 180).size(0.03, 0.06).color(0xffe39a).gravity(0, -1)
+               .additive().glow(2.0));
+    add(e, Make(id, "Finish glow").from(1.0, 0.9).path(symbolSquare()).fitTarget().burst(120).life(0.6, 0.9).speed(0, 0)
+               .size(0.5, 0.7).color(0xffa21f, 0.35).gravity(0, 0).fade({{0, 1}, {1, 0}}).additive());
+    return e;
+}
+
+Effect symbolGlitter(const IdSource& id) {
+    Effect e = begin(id, "Symbol Glitter", 2.0);
+    // Glitter all over the symbol, inside its silhouette.
+    add(e, Make(id, "Glitter").path(symbolSquare()).fitTarget().fillPath().rate(70).life(0.3, 0.6).speed(0, 0)
+               .size(0.1, 0.22).turn(0, 45).color(0xffffff).gravity(0, 0).sizeOver({{0, 0}, {0.3, 1, true}, {1, 0}})
+               .look("twinkle").additive().glow(1.8));
+    add(e, Make(id, "Shimmer").path(symbolSquare()).fitTarget().fillPath().rate(160).life(0.5, 0.8).speed(0, 0)
+               .size(0.04, 0.08).color(0xffe9a8, 0.9).gravity(0, 0).fade({{0, 0}, {0.5, 1}, {1, 0}}).additive());
+    return e;
+}
+
+// ---- Energy frames: reel and symbol frames, columns and pillars, after
+// the frame sheet Bala sent.
+
+Effect fireSparkFrame(const IdSource& id) {
+    Effect e = begin(id, "Fire Spark Frame", 2.0);
+    const PointList frame = roundedRect(1.6, 3.2, 0.04, 1);
+    Make line(id, "Fire line");
+    add(e, glowLine(line.path(frame), 0xff7a1f, 0.07, 9.6));
+    Make core(id, "Hot core");
+    add(e, glowLine(core.path(frame), 0xffe2a8, 0.025, 9.6));
+    add(e, Make(id, "Sparkles").path(frame).band(0.12).rate(60).life(0.2, 0.5).speed(0, 0.15).size(0.06, 0.14)
+               .turn(0, 45).color(0xffd27a).gravity(0, 0).sizeOver({{0, 0}, {0.3, 1, true}, {1, 0}}).look("twinkle")
+               .additive().glow(2.0));
+    add(e, Make(id, "Embers").path(frame).rate(40).life(0.4, 0.8).speed(0.1, 0.4).sendOut().size(0.02, 0.04)
+               .color(0xffa04a).gravity(0, 0.3).additive().glow(2.0));
+    add(e, Make(id, "Inner glow").path(frame).padding(-0.1).rate(400).life(0.3, 0.4).speed(0, 0).size(0.25, 0.35)
+               .color(0xff5a1a, 0.1).gravity(0, 0).fade({{0, 0}, {0.5, 1}, {1, 0}}).additive());
+    return e;
+}
+
+Effect cornerFireFrame(const IdSource& id) {
+    Effect e = begin(id, "Corner Fire Frame", 2.0);
+    const PointList frame = roundedRect(1.6, 3.2, 0.0, 1);
+    add(e, Make(id, "Fire edges").path(frame).band(0.06).rate(300).life(0.15, 0.3).speed(0.05, 0.2).sendOut()
+               .size(0.08, 0.16).turn(0, 360).color(0xffffff).gravity(0, 0)
+               .tint({hexTint(0, 0xffe0a0), hexTint(0.5, 0xff6a1a), hexTint(1, 0x801808)}).look("flame").additive()
+               .glow(1.4).turbulence(0.3, 0.3, 1.5));
+    Make edge(id, "Edge line");
+    add(e, glowLine(edge.path(frame), 0xff4a12, 0.04, 9.6, 0.8));
+    for (int c = 0; c < 4; ++c) {
+        const double x = c % 2 == 0 ? -0.8 : 0.8, y = c < 2 ? -1.6 : 1.6;
+        const char* names[4] = {"Fireball bottom left", "Fireball bottom right", "Fireball top left", "Fireball top right"};
+        add(e, Make(id, names[c]).at(x, y).rate(40).life(0.25, 0.4).speed(0, 0.2).toward(0, 1, 0, 180).size(0.25, 0.4)
+                   .turn(0, 360).color(0xffffff).gravity(0, 0.4).spin(-120, 120)
+                   .tint({hexTint(0, 0xfff1b0), hexTint(0.5, 0xff7a1f), hexTint(1, 0x801a08)})
+                   .sizeOver({{0, 1}, {1, 0.3}}).look("fireball").additive().glow(1.5));
+    }
+    add(e, Make(id, "Running sparks").path(frame).travel(0.4, 0.05, 2).rate(120).life(0.3, 0.5).speed(0.2, 0.6)
+               .toward(0, 1, 0, 180).size(0.02, 0.04).color(0xffc062).gravity(0, -0.5).additive().glow(2.0));
+    tools::smoothLoop(e);
+    return e;
+}
+
+// Crackling electricity on a square frame, in a colour.
+Effect electricFrame(const IdSource& id, const char* name, unsigned line, unsigned crackle, unsigned halo) {
+    Effect e = begin(id, name, 2.0);
+    const PointList frame = roundedRect(2.2, 2.2, 0.06, 2);
+    Make l(id, "Line");
+    add(e, glowLine(l.path(frame), line, 0.04, 8.8, 0.9));
+    add(e, Make(id, "Crackle").path(frame).band(0.1).rate(240).life(0.05, 0.1).speed(0, 0).size(0.35, 0.6)
+               .color(crackle).gravity(0, 0).alongPath().look("zigzag").additive().glow(2.0).hold(15));
+    add(e, Make(id, "Arcs").path(frame).padding(0.08).rate(10).life(0.06, 0.1).speed(0, 0).size(0.4, 0.8)
+               .turn(-35, 35).color(crackle).gravity(0, 0).alongPath().look("bolt").additive().glow(2.2));
+    add(e, Make(id, "Halo").path(frame).rate(500).life(0.3, 0.4).speed(0, 0).size(0.3, 0.4).color(halo, 0.12)
+               .gravity(0, 0).fade({{0, 0}, {0.5, 1}, {1, 0}}).additive());
+    return e;
+}
+Effect goldElectricFrame(const IdSource& id) { return electricFrame(id, "Gold Electric Frame", 0xffc23a, 0xfff0b0, 0xff8a1a); }
+Effect cyanElectricFrame(const IdSource& id) { return electricFrame(id, "Neon Electric Frame", 0x4fe8ff, 0xd8fbff, 0x1fb8ff); }
+
+// A frame of drifting smoke, in a colour.
+Effect smokeFrame(const IdSource& id, const char* name, unsigned line, unsigned smoke) {
+    Effect e = begin(id, name, 3.0);
+    const PointList frame = roundedRect(2.2, 2.2, 0.08, 2);
+    Make l(id, "Line");
+    add(e, glowLine(l.path(frame), line, 0.035, 8.8, 0.9));
+    add(e, Make(id, "Smoke").path(frame).band(0.12).rate(220).life(0.8, 1.4).speed(0.03, 0.15).sendOut().size(0.22, 0.38)
+               .turn(0, 360).color(smoke, 0.3).gravity(0, 0).spin(-40, 40).sizeOver({{0, 0.5}, {1, 1.5}})
+               .fade({{0, 0}, {0.3, 0.6}, {1, 0}}).look("smoke").additive().turbulence(0.25, 0.4, 0.5));
+    add(e, Make(id, "Inner glow").path(frame).padding(-0.06).rate(400).life(0.3, 0.4).speed(0, 0).size(0.2, 0.3)
+               .color(smoke, 0.15).gravity(0, 0).fade({{0, 0}, {0.5, 1}, {1, 0}}).additive());
+    tools::smoothLoop(e);
+    return e;
+}
+Effect blueSmokeFrame(const IdSource& id) { return smokeFrame(id, "Blue Smoke Frame", 0x7fb8ff, 0x3f7fff); }
+Effect violetSmokeFrame(const IdSource& id) { return smokeFrame(id, "Violet Smoke Frame", 0xd6b8ff, 0x8f4dff); }
+
+Effect frameDrawOn(const IdSource& id) {
+    Effect e = begin(id, "Frame Trace", 2.0);
+    // The frame is drawn on from a corner in the first second, flashes, holds, fades.
+    const PointList frame{{{-1.1, 1.1}, {-1.1, -1.1}, {1.1, -1.1}, {1.1, 1.1}}};
+    add(e, Make(id, "Drawn line").path(frame).drawOn(1.0).from(0, 2.0).rate(700).life(2.0, 2.0).speed(0, 0)
+               .size(0.1, 0.12).color(0xffc85a).gravity(0, 0).alongPath()
+               .fade({{0, 1}, {0.5, 1}, {1, 0}}).look("glowbar").additive().glow(1.6));
+    add(e, Make(id, "Pen").path(frame).travel(1.0, 0.004).from(0, 1.0).rate(60).life(0.08, 0.1).speed(0, 0)
+               .size(0.45, 0.55).turn(0, 360).color(0xffffff).gravity(0, 0).look("starflash").additive().glow(2.0));
+    add(e, Make(id, "Shavings").path(frame).travel(1.0, 0.015).from(0, 1.0).rate(160).life(0.3, 0.5).speed(0.2, 0.6)
+               .toward(0, 1, 0, 180).size(0.02, 0.05).color(0xffe39a).gravity(0, -1.5).additive().glow(2.0));
+    add(e, Make(id, "Flash").from(1.0, 0.5).path(frame).burst(160).life(0.25, 0.35).speed(0, 0).size(0.35, 0.45)
+               .color(0xfff1c2, 0.6).gravity(0, 0).alongPath().fade({{0, 1}, {1, 0}}).look("glowbar").additive());
+    return e;
+}
+
+// A tall reel column lit from below, lightning rising through it.
+Effect lightningColumn(const IdSource& id, const char* name, unsigned fill, unsigned bolt, unsigned edge) {
+    Effect e = begin(id, name, 2.0);
+    add(e, Make(id, "Column glow").rect(1.3, 3.4).rate(500).life(0.4, 0.6).speed(0, 0.3).aim(90, 5)
+               .size(0.35, 0.45).color(fill, 0.12).gravity(0, 0).fade({{0, 0}, {0.3, 1}, {1, 0}}).additive());
+    add(e, Make(id, "Low glow").rect(1.3, 1.2).at(0, -1.2).rate(300).life(0.4, 0.6).speed(0, 0.4).aim(90, 5)
+               .size(0.35, 0.45).color(fill, 0.1).gravity(0, 0).fade({{0, 0}, {0.3, 1}, {1, 0}}).additive());
+    add(e, Make(id, "Base light").at(0, -1.7).rate(6).life(0.4, 0.6).speed(0, 0).size(1.6, 2.0).color(fill, 0.45)
+               .gravity(0, 0).fade({{0, 0}, {0.3, 1}, {1, 0}}).additive().glow(1.2));
+    add(e, Make(id, "Bolts").rect(0.9, 2.0).rate(16).life(0.07, 0.12).speed(0, 0).size(2.2, 3.2).turn(80, 100)
+               .color(bolt).gravity(0, 0).look("bolt").additive().glow(2.0).hold(15));
+    add(e, Make(id, "Left edge").line(-0.7, -1.8, -0.7, 1.8).band(0.06).rate(60).life(0.06, 0.1).speed(0, 0)
+               .size(0.4, 0.7).color(edge).gravity(0, 0).alongPath().look("zigzag").additive().glow(2.0).hold(15));
+    add(e, Make(id, "Right edge").line(0.7, -1.8, 0.7, 1.8).band(0.06).rate(60).life(0.06, 0.1).speed(0, 0)
+               .size(0.4, 0.7).color(edge).gravity(0, 0).alongPath().look("zigzag").additive().glow(2.0).hold(15));
+    add(e, Make(id, "Sparks").rect(1.0, 0.3).at(0, -1.7).rate(50).life(0.3, 0.6).speed(1.0, 2.5).aim(90, 40)
+               .size(0.02, 0.05).color(edge).gravity(0, -1.0).additive().glow(2.0).streak(0.03));
+    return e;
+}
+Effect cyanLightningColumn(const IdSource& id) { return lightningColumn(id, "Cyan Lightning Column", 0x1fc8d8, 0xd6fbff, 0x7ff0ff); }
+Effect goldLightningColumn(const IdSource& id) { return lightningColumn(id, "Gold Lightning Column", 0xff7a12, 0xfff2b0, 0xffd34a); }
+
+Effect lightPillars(const IdSource& id) {
+    Effect e = begin(id, "Light Pillars", 2.0);
+    // Two upright beams of light, as at the sides of a winning reel.
+    for (const double x : {-0.8, 0.8}) {
+        Make beam(id, x < 0 ? "Left beam" : "Right beam");
+        add(e, glowLine(beam.line(x, -1.8, x, 1.8), 0xfff2a0, 0.05, 3.6));
+        add(e, Make(id, x < 0 ? "Left glow" : "Right glow").line(x, -1.8, x, 1.8).rate(120).life(0.3, 0.4).speed(0, 0)
+                   .size(0.5, 0.7).color(0xffc21a, 0.25).gravity(0, 0).fade({{0, 0}, {0.5, 1}, {1, 0}}).additive());
+        add(e, Make(id, x < 0 ? "Left swirls" : "Right swirls").line(x, -1.8, x, 1.8).rate(20).life(0.4, 0.7)
+                   .speed(0.1, 0.3).toward(0, 1, 0, 180).size(0.1, 0.18).turn(0, 360).color(0xfff0b0, 0.6).gravity(0, 0)
+                   .spin(-200, 200).fade({{0, 1}, {1, 0}}).look("swirl").additive().glow(1.6));
+    }
+    return e;
+}
+
+Effect portalGate(const IdSource& id) {
+    Effect e = begin(id, "Portal Gate", 2.0);
+    const PointList gate = roundedRect(1.4, 3.0, 0.5, 6);
+    Make l(id, "Gate line");
+    add(e, glowLine(l.path(gate), 0x6fb8ff, 0.07, 8.0));
+    Make c(id, "White core");
+    add(e, glowLine(c.path(gate), 0xf0f8ff, 0.025, 8.0));
+    add(e, Make(id, "Crackle").path(gate).band(0.1).rate(70).life(0.05, 0.09).speed(0, 0).size(0.35, 0.6)
+               .color(0xbfe6ff).gravity(0, 0).alongPath().look("zigzag").additive().glow(2.0).hold(15));
+    add(e, Make(id, "Inner haze").path(gate).fillPath().rate(16).life(0.6, 0.9).speed(0, 0.1).size(0.6, 0.9)
+               .color(0x1f5bff, 0.12).gravity(0, 0).fade({{0, 0}, {0.5, 1}, {1, 0}}).additive());
+    add(e, Make(id, "Running light").path(gate).travel(0.6, 0.08, 2).rate(160).life(0.12, 0.2).speed(0, 0)
+               .size(0.2, 0.3).color(0xffffff).gravity(0, 0).additive().glow(2.0));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect winFrameFlash(const IdSource& id) {
+    Effect e = begin(id, "Win Frame Flash", 1.5);
+    // A winning symbol's frame: it fills with light, flashes and settles to a glow.
+    const PointList frame = roundedRect(1.6, 2.6, 0.06, 2);
+    add(e, Make(id, "Fill").path(frame).fillPath().burst(500).life(0.45, 0.6).speed(0, 0).size(0.3, 0.4)
+               .color(0xff8a1a, 0.18).gravity(0, 0).fade({{0, 1}, {1, 0}}).additive());
+    Make l(id, "Frame line");
+    add(e, glowLine(l.path(frame), 0xffb04a, 0.06, 8.4));
+    add(e, Make(id, "Sparkles").path(frame).band(0.15).rate(40).life(0.3, 0.5).speed(0, 0.1).size(0.08, 0.16)
+               .turn(0, 45).color(0xfff1c2).gravity(0, 0).sizeOver({{0, 0}, {0.3, 1, true}, {1, 0}}).look("twinkle")
+               .additive().glow(2.0));
+    add(e, Make(id, "Burst").path(frame).burst(60).life(0.4, 0.7).speed(0.6, 1.4).sendOut().size(0.03, 0.06)
+               .color(0xffd27a).gravity(0, -1).drag(1.5).additive().glow(2.0).streak(0.03));
+    return e;
+}
+
+Effect sunOrb(const IdSource& id) {
+    Effect e = begin(id, "Sun Orb", 2.0);
+    add(e, Make(id, "Core").burst(1).life(2.0, 2.0).speed(0, 0).size(1.5, 1.5).color(0xffe35a).gravity(0, 0)
+               .fade({{0, 1}, {1, 1}}).additive().glow(1.6));
+    add(e, Make(id, "Corona").burst(1).life(2.0, 2.0).speed(0, 0).size(2.2, 2.2).color(0xffb01a, 0.5).gravity(0, 0)
+               .additive());
+    add(e, Make(id, "Flares").circle(0.7, true).rate(40).life(0.3, 0.5).speed(0.05, 0.2).toward(0, 1, 0, 180)
+               .size(0.25, 0.45).turn(0, 360).color(0xfff2a0, 0.7).gravity(0, 0).spin(-180, 180).look("flame").sendOut().additive()
+               .glow(1.6).turbulence(0.3, 0.3, 1.5));
+    add(e, Make(id, "Filaments").circle(0.65, true).rate(30).life(0.1, 0.2).speed(0, 0).size(0.4, 0.6).turn(0, 360)
+               .color(0xfff8d6).gravity(0, 0).look("zigzag").additive().glow(1.8).hold(15));
+    return e;
+}
+
+Effect cometTrail(const IdSource& id) {
+    Effect e = begin(id, "Comet Trail", 2.0);
+    // Runs along a gentle arc, trailing glitter.
+    PointList arc;
+    for (int i = 0; i <= 24; ++i) {
+        const double t = i / 24.0;
+        arc.points.push_back(Point2{-2.0 + 4.0 * t, 0.25 * std::sin(t * 3.14159)});
+    }
+    add(e, Make(id, "Head").path(arc, false).travel(0.5, 0.004).rate(120).life(0.06, 0.08).speed(0, 0).size(0.45, 0.5)
+               .color(0xffd04a).gravity(0, 0).additive().glow(2.0));
+    add(e, Make(id, "Glitter tail").path(arc, false).travel(0.5, 0.01).rate(300).life(0.4, 0.8).speed(0, 0.15)
+               .toward(0, 1, 0, 180).size(0.03, 0.07).color(0xffe08a).gravity(0, -0.2).fade({{0, 1}, {1, 0}}).additive()
+               .glow(2.0));
+    add(e, Make(id, "Glow tail").path(arc, false).travel(0.5, 0.03).rate(150).life(0.15, 0.25).speed(0, 0)
+               .size(0.25, 0.35).color(0xff9a1a, 0.5).gravity(0, 0).sizeOver({{0, 1}, {1, 0.3}}).additive());
+    return e;
+}
+
+// ---- Sabers and beams, after the saber styles Bala sent: a straight line
+// of light with a core, a glow and its own character.
+
+struct SaberStyle {
+    unsigned core, glow;
+    double glowAlpha;
+    unsigned crackle;   // 0: none
+    unsigned flame;     // 0: none
+    unsigned smoke;     // 0: none
+    double width;       // of the glow
+    double wobble;      // turbulence on the glow
+};
+
+Effect saber(const IdSource& id, const char* name, const SaberStyle& s) {
+    Effect e = begin(id, name, 1.0);
+    Make core(id, "Core");
+    add(e, glowLine(core.line(-2, 0, 2, 0), s.core, 0.035, 4.0));
+    Make glow(id, "Glow");
+    add(e, glowLine(glow.line(-2, 0, 2, 0), s.glow, s.width * 0.45, 4.0, s.glowAlpha * 0.45)
+               .turbulence(s.wobble, 0.3, 2.0));
+    add(e, Make(id, "Haze").line(-2, 0, 2, 0).rate(220).life(0.15, 0.25).speed(0, 0.05).toward(0, 1, 0, 180)
+               .size(s.width * 1.6, s.width * 2.0).color(s.glow, s.glowAlpha * 0.25).gravity(0, 0)
+               .fade({{0, 0}, {0.4, 1}, {1, 0}}).additive().turbulence(s.wobble, 0.3, 2.0));
+    if (s.crackle) {
+        add(e, Make(id, "Crackle").line(-2, 0, 2, 0).band(0.06).rate(120).life(0.05, 0.08).speed(0, 0).size(0.3, 0.5)
+                   .color(s.crackle).gravity(0, 0).alongPath().look("zigzag").additive().glow(2.0).hold(15));
+    }
+    if (s.flame) {
+        add(e, Make(id, "Flames").line(-2, 0, 2, 0).band(0.04).rate(220).life(0.2, 0.4).speed(0.2, 0.6).toward(0, 1, 0, 30)
+                   .size(0.12, 0.24).turn(-10, 10).color(0xffffff).gravity(0, 0.5)
+                   .tint({hexTint(0, 0xfff1b0), hexTint(0.4, s.flame), hexTint(1, 0x601008)})
+                   .sizeOver({{0, 0.6}, {0.3, 1}, {1, 0.2}}).look("flame").additive().glow(1.3).turbulence(0.5, 0.3, 1.5));
+    }
+    if (s.smoke) {
+        add(e, Make(id, "Smoke").line(-2, 0, 2, 0).band(0.05).rate(80).life(0.4, 0.8).speed(0.05, 0.25)
+                   .toward(0, 1, 0, 180).size(0.25, 0.4).turn(0, 360).color(s.smoke, 0.35).gravity(0, 0.1)
+                   .spin(-40, 40).sizeOver({{0, 0.5}, {1, 1.6}}).fade({{0, 0}, {0.3, 0.7}, {1, 0}}).look("smoke")
+                   .additive().turbulence(0.4, 0.4, 0.8));
+    }
+    return e;
+}
+
+Effect saberBlue(const IdSource& id) { return saber(id, "Saber Blue", {0xe6f6ff, 0x2f8cff, 0.5, 0, 0, 0, 0.35, 0.0}); }
+Effect saberArc(const IdSource& id) { return saber(id, "Saber Arc Reactor", {0xffffff, 0x2f7bff, 0.45, 0xbfe6ff, 0, 0, 0.3, 0.2}); }
+Effect saberBurning(const IdSource& id) { return saber(id, "Saber Burning", {0xfff1c2, 0xff7a1a, 0.5, 0, 0xff7a1a, 0, 0.3, 0.2}); }
+Effect saberFirestorm(const IdSource& id) { return saber(id, "Saber Firestorm", {0xffffff, 0xff5a12, 0.55, 0, 0xff6a12, 0x8a2a10, 0.45, 0.5}); }
+Effect saberElectric(const IdSource& id) { return saber(id, "Saber Electric", {0xe6fbff, 0x1fb8ff, 0.4, 0xd6f6ff, 0, 0, 0.25, 0.3}); }
+Effect saberGreen(const IdSource& id) { return saber(id, "Saber Green Energy", {0xf0ffd6, 0x6fdc1f, 0.45, 0xc8ff6a, 0, 0, 0.3, 0.3}); }
+Effect saberNeon(const IdSource& id) { return saber(id, "Saber Neon", {0xffe0f4, 0xff2f9a, 0.55, 0, 0, 0, 0.3, 0.0}); }
+Effect saberNebula(const IdSource& id) { return saber(id, "Saber Nebula", {0xf2e0ff, 0x9a4dff, 0.4, 0, 0, 0x8a3dff, 0.4, 0.4}); }
+Effect saberSolar(const IdSource& id) { return saber(id, "Saber Solar", {0xffffff, 0xff9a1a, 0.6, 0xfff0b0, 0xffa21f, 0, 0.4, 0.4}); }
+Effect saberStarkiller(const IdSource& id) { return saber(id, "Saber Starkiller", {0xffe0e0, 0xff1f2f, 0.55, 0xff8a8a, 0, 0, 0.3, 0.6}); }
+Effect saberGhost(const IdSource& id) { return saber(id, "Saber Ghost", {0xd6e6ff, 0x3f5bff, 0.35, 0, 0, 0x3f6bff, 0.45, 0.6}); }
+Effect saberYellowSmoke(const IdSource& id) { return saber(id, "Saber Yellow Smoke", {0xfffad6, 0xffd21a, 0.45, 0, 0, 0xffc21a, 0.35, 0.4}); }
+
 struct Entry {
     PresetInfo info;
     Effect (*build)(const IdSource&);
@@ -2069,6 +2426,39 @@ const std::vector<Entry>& table() {
         {describe("meteor-strike-3d", "Meteor Strike 3D", "3D Combat", "A burning rock falls from the sky and blasts a crater.", -1.0f, 2.5f, 7.5f, 1.15), meteor3d},
         {describe("frost-nova-3d", "Frost Nova 3D", "3D Combat", "A freezing wave: ice spikes rise round the caster, chips fly, mist and snow.", 0, 1.0f, 5.0f, 0.4), frostNova3d},
         {describe("sword-slash-3d", "Sword Slash 3D", "3D Combat", "Two quick sword strokes with an afterglow and sparks.", 0, 1.5f, 4.5f, 0.05), swordSlash3d},
+
+        {describe("gold-outline", "Gold Outline", "Symbol Outlines", "A golden line round the symbol, sparks running round it and glints.", 0, 0, 3.4f, 0.6), goldOutline},
+        {describe("rare-outline", "Rare Outline", "Symbol Outlines", "A blue outline crackling with electricity.", 0, 0, 3.4f, 0.6), rareOutline},
+        {describe("epic-outline", "Epic Outline", "Symbol Outlines", "A violet outline giving off smoke and motes.", 0, 0, 3.4f, 1.0), epicOutline},
+        {describe("legendary-outline", "Legendary Outline", "Symbol Outlines", "A white-hot outline in flames, two comets racing round it.", 0, 0.2f, 3.8f, 0.6), legendaryOutline},
+        {describe("outline-trace", "Outline Trace", "Symbol Outlines", "The outline is drawn round once by a spark, then glows and fades.", 0, 0, 3.4f, 0.7), outlineDrawOn},
+        {describe("symbol-glitter", "Symbol Glitter", "Symbol Outlines", "Glitter and shimmer all over the symbol, inside its shape.", 0, 0, 3.4f, 1.0), symbolGlitter},
+        {describe("fire-spark-frame", "Fire Spark Frame", "Energy Frames", "A tall frame of fire with sparkles and embers.", 0, 0, 4.0f, 1.0), fireSparkFrame},
+        {describe("corner-fire-frame", "Corner Fire Frame", "Energy Frames", "Fireballs at the corners, fire along the edges, sparks running round.", 0, 0, 4.2f, 1.0), cornerFireFrame},
+        {describe("gold-electric-frame", "Gold Electric Frame", "Energy Frames", "A square frame crackling with golden electricity.", 0, 0, 3.2f, 1.0), goldElectricFrame},
+        {describe("neon-electric-frame", "Neon Electric Frame", "Energy Frames", "A square frame crackling with cyan electricity.", 0, 0, 3.2f, 1.0), cyanElectricFrame},
+        {describe("blue-smoke-frame", "Blue Smoke Frame", "Energy Frames", "A square frame wrapped in drifting blue smoke.", 0, 0, 3.2f, 1.5), blueSmokeFrame},
+        {describe("violet-smoke-frame", "Violet Smoke Frame", "Energy Frames", "A square frame wrapped in drifting violet smoke.", 0, 0, 3.2f, 1.5), violetSmokeFrame},
+        {describe("frame-trace", "Frame Trace", "Energy Frames", "A frame drawn on from a corner by a spark, then a flash.", 0, 0, 3.2f, 0.6), frameDrawOn},
+        {describe("cyan-lightning-column", "Cyan Lightning Column", "Energy Frames", "A reel column lit from below, lightning rising through it.", 0, 0, 4.4f, 1.0), cyanLightningColumn},
+        {describe("gold-lightning-column", "Gold Lightning Column", "Energy Frames", "A reel column of fire-gold light and lightning.", 0, 0, 4.4f, 1.0), goldLightningColumn},
+        {describe("light-pillars", "Light Pillars", "Energy Frames", "Two upright beams of light with swirls, as at a winning reel's sides.", 0, 0, 4.4f, 1.0), lightPillars},
+        {describe("portal-gate", "Portal Gate", "Energy Frames", "A tall rounded gate of blue electricity with light running round it.", 0, 0, 3.8f, 1.0), portalGate},
+        {describe("win-frame-flash", "Win Frame Flash", "Energy Frames", "A winning symbol's frame fills with light, flashes and settles.", 0, 0, 3.4f, 0.15), winFrameFlash},
+        {describe("sun-orb", "Sun Orb", "Energy Frames", "A blazing orb with flares and crackling filaments.", 0, 0, 3.4f, 1.0), sunOrb},
+        {describe("comet-trail", "Comet Trail", "Energy Frames", "A comet running along an arc, trailing glitter.", 0, 0, 3.0f, 0.9), cometTrail},
+        {describe("saber-blue", "Saber Blue", "Sabers and Beams", "A clean blue blade of light.", 0, 0, 3.0f, 0.5), saberBlue},
+        {describe("saber-arc-reactor", "Saber Arc Reactor", "Sabers and Beams", "A white blade in blue glow, crackling.", 0, 0, 3.0f, 0.5), saberArc},
+        {describe("saber-burning", "Saber Burning", "Sabers and Beams", "An orange blade licked by flames.", 0, 0, 3.0f, 0.5), saberBurning},
+        {describe("saber-firestorm", "Saber Firestorm", "Sabers and Beams", "A blade in a storm of fire and smoke.", 0, 0, 3.0f, 0.5), saberFirestorm},
+        {describe("saber-electric", "Saber Electric", "Sabers and Beams", "A cyan blade crackling with electricity.", 0, 0, 3.0f, 0.5), saberElectric},
+        {describe("saber-green-energy", "Saber Green Energy", "Sabers and Beams", "A green blade of crackling energy.", 0, 0, 3.0f, 0.5), saberGreen},
+        {describe("saber-neon", "Saber Neon", "Sabers and Beams", "A pink neon blade.", 0, 0, 3.0f, 0.5), saberNeon},
+        {describe("saber-nebula", "Saber Nebula", "Sabers and Beams", "A violet blade in drifting purple smoke.", 0, 0, 3.0f, 0.5), saberNebula},
+        {describe("saber-solar", "Saber Solar", "Sabers and Beams", "A white-hot blade with solar flames.", 0, 0, 3.0f, 0.5), saberSolar},
+        {describe("saber-starkiller", "Saber Starkiller", "Sabers and Beams", "An unstable red blade.", 0, 0, 3.0f, 0.5), saberStarkiller},
+        {describe("saber-ghost", "Saber Ghost", "Sabers and Beams", "A faint blue blade in ghostly haze.", 0, 0, 3.0f, 0.5), saberGhost},
+        {describe("saber-yellow-smoke", "Saber Yellow Smoke", "Sabers and Beams", "A yellow blade in golden smoke.", 0, 0, 3.0f, 0.5), saberYellowSmoke},
 
         {describe("gold-flash", "Gold Flash", "Flashes", "A burst of white spikes in a golden glow.", 0, 0, 5.6f, 0.08), goldFlash},
         {describe("ice-flash", "Ice Flash", "Flashes", "A burst of white spikes in a blue glow.", 0, 0, 5.6f, 0.08), iceFlash},

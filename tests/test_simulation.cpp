@@ -969,3 +969,171 @@ TEST_CASE("An effect with nothing in it simulates to nothing") {
     none.advance();
     CHECK(none.aliveCount() == 0);
 }
+
+// ------------------------------------------------------------- the Path shape
+
+namespace {
+
+// A layer of particles that stay where they are born on a 4-by-2 rectangle
+// path (clockwise from the bottom left, as a traced outline may well be).
+Effect onPath(bool threeD = false, std::int64_t count = 3000) {
+    Effect effect = still(threeD, "path", "edge", count);
+    put(effect.layers[0], "shape", "path", PointList{{{-2, -1}, {-2, 1}, {2, 1}, {2, -1}}});
+    return effect;
+}
+
+float distanceToRect(float x, float y, float hw, float hh) {
+    const float dx = std::fabs(x) - hw, dy = std::fabs(y) - hh;
+    if (dx <= 0 && dy <= 0) {
+        return std::max(dx, dy);  // inside: below 0
+    }
+    return std::sqrt(std::max(dx, 0.0f) * std::max(dx, 0.0f) + std::max(dy, 0.0f) * std::max(dy, 0.0f));
+}
+
+}  // namespace
+
+TEST_CASE("Path: particles appear on the outline, evenly by length") {
+    Simulation sim = simulate(onPath(), 1);
+    const ParticleView v = sim.particles(0);
+    REQUIRE(v.count == 3000);
+    int sides = 0;
+    for (std::uint32_t i = 0; i < v.count; ++i) {
+        REQUIRE(std::fabs(distanceToRect(v.x[i], v.y[i], 2, 1)) < 1e-4f);
+        sides += std::fabs(std::fabs(v.x[i]) - 2) < 1e-4f ? 1 : 0;  // on the short sides
+    }
+    // The short sides are 4 of the 12 units of outline.
+    CHECK(sides == Catch::Approx(1000).margin(110));
+}
+
+TEST_CASE("Path: Padding moves the outline out (or in), corners and all; Thickness makes a band") {
+    Effect effect = onPath();
+    put(effect.layers[0], "shape", "padding", number(0.5));
+    Simulation sim = simulate(effect, 1);
+    ParticleView v = sim.particles(0);
+    for (std::uint32_t i = 0; i < v.count; ++i) {
+        REQUIRE(std::fabs(distanceToRect(v.x[i], v.y[i], 2.5f, 1.5f)) < 1e-3f);
+    }
+    put(effect.layers[0], "shape", "padding", number(-0.25));
+    put(effect.layers[0], "shape", "thickness", number(0.2));
+    sim = simulate(effect, 1);
+    v = sim.particles(0);
+    float least = 1e9f, most = -1e9f;
+    for (std::uint32_t i = 0; i < v.count; ++i) {
+        const float d = distanceToRect(v.x[i], v.y[i], 1.75f, 0.75f);
+        least = std::min(least, d);
+        most = std::max(most, d);
+    }
+    CHECK(least >= -0.1001f);
+    CHECK(most <= 0.1001f);
+    CHECK(most - least > 0.18f);
+}
+
+TEST_CASE("Path: Fill puts particles inside a closed outline only") {
+    Effect effect = still(false, "path", "volume", 2000);
+    // An L shape: the corner cut out must stay empty.
+    put(effect.layers[0], "shape", "path", PointList{{{0, 0}, {2, 0}, {2, 1}, {1, 1}, {1, 2}, {0, 2}}});
+    Simulation sim = simulate(effect, 1);
+    const ParticleView v = sim.particles(0);
+    int inCut = 0;
+    for (std::uint32_t i = 0; i < v.count; ++i) {
+        REQUIRE(v.x[i] >= -1e-4f);
+        REQUIRE(v.y[i] >= -1e-4f);
+        inCut += (v.x[i] > 1.01f && v.y[i] > 1.01f) ? 1 : 0;
+    }
+    CHECK(inCut == 0);
+}
+
+TEST_CASE("Path: Send outward sends particles straight out of the outline, whichever way it was drawn") {
+    for (const bool clockwise : {true, false}) {
+        Effect effect = onPath(false, 400);
+        if (!clockwise) {
+            put(effect.layers[0], "shape", "path", PointList{{{-2, -1}, {2, -1}, {2, 1}, {-2, 1}}});
+        }
+        put(effect.layers[0], "shape", "aim", text("outward"));
+        put(effect.layers[0], "initial", "speed", constant(1));
+        put(effect.layers[0], "initial", "spread", number(0));
+        Simulation sim = simulate(effect, 1);
+        const ParticleView v = sim.particles(0);
+        for (std::uint32_t i = 0; i < v.count; ++i) {
+            // Away from the middle on whichever side it is.
+            REQUIRE(v.x[i] * v.vx[i] + v.y[i] * v.vy[i] > 0.0f);
+        }
+    }
+}
+
+TEST_CASE("Path: Travel runs the energy round; Draw draws the path on once") {
+    Effect effect = onPath(false, 0);
+    Layer& layer = effect.layers[0];
+    put(layer, "emission", "rate", constant(3000));
+    put(layer, "emission", "bursts", BurstList{});
+    put(layer, "initial", "lifetime", constant(0.02));
+    put(layer, "shape", "travel", number(0.5));     // half a round a second
+    put(layer, "shape", "travelSpan", number(0.05));
+    // After one second the head is half way round: from (-2,-1) up the left
+    // side, along the top: (2, 1) is half of the 12 units.
+    Simulation sim = simulate(effect, 60);
+    ParticleView v = sim.particles(0);
+    REQUIRE(v.count > 10);
+    for (std::uint32_t i = 0; i < v.count; ++i) {
+        REQUIRE(std::hypot(v.x[i] - 2.0f, v.y[i] - 1.0f) < 1.0f);
+    }
+    // Two heads: half the particles a half round further on, at (-2, -1).
+    put(layer, "shape", "travelHeads", Value(std::int64_t{2}));
+    sim = simulate(effect, 60);
+    v = sim.particles(0);
+    int near = 0, far = 0;
+    for (std::uint32_t i = 0; i < v.count; ++i) {
+        near += std::hypot(v.x[i] - 2.0f, v.y[i] - 1.0f) < 1.0f ? 1 : 0;
+        far += std::hypot(v.x[i] + 2.0f, v.y[i] + 1.0f) < 1.0f ? 1 : 0;
+    }
+    CHECK(near + far == static_cast<int>(v.count));
+    CHECK(near > 0);
+    CHECK(far > 0);
+    // Drawn on: at a quarter round a second, after one second only the first
+    // quarter (the left side and part of the top) has particles.
+    put(layer, "shape", "travelHeads", Value(std::int64_t{1}));
+    put(layer, "shape", "travelMode", text("draw"));
+    put(layer, "shape", "travel", number(0.25));
+    put(layer, "initial", "lifetime", constant(10));
+    sim = simulate(effect, 60);
+    v = sim.particles(0);
+    for (std::uint32_t i = 0; i < v.count; ++i) {
+        REQUIRE((v.x[i] < -1.999f || (v.y[i] > 0.999f && v.x[i] < -0.99f)));
+    }
+}
+
+TEST_CASE("Path: Align to Path turns each particle along the line") {
+    Effect effect = onPath(false, 400);
+    put(effect.layers[0], "shape", "alignToPath", Value(true));
+    Simulation sim = simulate(effect, 1);
+    const ParticleView v = sim.particles(0);
+    for (std::uint32_t i = 0; i < v.count; ++i) {
+        const bool upright = std::fabs(std::fabs(v.x[i]) - 2.0f) < 1e-4f && std::fabs(v.y[i]) < 0.999f;
+        if (upright) {
+            REQUIRE(std::fabs(std::fabs(v.rotation[i]) - 90.0f) < 0.01f);
+        }
+    }
+}
+
+TEST_CASE("Path: in 3D on the ground, the outline lies on the floor") {
+    Effect effect = onPath(true, 300);
+    put(effect.layers[0], "shape", "plane", text("ground"));
+    Simulation sim = simulate(effect, 1);
+    const ParticleView v = sim.particles(0);
+    for (std::uint32_t i = 0; i < v.count; ++i) {
+        REQUIRE(v.y[i] == 0.0f);
+        REQUIRE(std::fabs(distanceToRect(v.x[i], -v.z[i], 2, 1)) < 1e-4f);
+    }
+}
+
+TEST_CASE("Path: a path too short to follow emits from its Position, and the same seed gives the same particles") {
+    Effect effect = onPath(false, 50);
+    put(effect.layers[0], "shape", "path", PointList{{{1, 1}}});
+    Simulation sim = simulate(effect, 1);
+    const ParticleView v = sim.particles(0);
+    REQUIRE(v.count == 50);
+    CHECK(v.x[0] == 0.0f);
+    Effect a = onPath(), b = onPath();
+    Simulation sa = simulate(a, 3), sb = simulate(b, 3);
+    CHECK(std::equal(sa.particles(0).x, sa.particles(0).x + sa.particles(0).count, sb.particles(0).x));
+}

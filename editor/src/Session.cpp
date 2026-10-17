@@ -591,6 +591,162 @@ Status Session::addPreset(std::string_view presetId, int* added) {
 
 std::vector<std::string> Session::groups() const { return groupPaths(effect()); }
 
+// ------------------------------------------------------------ the target
+
+std::shared_ptr<const Image> Session::targetImage() const {
+    const Asset* asset = findAsset(effect(), effect().target.id);
+    if (!asset) {
+        return nullptr;
+    }
+    auto bytes = readFile(projectFolder() / pathFromUtf8(asset->path));
+    if (!bytes) {
+        return nullptr;
+    }
+    auto decoded = decodePng(bytes.value());
+    if (!decoded) {
+        return nullptr;
+    }
+    return std::make_shared<const Image>(std::move(decoded.value()));
+}
+
+Result<Silhouette> Session::targetSilhouette() const {
+    const auto image = targetImage();
+    if (!image) {
+        return makeError(effect().target.id.valid() ? "The target's picture could not be read." : "There is no target.");
+    }
+    return traceSilhouette(*image, effect().targetWidth);
+}
+
+namespace {
+
+// The steps that make each layer follow an outline at a position.
+void fitSteps(const Effect& e, const std::vector<Id>& ids, const PointList& outline, const Vec3& at, bool turnOn,
+              std::vector<CommandPtr>& steps) {
+    for (const Id id : ids) {
+        const Layer* layer = findLayer(e, id);
+        const Module* shape = layer ? tools::moduleOf(*layer, "shape") : nullptr;
+        if (!shape) {
+            continue;
+        }
+        auto set = [&](const char* key, Value v) {
+            const Value* now = shape->find(key);
+            if (now && !(*now == v)) {
+                steps.push_back(std::make_unique<SetPropertyCommand>(Path::property(id, shape->id, key), std::move(v)));
+            }
+        };
+        if (turnOn) {
+            set("shape", Value(std::string("path")));
+            set("fitTarget", Value(true));
+            set("closed", Value(true));
+        }
+        set("path", Value(outline));
+        set("offset", Value(e.space == "3d" ? at : Vec3{at.x, at.y, 0.0}));
+    }
+}
+
+std::vector<Id> fittedLayers(const Effect& e) {
+    std::vector<Id> ids;
+    for (const Layer& l : e.layers) {
+        if (const Module* shape = tools::moduleOf(l, "shape")) {
+            const Value* fit = shape->find("fitTarget");
+            if (fit && std::holds_alternative<bool>(*fit) && std::get<bool>(*fit)) {
+                ids.push_back(l.id);
+            }
+        }
+    }
+    return ids;
+}
+
+}  // namespace
+
+Status Session::setTarget(std::string_view originalName, std::string_view pngBytes, double width) {
+    auto decoded = decodePng(pngBytes);
+    if (!decoded) {
+        return decoded.error();
+    }
+    const double w = width > 0.0 ? width : effect().targetWidth;
+    auto traced = traceSilhouette(decoded.value(), w);
+    if (!traced) {
+        return traced.error();
+    }
+    ensureScratch();
+    const std::string relative = imageAssetPath(originalName, pngBytes);
+    const std::filesystem::path file = projectFolder() / pathFromUtf8(relative);
+    std::error_code error;
+    if (!std::filesystem::exists(file, error)) {
+        std::filesystem::create_directories(file.parent_path(), error);
+        if (Status written = writeFileAtomic(file, pngBytes); !written) {
+            return written;
+        }
+    }
+    std::vector<CommandPtr> steps;
+    Id asset;
+    for (const Asset& a : effect().assets) {
+        if (a.kind == "texture" && a.path == relative) {
+            asset = a.id;
+        }
+    }
+    if (!asset.valid()) {
+        Asset added;
+        added.id = state_->document.newId();
+        added.kind = "texture";
+        added.path = relative;
+        asset = added.id;
+        steps.push_back(std::make_unique<AddAssetCommand>(std::move(added)));
+    }
+    steps.push_back(std::make_unique<SetPropertyCommand>(Path::effect("target"), Value(AssetRef{asset})));
+    if (w != effect().targetWidth) {
+        steps.push_back(std::make_unique<SetPropertyCommand>(Path::effect("targetWidth"), Value(w)));
+    }
+    fitSteps(effect(), fittedLayers(effect()), traced.value().outline, effect().targetPosition, false, steps);
+    return state_->commands.push(std::make_unique<CompositeCommand>("Set Target", std::move(steps)));
+}
+
+Status Session::clearTarget() {
+    if (!effect().target.id.valid()) {
+        return {};
+    }
+    std::vector<CommandPtr> steps;
+    steps.push_back(std::make_unique<SetPropertyCommand>(Path::effect("target"), Value(AssetRef{})));
+    return state_->commands.push(std::make_unique<CompositeCommand>("Remove Target", std::move(steps)));
+}
+
+Status Session::placeTarget(double width, const Vec3& position) {
+    if (!(width > 0.0)) {
+        return makeError("The target needs a width above 0.");
+    }
+    std::vector<CommandPtr> steps;
+    if (width != effect().targetWidth) {
+        steps.push_back(std::make_unique<SetPropertyCommand>(Path::effect("targetWidth"), Value(width)));
+    }
+    if (!(position == effect().targetPosition)) {
+        steps.push_back(std::make_unique<SetPropertyCommand>(Path::effect("targetPosition"), Value(position)));
+    }
+    if (steps.empty()) {
+        return {};
+    }
+    if (const auto image = targetImage()) {
+        auto traced = traceSilhouette(*image, width);
+        if (traced) {
+            fitSteps(effect(), fittedLayers(effect()), traced.value().outline, position, false, steps);
+        }
+    }
+    return state_->commands.push(std::make_unique<CompositeCommand>("Place Target", std::move(steps)));
+}
+
+Status Session::fitToTarget(const std::vector<Id>& layers) {
+    auto traced = targetSilhouette();
+    if (!traced) {
+        return traced.error();
+    }
+    std::vector<CommandPtr> steps;
+    fitSteps(effect(), layers, traced.value().outline, effect().targetPosition, true, steps);
+    if (steps.empty()) {
+        return {};
+    }
+    return state_->commands.push(std::make_unique<CompositeCommand>("Fit to Target", std::move(steps)));
+}
+
 namespace {
 
 // The commands that turn `before` into `after`: one for each value of each

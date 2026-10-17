@@ -165,7 +165,85 @@ ShapeType shapeFrom(const std::string& name) {
     if (name == "sphere") return ShapeType::Sphere;
     if (name == "box") return ShapeType::Box;
     if (name == "cone") return ShapeType::Cone;
+    if (name == "path") return ShapeType::Path;
     return ShapeType::Point;
+}
+
+// The path's points with Padding applied, its lengths and its box.
+void compilePath(EmitterProgram& e, const PointList& list, bool closed, double padding) {
+    std::vector<Point2> pts;
+    for (const Point2& p : list.points) {
+        if (std::isfinite(p.x) && std::isfinite(p.y) &&
+            (pts.empty() || std::fabs(p.x - pts.back().x) + std::fabs(p.y - pts.back().y) > 1e-9)) {
+            pts.push_back(p);
+        }
+    }
+    if (closed && pts.size() > 2 && std::fabs(pts.front().x - pts.back().x) + std::fabs(pts.front().y - pts.back().y) < 1e-9) {
+        pts.pop_back();
+    }
+    if (pts.size() < 2) {
+        return;
+    }
+    closed = closed && pts.size() >= 3;
+    // Which side is outside: for a closed outline, away from its inside;
+    // for an open line, its left.
+    double area = 0;
+    for (std::size_t i = 0; i < pts.size(); ++i) {
+        const Point2& a = pts[i];
+        const Point2& b = pts[(i + 1) % pts.size()];
+        area += a.x * b.y - b.x * a.y;
+    }
+    const double outward = closed && area > 0 ? -1.0 : 1.0;  // a counter-clockwise outline's left is inside
+    e.pathOutward = static_cast<float>(outward);
+    const std::size_t n = pts.size();
+    auto normalOf = [&](std::size_t i, std::size_t j) {
+        const double dx = pts[j].x - pts[i].x, dy = pts[j].y - pts[i].y;
+        const double l = std::sqrt(dx * dx + dy * dy);
+        return l > 0 ? Point2{-dy / l * outward, dx / l * outward} : Point2{0, 0};
+    };
+    std::vector<Point2> moved = pts;
+    if (std::isfinite(padding) && padding != 0.0) {
+        for (std::size_t i = 0; i < n; ++i) {
+            const bool hasPrev = closed || i > 0, hasNext = closed || i + 1 < n;
+            Point2 a = hasPrev ? normalOf((i + n - 1) % n, i) : Point2{0, 0};
+            Point2 b = hasNext ? normalOf(i, (i + 1) % n) : Point2{0, 0};
+            if (!hasPrev) a = b;
+            if (!hasNext) b = a;
+            Point2 m{a.x + b.x, a.y + b.y};
+            const double ml = std::sqrt(m.x * m.x + m.y * m.y);
+            if (ml < 1e-9) {
+                m = a;
+            } else {
+                m = Point2{m.x / ml, m.y / ml};
+            }
+            // Mitred: as far out along the corner's middle as keeps the sides parallel, at most twice.
+            const double c = m.x * a.x + m.y * a.y;
+            const double reach = padding / std::max(0.5, c);
+            moved[i] = Point2{pts[i].x + m.x * reach, pts[i].y + m.y * reach};
+        }
+    }
+    if (closed) {
+        moved.push_back(moved.front());
+    }
+    e.pathClosed = closed;
+    float total = 0;
+    e.pathMinX = e.pathMaxX = static_cast<float>(moved[0].x);
+    e.pathMinY = e.pathMaxY = static_cast<float>(moved[0].y);
+    for (std::size_t i = 0; i < moved.size(); ++i) {
+        const float x = static_cast<float>(moved[i].x), y = static_cast<float>(moved[i].y);
+        if (i > 0) {
+            const float dx = x - e.pathX.back(), dy = y - e.pathY.back();
+            total += std::sqrt(dx * dx + dy * dy);
+        }
+        e.pathX.push_back(x);
+        e.pathY.push_back(y);
+        e.pathCum.push_back(total);
+        e.pathMinX = std::min(e.pathMinX, x);
+        e.pathMaxX = std::max(e.pathMaxX, x);
+        e.pathMinY = std::min(e.pathMinY, y);
+        e.pathMaxY = std::max(e.pathMaxY, y);
+    }
+    e.pathTotal = total;
 }
 
 std::uint64_t toCount(double value) {
@@ -231,6 +309,20 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         e->offsetZ = e->flat ? 0.0f : finite(offset.z);
         e->offset = e->offsetX != 0.0f || e->offsetY != 0.0f || e->offsetZ != 0.0f;
         e->ground = !e->flat && shape.get<std::string>("plane") == "ground";
+        if (e->shape == ShapeType::Path) {
+            compilePath(*e, shape.get<PointList>("path"), shape.get<bool>("closed"), shape.get<double>("padding"));
+            e->pathThickness = std::max(0.0f, f(shape.get<double>("thickness")));
+            e->travel = f(shape.get<double>("travel"));
+            e->travelSpan = std::clamp(f(shape.get<double>("travelSpan")), 0.001f, 1.0f);
+            e->travelHeads = static_cast<int>(std::clamp<std::int64_t>(shape.get<std::int64_t>("travelHeads"), 1, 16));
+            e->travelDraw = shape.get<std::string>("travelMode") == "draw";
+            const std::string& aim = shape.get<std::string>("aim");
+            e->aim = aim == "outward" ? 1 : aim == "along" ? 2 : 0;
+            e->pathAlign = shape.get<bool>("alignToPath");
+            if (e->pathTotal <= 0.0f) {
+                e->shape = ShapeType::Point;  // too short to emit along
+            }
+        }
     }
 
     // -------------------------------------------------------- initial state

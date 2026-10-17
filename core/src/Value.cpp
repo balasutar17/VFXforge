@@ -102,6 +102,7 @@ const char* kindName(ValueKind kind) {
         case ValueKind::Gradient: return "gradient";
         case ValueKind::Bursts: return "bursts";
         case ValueKind::Asset: return "asset";
+        case ValueKind::Points: return "points";
     }
     return "unknown";
 }
@@ -119,6 +120,7 @@ const char* kindDescription(ValueKind kind) {
         case ValueKind::Gradient: return "a colour gradient";
         case ValueKind::Bursts: return "a list of bursts";
         case ValueKind::Asset: return "an asset";
+        case ValueKind::Points: return "a list of points";
     }
     return "a value";
 }
@@ -136,6 +138,7 @@ bool holdsKind(const Value& value, ValueKind kind) {
         case ValueKind::Gradient: return std::holds_alternative<Gradient>(value);
         case ValueKind::Bursts: return std::holds_alternative<BurstList>(value);
         case ValueKind::Asset: return std::holds_alternative<AssetRef>(value);
+        case ValueKind::Points: return std::holds_alternative<PointList>(value);
     }
     return false;
 }

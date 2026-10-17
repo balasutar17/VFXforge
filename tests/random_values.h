@@ -98,6 +98,14 @@ inline Value randomValue(const PropertyDesc& p, Rng& rng, const Effect& effect) 
             }
             return Value(std::move(list));
         }
+        case ValueKind::Points: {
+            PointList list;
+            const std::size_t n = rng.below(12);
+            for (std::size_t i = 0; i < n; ++i) {
+                list.points.push_back(Point2{rng.between(-3, 3), rng.between(-3, 3)});
+            }
+            return Value(std::move(list));
+        }
         case ValueKind::Asset:
             if (effect.assets.empty() || rng.chance(0.3)) {
                 return Value(AssetRef{});

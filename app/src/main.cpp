@@ -8,6 +8,8 @@
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QImage>
+#include <QPainter>
+#include <QPolygonF>
 #include <QList>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -20,6 +22,7 @@
 #include <QTextStream>
 #include <QTimer>
 
+#include <algorithm>
 #include <cmath>
 #include <QUrl>
 #include <QVariantMap>
@@ -331,9 +334,71 @@ int main(int argc, char* argv[]) {
                 // The turn rings, for the picture.
                 controller.clickGroup(group, 0);
                 controller.setGizmoMode(QStringLiteral("turn"));
-                QTimer::singleShot(900, &application, [&, window, finish]() {
+                QTimer::singleShot(900, &application, [&, window, software, finish]() {
                     capture(window, selfTest, QStringLiteral("-groups"), QStringLiteral("two effects in one, as groups"));
-                    finish();
+                    // The slot-symbol workflow: a symbol as the target, a
+                    // Symbol Outlines effect fitted to it, then another symbol.
+                    controller.setGizmoMode(QStringLiteral("move"));
+                    controller.openPreset(QStringLiteral("legendary-outline"));
+                    auto drawSymbol = [](bool crown) {
+                        QImage symbol(256, 256, QImage::Format_RGBA8888);
+                        symbol.fill(Qt::transparent);
+                        QPainter painter(&symbol);
+                        painter.setRenderHint(QPainter::Antialiasing);
+                        painter.setPen(Qt::NoPen);
+                        painter.setBrush(QColor(240, 190, 40));
+                        if (crown) {
+                            QPolygonF shape;
+                            shape << QPointF(30, 200) << QPointF(30, 70) << QPointF(80, 130) << QPointF(128, 40)
+                                  << QPointF(176, 130) << QPointF(226, 70) << QPointF(226, 200);
+                            painter.drawPolygon(shape);
+                        } else {
+                            painter.drawEllipse(QPointF(128, 128), 100, 100);
+                        }
+                        painter.end();
+                        const QString file = QDir::temp().filePath(crown ? QStringLiteral("vfxforge-selftest-crown.png")
+                                                                         : QStringLiteral("vfxforge-selftest-coin.png"));
+                        symbol.save(file);
+                        return QUrl::fromLocalFile(file);
+                    };
+                    auto pathOfFirst = [&]() {
+                        const vfx::Layer& l = controller.session().effect().layers.front();
+                        for (const vfx::Module& m : l.modules) {
+                            if (m.type == "shape") {
+                                return std::get<vfx::PointList>(*m.find("path"));
+                            }
+                        }
+                        return vfx::PointList{};
+                    };
+                    const vfx::PointList square = pathOfFirst();
+                    const bool coin = controller.setTargetFile(drawSymbol(false));
+                    const vfx::PointList round = pathOfFirst();
+                    const bool crown = controller.setTargetFile(drawSymbol(true));
+                    const vfx::PointList spiky = pathOfFirst();
+                    double top = -1e9;
+                    for (const vfx::Point2& q : spiky.points) {
+                        top = std::max(top, q.y);
+                    }
+                    QTextStream targetOut(&selfTest.report);
+                    targetOut << "target: coin " << (coin ? "set" : "NOT set") << ", crown " << (crown ? "set" : "NOT set")
+                              << "; " << controller.fittedLayers() << " layers follow it; outline points "
+                              << round.points.size() << " then " << spiky.points.size() << ", crown top at " << top << "\n";
+                    if (!coin || !crown || controller.fittedLayers() < 3 || round == square || spiky == round ||
+                        !controller.hasTarget()) {
+                        targetOut << "FAIL: the effect did not follow the target\n";
+                        selfTest.result = 1;
+                    }
+                    controller.setPreviewBackground(QStringLiteral("checker"));
+                    QTimer::singleShot(900, &application, [&, window, software, finish]() {
+                        const int lit = capture(window, selfTest, QStringLiteral("-target"),
+                                                QStringLiteral("an outline effect fitted to a symbol"));
+                        if (!software && lit < 500) {
+                            QTextStream(&selfTest.report) << "FAIL: the fitted outline shows nothing\n";
+                            selfTest.result = 1;
+                        }
+                        controller.setPreviewBackground(QStringLiteral("dark"));
+                        finish();
+                    });
                 });
             });
         };

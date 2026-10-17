@@ -40,6 +40,9 @@ bool visitEffectField(EffectT& e, std::string_view field, Fn&& fn) {
     if (field == "duration") { fn(e.duration); return true; }
     if (field == "loop") { fn(e.loop); return true; }
     if (field == "frameRate") { fn(e.frameRate); return true; }
+    if (field == "target") { fn(e.target); return true; }
+    if (field == "targetWidth") { fn(e.targetWidth); return true; }
+    if (field == "targetPosition") { fn(e.targetPosition); return true; }
     return false;
 }
 

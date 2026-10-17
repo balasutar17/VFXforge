@@ -60,6 +60,10 @@ inline constexpr float unitFloat(std::uint64_t h) {
 // angles the simulation uses, and identical on every platform.
 void sinCos(double radians, double& sine, double& cosine);
 
+// The angle of (x, y) from the x axis, in radians from -pi to pi, from
+// plain arithmetic (within about 1e-9 of the library's).
+double atan2(double y, double x);
+
 // Cube root for 0 <= x <= 1 (used to spread particles evenly through a ball).
 float cbrt01(float x);
 

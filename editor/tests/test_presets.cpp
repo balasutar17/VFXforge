@@ -66,7 +66,7 @@ TEST_CASE("the library has presets in every promised category", "[presets]") {
 
     const auto categories = presetCategories();
     for (const char* wanted : {"Toon", "Blasts", "Fire", "Water", "Glow and magic", "Frames", "Shooting",
-                               "Rewards", "Weather", "3D", "3D Combat"}) {
+                               "Rewards", "Weather", "3D", "3D Combat", "Symbol Outlines", "Energy Frames", "Sabers and Beams"}) {
         INFO(wanted);
         CHECK(std::find(categories.begin(), categories.end(), wanted) != categories.end());
     }

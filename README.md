@@ -54,6 +54,9 @@ What exists so far:
 - **effects on a 3D model**: bring in a character or prop (.obj, .glb,
   .gltf), or use the practice dummy, and make the effect on it; particles
   behind it are hidden; see [docs/models.md](docs/models.md)
+- **effects that follow a symbol**: import a slot symbol as the target and
+  outline, fill or run energy round its silhouette; energy frames, columns
+  and sabers; see [docs/slot-vfx.md](docs/slot-vfx.md)
 - **handles**: drag in the viewport to move, turn and size the selected
   layer or group; see [docs/handles.md](docs/handles.md)
 - **combining effects**: add any library effect into the one you have open

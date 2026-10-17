@@ -82,16 +82,28 @@ struct BurstList {
 };
 
 // A reference to an asset in the effect's asset list. An invalid ID is "none".
+// A line through points on a plane: an outline traced from a picture, a
+// frame, a path to emit along. Units are the effect's own.
+struct Point2 {
+    double x = 0, y = 0;
+    bool operator==(const Point2&) const = default;
+};
+
+struct PointList {
+    std::vector<Point2> points;
+    bool operator==(const PointList&) const = default;
+};
+
 struct AssetRef {
     Id id;
     bool operator==(const AssetRef&) const = default;
 };
 
 using Value = std::variant<bool, std::int64_t, double, std::string, Vec3, Color,
-                           Scalar, Gradient, BurstList, AssetRef>;
+                           Scalar, Gradient, BurstList, AssetRef, PointList>;
 
 // What a property is declared to hold. Text and Enum both store a string.
-enum class ValueKind { Bool, Int, Float, Text, Enum, Vec3, Color, Scalar, Gradient, Bursts, Asset };
+enum class ValueKind { Bool, Int, Float, Text, Enum, Vec3, Color, Scalar, Gradient, Bursts, Asset, Points };
 
 const char* kindName(ValueKind kind);
 
