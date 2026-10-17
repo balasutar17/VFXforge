@@ -11,8 +11,24 @@ rebuild, side-by-side comparison, measured fitting, refinements, versions,
 editable output, export). 0.23 adds what testing it against a real slot
 reference sheet showed was missing: reading lines of light, splitting a sheet
 of many effects, and a flipbook rebuild. Measured on twelve effects cut from
-that sheet, the overall likeness after fitting went from 56–74% to 66–90% on
-the eight read as lines; the four that are not lines are unchanged.
+that sheet (the measured likeness after fitting, a guide rather than a
+verdict):
+
+| Effect | Before | After |
+| --- | --- | --- |
+| Orange spark frame | 63% | 90% |
+| Neon electric frame | 58% | 83% |
+| Plain orange box | 56% | 79% |
+| Purple smoke frame | 74% | 83% |
+| Cyan lightning column | 69% | 78% |
+| Yellow lightning column | 68% | 75% |
+| Corner fire frame | 66% | 73% |
+| Saber | 57% | 66% |
+| Gold lightning square | 71% | 74% |
+| Blue smoke frame | 68% | 69% |
+| Sun orb, comet (not lines) | 87%, 49% | unchanged |
+
+A flipbook of the same column measures 96%: it is the reference itself.
 
 ## 3. Reference analysis
 

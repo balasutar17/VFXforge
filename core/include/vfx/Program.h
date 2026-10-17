@@ -163,6 +163,7 @@ struct EmitterProgram {
 
     // What each particle starts with. A curve reads across the layer's duration.
     ScalarF lifetime, speed, size, rotation;
+    ScalarF opacity;  // multiplies color[3] at birth; a curve reads across the layer's duration
     float dirX = 0, dirY = 1, dirZ = 0;  // unit length
     float spread = 0;     // radians
     float cosSpread = 1;

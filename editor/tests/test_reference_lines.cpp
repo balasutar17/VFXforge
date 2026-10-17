@@ -270,6 +270,9 @@ TEST_CASE("two crackling bolts with light between them are bolts and a fill, not
     const double first = s.lines[0].points.front().x, second = s.lines[1].points.front().x;
     CHECK(std::min(first, second) * 0.5 == Approx(0.07).margin(0.02));
     CHECK(std::max(first, second) * 0.5 == Approx(0.43).margin(0.02));
+    for (const LineFound& line : s.lines) {
+        CHECK(line.ends.empty());  // the fill's bright foot is not a blob at the bolts' ends
+    }
     REQUIRE(s.lineFill.present);
     CHECK(s.lineFill.upright);
     CHECK_FALSE(s.lineFill.brightFirst);  // brightest at the bottom
@@ -286,6 +289,56 @@ TEST_CASE("two crackling bolts with light between them are bolts and a fill, not
     for (const LayerNote& note : built.layers) {
         CHECK(note.role != "trail");  // no comet tail
     }
+}
+
+TEST_CASE("bright blobs at the ends of strokes are found and rebuilt where they are", "[reference][lines]") {
+    // Two upright strokes with a fireball at each end: a corner fire frame.
+    Canvas canvas(160, 240);
+    const auto stroke = [](float x0) {
+        return [x0](float x, float y) {
+            if (y < 0.12f || y > 0.88f) {
+                return 0.0f;
+            }
+            const float d = std::fabs(x - x0);
+            return std::max(std::clamp((0.006f - d) / 0.003f + 0.5f, 0.0f, 1.0f), 0.3f * std::exp(-d / 0.01f));
+        };
+    };
+    canvas.light(1.0f, 0.35f, 0.1f, stroke(0.15f));
+    canvas.light(1.0f, 0.35f, 0.1f, stroke(0.52f));
+    const float balls[][2] = {{0.15f, 0.1f}, {0.52f, 0.1f}, {0.15f, 0.9f}, {0.52f, 0.9f}};
+    for (const auto& b : balls) {
+        canvas.light(1.0f, 0.8f, 0.4f, [b](float x, float y) {
+            const float d = std::hypot(x - b[0], y - b[1]) / 0.04f;
+            return d < 1.0f ? 1.0f - d * d : 0.0f;
+        });
+    }
+    const auto analysis = analyzeReference(still(canvas.image()), {});
+    REQUIRE(analysis.ok());
+    const StillAnalysis& s = analysis.value().still;
+    REQUIRE(s.linesLead);
+    REQUIRE(s.lines.size() == 2);
+    int ends = 0;
+    for (const LineFound& line : s.lines) {
+        CHECK_FALSE(line.closed);
+        for (const LineEnd& end : line.ends) {
+            ++ends;
+            // At one of the fireballs, about as large.
+            double nearest = 1e9;
+            for (const auto& b : balls) {
+                nearest = std::min(nearest, std::hypot(end.x * (160.0 / 240.0) - b[0], end.y - b[1]));
+            }
+            CHECK(nearest < 0.02);
+            CHECK(end.radius == Approx(0.04 * 0.7).margin(0.015));
+        }
+    }
+    CHECK(ends == 4);
+    IdGenerator ids(19);
+    const Reconstruction built = reconstruct(analysis.value(), {}, counting(ids));
+    int endLayers = 0;
+    for (const Layer& layer : built.effect.layers) {
+        endLayers += layer.name.find(" end ") != std::string::npos ? 1 : 0;
+    }
+    CHECK(endLayers == 4);
 }
 
 TEST_CASE("a frame drawn on from a corner is drawn on in the rebuild, from that corner", "[reference][lines][clip]") {

@@ -1230,6 +1230,12 @@ Result<ReferenceAnalysis> analyzeReference(const Reference& reference, const Ref
                          "cut-off, or crop closer to the effect.");
     }
 
+    // Looking at the whole picture: how many separate effects it holds is
+    // counted the way a sheet is split, so the report and the numbered
+    // boxes agree.
+    if (options.cropLeft <= 0.0f && options.cropTop <= 0.0f && options.cropRight >= 1.0f && options.cropBottom >= 1.0f) {
+        analysis.still.separate = std::max<int>(1, static_cast<int>(findEffects(reference, options).size()));
+    }
     if (!step(0.95f, "Writing the report")) {
         return cancelled();
     }

@@ -59,6 +59,9 @@ Where a shape is approximated, the description says `"exact": false`.
 
 ### Known differences
 
+- A layer's Opacity read as a curve across its time (a line rebuilt from a
+  reference that brightens and dims) goes to Unity as its average: a
+  particle system's start colour has nothing that changes over its time.
 - Unity's randomness is not VFX Forge's, so particles are not in the same
   places; the look and timing are the same.
 - A circle or rectangle that emits in a direction becomes a box facing that

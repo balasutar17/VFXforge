@@ -309,7 +309,8 @@ std::vector<Point2> resampled(const std::vector<Point2>& points, bool closed, in
 
 // Marks the points of a small grid that a line through `points` (on the
 // small grid's own places) passes over.
-void rasterise(const std::vector<Point2>& points, bool closed, int w, int h, std::vector<float>& seeds) {
+void rasterise(const std::vector<Point2>& points, bool closed, int w, int h, std::vector<float>& seeds,
+               std::vector<int>* labels = nullptr) {
     const std::size_t n = points.size();
     for (std::size_t i = 0; i + (closed ? 0 : 1) < n; ++i) {
         const Point2& a = points[i];
@@ -321,6 +322,9 @@ void rasterise(const std::vector<Point2>& points, bool closed, int w, int h, std
             const int y = static_cast<int>(std::lround(a.y + t * (b.y - a.y)));
             if (x >= 0 && y >= 0 && x < w && y < h) {
                 seeds[static_cast<std::size_t>(y * w + x)] = 0.0f;
+                if (labels) {
+                    (*labels)[static_cast<std::size_t>(y * w + x)] = static_cast<int>(i);
+                }
             }
         }
     }
@@ -467,13 +471,24 @@ bool readPart(const Patch& patch, const Matte& m, Candidate& out) {
 
     // How wide the whole line is from side to side.
     {
+        // (Away from a stroke's ends, where a blob may sit.)
         std::vector<float> seeds(c.on.size(), kFar);
-        rasterise(middle, closed, c.width, c.height, seeds);
-        chamfer(seeds, c.width, c.height);
+        std::vector<int> nearestAt(c.on.size(), -1);
+        rasterise(middle, closed, c.width, c.height, seeds, &nearestAt);
+        chamfer(seeds, c.width, c.height, &nearestAt);
+        const int n = static_cast<int>(middle.size());
+        const int skip = closed ? 0 : std::max(1, n / 10);
         std::vector<float> across;
         for (std::size_t i = 0; i < c.on.size(); ++i) {
-            if (c.on[i]) {
+            if (c.on[i] && nearestAt[i] >= skip && nearestAt[i] < n - skip) {
                 across.push_back(seeds[i]);
+            }
+        }
+        if (across.empty()) {
+            for (std::size_t i = 0; i < c.on.size(); ++i) {
+                if (c.on[i]) {
+                    across.push_back(seeds[i]);
+                }
             }
         }
         line.band = std::max(thickness, 2.0f * percentile(across, 0.9f) + 1.0f) / h;
@@ -768,6 +783,80 @@ void readLines(const Matte& m, float total, StillAnalysis& out) {
         line.haloColour = haloSum > 0 ? Swatch{static_cast<float>(haloR / haloSum), static_cast<float>(haloG / haloSum),
                                                static_cast<float>(haloB / haloSum), 1.0f}
                                       : line.colour;
+    }
+
+    // Blobs at the ends of strokes: round, bright, much more than a line's
+    // end holds (a fireball at a frame's corner).
+    for (Candidate& c : found) {
+        LineFound& line = c.line;
+        if (line.closed || c.middle.size() < 2) {
+            continue;
+        }
+        const float t = std::max(1.0f, line.thickness * h);
+        const float around = std::max(5.0f * t, 0.05f * h);
+        const float wide = std::max(t, line.band * h);  // a braided bolt is as wide as all its strands
+        for (const Point2& end : {c.middle.front(), c.middle.back()}) {
+            double ring = 0, rim = 0, area = 0, sx = 0, sy = 0, sum = 0, cr = 0, cg = 0, cb = 0;
+            std::vector<Point2> spot;
+            const int x0 = std::max(0, static_cast<int>(end.x - around)), x1 = std::min(w - 1, static_cast<int>(end.x + around));
+            const int y0 = std::max(0, static_cast<int>(end.y - around)), y1 = std::min(hgt - 1, static_cast<int>(end.y + around));
+            for (int y = y0; y <= y1; ++y) {
+                for (int x = x0; x <= x1; ++x) {
+                    const auto i = static_cast<std::size_t>(y * w + x);
+                    const double d = std::hypot(static_cast<double>(x) - end.x, static_cast<double>(y) - end.y);
+                    const bool onRim = d <= around && d > around - 1.5;
+                    ring += onRim ? 1.0 : 0.0;  // (cut short at the picture's edge: the full ring is used then)
+                    if (d > around || m.cover[i] < 0.5f * line.level) {
+                        continue;
+                    }
+                    // On the rim of the area looked at: a blob stays inside it,
+                    // a broad wash of light (a column's glowing foot) runs out of it.
+                    rim += onRim ? 1.0 : 0.0;
+                    spot.push_back(Point2{static_cast<double>(x), static_cast<double>(y)});
+                    area += 1.0;
+                    sx += x;
+                    sy += y;
+                    sum += m.cover[i];
+                    cr += m.cover[i] * m.r[i];
+                    cg += m.cover[i] * m.g[i];
+                    cb += m.cover[i] * m.b[i];
+                }
+            }
+            // A plain end holds about `around` of line, `wide` across. A blob is
+            // much more, and little of the rim is lit (the line itself crosses
+            // it, and some glow): measured on the slot sheet, a quarter
+            // separates fireballs (a tenth to a fifth) from a column's foot
+            // (a third or more).
+            if (area < 2.0 * around * wide || sum <= 0 || rim > 0.25 * std::max(ring, 2.0 * 3.14159265 * around * 1.5 * 0.9)) {
+                continue;
+            }
+            // And brighter in its middle than the line that leads to it (a
+            // fireball burns white; the wedge of a bright fill where a stroke
+            // ends at its corner is dimmer than the stroke).
+            {
+                const double mx = sx / area, my = sy / area;
+                const double inner = 0.5 * std::sqrt(area / 3.14159265);
+                double middle = 0;
+                int count = 0;
+                for (const Point2& q : spot) {
+                    if (std::hypot(q.x - mx, q.y - my) <= inner) {
+                        middle += m.cover[static_cast<std::size_t>(q.y) * static_cast<std::size_t>(w) +
+                                          static_cast<std::size_t>(q.x)];
+                        ++count;
+                    }
+                }
+                if (count == 0 || middle / count < 0.95 * line.level) {
+                    continue;
+                }
+            }
+            LineEnd blob;
+            blob.x = static_cast<float>(sx / area) / static_cast<float>(w);
+            blob.y = static_cast<float>(sy / area) / h;
+            blob.radius = static_cast<float>(std::sqrt(area / 3.14159265)) / h;
+            blob.level = static_cast<float>(sum / area);
+            blob.colour = Swatch{static_cast<float>(cr / sum), static_cast<float>(cg / sum), static_cast<float>(cb / sum), 1};
+            line.ends.push_back(blob);
+        }
     }
 
     // Sparkles: small bright spots that are not part of a line, near one.

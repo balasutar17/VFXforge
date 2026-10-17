@@ -789,7 +789,7 @@ Rectangle {
                             visible: reference.sheetEffects.length >= 2 || reference.sheetPicked
                             anchors.horizontalCenter: parent.horizontalCenter
                             anchors.top: parent.top
-                            width: sheetRow.implicitWidth + 20
+                            width: Math.min(parent.width, sheetRow.implicitWidth + 20)
                             height: sheetRow.implicitHeight + 10
                             radius: 6
                             color: "#e61b1d22"
@@ -797,13 +797,19 @@ Rectangle {
                             RowLayout {
                                 id: sheetRow
                                 anchors.centerIn: parent
+                                width: Math.min(implicitWidth, parent.width - 20)
                                 spacing: 10
                                 Text {
+                                    id: sheetText
+                                    Layout.fillWidth: true
+                                    Layout.maximumWidth: Math.ceil(sheetWords.advanceWidth) + 2
+                                    wrapMode: Text.WordWrap
                                     text: reference.sheetPicked
                                           ? "Effect " + (reference.sheetIndex + 1) + " of the sheet, read on its own at full sharpness."
-                                          : "This holds " + reference.sheetEffects.length + " separate effects. Click a number to study that one on its own."
+                                          : "This holds " + reference.sheetEffects.length + " separate effects. Click a number to study one on its own."
                                     color: theme.text
                                     font.pixelSize: theme.fontSize
+                                    TextMetrics { id: sheetWords; font.pixelSize: theme.fontSize; text: sheetText.text }
                                 }
                                 VButton {
                                     visible: reference.sheetPicked
@@ -815,6 +821,9 @@ Rectangle {
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             anchors.bottom: parent.bottom
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
                             text: root.picking ? "Click on the background."
                                                : "Drag a box round the one effect you want. Everything outside it is ignored."
                             color: theme.text

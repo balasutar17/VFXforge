@@ -140,6 +140,15 @@ struct PieceGroup {
     float fall = 0;           // downward pull, fraction of the height per second squared
 };
 
+// A bright round blob at the end of a stroke: a fireball at each corner of
+// a frame made of two upright strokes, a spark at a bolt's tip.
+struct LineEnd {
+    float x = 0, y = 0;  // its middle, fractions of width and height
+    float radius = 0;    // where it is at least half as bright as its middle, a fraction of the height
+    float level = 0;
+    Swatch colour;
+};
+
 // A line of light: an outline (a frame round a symbol, the edge of a
 // portal) or a stroke (a bolt of lightning, the edge of a beam). Read by
 // thinning each bright part down to its middle; see ReferenceLines.cpp.
@@ -159,6 +168,7 @@ struct LineFound {
     float branches = 0;    // side strands, as a share of its length
     float jagged = 0;      // crackling: 0 a smooth stroke, 1 lightning
     float confidence = 0;
+    std::vector<LineEnd> ends;  // blobs at its ends (strokes only)
     // Sparkles sitting on it or just off it.
     int sparkles = 0;
     float sparkleSize = 0, sparkleReach = 0;

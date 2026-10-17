@@ -333,6 +333,7 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
     e->speed = toScalar(initial.get<Scalar>("speed"));
     e->size = toScalar(initial.get<Scalar>("size"));
     e->rotation = toScalar(initial.get<Scalar>("rotation"));
+    e->opacity = toScalar(initial.get<Scalar>("opacity"));
 
     const Vec3& direction = initial.get<Vec3>("direction");
     const det::Vec3f dir = det::normalizeOr(

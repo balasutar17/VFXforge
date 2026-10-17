@@ -691,7 +691,7 @@ void writeFindings(ReferenceAnalysis& a, bool moving) {
     if (s.separate >= 2) {
         add("several", "More than one effect",
             "The picture seems to hold " + std::to_string(s.separate) + " separate effects", 0.6f, Basis::Observed,
-            "One reference should show one effect. Crop to just one of them for a better result.");
+            "Each is best studied on its own: click its number on the picture (vfxref: --effect n), or crop to it.");
         a.uncertain.push_back("Which of the separate effects in the picture is meant.");
     }
 

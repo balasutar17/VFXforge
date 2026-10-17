@@ -18,7 +18,7 @@ The settings are in groups; click a group's heading to fold it away.
 | Timing | When the layer starts and how long it emits |
 | Emission | Amount per second, and the list of bursts |
 | Shape | Where particles appear: point, circle, rectangle, sphere, box or cone; its size and position |
-| Initial State | Lifetime, speed, direction, spread, size, rotation, colour |
+| Initial State | Lifetime, speed, direction, spread, size, rotation, colour, opacity (0.23: as a curve, across the layer's time) |
 | Motion | Gravity, drag, spin, turbulence and its swirl size and change |
 | Over Lifetime | Size, colour and opacity from birth to death; dissolve |
 | Sprite | Blend, glow, facing, shape, align, stretch, trail, lie flat |

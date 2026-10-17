@@ -544,6 +544,26 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
             size.b = static_cast<float>(b * high);
         }
     }
+    // Opacity over the layer's time has no counterpart in a particle
+    // system's start colour: its average is carried (see docs/export.md).
+    {
+        double mean = e.opacity.a;
+        if (e.opacity.mode == ScalarF::Mode::Random) {
+            mean = 0.5 * (e.opacity.a + e.opacity.b);
+        } else if (e.opacity.isCurve() && !e.opacity.keys.empty()) {
+            const auto& k = e.opacity.keys;
+            double area = 0;
+            for (std::size_t i = 1; i < k.size(); ++i) {
+                area += 0.5 * (k[i].v + k[i - 1].v) * (k[i].t - k[i - 1].t);
+            }
+            area += k.front().v * std::max(0.0, static_cast<double>(k.front().t));
+            area += k.back().v * std::max(0.0, 1.0 - k.back().t);
+            mean = area;
+        }
+        mean = std::clamp(mean, 0.0, 1.0);
+        alphaLow *= mean;
+        alphaHigh *= mean;
+    }
     if (e.hasOverLife && !e.opacityOverLife.isCurve()) {
         const double low = e.opacityOverLife.a;
         const double high = e.opacityOverLife.mode == ScalarF::Mode::Random ? e.opacityOverLife.b : low;

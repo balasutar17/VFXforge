@@ -35,7 +35,8 @@ enum Channel : std::uint32_t {
     kChSpreadU, kChSpreadV,
     kChSizeScale, kChOpacityScale,
     kChRate,
-    kChFrame
+    kChFrame,
+    kChOpacity
 };
 
 constexpr float kDegreesToRadiansF = static_cast<float>(det::kDegreesToRadians);
@@ -461,6 +462,11 @@ void Simulation::Emitter::spawn(std::int64_t inPass, double offset, float progre
     const float speed = sample(e.speed, random(kChSpeed), progress);
     float size = sample(e.size, random(kChSize), progress);
     float alpha = e.color[3];
+    // Only drawn when it is not the plain 1 every older effect has, so that
+    // nothing about those changes.
+    if (!(e.opacity.mode == ScalarF::Mode::Constant && e.opacity.a == 1.0f)) {
+        alpha *= clamp01(sample(e.opacity, random(kChOpacity), progress));
+    }
     if (e.hasOverLife) {
         if (!e.sizeOverLife.isCurve()) {
             size *= sample(e.sizeOverLife, random(kChSizeScale), 0.0f);

@@ -1414,43 +1414,63 @@ private:
                line.levelOverTime[static_cast<std::size_t>(b)] * f;
     }
 
-    // How many dots a second, over the layer's own time (start, length in
-    // seconds of the effect), as a curve: the base rate times the line's
-    // brightness then, times how much of it has been drawn (drawTime > 0).
+    // How many dots a second, and how bright, over the layer's own time
+    // (start, length in seconds of the effect). The dots stay as close
+    // together throughout (a dimming line must not thin out into beads), so
+    // the line's brightness over time is carried by their opacity. While it
+    // is being drawn on (drawTime > 0), the rate climbs with the part drawn,
+    // so the dots are as close on a short stretch as on the whole.
     void lineRate(Make& m, const LineFound& line, double rate, double start, double length, double drawTime = 0.0) {
-        if (!plan_.measured || line.levelOverTime.empty()) {
-            if (drawTime > 0.0) {
-                m.put("emission", "rate", Scalar::curve({{0, 0.15 * rate}, {std::min(1.0, drawTime / length), rate},
-                                                         {1, rate}}));
-            } else {
-                m.rate(rate);
+        if (drawTime > 0.0) {
+            std::vector<CurveKey> ramp{{0, 0.1 * rate}};
+            const double reached = std::min(1.0, drawTime / std::max(1e-3, length));
+            ramp.push_back(CurveKey{reached, rate});
+            if (reached < 1.0) {
+                ramp.push_back(CurveKey{1, rate});
             }
-            return;
+            m.put("emission", "rate", Scalar::curve(std::move(ramp)));
+        } else {
+            m.rate(rate);
+        }
+        std::vector<CurveKey> curve = lineLevelCurve(line, start, length);
+        if (!curve.empty()) {
+            m.put("initial", "opacity", Scalar::curve(std::move(curve)));
+        }
+    }
+
+    // A line's brightness across a window of the effect (start, length in
+    // seconds) as a curve from 0 to 1; empty when it holds steady or was not
+    // measured.
+    std::vector<CurveKey> lineLevelCurve(const LineFound& line, double start, double length) const {
+        if (!plan_.measured || line.levelOverTime.empty()) {
+            return {};
         }
         std::vector<CurveKey> keys;
         constexpr int kSteps = 40;
         for (int k = 0; k <= kSteps; ++k) {
             const double u = static_cast<double>(k) / kSteps;
-            const double at = start + u * length;
-            double v = lineLevelAt(line, at);
-            if (drawTime > 0.0) {
-                v *= std::clamp((at - start) / drawTime, 0.1, 1.0);
-            }
-            keys.push_back(CurveKey{u, v * rate});
+            keys.push_back(CurveKey{u, std::clamp(lineLevelAt(line, start + u * length), 0.0, 1.0)});
         }
         if (plan_.steady && keys.size() > 1) {
             keys.back().v = keys.front().v;  // a loop ends where it begins
         }
-        std::vector<CurveKey> curve = simplifyCurve(keys, 10, 0.06 * rate);
-        bool flat = true;
+        std::vector<CurveKey> curve = simplifyCurve(keys, 12, 0.04);
         for (const CurveKey& k : curve) {
-            flat = flat && std::fabs(k.v - rate) < 0.03 * rate;
+            if (k.v <= 0.97) {
+                return curve;
+            }
         }
-        if (flat) {
-            m.rate(rate);
-        } else {
-            m.put("emission", "rate", Scalar::curve(std::move(curve)));
+        return {};
+    }
+
+    // A line's colour is measured at the moment analysed; its opacity over
+    // time runs up to 1 at its brightest. So its colour is lifted by how
+    // much dimmer that moment was than the brightest.
+    double lineLift(const LineFound& line) const {
+        if (!plan_.measured || line.levelOverTime.empty()) {
+            return 1.0;
         }
+        return 1.0 / std::clamp(lineLevelAt(line, plan_.peak), 0.25, 1.0);
     }
 
     // Where and when a line is: its path (turned so that it starts where the
@@ -1551,7 +1571,8 @@ private:
                     // gives about a third of its middle's light, on average,
                     // across its width.
                     const double overlap = size / spacing;
-                    const double alpha = std::clamp(static_cast<double>(line.level) / (0.35 * overlap), 0.05, 1.0);
+                    const double alpha =
+                        std::clamp(lineLift(line) * static_cast<double>(line.level) / (0.35 * overlap), 0.05, 1.0);
                     Make m(id_, (name + suffix).c_str());
                     placeLine(m, p);
                     lineRate(m, line, alive / life, p.start, p.length, p.drawTime);
@@ -1570,15 +1591,17 @@ private:
                     const double spacing = 0.15 * size / std::clamp(scale_, 0.35, 1.0);
                     const double life = 0.3;
                     const double alive = share * lengthW / spacing;
-                    const double alpha = std::clamp(1.3 * static_cast<double>(line.haloLevel * line.level) * spacing / size,
+                    const double alpha = std::clamp(lineLift(line) * 1.3 * static_cast<double>(line.haloLevel * line.level) *
+                                                        spacing / size,
                                                     0.02, 1.0);
                     const Swatch glow = additive ? bright(line.haloColour) : line.haloColour;
                     Make m(id_, (name + " glow" + suffix).c_str());
                     placeLine(m, p);
                     lineRate(m, line, alive / life, p.start, p.length, p.drawTime);
-                    // Each dot fades in and out, so none pops: twice the level at its middle.
+                    // Steady, not fading in and out: dots of different ages
+                    // side by side would add up to lumps along the line.
                     m.life(0.8 * life, 1.2 * life).speed(0, 0).gravity(0, 0).size(0.95 * size, 1.05 * size)
-                        .colorLinear(linear(glow, std::min(1.0, 2.0 * alpha))).fade({{0, 0}, {0.5, 1}, {1, 0}}).look("soft");
+                        .colorLinear(linear(glow, alpha)).solid().look("soft");
                     blend(m, additive, 1.0);
                     push(m, "glow", "Large faint soft dots along the line: its halo", "line", Basis::Observed, 3,
                          static_cast<int>(alive), "As wide and as bright as the halo seen round the line.");
@@ -1635,6 +1658,31 @@ private:
                          "How many, how big and how far off the line are as seen; where each one is, and that they "
                          "twinkle, is not followed one by one.");
                     built_.back().note.motion = Basis::Inferred;
+                }
+                // Blobs at its ends: a soft glow at each, there as long as
+                // the line is, brightening and dimming with it.
+                for (std::size_t k = 0; k < line.ends.size() && part == 0; ++k) {
+                    const LineEnd& end = line.ends[k];
+                    const Point2 at = world(Point2{end.x, end.y});
+                    const double size = sizeFor(SpriteShape::Soft, end.radius, &ShapeMeasure::halfLevel);
+                    const Swatch c = additive ? bright(end.colour) : end.colour;
+                    const LinePlan whole = linePlans(line).front();
+                    Make m(id_, (name + " end " + std::to_string(k + 1)).c_str());
+                    m.from(whole.start, whole.length);
+                    // One sprite that lives as long as the layer: its fade
+                    // over life is the line's brightness over that time.
+                    m.at(at.x, at.y).burst(1).life(whole.length, whole.length).speed(0, 0).gravity(0, 0)
+                        .size(size, size).colorLinear(linear(c, std::clamp(lineLift(line) * end.level, 0.05, 1.0)))
+                        .look("soft");
+                    std::vector<CurveKey> level = lineLevelCurve(line, whole.start, whole.length);
+                    if (level.empty()) {
+                        m.solid();
+                    } else {
+                        m.fade(std::move(level));
+                    }
+                    blend(m, additive, 1.4);
+                    push(m, "core", "One soft sprite where the line ends in a bright blob", "line", Basis::Observed, 3, 1,
+                         "Where it is, how large and how bright are as seen; it brightens and dims with its line.");
                 }
                 // Light running round it.
                 if (line.closed && line.run != 0.0f && !drawn) {

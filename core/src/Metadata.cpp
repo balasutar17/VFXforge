@@ -150,6 +150,10 @@ Registry::Registry() {
         P("rotation", "Rotation", ValueKind::Scalar, Scalar::constant(0.0))
             .unit("degrees").range(-36000, 36000).ui(-180, 180),
         P("color", "Color", ValueKind::Color, white).simple(),
+        P("opacity", "Opacity", ValueKind::Scalar, Scalar::constant(1.0))
+            .range(0, 1).ui(0, 1)
+            .help("How see-through each particle starts, multiplying its colour's own. As a curve it reads "
+                  "across the layer's time: a layer that brightens and dims without thinning out."),
     }));
 
     modules_.push_back(module("motion", "Motion", Stage::Update, {
