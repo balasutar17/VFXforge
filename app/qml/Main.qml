@@ -982,9 +982,9 @@ ApplicationWindow {
                     }
                     Row {
                         objectName: "previewBar"
-                        anchors.right: handlesButton.left
-                        anchors.top: parent.top
-                        anchors.topMargin: 8
+                        anchors.right: parent.right
+                        anchors.top: handlesButton.bottom
+                        anchors.topMargin: 4
                         anchors.rightMargin: 8
                         spacing: 2
                         Repeater {
