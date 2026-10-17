@@ -205,6 +205,9 @@ struct Plan {
     Vec3 pull{};
     bool tinted = false;
     std::vector<Tint> tint;
+    // For a clip: the frames of it the effect stands for, and its rate.
+    int first = 0, last = -1;
+    double fps = 0;
 };
 
 // How many degrees a ground pattern can turn before it looks the same again.
@@ -252,8 +255,15 @@ Plan makePlan(const ReferenceAnalysis& a, const ReconstructOptions& o) {
     // Something lying on the ground keeps going (a circle, a portal),
     // unless it is only a ring crossing the floor, which is a burst.
     const bool standing = a.still.ground && !(a.still.groundHollow && a.still.beams < 2);
+    // A line that the clip draws on is a one-off: drawn, held, gone; even
+    // when it is held to the clip's end.
+    bool drawsOn = false;
+    for (const LineFound& line : a.still.lines) {
+        drawsOn = drawsOn || (moving && a.still.linesLead && line.drawn);
+    }
     p.steady = o.pace == Pace::Steady ||
-               (o.pace == Pace::Auto && (moving ? t.continuous : (a.still.comet || standing)));
+               (o.pace == Pace::Auto && !drawsOn &&
+                (moving ? t.continuous : (a.still.comet || standing || a.still.linesLead)));
     const int keys = (o.mode == MatchMode::Motion || o.mode == MatchMode::Layered) ? 8 : 6;
 
     if (moving) {
@@ -266,14 +276,21 @@ Plan makePlan(const ReferenceAnalysis& a, const ReconstructOptions& o) {
         int first = 0, last = n - 1;
         if (!p.steady) {
             p.start = t.start;
-            p.life = std::max(0.12, t.end - t.start);
-            p.peak = std::clamp(t.main - t.start, 0.0, p.life);
+            // A line being drawn on can show before the whole effect counts
+            // as started: the effect starts with the first of them.
+            for (const LineFound& line : a.still.lines) {
+                if (a.still.linesLead && line.drawn) {
+                    p.start = std::min(p.start, line.drawFrom);
+                }
+            }
+            p.life = std::max(0.12, t.end - p.start);
+            p.peak = std::clamp(t.main - p.start, 0.0, p.life);
             p.duration = p.life + (o.mode == MatchMode::Motion ? 0.15 : 0.3);
             // A clip that showed the burst come round again set its own rhythm.
             if (t.loops && t.loopLength >= p.life) {
                 p.duration = t.loopLength;
             }
-            first = frameAt(t.start);
+            first = frameAt(p.start);
             last = std::max(first, frameAt(t.end) - 1);
         } else {
             // What the clip shows once it is going. (Any starting-up is left out.)
@@ -286,6 +303,9 @@ Plan makePlan(const ReferenceAnalysis& a, const ReconstructOptions& o) {
             last = std::min(n - 1, first + frameAt(p.duration) - 1);
             last = std::max(last, first);
         }
+        p.first = first;
+        p.last = last;
+        p.fps = fps;
         // Everything is measured against the frame that was described.
         const int peakFrame = frameAt(t.main);
         const float baseRadius = std::max(1e-4f, t.radius[static_cast<std::size_t>(peakFrame)]);
@@ -384,7 +404,7 @@ Plan makePlan(const ReferenceAnalysis& a, const ReconstructOptions& o) {
         }
         if (!p.steady) {
             for (std::size_t i = 0; i < t.bursts.size(); ++i) {
-                const double at = t.bursts[i] - t.start;
+                const double at = t.bursts[i] - p.start;
                 if (at >= -0.02 && at < p.life) {
                     p.bursts.emplace_back(std::max(0.0, at), p.bursts.empty() ? 1.0 : 0.6);
                 }
@@ -478,6 +498,11 @@ public:
         if (s_.comet) {
             wanted += 90;
         }
+        if (s_.linesLead) {
+            for (const LineFound& line : s_.lines) {
+                wanted += lineDots(line);
+            }
+        }
         scale_ = wanted > budget ? static_cast<double>(budget) / wanted : 1.0;
         if (o_.variation == Variation::Performance) {
             scale_ *= 0.5;
@@ -486,7 +511,9 @@ public:
             scale_ = std::min(1.3, scale_ * 1.3);
         }
 
-        if (s_.ground) {
+        if (s_.linesLead) {
+            lines();
+        } else if (s_.ground) {
             ground();
         } else if (s_.comet) {
             comet();
@@ -1347,6 +1374,361 @@ private:
                            "the near side as it would be through a camera.");
     }
 
+    // ---- lines of light (see ReferenceLines.cpp)
+
+    // About how many dots a line's layers keep alive at full density.
+    int lineDots(const LineFound& line) const {
+        const double lengthW = std::max(0.05, static_cast<double>(line.length) * kU);
+        const double core = sizeFor(SpriteShape::Soft, 0.5 * line.thickness, &ShapeMeasure::halfLevel);
+        double dots = lengthW / (0.25 * core);
+        if (line.halo > 0.5f * line.thickness && line.haloLevel > 0.05f) {
+            dots += lengthW / (0.15 * sizeFor(SpriteShape::Soft, 0.5 * line.thickness + line.halo, &ShapeMeasure::outer));
+        }
+        if (line.jagged >= 0.35f) {
+            dots += 2.5 * lengthW / std::clamp(2.5 * static_cast<double>(line.band) * kU, 0.25, 1.5);
+        }
+        return static_cast<int>(dots) + line.sparkles;
+    }
+
+    // A place in the reference, in the effect's units.
+    Point2 world(const Point2& p) const {
+        const double aspect = static_cast<double>(std::max(1, s_.width)) / std::max(1, s_.height);
+        return Point2{(p.x - s_.centreX) * aspect * kU, (s_.centreY - p.y) * kU};
+    }
+
+    // A line's brightness at a moment of the effect (seconds), from what the
+    // clip showed; 1 when it showed nothing.
+    double lineLevelAt(const LineFound& line, double effectTime) const {
+        if (!plan_.measured || line.levelOverTime.empty() || plan_.fps <= 0) {
+            return 1.0;
+        }
+        double t = effectTime;
+        if (plan_.steady && plan_.duration > 0) {
+            t = std::fmod(std::max(0.0, t), plan_.duration);
+        }
+        const double frame = (plan_.start + t) * plan_.fps;
+        const int n = static_cast<int>(line.levelOverTime.size());
+        const int a = std::clamp(static_cast<int>(std::floor(frame)), 0, n - 1), b = std::min(n - 1, a + 1);
+        const double f = std::clamp(frame - std::floor(frame), 0.0, 1.0);
+        return line.levelOverTime[static_cast<std::size_t>(a)] * (1.0 - f) +
+               line.levelOverTime[static_cast<std::size_t>(b)] * f;
+    }
+
+    // How many dots a second, over the layer's own time (start, length in
+    // seconds of the effect), as a curve: the base rate times the line's
+    // brightness then, times how much of it has been drawn (drawTime > 0).
+    void lineRate(Make& m, const LineFound& line, double rate, double start, double length, double drawTime = 0.0) {
+        if (!plan_.measured || line.levelOverTime.empty()) {
+            if (drawTime > 0.0) {
+                m.put("emission", "rate", Scalar::curve({{0, 0.15 * rate}, {std::min(1.0, drawTime / length), rate},
+                                                         {1, rate}}));
+            } else {
+                m.rate(rate);
+            }
+            return;
+        }
+        std::vector<CurveKey> keys;
+        constexpr int kSteps = 40;
+        for (int k = 0; k <= kSteps; ++k) {
+            const double u = static_cast<double>(k) / kSteps;
+            const double at = start + u * length;
+            double v = lineLevelAt(line, at);
+            if (drawTime > 0.0) {
+                v *= std::clamp((at - start) / drawTime, 0.1, 1.0);
+            }
+            keys.push_back(CurveKey{u, v * rate});
+        }
+        if (plan_.steady && keys.size() > 1) {
+            keys.back().v = keys.front().v;  // a loop ends where it begins
+        }
+        std::vector<CurveKey> curve = simplifyCurve(keys, 10, 0.06 * rate);
+        bool flat = true;
+        for (const CurveKey& k : curve) {
+            flat = flat && std::fabs(k.v - rate) < 0.03 * rate;
+        }
+        if (flat) {
+            m.rate(rate);
+        } else {
+            m.put("emission", "rate", Scalar::curve(std::move(curve)));
+        }
+    }
+
+    // Where and when a line is: its path (turned so that it starts where the
+    // clip starts drawing it), and the window of the effect it is in.
+    struct LinePlan {
+        PointList path;
+        bool closed = false;
+        double start = 0, length = 0;
+        double drawTime = 0;  // 0: there all at once
+        int way = 1;          // drawn forward, backward
+        bool split = false;   // drawn both ways from its start: two halves
+    };
+
+    std::vector<LinePlan> linePlans(const LineFound& line) const {
+        LinePlan p;
+        p.closed = line.closed;
+        std::vector<Point2> points;
+        for (const Point2& q : line.points) {
+            points.push_back(world(q));
+        }
+        p.start = 0.0;
+        p.length = plan_.steady ? plan_.duration : plan_.life;
+        const bool drawn = plan_.measured && line.drawn && line.drawTime > 0.0;
+        if (!drawn) {
+            p.path.points = std::move(points);
+            return {p};
+        }
+        p.start = std::clamp(line.drawFrom - plan_.start, 0.0, std::max(0.0, p.length - 0.05));
+        p.length = std::max(0.05, p.length - p.start);
+        p.drawTime = std::min(line.drawTime, p.length);
+        const int n = static_cast<int>(points.size());
+        const int from = std::clamp(static_cast<int>(std::lround(line.drawStart * n)), 0, std::max(0, n - 1));
+        if (line.closed) {
+            std::rotate(points.begin(), points.begin() + from, points.end());
+            points.push_back(points.front());  // drawn all the way round, back to where it began
+        }
+        if (line.drawWay != 0 || !line.closed) {
+            p.way = line.closed ? (line.drawWay < 0 ? -1 : 1) : (line.drawStart > 0.5f ? -1 : 1);
+            p.closed = false;
+            p.path.points = std::move(points);
+            return {p};
+        }
+        // Both ways from the start: the first half forward, the second backward.
+        LinePlan a = p, b = p;
+        a.closed = b.closed = false;
+        a.split = b.split = true;
+        const std::size_t half = points.size() / 2;
+        a.path.points.assign(points.begin(), points.begin() + static_cast<std::ptrdiff_t>(half) + 1);
+        b.path.points.assign(points.rbegin(), points.rbegin() + static_cast<std::ptrdiff_t>(points.size() - half));
+        return {a, b};
+    }
+
+    void placeLine(Make& m, const LinePlan& p) {
+        m.path(p.path, p.closed);
+        m.from(p.start, p.length);
+        if (p.drawTime > 0.0) {
+            m.drawOn(static_cast<double>(p.way) / p.drawTime);
+        }
+    }
+
+    void lines() {
+        const bool additive = s_.additive;
+        int closedCount = 0, openCount = 0;
+        for (const LineFound& line : s_.lines) {
+            (line.closed ? closedCount : openCount) += 1;
+        }
+        // The soft light between the lines goes behind them.
+        lineFill();
+        int closedSeen = 0, openSeen = 0;
+        for (const LineFound& line : s_.lines) {
+            const bool bolt = line.jagged >= 0.5f;
+            std::string name = line.closed ? "Outline" : (bolt ? "Bolt" : "Line");
+            const int number = line.closed ? ++closedSeen : ++openSeen;
+            if ((line.closed ? closedCount : openCount) > 1) {
+                name += " " + std::to_string(number);
+            }
+            const double lengthW = std::max(0.05, static_cast<double>(line.length) * kU);
+            const Swatch colour = additive ? bright(line.colour) : line.colour;
+            const std::vector<LinePlan> plans = linePlans(line);
+            const bool drawn = plans.front().drawTime > 0.0;
+            std::string timing = plan_.measured
+                                     ? (drawn ? "It is drawn on as the clip shows, and its brightness follows the clip."
+                                              : "Its brightness over time follows the clip.")
+                                     : "Its timing is assumed; a still picture does not show it.";
+            for (std::size_t part = 0; part < plans.size(); ++part) {
+                const LinePlan& p = plans[part];
+                const std::string suffix = plans.size() > 1 ? (part == 0 ? " (one way)" : " (other way)") : "";
+                const double share = plans.size() > 1 ? 0.5 : 1.0;
+                // The core: soft dots so close together they read as one line.
+                {
+                    const double size = sizeFor(SpriteShape::Soft, 0.5 * line.thickness, &ShapeMeasure::halfLevel);
+                    // A quarter of a dot apart: close enough that the line
+                    // reads as one stroke, not a row of beads.
+                    const double spacing = 0.25 * size / std::clamp(scale_, 0.35, 1.0);
+                    const double life = 0.12;
+                    const double alive = share * lengthW / spacing;
+                    // Dots `spacing` apart add up along the line: a soft dot
+                    // gives about a third of its middle's light, on average,
+                    // across its width.
+                    const double overlap = size / spacing;
+                    const double alpha = std::clamp(static_cast<double>(line.level) / (0.35 * overlap), 0.05, 1.0);
+                    Make m(id_, (name + suffix).c_str());
+                    placeLine(m, p);
+                    lineRate(m, line, alive / life, p.start, p.length, p.drawTime);
+                    m.life(0.8 * life, 1.2 * life).speed(0, 0).gravity(0, 0).size(0.95 * size, 1.05 * size)
+                        .colorLinear(linear(colour, alpha)).look("soft");
+                    blend(m, additive, 1.4);
+                    push(m, "body", "Soft dots close together along the line's own path, read from the reference",
+                         "line", Basis::Observed, 1, static_cast<int>(alive),
+                         "Its path is the middle of the line as seen, " + std::string(line.closed ? "all the way round. " : "end to end. ") +
+                             timing);
+                }
+                // Its halo.
+                if (line.halo > 0.5f * line.thickness && line.haloLevel > 0.05f) {
+                    const double size =
+                        sizeFor(SpriteShape::Soft, 0.5 * line.thickness + line.halo, &ShapeMeasure::outer);
+                    const double spacing = 0.15 * size / std::clamp(scale_, 0.35, 1.0);
+                    const double life = 0.3;
+                    const double alive = share * lengthW / spacing;
+                    const double alpha = std::clamp(1.3 * static_cast<double>(line.haloLevel * line.level) * spacing / size,
+                                                    0.02, 1.0);
+                    const Swatch glow = additive ? bright(line.haloColour) : line.haloColour;
+                    Make m(id_, (name + " glow" + suffix).c_str());
+                    placeLine(m, p);
+                    lineRate(m, line, alive / life, p.start, p.length, p.drawTime);
+                    // Each dot fades in and out, so none pops: twice the level at its middle.
+                    m.life(0.8 * life, 1.2 * life).speed(0, 0).gravity(0, 0).size(0.95 * size, 1.05 * size)
+                        .colorLinear(linear(glow, std::min(1.0, 2.0 * alpha))).fade({{0, 0}, {0.5, 1}, {1, 0}}).look("soft");
+                    blend(m, additive, 1.0);
+                    push(m, "glow", "Large faint soft dots along the line: its halo", "line", Basis::Observed, 3,
+                         static_cast<int>(alive), "As wide and as bright as the halo seen round the line.");
+                }
+                // Crackle: the line is lightning.
+                if (line.jagged >= 0.35f) {
+                    // Thin branching strands (the built-in bolt), each a stretch of
+                    // the line long, overlapping two or three deep so that they braid.
+                    const double size = std::clamp(2.5 * static_cast<double>(line.band) * kU, 0.25, 1.5);
+                    const double life = 0.08;
+                    const double alive = share * 2.5 * lengthW / size * std::clamp(scale_, 0.4, 1.0);
+                    const bool flickers = !plan_.measured || line.flicker >= 0.3f;
+                    Make m(id_, (name + " crackle" + suffix).c_str());
+                    placeLine(m, p);
+                    m.band(std::max(0.0, (static_cast<double>(line.band) - line.thickness) * kU));
+                    lineRate(m, line, alive / life, p.start, p.length, p.drawTime);
+                    m.life(0.6 * life, 1.2 * life).speed(0, 0).gravity(0, 0).size(0.7 * size, 1.1 * size).turn(-8, 8)
+                        .colorLinear(linear(towardWhite(colour, 0.25f), 1.0)).alongPath().look("bolt");
+                    if (flickers) {
+                        m.hold(15);
+                    }
+                    blend(m, additive, 2.0);
+                    push(m, "rays",
+                         "Thin branching bolt strands laid along the line" + std::string(flickers ? ", redrawn 15 times a second" : ""),
+                         "line", Basis::Observed, 2, static_cast<int>(alive),
+                         "The line is crackling: thin strands braid along it, " +
+                             std::to_string(static_cast<int>(std::lround(line.band / std::max(1e-4f, line.thickness)))) +
+                             " times as wide as one strand. The strands are the built-in bolt, not the reference's own.");
+                    built_.back().note.look = Basis::Inferred;
+                }
+                // Sparkles on it. (Round a crackling line, the small bright
+                // bits are pieces of its crackle, which that layer draws.)
+                if (line.sparkles >= 3 && part == 0 && !bolt) {
+                    const int count = scaled(line.sparkles, 3);
+                    const double life = 0.45;
+                    const double size = std::clamp(2.0 * static_cast<double>(line.sparkleSize) * kU, 0.04, 0.4);
+                    const char* look = bolt ? "soft" : shapeName(shapeFrom(s_.sparks.shape, SpriteShape::Twinkle));
+                    const Swatch c = additive ? bright(line.sparkleColour) : line.sparkleColour;
+                    Make m(id_, (name + " sparkles").c_str());
+                    m.path(PointList{[&] {
+                               std::vector<Point2> all;
+                               for (const Point2& q : line.points) {
+                                   all.push_back(world(q));
+                               }
+                               return all;
+                           }()},
+                           line.closed);
+                    m.band(2.0 * (static_cast<double>(line.sparkleReach) + 0.5 * line.thickness) * kU);
+                    lineRate(m, line, count / life, 0.0, plan_.steady ? plan_.duration : plan_.life);
+                    m.life(0.6 * life, 1.4 * life).speed(0, 0.1).gravity(0, 0).size(0.7 * size, 1.3 * size).turn(0, 45)
+                        .colorLinear(linear(c)).sizeOver({{0, 0}, {0.3, 1, true}, {1, 0}}).look(look);
+                    blend(m, additive, 1.8);
+                    push(m, "sparks", "Small sparkles on and just off the line", "line", Basis::Observed, 5, count,
+                         "How many, how big and how far off the line are as seen; where each one is, and that they "
+                         "twinkle, is not followed one by one.");
+                    built_.back().note.motion = Basis::Inferred;
+                }
+                // Light running round it.
+                if (line.closed && line.run != 0.0f && !drawn) {
+                    const double size = std::clamp(2.5 * line.thickness * kU, 0.08, 1.0);
+                    Make m(id_, (name + " runner").c_str());
+                    placeLine(m, p);
+                    m.travel(line.run, 0.06, 1).rate(160).life(0.12, 0.18).speed(0, 0).gravity(0, 0)
+                        .size(0.8 * size, size).colorLinear(linear(towardWhite(colour, 0.5f), 0.35)).look("soft");
+                    blend(m, additive, 1.8);
+                    push(m, "core", "A bright patch running round the line", "line", Basis::Observed, 4, 30,
+                         "It runs round at the speed the clip shows.");
+                }
+            }
+        }
+    }
+
+    // The soft light that fills the space between or inside the lines.
+    void lineFill() {
+        const LineFill& f = s_.lineFill;
+        if (!f.present || f.level < 0.02f) {
+            return;
+        }
+        const double aspect = static_cast<double>(std::max(1, s_.width)) / std::max(1, s_.height);
+        const double width = (f.right - f.left) * aspect * kU, height = (f.bottom - f.top) * kU;
+        const Point2 middle = world(Point2{0.5 * (f.left + f.right), 0.5 * (f.top + f.bottom)});
+        const double along = f.upright ? height : width, across = f.upright ? width : height;
+        const Swatch colour = s_.additive ? bright(f.colour) : f.colour;
+        const float first = f.profile.empty() ? 1.0f : f.profile.front();
+        const float last = f.profile.empty() ? 1.0f : f.profile.back();
+        const bool graded = first >= 1.8f * std::max(0.02f, last);
+        // Dots as wide as the fill, close together down its length, so that
+        // it reads as one smooth wash rather than a cloud of blobs.
+        const double size = std::clamp(0.75 * across, 0.1, 5.0);
+        Make m(id_, "Fill");
+        if (graded) {
+            // Brightest at one end, fading toward the other: light rising
+            // from that end (falling, or running across, as it lies).
+            const double life = 1.0;
+            double heading = 0;
+            Point2 from = middle;
+            if (f.upright) {
+                heading = f.brightFirst ? 270.0 : 90.0;
+                from.y += (f.brightFirst ? 0.5 : -0.5) * height;
+            } else {
+                heading = f.brightFirst ? 0.0 : 180.0;
+                from.x += (f.brightFirst ? -0.5 : 0.5) * width;
+            }
+            std::vector<CurveKey> fade;
+            for (std::size_t k = 0; k < f.profile.size(); ++k) {
+                fade.push_back(CurveKey{static_cast<double>(k) / std::max<std::size_t>(1, f.profile.size() - 1),
+                                        static_cast<double>(f.profile[k])});
+            }
+            // Soft streaks rising from the bright edge, evenly spaced across
+            // it (a path along that edge spreads them evenly), each a quarter
+            // of the way up long, so the light washes smoothly up the fill.
+            const double streakShare = 0.25;
+            const double bar = 0.5 * across;
+            const double side = std::max(1.0, across / (0.25 * bar));
+            const double alive = side / streakShare;
+            // A point of the fill is under about two bars side by side and
+            // four end to end; each soft bar gives about half its colour.
+            const double alpha = std::clamp(static_cast<double>(f.level) / (2.0 * 4.0 * 0.5) * 1.4, 0.01, 1.0);
+            if (f.upright) {
+                m.line(from.x - 0.5 * across + 0.3 * bar, from.y, from.x + 0.5 * across - 0.3 * bar, from.y);
+            } else {
+                m.line(from.x, from.y - 0.5 * across + 0.3 * bar, from.x, from.y + 0.5 * across - 0.3 * bar);
+            }
+            m.streak(streakShare * life);
+            m.rate(std::clamp(alive / life * scale_, 10.0, 600.0)).life(life, life).speed(along / life, along / life)
+                .aim(heading, 0).size(0.95 * bar, 1.05 * bar).gravity(0, 0).drag(0.0)
+                .colorLinear(linear(colour, alpha)).fade(simplifyCurve(fade, 6, 0.05)).look("soft");
+        } else {
+            const double life = 0.6;
+            const double spacing = 0.12 * size;
+            const double alive = std::max(1.0, along / spacing);
+            const double alpha = std::clamp(1.6 * static_cast<double>(f.level) * spacing / (0.5 * size), 0.01, 1.0);
+            if (f.upright) {
+                m.at(middle.x, middle.y).rect(0.15 * across, std::max(0.05, along - size));
+            } else {
+                m.at(middle.x, middle.y).rect(std::max(0.05, along - size), 0.15 * across);
+            }
+            m.rate(std::clamp(alive / life * scale_, 10.0, 400.0)).life(life, life).speed(0, 0).gravity(0, 0)
+                .size(0.95 * size, 1.05 * size).colorLinear(linear(colour, std::min(1.0, 2.0 * alpha)))
+                .fade({{0, 0}, {0.5, 1}, {1, 0}}).look("soft");
+        }
+        blend(m, s_.additive, 1.0);
+        push(m, "glow", graded ? "Soft light rising from its bright end, fading as it goes" : "Soft light filling the space",
+             "lineFill", Basis::Observed, 2, 60,
+             graded ? "How bright it is from one end to the other is as seen. That it moves is how the gradient is made, "
+                      "not something measured."
+                    : "Its size, colour and brightness are as seen.");
+        built_.back().note.motion = Basis::Inferred;
+    }
+
     // Extras the reference does not have. Each is marked as added.
     void polish() {
         const Swatch accent = s_.palette.size() > 1 ? s_.palette[1] : (s_.palette.empty() ? Swatch{1, 1, 1, 0} : s_.palette[0]);
@@ -1402,8 +1784,12 @@ private:
             case MatchMode::ShapeColour: most = 9; break;
             case MatchMode::Balanced: most = 7; break;
         }
+        if (s_.linesLead && o_.mode != MatchMode::Motion) {
+            // Each line is a few layers of its own (core, glow, crackle, sparkles).
+            most = std::max<std::size_t>(most, std::min<std::size_t>(14, 4 + 3 * s_.lines.size()));
+        }
         if (o_.variation == Variation::Performance) {
-            most = std::min<std::size_t>(most, 4);
+            most = std::min<std::size_t>(most, 4 + s_.lines.size());
         }
         std::size_t kept = 0;
         for (const Built& b : built_) {
@@ -1519,6 +1905,70 @@ Reconstruction reconstruct(const ReferenceAnalysis& analysis, const ReconstructO
                            const IdSource& newId, const std::vector<Cutout>* cutouts) {
     Builder builder(analysis, options, newId, cutouts);
     return builder.run();
+}
+
+void addFlipbook(Reconstruction& built, const Flipbook& book, const StillAnalysis& still, const IdSource& newId,
+                 bool alone) {
+    if (book.frames <= 0 || book.sheet.width <= 0) {
+        return;
+    }
+    PictureUse use;
+    use.asset = newId();
+    use.png = encodePng(book.sheet);
+    use.path = imageAssetPath("reference-flipbook", use.png);
+    use.image = std::make_shared<Image>(book.sheet);
+
+    const double aspect = static_cast<double>(std::max(1, still.width)) / std::max(1, still.height);
+    const double x = (book.centreX - still.centreX) * aspect * kU, y = (still.centreY - book.centreY) * kU;
+    const double size = 2.0 * book.halfSize * kU;
+    const double shown = book.framesPerSecond > 0 ? book.frames / book.framesPerSecond : built.effect.duration;
+    Make m(newId, "Flipbook");
+    m.burst(1).life(shown, shown).at(x, y).speed(0, 0).gravity(0, 0).size(size, size).turn(0, 0).color(0xffffff)
+        .solid();
+    m.put("sprite", "texture", AssetRef{use.asset});
+    m.put("sprite", "shape", std::string("soft"));
+    m.put("sprite", "columns", Value(static_cast<std::int64_t>(book.columns)));
+    m.put("sprite", "rows", Value(static_cast<std::int64_t>(book.rows)));
+    m.put("sprite", "frames", Value(static_cast<std::int64_t>(book.frames)));
+    m.put("sprite", "animate", std::string("life"));
+    if (still.additive) {
+        m.additive();
+    }
+    m.role("flipbook");
+    Layer layer = m.done(built.effect.duration);
+    // Its own window of the clip may start before or after the effect's.
+    layer.start = std::max(0.0, book.start - built.referenceStart);
+    layer.duration = std::max(0.05, built.effect.duration - layer.start);
+
+    if (alone) {
+        for (Layer& other : built.effect.layers) {
+            other.enabled = false;
+        }
+    }
+    Asset asset;
+    asset.id = use.asset;
+    asset.kind = "texture";
+    asset.path = use.path;
+    built.effect.assets.push_back(asset);
+    LayerNote note;
+    note.layer = layer.id;
+    note.name = layer.name;
+    note.role = "flipbook";
+    note.technique = "The clip's own frames, cut from their background, played as a sprite sheet (" +
+                     std::to_string(book.frames) + " pictures)";
+    note.from = "flipbook";
+    note.look = Basis::Observed;
+    note.motion = Basis::Observed;
+    note.note = std::string("These are the reference's own pixels: it matches as closely as anything can, and is "
+                            "edited as a whole (size, place, timing, colour), not part by part.") +
+                (alone ? " The layers built from the analysis are kept but switched off: switch any on to replace or "
+                         "add to part of it."
+                       : "");
+    built.layers.push_back(note);
+    built.effect.layers.insert(built.effect.layers.begin(), std::move(layer));
+    built.pictures.push_back(std::move(use));
+    built.notes.push_back("A flipbook draws pixels taken from your reference. Only keep it if the reference is yours "
+                          "to use.");
 }
 
 ImageSet picturesOf(const Reconstruction& built) {

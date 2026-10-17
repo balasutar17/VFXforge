@@ -32,11 +32,14 @@ int usage() {
                  "      Print what the reference shows.\n"
                  "  vfxref build <reference> <out.vfx> [options]\n"
                  "      Rebuild it as an editable effect.\n"
+                 "  vfxref split <reference> [--fps n] [--sheet out.png]\n"
+                 "      List the separate effects on a sheet of several, numbered from 1.\n"
                  "\n"
                  "<reference> is a PNG, or a folder of PNG frames with --fps.\n"
                  "Options:\n"
                  "  --fps n            frame rate of a folder of frames\n"
                  "  --crop l,t,r,b     the part to look at, each 0 to 1\n"
+                 "  --effect n         on a sheet of several: the n-th, as split lists them\n"
                  "  --backdrop b       auto, transparent, dark, light or #rrggbb\n"
                  "  --cutoff x         how faint still counts as effect, 0 to 1\n"
                  "  --detail n         analysis grid, 128 / 192 / 256\n"
@@ -47,6 +50,8 @@ int usage() {
                  "  --target t         mobile, desktop or vr\n"
                  "  --pace p           auto, burst or steady\n"
                  "  --cutouts          let layers draw pieces cut from the reference\n"
+                 "  --flipbook         keep the clip's own frames as a flipbook layer\n"
+                 "                     (the built layers are kept, switched off)\n"
                  "  --no-fit           skip the adjusting pass\n"
                  "  --picture out.png  reference | effect | overlay | difference\n"
                  "  --strip out.png    for a clip: both, at eight moments\n";
@@ -101,6 +106,7 @@ int main(int argc, char** argv) {
     ReconstructOptions how;
     double fps = 0;
     bool fit = true;
+    bool flipbook = false;
     std::size_t i = 2;
     if (command == "build") {
         if (args.size() < 3) {
@@ -108,9 +114,11 @@ int main(int argc, char** argv) {
         }
         output = args[2];
         i = 3;
-    } else if (command != "analyze") {
+    } else if (command != "analyze" && command != "split") {
         return usage();
     }
+    int effect = 0;
+    std::string sheet;
     for (; i < args.size(); ++i) {
         const std::string& a = args[i];
         const auto next = [&]() -> std::string {
@@ -118,6 +126,10 @@ int main(int argc, char** argv) {
         };
         if (a == "--fps") {
             fps = std::atof(next().c_str());
+        } else if (a == "--effect") {
+            effect = std::atoi(next().c_str());
+        } else if (a == "--sheet") {
+            sheet = next();
         } else if (a == "--crop") {
             std::sscanf(next().c_str(), "%f,%f,%f,%f", &options.cropLeft, &options.cropTop, &options.cropRight,
                         &options.cropBottom);
@@ -155,6 +167,8 @@ int main(int argc, char** argv) {
             how.pace = p == "burst" ? Pace::Burst : (p == "steady" ? Pace::Steady : Pace::Auto);
         } else if (a == "--cutouts") {
             how.cutouts = true;
+        } else if (a == "--flipbook") {
+            flipbook = true;
         } else if (a == "--no-fit") {
             fit = false;
         } else if (a == "--picture") {
@@ -172,6 +186,60 @@ int main(int argc, char** argv) {
         return 1;
     }
     const Reference& reference = loaded.value();
+    if (command == "split" || effect > 0) {
+        const std::vector<SheetEffect> found = findEffects(reference, options);
+        if (command == "split") {
+            std::printf("%zu effect(s) on %s\n", found.size(), reference.name.c_str());
+            for (std::size_t k = 0; k < found.size(); ++k) {
+                const SheetEffect& e = found[k];
+                std::printf("  %2zu  --crop %.3f,%.3f,%.3f,%.3f   %4.1f%% of the light\n", k + 1, e.left, e.top, e.right,
+                            e.bottom, e.share * 100.0);
+            }
+            if (!sheet.empty()) {
+                // The first frame with each box drawn round.
+                Image shown = reference.frames.front();
+                for (const SheetEffect& e : found) {
+                    const int l = static_cast<int>(e.left * shown.width), r = static_cast<int>(e.right * shown.width) - 1;
+                    const int t = static_cast<int>(e.top * shown.height), b = static_cast<int>(e.bottom * shown.height) - 1;
+                    const auto mark = [&](int x, int y) {
+                        if (x >= 0 && y >= 0 && x < shown.width && y < shown.height) {
+                            std::uint8_t* px = &shown.rgba[(static_cast<std::size_t>(y) * shown.width + x) * 4];
+                            px[0] = 255;
+                            px[1] = 230;
+                            px[2] = 40;
+                            px[3] = 255;
+                        }
+                    };
+                    for (int x = l; x <= r; ++x) {
+                        mark(x, t);
+                        mark(x, b);
+                    }
+                    for (int y = t; y <= b; ++y) {
+                        mark(l, y);
+                        mark(r, y);
+                    }
+                }
+                Picture out;
+                out.width = shown.width;
+                out.height = shown.height;
+                out.rgba = shown.rgba;
+                if (Status ok = writePng(pathFromUtf8(sheet), out); !ok) {
+                    std::cerr << ok.error().message << "\n";
+                    return 1;
+                }
+            }
+            return 0;
+        }
+        if (effect > static_cast<int>(found.size())) {
+            std::cerr << "There are " << found.size() << " effect(s) on this reference; no number " << effect << ".\n";
+            return 1;
+        }
+        const SheetEffect& e = found[static_cast<std::size_t>(effect - 1)];
+        options.cropLeft = e.left;
+        options.cropTop = e.top;
+        options.cropRight = e.right;
+        options.cropBottom = e.bottom;
+    }
     auto analyzed = analyzeReference(reference, options);
     if (!analyzed) {
         std::cerr << analyzed.error().message << "\n" << analyzed.error().detail << "\n";
@@ -202,6 +270,11 @@ int main(int argc, char** argv) {
         cutouts = makeCutouts(reference, options, analysis);
     }
     Reconstruction built = reconstruct(analysis, how, newId, &cutouts);
+    if (flipbook) {
+        const Flipbook book = makeFlipbook(reference, options, analysis, built.referenceStart, built.effect.duration);
+        addFlipbook(built, book, analysis.still, newId, true);
+        fit = false;  // it is the reference itself: there is nothing to adjust
+    }
     const Placement placement = placementOf(built);
     const ImageSet pictures = picturesOf(built);
     // The pictures go next to the effect file, where it will look for them.

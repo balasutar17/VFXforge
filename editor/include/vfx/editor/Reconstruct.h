@@ -111,6 +111,15 @@ inline constexpr float kReferenceUnits = 8.0f;
 Reconstruction reconstruct(const ReferenceAnalysis& analysis, const ReconstructOptions& options,
                            const IdSource& newId, const std::vector<Cutout>* cutouts = nullptr);
 
+// Adds a flipbook of the reference's own frames (see makeFlipbook) to a
+// reconstruction as one layer that plays them in step with the effect. With
+// `alone`, the layers built from the analysis are switched off (kept, to be
+// switched back on, or to replace parts of the flipbook). The flipbook is
+// made from the reconstruction's own window of the clip: referenceStart, for
+// the effect's length.
+void addFlipbook(Reconstruction& built, const Flipbook& flipbook, const StillAnalysis& still, const IdSource& newId,
+                 bool alone = true);
+
 // The pictures of a reconstruction, ready for the renderers.
 ImageSet picturesOf(const Reconstruction& built);
 

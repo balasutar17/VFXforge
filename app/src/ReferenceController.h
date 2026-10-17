@@ -17,6 +17,7 @@
 #include <QHash>
 #include <QImage>
 #include <QObject>
+#include <QRectF>
 #include <QQuickPaintedItem>
 #include <QString>
 #include <QStringList>
@@ -51,6 +52,11 @@ class ReferenceController : public QObject {
     Q_PROPERTY(double aspect READ aspect NOTIFY optionsChanged)
     Q_PROPERTY(QString formats READ formats CONSTANT)
     Q_PROPERTY(bool keptWithProject READ keptWithProject NOTIFY referenceChanged)
+    // A sheet of several effects: each one's box on the whole sheet
+    // ({left, top, right, bottom, share}), and whether one is being studied.
+    Q_PROPERTY(QVariantList sheetEffects READ sheetEffects NOTIFY sheetChanged)
+    Q_PROPERTY(bool sheetPicked READ sheetPicked NOTIFY sheetChanged)
+    Q_PROPERTY(int sheetIndex READ sheetIndex NOTIFY sheetChanged)
 
     // ---- work in progress
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
@@ -87,6 +93,7 @@ class ReferenceController : public QObject {
     Q_PROPERTY(QString target READ target WRITE setTarget NOTIFY buildOptionsChanged)
     Q_PROPERTY(QString pace READ pace WRITE setPace NOTIFY buildOptionsChanged)
     Q_PROPERTY(bool cutouts READ cutouts WRITE setCutouts NOTIFY buildOptionsChanged)
+    Q_PROPERTY(bool flipbook READ flipbook WRITE setFlipbook NOTIFY buildOptionsChanged)
     Q_PROPERTY(QString quality READ quality WRITE setQuality NOTIFY buildOptionsChanged)
     Q_PROPERTY(QVariantMap priorities READ priorities NOTIFY buildOptionsChanged)
 
@@ -127,6 +134,9 @@ public:
     double aspect() const;
     QString formats() const;
     bool keptWithProject() const { return kept_; }
+    QVariantList sheetEffects() const { return sheetEffects_; }
+    bool sheetPicked() const { return !sheetBox_.isNull(); }
+    int sheetIndex() const { return sheetIndex_; }
 
     bool busy() const { return busy_; }
     double progress() const { return progress_; }
@@ -172,6 +182,8 @@ public:
     void setPace(const QString& pace);
     bool cutouts() const { return how_.cutouts; }
     void setCutouts(bool cutouts);
+    bool flipbook() const { return flipbook_; }
+    void setFlipbook(bool flipbook);
     QString quality() const { return quality_; }
     void setQuality(const QString& quality);
     QVariantMap priorities() const;
@@ -206,6 +218,10 @@ public:
     // ---- reading it
     Q_INVOKABLE void setCrop(double left, double top, double right, double bottom);
     Q_INVOKABLE void resetCrop();
+    // On a sheet of several effects: study the index-th on its own, read
+    // again from the original file at full sharpness; or go back to all of them.
+    Q_INVOKABLE void pickSheetEffect(int index);
+    Q_INVOKABLE void wholeSheet();
     // Takes the background colour from a point of the whole picture (0 to 1).
     Q_INVOKABLE void pickBackdropAt(double x, double y);
     Q_INVOKABLE void setPriority(const QString& key, double value);
@@ -246,6 +262,7 @@ signals:
     void timelineChanged();
     void playingChanged();
     void picturesChanged();
+    void sheetChanged();
 
 private:
     struct Version {
@@ -282,6 +299,10 @@ private:
     QString notesJson() const;
     void restoreFromProject();
     void applyNotes(const QString& json);
+    // The part of each frame of the source that is read: the picked box of
+    // a sheet, or all of it.
+    QImage sheetPart(const QImage& image) const;
+    void reloadSource();
     vfx::editor::Priorities weights() const { return priorities_; }
     int fitRounds() const;
     void pictureSize(int& width, int& height) const;
@@ -296,11 +317,16 @@ private:
     QString sourcePath_;
     bool kept_ = false;        // the original file has been copied into the project
     bool keepPending_ = false; // it should be, at the next build
+    bool reloading_ = false;   // the same file is being read again: keep its settings
     std::uint64_t seenGeneration_ = 0;
 
     vfx::editor::ReferenceOptions options_;
     double sampling_ = 30.0;
     vfx::editor::ReconstructOptions how_;
+    bool flipbook_ = false;
+    QRectF sheetBox_;          // fractions of the source; null for all of it
+    int sheetIndex_ = -1;
+    QVariantList sheetEffects_;
     vfx::editor::Priorities priorities_;
     QString quality_ = QStringLiteral("normal");
 

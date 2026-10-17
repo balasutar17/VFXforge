@@ -28,7 +28,11 @@ What exists so far:
   built-in library or your own files; see [docs/sound.md](docs/sound.md)
 - **reference to VFX**: bring a picture, a GIF or a short video of an effect
   and get editable layers rebuilt from it, with a side-by-side comparison;
-  see [docs/reference.md](docs/reference.md)
+  frames and bolts are followed as lines, a sheet of many effects is split
+  into each one, and a clip's own frames can be kept as a flipbook; see
+  [docs/reference.md](docs/reference.md), and
+  [docs/reconstruction-status.md](docs/reconstruction-status.md) for what is
+  and is not built yet
 - **effects on the ground**: any layer can lie flat (a magic circle, a
   portal, a shockwave across the floor) and still turn in its own plane, with
   shafts of light standing on it; see [docs/ground.md](docs/ground.md)

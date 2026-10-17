@@ -240,6 +240,13 @@ bool ReferenceController::loadPath(const QString& path) {
         return false;
     }
     cancel();
+    if (path != sourcePath_) {
+        // A different file: no part of the last one's sheet applies.
+        sheetBox_ = QRectF();
+        sheetIndex_ = -1;
+        sheetEffects_.clear();
+        emit sheetChanged();
+    }
     if (isVideoName(path)) {
         loadVideo(path);
         return true;
@@ -267,7 +274,7 @@ bool ReferenceController::loadStill(const QString& path) {
         return false;
     }
     auto reference = std::make_shared<Reference>();
-    reference->frames.push_back(toImage(image, kStillSide));
+    reference->frames.push_back(toImage(sheetPart(image), kStillSide));
     adoptReference(reference, QFileInfo(path).fileName(), path);
     return true;
 }
@@ -284,7 +291,7 @@ bool ReferenceController::loadAnimation(const QString& path) {
             break;
         }
         const int delay = std::clamp(reader.nextImageDelay(), 10, 2000);
-        frames.push_back(image);
+        frames.push_back(sheetPart(image));
         delays.push_back(delay);
         total += delay / 1000.0;
         if (frames.size() >= 2000 || total >= kClipSeconds) {
@@ -373,7 +380,7 @@ void ReferenceController::onVideoFrame(const QVideoFrame& frame) {
     if (moment + 1e-6 < nextSample_) {
         return;
     }
-    const QImage image = frame.toImage();
+    const QImage image = sheetPart(frame.toImage());
     if (image.isNull()) {
         return;
     }
@@ -447,7 +454,10 @@ void ReferenceController::adoptReference(std::shared_ptr<const Reference> refere
         setProblem(text(ok.error().message), text(ok.error().detail));
         return;
     }
-    const bool sameFile = sourcePath == sourcePath_ && kept_;
+    // The same file read again (another part of a sheet, another sampling
+    // rate, or brought back with its project) keeps its settings.
+    const bool sameFile = sourcePath == sourcePath_ && (kept_ || reloading_);
+    reloading_ = false;
     reference_ = std::move(reference);
     name_ = name;
     sourcePath_ = sourcePath;
@@ -464,6 +474,23 @@ void ReferenceController::adoptReference(std::shared_ptr<const Reference> refere
     }
     time_ = 0.0;
     forgetAnalysis();
+    // Several effects on one sheet? Only the whole sheet is looked at for this.
+    if (sheetBox_.isNull()) {
+        sheetEffects_.clear();
+        const std::vector<SheetEffect> found = findEffects(*reference_, options_);
+        if (found.size() >= 2) {
+            for (const SheetEffect& e : found) {
+                QVariantMap box;
+                box.insert(QStringLiteral("left"), e.left);
+                box.insert(QStringLiteral("top"), e.top);
+                box.insert(QStringLiteral("right"), e.right);
+                box.insert(QStringLiteral("bottom"), e.bottom);
+                box.insert(QStringLiteral("share"), e.share);
+                sheetEffects_.push_back(box);
+            }
+        }
+        emit sheetChanged();
+    }
     emit referenceChanged();
     emit optionsChanged();
     emit timelineChanged();
@@ -472,9 +499,64 @@ void ReferenceController::adoptReference(std::shared_ptr<const Reference> refere
     analyse();
 }
 
+QImage ReferenceController::sheetPart(const QImage& image) const {
+    if (sheetBox_.isNull() || image.isNull()) {
+        return image;
+    }
+    const QRect part(static_cast<int>(std::floor(sheetBox_.left() * image.width())),
+                     static_cast<int>(std::floor(sheetBox_.top() * image.height())),
+                     std::max(1, static_cast<int>(std::ceil(sheetBox_.width() * image.width()))),
+                     std::max(1, static_cast<int>(std::ceil(sheetBox_.height() * image.height()))));
+    return image.copy(part.intersected(image.rect()));
+}
+
+void ReferenceController::reloadSource() {
+    if (sourcePath_.isEmpty()) {
+        return;
+    }
+    const QString path = sourcePath_;
+    const bool wasKept = kept_;
+    reloading_ = true;
+    loadPath(path);
+    kept_ = wasKept;
+}
+
+void ReferenceController::pickSheetEffect(int index) {
+    if (index < 0 || index >= sheetEffects_.size() || sourcePath_.isEmpty()) {
+        return;
+    }
+    const QVariantMap box = sheetEffects_[index].toMap();
+    sheetBox_ = QRectF(QPointF(box.value(QStringLiteral("left")).toDouble(), box.value(QStringLiteral("top")).toDouble()),
+                       QPointF(box.value(QStringLiteral("right")).toDouble(), box.value(QStringLiteral("bottom")).toDouble()));
+    sheetIndex_ = index;
+    // The crop was of the whole sheet; the picked part is read whole.
+    options_.cropLeft = options_.cropTop = 0.0f;
+    options_.cropRight = options_.cropBottom = 1.0f;
+    forgetResult();
+    emit sheetChanged();
+    reloadSource();
+}
+
+void ReferenceController::wholeSheet() {
+    if (sheetBox_.isNull()) {
+        return;
+    }
+    sheetBox_ = QRectF();
+    sheetIndex_ = -1;
+    options_.cropLeft = options_.cropTop = 0.0f;
+    options_.cropRight = options_.cropBottom = 1.0f;
+    forgetResult();
+    emit sheetChanged();
+    reloadSource();
+}
+
 void ReferenceController::clear() {
     cancel();
     finishVideo(false);
+    sheetBox_ = QRectF();
+    sheetIndex_ = -1;
+    sheetEffects_.clear();
+    emit sheetChanged();
     reference_.reset();
     name_.clear();
     sourcePath_.clear();
@@ -598,12 +680,7 @@ void ReferenceController::setSampling(double framesPerSecond) {
     emit optionsChanged();
     // The frames are taken while the video is read, so it is read again.
     if (reference_ && isVideoName(sourcePath_)) {
-        const QString path = sourcePath_;
-        const ReferenceOptions kept = options_;
-        const bool wasKept = kept_;
-        loadVideo(path);
-        options_ = kept;
-        kept_ = wasKept;
+        reloadSource();
     }
 }
 
@@ -746,6 +823,13 @@ void ReferenceController::setCutouts(bool cutouts) {
     }
 }
 
+void ReferenceController::setFlipbook(bool flipbook) {
+    if (flipbook != flipbook_) {
+        flipbook_ = flipbook;
+        emit buildOptionsChanged();
+    }
+}
+
 void ReferenceController::setQuality(const QString& quality) {
     const QString next = quality == QStringLiteral("quick") || quality == QStringLiteral("thorough") ? quality
                                                                                                      : QStringLiteral("normal");
@@ -854,6 +938,7 @@ void ReferenceController::startJob(int kind, const QString& label, bool outlineO
     const std::shared_ptr<const Reference> reference = reference_;
     const ReferenceOptions options = options_;
     const ReconstructOptions how = how_;
+    const bool flipbook = flipbook_;
     const Priorities priorities = priorities_;
     const std::shared_ptr<const ReferenceAnalysis> known = analysis_;
     const vfx::Effect effect = app_->session().effect();
@@ -915,14 +1000,29 @@ void ReferenceController::startJob(int kind, const QString& label, bool outlineO
             vfx::IdGenerator ids = vfx::IdGenerator::fromEntropy();
             const vfx::IdSource newId = [&ids]() { return ids.next(); };
             result->built = reconstruct(*analysis, how, newId, &cutouts);
-            const ImageSet pictures = picturesOf(result->built);
-            FitOptions fit;
-            fit.priorities = priorities;
-            fit.rounds = rounds;
-            result->fit = fitToReference(result->built.effect, *reference, options, *analysis, placementOf(result->built),
-                                         fit, part(0.45f, 0.98f), &pictures);
-            result->fitted = true;
-            result->similarity = result->fit.after;
+            if (flipbook) {
+                // The clip's own frames: there is nothing to adjust, only to measure.
+                progress(0.5f, "Laying out the flipbook");
+                addFlipbook(result->built,
+                            makeFlipbook(*reference, options, *analysis, result->built.referenceStart,
+                                         result->built.effect.duration),
+                            analysis->still, newId, true);
+                const ImageSet pictures = picturesOf(result->built);
+                result->similarity = compareToReference(*reference, options, *analysis, result->built.effect,
+                                                        placementOf(result->built), priorities, part(0.6f, 0.98f),
+                                                        &pictures);
+                result->fit.before = result->similarity;
+                result->fit.after = result->similarity;
+            } else {
+                const ImageSet pictures = picturesOf(result->built);
+                FitOptions fit;
+                fit.priorities = priorities;
+                fit.rounds = rounds;
+                result->fit = fitToReference(result->built.effect, *reference, options, *analysis,
+                                             placementOf(result->built), fit, part(0.45f, 0.98f), &pictures);
+                result->fitted = true;
+                result->similarity = result->fit.after;
+            }
             result->measured = true;
             result->cancelled = stop->load();
         } else if (result->error.isEmpty() && analysis && kind == Fit) {
@@ -1284,6 +1384,11 @@ QString ReferenceController::notesJson() const {
     o.insert(QStringLiteral("target"), target());
     o.insert(QStringLiteral("pace"), pace());
     o.insert(QStringLiteral("cutouts"), how_.cutouts);
+    o.insert(QStringLiteral("flipbook"), flipbook_);
+    if (!sheetBox_.isNull()) {
+        o.insert(QStringLiteral("sheet"), QJsonArray{sheetBox_.left(), sheetBox_.top(), sheetBox_.right(), sheetBox_.bottom()});
+        o.insert(QStringLiteral("sheetIndex"), sheetIndex_);
+    }
     QJsonObject place;
     place.insert(QStringLiteral("x"), placement_.view.centerX);
     place.insert(QStringLiteral("y"), placement_.view.centerY);
@@ -1331,6 +1436,19 @@ void ReferenceController::applyNotes(const QString& json) {
     setTarget(o.value(QStringLiteral("target")).toString(QStringLiteral("desktop")));
     setPace(o.value(QStringLiteral("pace")).toString(QStringLiteral("auto")));
     how_.cutouts = o.value(QStringLiteral("cutouts")).toBool(false);
+    flipbook_ = o.value(QStringLiteral("flipbook")).toBool(false);
+    const QJsonArray sheet = o.value(QStringLiteral("sheet")).toArray();
+    sheetBox_ = QRectF();
+    sheetIndex_ = -1;
+    if (sheet.size() == 4) {
+        const auto unit = [](const QJsonValue& v) { return std::clamp(v.toDouble(), 0.0, 1.0); };
+        const QRectF box(QPointF(unit(sheet[0]), unit(sheet[1])), QPointF(unit(sheet[2]), unit(sheet[3])));
+        if (box.width() > 0.01 && box.height() > 0.01) {
+            sheetBox_ = box;
+            sheetIndex_ = o.value(QStringLiteral("sheetIndex")).toInt(-1);
+        }
+    }
+    emit sheetChanged();
     const QJsonObject place = o.value(QStringLiteral("placement")).toObject();
     if (!place.isEmpty()) {
         placement_ = Placement{};
@@ -1354,6 +1472,11 @@ void ReferenceController::restoreFromProject() {
     keepPending_ = false;
     options_ = ReferenceOptions{};
     how_ = ReconstructOptions{};
+    flipbook_ = false;
+    sheetBox_ = QRectF();
+    sheetIndex_ = -1;
+    sheetEffects_.clear();
+    emit sheetChanged();
     analysis_.reset();
     findings_.clear();
     uncertain_.clear();

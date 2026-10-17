@@ -518,7 +518,20 @@ Result<Effect> refine(const Effect& effect, Refine what, const ReferenceAnalysis
                 const std::string role = roleOf(l);
                 const bool additive = isAdditive(l);
                 const Swatch* colour = nullptr;
-                if (role == "glow" && s.hasGlow) {
+                // Read as lines: each layer takes its line's own colours
+                // (the first line's, when there are several), the fill its own.
+                const LineFound* line = s.linesLead && !s.lines.empty() ? &s.lines.front() : nullptr;
+                if (line && l.name == "Fill" && s.lineFill.present) {
+                    colour = &s.lineFill.colour;
+                } else if (line && role == "body") {
+                    colour = &line->colour;
+                } else if (line && role == "glow") {
+                    colour = &line->haloColour;
+                } else if (line && role == "rays") {
+                    colour = &line->colour;
+                } else if (line && role == "sparks" && line->sparkles > 0) {
+                    colour = &line->sparkleColour;
+                } else if (role == "glow" && s.hasGlow) {
                     colour = &s.glowOuterColour;
                 } else if (role == "core" && s.hasCore) {
                     colour = &s.coreColour;

@@ -21,6 +21,7 @@
 
 #include "vfx/Program.h"
 #include "vfx/Result.h"
+#include "vfx/Value.h"
 #include "vfx/editor/Image.h"
 
 namespace vfx::editor {
@@ -139,6 +140,53 @@ struct PieceGroup {
     float fall = 0;           // downward pull, fraction of the height per second squared
 };
 
+// A line of light: an outline (a frame round a symbol, the edge of a
+// portal) or a stroke (a bolt of lightning, the edge of a beam). Read by
+// thinning each bright part down to its middle; see ReferenceLines.cpp.
+// Positions are fractions of the picture's width and height from the
+// top-left; lengths are fractions of its height.
+struct LineFound {
+    std::vector<Point2> points;  // along its middle, in order
+    bool closed = false;         // goes all the way round
+    float length = 0;
+    float thickness = 0;   // the bright core, full width
+    float band = 0;        // how wide the whole line is, side to side (more than the core when strands braid)
+    float halo = 0;        // how far its soft light reaches beyond the core
+    float level = 0;       // how much effect the core is, 0 to 1
+    float haloLevel = 0;   // the halo's, against the core's
+    Swatch colour, haloColour;
+    float wiggle = 0;      // how much longer it is than a smooth line through it (0 smooth, 0.2 a lot)
+    float branches = 0;    // side strands, as a share of its length
+    float jagged = 0;      // crackling: 0 a smooth stroke, 1 lightning
+    float confidence = 0;
+    // Sparkles sitting on it or just off it.
+    int sparkles = 0;
+    float sparkleSize = 0, sparkleReach = 0;
+    Swatch sparkleColour;
+    // From a clip; zero or empty for a picture.
+    std::vector<float> levelOverTime;  // per frame used, against its brightest
+    float flicker = 0;     // how much it changes from frame to frame along its length, 0 to 1
+    bool drawn = false;    // it is drawn on along its length rather than appearing whole
+    double drawFrom = 0, drawTime = 0;  // seconds from the first frame used
+    float drawStart = 0;   // where the drawing starts, 0 to 1 along it
+    int drawWay = 1;       // 1 forward, -1 backward, 0 both ways from drawStart
+    float run = 0;         // rounds a second a bright part runs along it
+    float runConfidence = 0;
+};
+
+// The soft light that fills the space between or inside lines (the glow
+// inside a light column, the tint inside a frame).
+struct LineFill {
+    bool present = false;
+    float left = 0, top = 0, right = 0, bottom = 0;  // fractions of width and height
+    Swatch colour;
+    float level = 0;
+    float share = 0;       // of the whole effect
+    bool upright = true;   // its long side runs up and down
+    bool brightFirst = false;  // brightest at the top (upright) or left
+    std::vector<float> profile;  // brightness from its bright end to the other, 0 to 1
+};
+
 // What one picture shows.
 struct StillAnalysis {
     int width = 0, height = 0;  // the analysis grid
@@ -243,6 +291,14 @@ struct StillAnalysis {
     std::vector<float> beamAt;  // where each stands, across the picture, 0 to 1
     Swatch beamColour;
 
+    // Lines of light. When they and the light between them make up most of
+    // the effect (linesLead), the effect is read as lines: a frame is not
+    // taken for a solid shape, nor two bolts for a comet.
+    std::vector<LineFound> lines;
+    float lineShare = 0;   // of the whole effect, with their halos
+    LineFill lineFill;
+    bool linesLead = false;
+
     // More than one separate effect in the picture (a sheet of several).
     int separate = 1;
 
@@ -332,6 +388,20 @@ Result<ReferenceAnalysis> analyzeReference(const Reference& reference, const Ref
 // The frames a clip's options select: first and last index, inclusive.
 void frameRange(const Reference& reference, const ReferenceOptions& options, int& first, int& last);
 
+// A sheet of several effects (a reel, a presentation, a sprite sheet of
+// different effects): where each one is, so each can be studied on its own.
+// Whatever lights up at any moment of the clip counts, so an effect that is
+// only there for a few frames is found too. Boxes are fractions of the whole
+// picture (the crop option is ignored), padded a little, in reading order:
+// rows from the top, left to right in each. Fewer than two means it is not a
+// sheet.
+struct SheetEffect {
+    float left = 0, top = 0, right = 1, bottom = 1;
+    float share = 0;  // of all the light on the sheet
+};
+std::vector<SheetEffect> findEffects(const Reference& reference, const ReferenceOptions& options = {},
+                                     int most = 64);
+
 // The cropped frame as a picture of at most maxSide pixels a side, for
 // showing next to the result.
 Image referencePicture(const Reference& reference, const ReferenceOptions& options, int frame,
@@ -349,6 +419,25 @@ struct Cutout {
 };
 std::vector<Cutout> makeCutouts(const Reference& reference, const ReferenceOptions& options,
                                 const ReferenceAnalysis& analysis, int maxSide = 384);
+
+// The clip's own frames, separated from their background, laid out as a
+// sprite sheet: the most faithful rebuild there can be, because it is the
+// reference itself. For when nothing procedural comes close (hand-painted
+// smoke, a flame with a shape of its own). These are the reference's own
+// pixels, so they are only made when the artist asks.
+struct Flipbook {
+    Image sheet;                 // columns x rows square cells, see-through outside the effect
+    int columns = 1, rows = 1, frames = 0;
+    double framesPerSecond = 0;  // of the cells as played
+    double start = 0;            // seconds into the clip (as trimmed) of the first cell
+    float centreX = 0.5f, centreY = 0.5f;  // where a cell's middle sits in the reference, fractions of width and height
+    float halfSize = 0.5f;       // half a cell's side, a fraction of the reference's height
+};
+// The frames from `start` seconds into the clip (as trimmed and sped up by
+// the options) for `seconds`, at most `mostFrames` of them (evenly chosen),
+// each cell at most `cellSide` pixels. A still makes one cell.
+Flipbook makeFlipbook(const Reference& reference, const ReferenceOptions& options, const ReferenceAnalysis& analysis,
+                      double start, double seconds, int cellSide = 192, int mostFrames = 64);
 
 // A colour as "#rrggbb", and in a word or two an artist would use.
 std::string hexColour(const Swatch& colour);

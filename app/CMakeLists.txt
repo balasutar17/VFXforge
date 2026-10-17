@@ -69,6 +69,7 @@ qt_add_resources(vfxforge "vfxforge_qml"
         samples/reference-burst.mp4
         samples/reference-burst.webm
         samples/reference-portal.gif
+        samples/reference-sheet.gif
 )
 
 # One shader source, translated at build time for Metal, Direct3D and OpenGL.

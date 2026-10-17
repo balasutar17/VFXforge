@@ -1016,7 +1016,8 @@ void countPieces(const Matte& matte, float centreX, float centreY, float extent,
     reach = n > 0 ? static_cast<float>(sum / n) : 0.0f;
 }
 
-StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
+namespace {
+StillAnalysis analyzeShapes(const Matte& m, const BackdropRead& backdrop) {
     StillAnalysis out;
     out.width = m.width;
     out.height = m.height;
@@ -1600,6 +1601,32 @@ StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
                 out.smokeRadius = out.extent;
                 break;
             }
+        }
+    }
+    return out;
+}
+}  // namespace
+
+StillAnalysis analyzeStill(const Matte& m, const BackdropRead& backdrop) {
+    StillAnalysis out = analyzeShapes(m, backdrop);
+    if (out.fill > 0.0f && !out.ground) {
+        readLines(m, measureBasics(m).total, out);
+        if (out.linesLead) {
+            // A frame is not a solid shape, two bolts are not a comet, and
+            // the glow round the lines is theirs.
+            out.hasBody = false;
+            out.comet = false;
+            out.rays = 0;
+            out.rings.clear();
+            out.hasGlow = false;
+            out.hasCore = false;
+            out.hasSmoke = false;
+            int taken = 0;
+            for (const LineFound& line : out.lines) {
+                taken += line.sparkles;
+            }
+            // (A crackling line's bits are its crackle, and are not counted as sparks either.)
+            out.sparks.count = std::max(0, out.sparks.count - taken);
         }
     }
     return out;

@@ -8,6 +8,7 @@ add_executable(vfx_editor_tests
     test_presets.cpp
     test_principles.cpp
     test_reference.cpp
+    test_reference_lines.cpp
     test_session.cpp
     test_shape_edits.cpp
     test_transform.cpp

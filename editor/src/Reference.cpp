@@ -705,6 +705,73 @@ Image referencePicture(const Reference& reference, const ReferenceOptions& optio
     return out;
 }
 
+// ----------------------------------------------------------- flipbook
+
+Flipbook makeFlipbook(const Reference& reference, const ReferenceOptions& options, const ReferenceAnalysis& analysis,
+                      double start, double seconds, int cellSide, int mostFrames) {
+    Flipbook book;
+    if (reference.frames.empty()) {
+        return book;
+    }
+    int first = 0, last = 0;
+    frameRange(reference, options, first, last);
+    std::vector<int> frames;
+    double rate = 0;
+    if (reference.moving() && last > first) {
+        rate = reference.framesPerSecond * (options.speed > 0.01 ? options.speed : 1.0);
+        const int from = std::clamp(first + static_cast<int>(std::lround(start * rate)), first, last);
+        const int to = std::clamp(from + std::max(1, static_cast<int>(std::lround(seconds * rate))) - 1, from, last);
+        const int count = to - from + 1;
+        const int keep = std::clamp(count, 1, std::max(1, mostFrames));
+        for (int k = 0; k < keep; ++k) {
+            frames.push_back(from + (keep > 1 ? static_cast<int>(std::lround(static_cast<double>(k) * (count - 1) / (keep - 1))) : 0));
+        }
+        book.framesPerSecond = rate * static_cast<double>(keep) / static_cast<double>(count);
+        book.start = static_cast<double>(from - first) / rate;
+    } else {
+        frames.push_back(std::clamp(analysis.stillFrame, 0, static_cast<int>(reference.frames.size()) - 1));
+    }
+    const int n = static_cast<int>(frames.size());
+    book.frames = n;
+    book.columns = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(n)))));
+    book.rows = (n + book.columns - 1) / book.columns;
+    const int side = std::clamp(cellSide, 16, 512);
+    book.sheet.width = book.columns * side;
+    book.sheet.height = book.rows * side;
+    book.sheet.rgba.assign(static_cast<std::size_t>(book.sheet.width) * static_cast<std::size_t>(book.sheet.height) * 4u, 0);
+
+    // Each frame cut from its background as the analysis read it, at the
+    // cell's size, in the middle of a square cell.
+    const BackdropRead backdrop = backdropFrom(analysis.still);
+    const Image& sample = reference.frames[static_cast<std::size_t>(frames.front())];
+    const Rect rect = cropOf(sample, options);
+    int gw = 0, gh = 0;
+    gridSize(rect, side, gw, gh);
+    const int offX = (side - gw) / 2, offY = (side - gh) / 2;
+    for (int k = 0; k < n; ++k) {
+        const Image& frame = reference.frames[static_cast<std::size_t>(frames[static_cast<std::size_t>(k)])];
+        const Matte m = matteFromGrid(averageDown(frame, cropOf(frame, options), gw, gh), backdrop);
+        const int cx = (k % book.columns) * side + offX, cy = (k / book.columns) * side + offY;
+        for (int y = 0; y < m.height; ++y) {
+            for (int x = 0; x < m.width; ++x) {
+                const std::size_t i = m.at(x, y);
+                std::uint8_t* px = &book.sheet.rgba[(static_cast<std::size_t>(cy + y) * static_cast<std::size_t>(book.sheet.width) +
+                                                     static_cast<std::size_t>(cx + x)) * 4u];
+                px[0] = static_cast<std::uint8_t>(std::lround(clamp01(m.r[i]) * 255.0f));
+                px[1] = static_cast<std::uint8_t>(std::lround(clamp01(m.g[i]) * 255.0f));
+                px[2] = static_cast<std::uint8_t>(std::lround(clamp01(m.b[i]) * 255.0f));
+                px[3] = static_cast<std::uint8_t>(std::lround(clamp01(m.cover[i]) * 255.0f));
+            }
+        }
+    }
+    // The cell is a square about the middle of the cropped picture.
+    const float aspect = gh > 0 ? static_cast<float>(gw) / static_cast<float>(gh) : 1.0f;
+    book.centreX = 0.5f;
+    book.centreY = 0.5f;
+    book.halfSize = 0.5f * std::max(1.0f, aspect) * static_cast<float>(side) / static_cast<float>(std::max(gw, gh));
+    return book;
+}
+
 // ----------------------------------------------------------- colour words
 
 std::string hexColour(const Swatch& colour) {
@@ -1144,6 +1211,9 @@ Result<ReferenceAnalysis> analyzeReference(const Reference& reference, const Ref
     analysis.stillFrame = stillFrame;
     if (moving && analysis.still.ground) {
         groundOverClip(mattes, clipRate, analysis.still);
+    }
+    if (moving && !analysis.still.lines.empty()) {
+        linesOverClip(mattes, clipRate, analysis.still);
     }
     if (analysis.hasEarly) {
         const Matte early =

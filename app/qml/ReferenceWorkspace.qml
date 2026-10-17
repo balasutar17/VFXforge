@@ -508,6 +508,17 @@ Rectangle {
                         Note {
                             text: "Rays and hand-drawn shapes that no built-in shape matches are lifted out of the reference and drawn by a layer. Closer, but those are the reference's own pixels: only do this with art that is yours to use."
                         }
+                        VCheck {
+                            Layout.topMargin: 4
+                            visible: reference.moving
+                            text: "Keep the clip's own frames as a flipbook"
+                            checked: reference.flipbook
+                            onToggled: function(nowChecked) { reference.flipbook = nowChecked }
+                        }
+                        Note {
+                            visible: reference.moving
+                            text: "For what nothing built matches closely (painted smoke, a flame with a shape of its own): one layer plays the clip's frames, cut from their background, in step with the effect. The layers built from the analysis are kept, switched off, to switch on in its place. Those are the reference's own pixels: only with art that is yours to use."
+                        }
 
                         Note { text: "What matters most when matching"; Layout.topMargin: 8 }
                         Repeater {
@@ -729,6 +740,77 @@ Rectangle {
                                     reference.setCrop(l, t, r, b)
                             }
                             onCanceled: setup.dragging = false
+                        }
+                        // ---- a sheet of several effects: each one's box, numbered
+                        Repeater {
+                            model: reference.sheetPicked ? [] : reference.sheetEffects
+                            delegate: Item {
+                                required property var modelData
+                                required property int index
+                                x: setup.px + modelData.left * setup.pw
+                                y: setup.py + modelData.top * setup.ph
+                                width: (modelData.right - modelData.left) * setup.pw
+                                height: (modelData.bottom - modelData.top) * setup.ph
+                                Rectangle {
+                                    anchors.fill: parent
+                                    color: "transparent"
+                                    border.width: tagArea.containsMouse ? 2 : 1
+                                    border.color: tagArea.containsMouse ? theme.accent : "#99ffd84a"
+                                }
+                                Rectangle {
+                                    width: Math.max(22, tagText.implicitWidth + 10)
+                                    height: 20
+                                    radius: 10
+                                    x: 2
+                                    y: 2
+                                    color: tagArea.containsMouse ? theme.accent : "#cc1b1d22"
+                                    border.color: "#ffd84a"
+                                    Text {
+                                        id: tagText
+                                        anchors.centerIn: parent
+                                        text: index + 1
+                                        color: tagArea.containsMouse ? "#000000" : "#ffd84a"
+                                        font.pixelSize: theme.smallFontSize
+                                        font.bold: true
+                                    }
+                                    MouseArea {
+                                        id: tagArea
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: reference.pickSheetEffect(index)
+                                    }
+                                    ToolTip.visible: tagArea.containsMouse
+                                    ToolTip.text: "Study effect " + (index + 1) + " on its own, read again at full sharpness"
+                                }
+                            }
+                        }
+                        Rectangle {
+                            visible: reference.sheetEffects.length >= 2 || reference.sheetPicked
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.top: parent.top
+                            width: sheetRow.implicitWidth + 20
+                            height: sheetRow.implicitHeight + 10
+                            radius: 6
+                            color: "#e61b1d22"
+                            border.color: theme.accent
+                            RowLayout {
+                                id: sheetRow
+                                anchors.centerIn: parent
+                                spacing: 10
+                                Text {
+                                    text: reference.sheetPicked
+                                          ? "Effect " + (reference.sheetIndex + 1) + " of the sheet, read on its own at full sharpness."
+                                          : "This holds " + reference.sheetEffects.length + " separate effects. Click a number to study that one on its own."
+                                    color: theme.text
+                                    font.pixelSize: theme.fontSize
+                                }
+                                VButton {
+                                    visible: reference.sheetPicked
+                                    text: "Back to the whole sheet"
+                                    onClicked: reference.wholeSheet()
+                                }
+                            }
                         }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter

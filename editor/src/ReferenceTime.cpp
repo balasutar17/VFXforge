@@ -751,6 +751,55 @@ void writeFindings(ReferenceAnalysis& a, bool moving) {
         a.methods.push_back("Ground effects: an oval is fitted to where the base's light stops, read all the way round; "
                             "shafts are thin upright columns of light above it.");
     }
+    if (!s.lines.empty()) {
+        if (s.linesLead) {
+            add("lines", "Lines of light",
+                std::to_string(s.lines.size()) + (s.lines.size() == 1 ? " line holds " : " lines hold ") +
+                    percent(s.lineShare) + " of the effect, with their glow" +
+                    (s.lineFill.present ? "; soft light fills " + percent(s.lineFill.share) + " more" : ""),
+                0.8f, Basis::Observed,
+                "Read as lines: each is followed along its middle, so a frame stays a frame and bolts stay bolts.");
+        }
+        for (std::size_t i = 0; i < s.lines.size() && s.linesLead; ++i) {
+            const LineFound& line = s.lines[i];
+            std::string value = std::string(line.closed ? "An outline" : "A stroke") + " " + percent(line.length) +
+                                " long, " + colourName(line.colour) + ", core " + percent(line.thickness) +
+                                " wide, glow reaching " + percent(line.halo);
+            if (line.jagged >= 0.35f) {
+                value += line.branches >= 0.4f ? "; crackling, with side strands" : "; jagged";
+            }
+            if (line.sparkles > 0) {
+                value += "; " + std::to_string(line.sparkles) + " sparkles on it";
+            }
+            if (!line.levelOverTime.empty()) {
+                if (line.drawn) {
+                    value += "; drawn on over " + seconds(line.drawTime) +
+                             (line.drawWay == 0 ? " both ways" : "") ;
+                }
+                if (line.run != 0.0f) {
+                    char text[64];
+                    std::snprintf(text, sizeof text, "; light runs round %.2f times a second", std::fabs(line.run));
+                    value += text;
+                }
+                if (line.flicker >= 0.35f) {
+                    value += "; flickers";
+                }
+            }
+            add("line", line.closed ? "Outline" : "Stroke", value, line.confidence, Basis::Observed);
+        }
+        if (s.linesLead && s.lineFill.present) {
+            add("lineFill", "Light between the lines",
+                colourName(s.lineFill.colour) + ", brightest at the " +
+                    (s.lineFill.upright ? (s.lineFill.brightFirst ? "top" : "bottom")
+                                        : (s.lineFill.brightFirst ? "left" : "right")),
+                0.6f, Basis::Observed);
+        }
+        if (s.linesLead) {
+            a.methods.push_back("Lines: bright parts that are long and thin all along are thinned to their middle; "
+                                "the halo is read in rings outward from the core.");
+            a.uncertain.push_back("Lines that cross or touch are read as one line, along its longest way.");
+        }
+    }
     if (s.comet) {
         add("comet", "Head and tail",
             "A bright head with a tail " + percent(s.tailLength) + " of the height long, pointing " +

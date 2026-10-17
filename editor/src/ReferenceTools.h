@@ -107,6 +107,13 @@ float groundTurning(const std::vector<const Matte*>& frames, double gap, const S
 void countPieces(const Matte& matte, float centreX, float centreY, float extent, float& count,
                  float& reach);
 
+// Lines of light (ReferenceLines.cpp): reads them on a still's matte, given
+// the effect's total amount, and decides whether they lead.
+void readLines(const Matte& matte, float total, StillAnalysis& out);
+// For a clip: each line's brightness frame by frame, flicker, drawing on,
+// and light running round it.
+void linesOverClip(const std::vector<Matte>& mattes, double framesPerSecond, StillAnalysis& still);
+
 // Fills in the report lines from the numbers.
 void writeFindings(ReferenceAnalysis& analysis, bool moving);
 

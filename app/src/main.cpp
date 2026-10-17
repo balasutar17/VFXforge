@@ -507,6 +507,61 @@ int main(int argc, char* argv[]) {
             capture(window, selfTest, QStringLiteral("-reference-ground"),
                     QStringLiteral("the reference workspace with a ground effect"));
 
+            // A sheet of several effects (a frame, a lightning column, an
+            // orb): each is found; one is picked and read again on its own;
+            // the column is read as two bolts and a fill; and a flipbook of
+            // its own frames is made from it.
+            const bool sheet = ref.loadPath(QStringLiteral(":/samples/reference-sheet.gif"));
+            ref.waitUntilIdle(60000);
+            out << "reference sheet: " << ref.sheetEffects().size() << " effects found\n";
+            if (!sheet || ref.sheetEffects().size() != 3) {
+                out << "FAIL: the sample sheet's three effects were not found\n";
+                selfTest.result = 1;
+            }
+            capture(window, selfTest, QStringLiteral("-reference-sheet"),
+                    QStringLiteral("the reference workspace with a sheet of several effects"));
+            // The column holds the most light; the second box in reading order.
+            ref.pickSheetEffect(1);
+            ref.waitUntilIdle(60000);
+            int strokes = 0;
+            bool lead = false, filled = false;
+            for (const QVariant& row : ref.findings()) {
+                const QString key = row.toMap().value(QStringLiteral("key")).toString();
+                strokes += key == QStringLiteral("line") ? 1 : 0;
+                lead = lead || key == QStringLiteral("lines");
+                filled = filled || key == QStringLiteral("lineFill");
+            }
+            out << "picked from the sheet: " << ref.report() << " (strokes " << strokes << ", fill "
+                << (filled ? "yes" : "no") << ")\n";
+            if (!ref.sheetPicked() || !lead || strokes != 2 || !filled) {
+                out << "FAIL: the column picked from the sheet was not read as two bolts and a fill\n";
+                selfTest.result = 1;
+            }
+            ref.setFlipbook(true);
+            ref.build();
+            ref.waitUntilIdle(180000);
+            out << "built from the sheet's column with a flipbook: " << ref.report() << "\n";
+            bool flipbookLayer = false;
+            for (const vfx::Layer& layer : controller.session().effect().layers) {
+                flipbookLayer = flipbookLayer || (layer.name == "Flipbook" && layer.enabled);
+            }
+            const double flipAlike = ref.similarity().value(QStringLiteral("overall")).toDouble();
+            if (!ref.built() || !flipbookLayer || flipAlike < 0.75) {
+                out << "FAIL: no flipbook was made from the sheet's column (overall " << flipAlike << ")\n";
+                selfTest.result = 1;
+            }
+            ref.setFlipbook(false);
+            ref.setTime(ref.length() * 0.3);
+            QCoreApplication::processEvents();
+            capture(window, selfTest, QStringLiteral("-reference-flipbook"),
+                    QStringLiteral("the reference workspace with a flipbook"));
+            ref.wholeSheet();
+            ref.waitUntilIdle(60000);
+            if (ref.sheetPicked() || ref.sheetEffects().size() != 3) {
+                out << "FAIL: going back to the whole sheet did not show its three effects again\n";
+                selfTest.result = 1;
+            }
+
             // Video goes through the computer's own media support, which a
             // build machine may lack. What happens is written down either way.
             for (const char* name : {"reference-burst.mp4", "reference-burst.webm"}) {

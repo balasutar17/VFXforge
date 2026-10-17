@@ -24,6 +24,8 @@ add_library(vfx_editor STATIC
     src/Reference.cpp
     src/ReferenceGround.cpp
     src/ReferenceStill.cpp
+    src/ReferenceLines.cpp
+    src/ReferenceSheet.cpp
     src/ReferenceTime.cpp
     src/Session.cpp
     src/Transform.cpp
