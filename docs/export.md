@@ -45,11 +45,14 @@ the Unity script only reads the numbers and sets fields.
 | Colour and opacity over life | Color over Lifetime. Unity gradients cannot be brighter than white, so a white-hot gradient is divided down and the difference moves into the material's Glow |
 | Point, any spread (2D) | Circle shape of no size whose arc is the spread: exact |
 | Point (3D) | Cone up to 90 degrees, Sphere for every direction |
-| Rectangle or circle with a direction | Box turned to face the direction; spread becomes Randomize Direction |
-| Rectangle outline | Box Edge with no depth |
+| Rectangle with a direction | Box turned to face the direction; spread becomes Randomize Direction |
+| Rectangle or circle flat across its direction (a ring on the ground sending dust up) | A mesh of that outline or area whose normals point the layer's way (a flat Unity box has no depth to send particles along) |
+| Circle with a direction | A mesh of that circle or ring, normals the layer's way |
+| Path | A mesh along the path, cut into equal steps; particles spaced along it as VFX Forge spaces them; turned particles drawn as streaks along it |
 | Streak (align to movement, stretch) | Stretched Billboard: Speed Scale = stretch |
 | Speed over Life | Velocity over Lifetime: Speed Modifier |
-| Orbit | Velocity over Lifetime: Orbital Z, about the layer's Position (close, not exact) |
+| Orbit | Velocity over Lifetime: Orbital Z (Y on the ground), about the layer's Position. Particles sent out from the centre move out by Radial velocity instead of their own speed, which is VFX Forge's turning spoke; others are close, not exact |
+| 3D positions and directions | Z mirrored: VFX Forge's front looks from +Z, Unity's from -Z, so the effect faces the same way in a Unity scene |
 | Squash and Stretch | Size over Lifetime with Separate Axes |
 | Hold Frames | The VFXForgeHold script, which moves the layer on one drawing at a time |
 | Shape, blend, glow | The VFX Forge particle shader: shape picture, shape number, Glow, Additive |
@@ -60,15 +63,25 @@ Where a shape is approximated, the description says `"exact": false`.
 ### Known differences
 
 - A layer's Opacity read as a curve across its time (a line rebuilt from a
-  reference that brightens and dims) goes to Unity as its average: a
-  particle system's start colour has nothing that changes over its time.
+  reference that brightens and dims) goes to Unity as a Start Color
+  gradient over the effect's time, at most eight steps.
 - Unity's randomness is not VFX Forge's, so particles are not in the same
   places; the look and timing are the same.
 - A circle or rectangle that emits in a direction becomes a box facing that
   way; the spread becomes "randomize direction", which is close but not
   identical.
-- In a project set to Linear colour space, glowing (additive) layers look
-  somewhat brighter than in VFX Forge, which blends as the screen shows.
+- In a project set to Linear colour space, Unity adds glow up in linear
+  light, which looks dimmer and more orange than VFX Forge. With URP 17
+  (Unity 6) the VFX Forge Colours renderer feature, added to the project's
+  URP renderers when the files are first imported (or by VFX Forge > Use
+  Exact VFX Forge Colours), draws VFX Forge particles into a buffer of
+  screen values and lays it over the scene, so they blend exactly as in
+  VFX Forge. Over a dark background the result is VFX Forge's; over a lit
+  scene the background shows through by the particles' cover. Without it
+  (Built-in pipeline in Linear, or older URP), glow looks as Unity blends it.
+- Unity's Particle System, played back in big steps (Simulate in the
+  editor), carries fast, sharply slowing particles a little further than
+  VFX Forge does; in play at normal frame rates the difference is small.
 - Built-in and URP pipelines (including the 2D Renderer) are supported.
   HDRP is not.
 

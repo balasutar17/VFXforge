@@ -25,6 +25,15 @@ open effects made in VFX Forge.
               twos") when Hold Frames is set in VFX Forge. Held drawings
               show in Play mode and in a built game; the Scene view's own
               particle preview stays smooth.
+  URP/        VFX Forge Colours, a URP renderer feature (Unity 6, URP 17
+              or newer). In a project in Linear colour, Unity adds glow
+              up in linear light, which looks dimmer and more orange than
+              in VFX Forge; this feature draws VFX Forge particles so they
+              blend exactly as in VFX Forge. It is added to the project's
+              URP renderers once, when these files first arrive (the
+              Console says so); VFX Forge > Use Exact VFX Forge Colours
+              (URP) adds it again. Remove it from a renderer's Renderer
+              Features list to go back to Unity's own blending.
   Images/     your own pictures and sprite sheets, used by layers that draw
               them. A sprite sheet plays through Unity's Texture Sheet
               Animation module, set up for you.

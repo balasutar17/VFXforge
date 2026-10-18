@@ -230,8 +230,56 @@ J shapeJson(const EmitterProgram& e) {
     // Spread that a Unity shape cannot express exactly is approximated by
     // mixing in random directions.
     const double mix = std::clamp(spreadDeg / 180.0, 0.0, 1.0);
+    // A flat outline or area, standing up or lying on the ground, as a
+    // mesh the importer builds. Unity's box would point its particles along
+    // its own depth, which a flat box does not have.
+    auto flat = [&](const std::vector<std::pair<double, double>>& outline, bool onGround, bool edge,
+                    double randomDirection) {
+        s["type"] = "path";
+        J points = J::array();
+        for (const auto& [px, py] : outline) {
+            points.push_back(J::array({round6(px), round6(py)}));
+        }
+        s["points"] = std::move(points);
+        s["closed"] = true;
+        s["ground"] = onGround;
+        s["fill"] = !edge;
+        s["band"] = 0.0;
+        s["outward"] = 1.0;
+        s["aim"] = "direction";
+        s["direction"] = J::array({round6(e.dirX), round6(e.dirY), round6(e.dirZ)});
+        s["randomDirection"] = round6(randomDirection);
+        s["align"] = false;
+        s["exact"] = randomDirection == 0.0;
+    };
+    auto rectangle = [](double w, double h) {
+        return std::vector<std::pair<double, double>>{
+            {-0.5 * w, -0.5 * h}, {0.5 * w, -0.5 * h}, {0.5 * w, 0.5 * h}, {-0.5 * w, 0.5 * h}};
+    };
+    auto ring = [](double radius) {
+        std::vector<std::pair<double, double>> out;
+        const int n = 64;
+        for (int i = 0; i < n; ++i) {
+            const double a = 2.0 * 3.14159265358979323846 * i / n;
+            out.emplace_back(radius * std::cos(a), radius * std::sin(a));
+        }
+        return out;
+    };
     auto box = [&](double ex, double ey, double ez, bool edge, double randomDirection) {
         const Rot r = facing(e.dirX, e.dirY, e.dirZ);
+        // A flat box sending particles out of its own flat side has no depth
+        // along its Z, and Unity then has no direction to send them in.
+        const J scale = boxScale(r, ex, ey, ez);
+        if (scale[2].get<double>() < 1e-6) {
+            if (ez == 0.0 && ex > 0.0 && ey > 0.0) {
+                flat(rectangle(ex, ey), false, edge, randomDirection);
+                return;
+            }
+            if (ey == 0.0 && ex > 0.0 && ez > 0.0) {
+                flat(rectangle(ex, ez), true, edge, randomDirection);
+                return;
+            }
+        }
         s["type"] = "box";
         s["scale"] = boxScale(r, ex, ey, ez);
         s["rotation"] = rotJson(r);
@@ -276,12 +324,9 @@ J shapeJson(const EmitterProgram& e) {
                 // On the ground: Unity's circle lies across X and Y, so it is laid down.
                 s["rotation"] = rotJson(e.ground ? Rot{90, 0, 0} : Rot{});
                 s["exact"] = false;  // Unity sends them outward, not every which way
-            } else if (e.ground) {
-                box(2.0 * e.radius, 0.0, 2.0 * e.radius, e.fromEdge, mix);
-                s["exact"] = false;  // a square stands in for the circle
             } else {
-                box(2.0 * e.radius, 2.0 * e.radius, 0.0, e.fromEdge, mix);
-                s["exact"] = false;  // a square stands in for the circle
+                // The ring (or disc) itself, sending particles the layer's way.
+                flat(ring(std::max(static_cast<double>(e.radius), tiny)), e.ground, e.fromEdge, mix);
             }
             break;
 
@@ -328,21 +373,35 @@ J shapeJson(const EmitterProgram& e) {
             break;
 
         case ShapeType::Path: {
-            // Unity has no path to emit along: a box round it stands in, and the
-            // points go along for a script that wants them.
-            const double w = std::max(static_cast<double>(e.pathMaxX - e.pathMinX), tiny);
-            const double h = std::max(static_cast<double>(e.pathMaxY - e.pathMinY), tiny);
-            if (e.ground) {
-                box(w, 0.0, h, e.fromEdge, mix);
-            } else {
-                box(w, h, 0.0, e.fromEdge, mix);
-            }
+            // The importer builds a mesh that follows the path and emits from
+            // it: along its edges (evenly, stepping round them in order, as
+            // VFX Forge spaces its dots), across a ribbon as wide as the
+            // band, or over the inside of an outline. The mesh's normals
+            // carry the aim: the layer's direction, out from the path, or
+            // along it.
+            s["type"] = "path";
             J points = J::array();
             for (std::size_t i = 0; i < e.pathX.size(); ++i) {
                 points.push_back(J::array({round6(e.pathX[i]), round6(e.pathY[i])}));
             }
-            s["path"] = std::move(points);
-            s["exact"] = false;
+            s["points"] = std::move(points);
+            s["closed"] = e.pathClosed;
+            s["ground"] = e.ground;
+            s["fill"] = !e.fromEdge && e.pathClosed;
+            s["band"] = round6(e.pathThickness);
+            s["outward"] = round6(e.pathOutward);
+            s["aim"] = e.aim == 1 ? "outward" : (e.aim == 2 ? "along" : "direction");
+            s["direction"] = J::array({round6(e.dirX), round6(e.dirY), round6(e.dirZ)});
+            s["randomDirection"] = round6(mix);
+            s["align"] = e.pathAlign;
+            if (e.travel != 0.0f) {
+                s["travel"] = round6(e.travel);
+                s["draw"] = e.travelDraw;
+                s["heads"] = e.travelHeads;
+            }
+            // Running round with several heads, or over a share of the path,
+            // is one head at the front of the energy in Unity.
+            s["exact"] = e.travel == 0.0f || e.travelDraw || e.travelHeads <= 1;
             break;
         }
     }
@@ -511,7 +570,14 @@ J soundJson(const Effect& effect, const Layer& layer, const std::vector<UnityPic
 J layerJson(const Effect& effect, const Layer& layer, int order,
             const std::vector<UnityPicture>& pictures, const std::vector<UnityPicture>& sounds) {
     const std::shared_ptr<const EmitterProgram> program = compileLayer(effect, layer);
-    const EmitterProgram& e = *program;
+    // VFX Forge's space is right-handed, seen from +Z; Unity's is
+    // left-handed, seen from -Z. Mirroring Z keeps everything where it is
+    // as seen from the front, and turns stay the same way round on screen.
+    EmitterProgram unitySide = *program;
+    unitySide.offsetZ = 0.0f - unitySide.offsetZ;
+    unitySide.dirZ = 0.0f - unitySide.dirZ;
+    unitySide.gravityZ = 0.0f - unitySide.gravityZ;
+    const EmitterProgram& e = unitySide;
     const double total = effect.duration > 0.0 ? effect.duration : 0.01;
 
     J out = J::object();
@@ -544,25 +610,28 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
             size.b = static_cast<float>(b * high);
         }
     }
-    // Opacity over the layer's time has no counterpart in a particle
-    // system's start colour: its average is carried (see docs/export.md).
-    {
-        double mean = e.opacity.a;
-        if (e.opacity.mode == ScalarF::Mode::Random) {
-            mean = 0.5 * (e.opacity.a + e.opacity.b);
-        } else if (e.opacity.isCurve() && !e.opacity.keys.empty()) {
-            const auto& k = e.opacity.keys;
-            double area = 0;
-            for (std::size_t i = 1; i < k.size(); ++i) {
-                area += 0.5 * (k[i].v + k[i - 1].v) * (k[i].t - k[i - 1].t);
-            }
-            area += k.front().v * std::max(0.0, static_cast<double>(k.front().t));
-            area += k.back().v * std::max(0.0, 1.0 - k.back().t);
-            mean = area;
+    // Opacity over the layer's time: a fixed or random multiplier folds into
+    // the start colour; a curve becomes the start colour's alpha over the
+    // system's time (Unity reads a start-colour gradient across the
+    // system's duration), at most eight keys, as Unity allows.
+    J alphaOverTime;
+    if (e.opacity.mode == ScalarF::Mode::Random) {
+        alphaLow *= std::clamp(static_cast<double>(e.opacity.a), 0.0, 1.0);
+        alphaHigh *= std::clamp(static_cast<double>(e.opacity.b), 0.0, 1.0);
+    } else if (e.opacity.isCurve() && !e.opacity.keys.empty()) {
+        alphaOverTime = J::array();
+        constexpr int kKeys = 8;
+        for (int k = 0; k < kKeys; ++k) {
+            const double t = static_cast<double>(k) / (kKeys - 1);  // of the system's duration
+            const double layerT = e.duration > 0.0 ? (t * total - e.start) / e.duration : 0.0;
+            const double v = std::clamp(static_cast<double>(evalCurve(e.opacity.keys, static_cast<float>(
+                                                                std::clamp(layerT, 0.0, 1.0)))),
+                                        0.0, 1.0);
+            alphaOverTime.push_back(J::array({round6(t), round6(v)}));
         }
-        mean = std::clamp(mean, 0.0, 1.0);
-        alphaLow *= mean;
-        alphaHigh *= mean;
+    } else {
+        alphaLow *= std::clamp(static_cast<double>(e.opacity.a), 0.0, 1.0);
+        alphaHigh *= std::clamp(static_cast<double>(e.opacity.a), 0.0, 1.0);
     }
     if (e.hasOverLife && !e.opacityOverLife.isCurve()) {
         const double low = e.opacityOverLife.a;
@@ -577,6 +646,9 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
     out["startRotation"] = minMax(e.rotation, -1.0 / kDeg, e.start, e.duration, total);
 
     const double r = toScreen(e.color[0]), g = toScreen(e.color[1]), b = toScreen(e.color[2]);
+    if (!alphaOverTime.is_null()) {
+        out["startAlphaOverTime"] = std::move(alphaOverTime);
+    }
     if (alphaLow == alphaHigh) {
         out["startColor"] = J::array({round6(r), round6(g), round6(b), round6(std::clamp(alphaLow, 0.0, 1.0))});
     } else {
@@ -663,7 +735,8 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
         // gravity and drag, so paths are alike rather than the same.
         // A layer on the ground turns about the upright (Y) instead.
         J orbit = J::object();
-        orbit[e.ground ? "y" : "z"] = round6(e.orbit);
+        // About Y, mirroring Z turns the other way round in numbers.
+        orbit[e.ground ? "y" : "z"] = round6(e.ground ? -e.orbit : e.orbit);
         orbit["center"] = J::array({round6(e.offsetX), round6(e.offsetY), round6(e.offsetZ)});
         orbit["exact"] = false;
         out["orbit"] = std::move(orbit);

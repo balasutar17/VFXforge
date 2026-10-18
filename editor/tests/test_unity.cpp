@@ -135,7 +135,13 @@ TEST_CASE("every preset translates into a complete Unity description", "[unity]"
             }
             const J& shape = layer["shape"];
             CHECK((shape["type"] == "circle" || shape["type"] == "sphere" || shape["type"] == "cone" ||
-                   shape["type"] == "box"));
+                   shape["type"] == "box" || shape["type"] == "path"));
+            if (shape["type"] == "path") {
+                // The importer builds its mesh from these.
+                REQUIRE(shape["points"].is_array());
+                CHECK(shape["points"].size() >= 2);
+                CHECK((shape["aim"] == "direction" || shape["aim"] == "outward" || shape["aim"] == "along"));
+            }
         }
     }
 }
@@ -636,14 +642,17 @@ TEST_CASE("3D layers on the ground reach Unity lying down, turning about Y, sort
     const J crack = layerNamed(slam, "Crack");
     CHECK(crack["render"]["tilt"].get<double>() == Catch::Approx(90.0));
     CHECK(crack["render"]["sort"] == "distance");
-    // A circle on the floor sending dust up becomes a box with no height,
-    // turned to face up: its flat side lies along the floor.
+    // A circle on the floor sending dust up becomes that ring on the floor,
+    // as a mesh whose normals point up: a flat Unity box would have no depth
+    // to send its particles along.
     const J dust = layerNamed(slam, "Dust")["shape"];
-    CHECK(dust["type"] == "box");
-    CHECK(dust["rotation"][0].get<double>() == Catch::Approx(-90.0));
-    CHECK(dust["scale"][0].get<double>() == Catch::Approx(2.0));
-    CHECK(dust["scale"][1].get<double>() == Catch::Approx(2.0));
-    CHECK(dust["scale"][2].get<double>() == Catch::Approx(0.0).margin(1e-9));
+    CHECK(dust["type"] == "path");
+    CHECK(dust["ground"] == true);
+    CHECK(dust["closed"] == true);
+    CHECK(dust["points"].size() == 64);
+    CHECK(dust["points"][0][0].get<double>() == Catch::Approx(1.0));
+    CHECK(dust["direction"][1].get<double>() == Catch::Approx(1.0));
+    CHECK(dust["aim"] == "direction");
     // Glowing layers need no sorting.
     CHECK_FALSE(layerNamed(slam, "Shockwave")["render"].contains("sort"));
 
@@ -652,6 +661,9 @@ TEST_CASE("3D layers on the ground reach Unity lying down, turning about Y, sort
     REQUIRE(orbit.is_object());
     CHECK(orbit.contains("y"));
     CHECK_FALSE(orbit.contains("z"));
+    // Counter-clockwise from above in VFX Forge; Unity, with Z mirrored so
+    // that the effect faces the same way, counts that turn as negative.
+    CHECK(orbit["y"].get<double>() < 0.0);
     CHECK(orbit["center"][1].get<double>() == Catch::Approx(1.6));
 
     std::string importer;

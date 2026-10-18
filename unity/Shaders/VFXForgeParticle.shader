@@ -37,12 +37,20 @@ Shader "VFX Forge/Particle"
         ZWrite Off
         Cull Off
 
-        Pass
-        {
-            CGPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
+        CGINCLUDE
             #include "UnityCG.cginc"
+
+            // The exact sRGB curves (UnityCG's are close approximations).
+            float3 vfToScreen(float3 c)
+            {
+                c = max(c, 0.0);
+                return c <= 0.0031308 ? c * 12.92 : 1.055 * pow(c, 1.0 / 2.4) - 0.055;
+            }
+            float3 vfToLinear(float3 c)
+            {
+                c = saturate(c);
+                return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4);
+            }
 
             sampler2D _MainTex;
             float _Shape;
@@ -128,8 +136,15 @@ Shader "VFX Forge/Particle"
                 return float2(keep, rim);
             }
 
-            float4 frag(v2f i) : SV_Target
+            // The particle's colour, premultiplied. With asScreen, its colours
+            // are first turned back into the values the screen shows, so that
+            // particles add up as they do in VFX Forge (see the second pass).
+            float4 shade(v2f i, bool asScreen)
             {
+#if !defined(UNITY_COLORSPACE_GAMMA)
+                if (asScreen)
+                    i.color.rgb = vfToScreen(i.color.rgb);
+#endif
                 if (_Ribbon > 0.5)
                 {
                     // A trail: solid in the middle, soft at the edges, with a
@@ -146,6 +161,10 @@ Shader "VFX Forge/Particle"
                 {
                     // The picture, premultiplied, tinted and faded by the particle.
                     float4 p = tex2D(_MainTex, i.uv.xy);
+#if !defined(UNITY_COLORSPACE_GAMMA)
+                    if (asScreen)
+                        p.rgb = vfToScreen(p.rgb);
+#endif
                     float a = i.color.a;
                     float3 tint = i.color.rgb * (a * _Glow);
                     float3 prgb = tint * p.rgb * p.a;
@@ -201,6 +220,80 @@ Shader "VFX Forge/Particle"
                 rgb += (white - rgb) * shine;
 
                 return float4(rgb, _Additive > 0.5 ? 0.0 : alpha) * cover;
+            }
+        ENDCG
+
+        // Drawn by the pipeline as usual, unless VFX Forge's colour feature
+        // is drawing these particles itself (it sets _VFXForgeGammaOn).
+        Pass
+        {
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            float _VFXForgeGammaOn;
+            float4 frag(v2f i) : SV_Target
+            {
+                if (_VFXForgeGammaOn > 0.5)
+                    discard;
+                return shade(i, false);
+            }
+            ENDCG
+        }
+
+        // In a project in Linear colour, overlapping glow adds up in linear
+        // light, which looks dimmer and more coloured than in VFX Forge,
+        // where it adds up as the screen shows. VFX Forge's colour feature
+        // for URP draws this pass into a buffer of screen values, so the
+        // particles blend exactly as in VFX Forge, and lays it over the scene.
+        Pass
+        {
+            Tags { "LightMode" = "VFXForgeGamma" }
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            float4 frag(v2f i) : SV_Target
+            {
+                return shade(i, true);
+            }
+            ENDCG
+        }
+
+        // Lays the buffer of screen values over the scene, turned back into
+        // linear light. Over a dark background the result is exactly what
+        // VFX Forge shows; over a lit one, the background shows through by
+        // the particles' cover, as with ordinary blending.
+        Pass
+        {
+            Tags { "LightMode" = "VFXForgeComposite" }
+            ZTest Always
+            CGPROGRAM
+            #pragma vertex vertFull
+            #pragma fragment fragFull
+            sampler2D _BlitTexture;
+            float4 _BlitScaleBias;
+            struct v2fFull
+            {
+                float4 pos : SV_POSITION;
+                float2 uv : TEXCOORD0;
+            };
+            v2fFull vertFull(uint id : SV_VertexID)
+            {
+                v2fFull o;
+                float2 corner = float2((id << 1) & 2, id & 2);
+                o.pos = float4(corner * 2.0 - 1.0, UNITY_NEAR_CLIP_VALUE, 1.0);
+#if UNITY_UV_STARTS_AT_TOP
+                corner = corner * float2(1.0, -1.0) + float2(0.0, 1.0);
+#endif
+                o.uv = corner * _BlitScaleBias.xy + _BlitScaleBias.zw;
+                return o;
+            }
+            float4 fragFull(v2fFull i) : SV_Target
+            {
+                float4 c = tex2D(_BlitTexture, i.uv);
+#if !defined(UNITY_COLORSPACE_GAMMA)
+                c.rgb = vfToLinear(c.rgb);
+#endif
+                return c;
             }
             ENDCG
         }
