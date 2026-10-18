@@ -38,6 +38,7 @@
 #include "vfx/editor/Selection.h"
 #include "vfx/editor/ShapeLibrary.h"
 #include "vfx/editor/UnityExport.h"
+#include "vfx/editor/UnrealExport.h"
 
 using vfx::editor::ControlView;
 
@@ -2815,6 +2816,50 @@ bool AppController::exportUnityPackage(const QUrl& file) {
     return true;
 }
 
+// The viewport's camera, as QML hands it over.
+static vfx::editor::View viewFromMap(const QVariantMap& view) {
+    auto number = [&view](const char* key, float fallback) {
+        const QVariant v = view.value(QString::fromLatin1(key));
+        bool ok = false;
+        const double d = v.toDouble(&ok);
+        return ok && std::isfinite(d) ? static_cast<float>(d) : fallback;
+    };
+    vfx::editor::View v;
+    v.centerX = number("centerX", v.centerX);
+    v.centerY = number("centerY", v.centerY);
+    v.unitsHigh = number("unitsHigh", v.unitsHigh);
+    v.targetX = number("targetX", v.targetX);
+    v.targetY = number("targetY", v.targetY);
+    v.targetZ = number("targetZ", v.targetZ);
+    v.yaw = number("yaw", v.yaw);
+    v.pitch = number("pitch", v.pitch);
+    v.distance = number("distance", v.distance);
+    v.fieldOfView = number("fieldOfView", v.fieldOfView);
+    return v;
+}
+
+bool AppController::exportToUnreal(const QUrl& folder, int size, const QVariantMap& view) {
+    const QString path = folder.toLocalFile();
+    if (path.isEmpty()) {
+        say(QStringLiteral("That is not a folder on this computer."), true);
+        return false;
+    }
+    vfx::editor::UnrealOptions options;
+    options.frameSize = std::clamp(size, 64, 2048);
+    options.images = &session_.images();
+    options.view = viewFromMap(view);
+    auto written = vfx::editor::exportToUnreal(session_.effect(), options, toPath(path));
+    if (!written) {
+        report(written.error());
+        return false;
+    }
+    say(QStringLiteral("Wrote %1 frames to “VFXForge for Unreal” in %2. In Unreal: Tools > Execute Python Script, "
+                       "and choose VFXForge_Import.py there.")
+            .arg(written.value().frames)
+            .arg(QFileInfo(path).fileName()));
+    return true;
+}
+
 bool AppController::exportFrames(const QUrl& folder, int size, bool transparent, bool sheet,
                                  const QVariantMap& view) {
     const QString path = folder.toLocalFile();
@@ -2828,23 +2873,7 @@ bool AppController::exportFrames(const QUrl& folder, int size, bool transparent,
     options.transparent = transparent;
     options.sheet = sheet;
     options.images = &session_.images();
-    auto number = [&view](const char* key, float fallback) {
-        const QVariant v = view.value(QString::fromLatin1(key));
-        bool ok = false;
-        const double d = v.toDouble(&ok);
-        return ok && std::isfinite(d) ? static_cast<float>(d) : fallback;
-    };
-    vfx::editor::View& v = options.view;
-    v.centerX = number("centerX", v.centerX);
-    v.centerY = number("centerY", v.centerY);
-    v.unitsHigh = number("unitsHigh", v.unitsHigh);
-    v.targetX = number("targetX", v.targetX);
-    v.targetY = number("targetY", v.targetY);
-    v.targetZ = number("targetZ", v.targetZ);
-    v.yaw = number("yaw", v.yaw);
-    v.pitch = number("pitch", v.pitch);
-    v.distance = number("distance", v.distance);
-    v.fieldOfView = number("fieldOfView", v.fieldOfView);
+    options.view = viewFromMap(view);
 
     const std::string stem = vfx::editor::unityFileStem(session_.effect());
     auto written = vfx::editor::exportFrames(session_.effect(), options, toPath(path), stem);

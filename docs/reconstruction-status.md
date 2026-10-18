@@ -110,7 +110,9 @@ materials.
 **Works:** see-through PNG sequences and sprite sheets of one pass, a Unity
 package with its particle systems. **Partly:** a see-through or black
 background, not a choice of premultiplied or straight alpha; resolution and
-frame range follow the effect. **Not built:** Unreal.
+frame range follow the effect; Unreal gets the effect as a flipbook with a
+Blueprint, sprites and material made by an import script, not as Niagara
+emitters.
 
 ## 11. Audio
 

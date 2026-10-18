@@ -90,6 +90,40 @@ Where a shape is approximated, the description says `"exact": false`.
 The same files in one package, for Assets > Import Package > Custom Package,
 or to send to someone else.
 
+## For Unreal Engine
+
+Export > Unreal Engine effect writes a folder, "VFXForge for Unreal", with
+the effect as a flipbook: every frame of one pass, drawn by the same
+renderer as the viewport (as the viewport's camera sees it now), packed into
+one picture of at most 4096 pixels a side, plus a description and the
+import script. Exporting more effects to the same folder adds them beside
+the others.
+
+In Unreal (5.x, with the Python Editor Script Plugin and Paper2D on, as
+they are in a new project): Tools > Execute Python Script, and choose
+`VFXForge_Import.py` in that folder. For each effect it makes, under
+Content/VFXForge/<name>:
+
+| Asset | What it is |
+| --- | --- |
+| BP_<name> | An actor with the flipbook: drag it into a level. It plays when it appears, once or looping as the effect does |
+| FB_<name> | The Paper2D flipbook, at the effect's frame rate |
+| S_<name>_<n> | One sprite per frame, its pivot at VFX Forge's centre, 1 VFX Forge unit = 100 Unreal units |
+| MI_<name> | Its material, with Glow |
+| T_<name>_Flipbook | The frames, uncompressed and without mipmaps |
+| M_VFXForge_Flipbook (shared) | Unlit, two-sided, alpha composite; undoes eye adaptation so the frames show at their own strength |
+
+Running the script again updates the assets in place.
+
+What it is not: the effect is not rebuilt from Niagara emitters, so its
+layers are not separate in Unreal; edit it in VFX Forge and export again. It
+is flat, in Paper2D's X-Z plane. Unreal's tonemapper still shapes its
+brightest colours, as it does everything in the game.
+
+A flat effect is framed to what it covers over its whole pass, so the
+frames spend their pixels on the effect; a frame is as wide as the effect
+is, and its longer side is the size chosen (made smaller to fit).
+
 ## As animation frames
 
 Numbered PNG files of one pass of the effect, at the effect's frame rate,

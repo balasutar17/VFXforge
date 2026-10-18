@@ -18,6 +18,7 @@ add_executable(vfx_editor_tests
     test_shapes.cpp
     test_sprite_mesh.cpp
     test_unity.cpp
+    test_unreal.cpp
 )
 target_link_libraries(vfx_editor_tests PRIVATE vfx::editor catch2_amalgamated)
 target_compile_definitions(vfx_editor_tests PRIVATE

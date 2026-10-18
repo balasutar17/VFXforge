@@ -309,6 +309,7 @@ public:
     Q_INVOKABLE bool exportToUnity(const QUrl& folder);
     Q_INVOKABLE bool exportToUnityPath(const QString& folder);
     Q_INVOKABLE bool exportUnityPackage(const QUrl& file);
+    Q_INVOKABLE bool exportToUnreal(const QUrl& folder, int size, const QVariantMap& view);
     // Numbered PNG frames, and a sprite sheet, showing what the view shows.
     Q_INVOKABLE bool exportFrames(const QUrl& folder, int size, bool transparent, bool sheet,
                                   const QVariantMap& view);

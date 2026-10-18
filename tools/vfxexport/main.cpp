@@ -21,6 +21,7 @@
 #include "vfx/editor/Picture.h"
 #include "vfx/editor/SpriteMesh.h"
 #include "vfx/editor/Presets.h"
+#include "vfx/editor/UnrealExport.h"
 #include "vfx/editor/UnityExport.h"
 
 using namespace vfx;
@@ -32,6 +33,7 @@ int usage() {
     std::cerr << "Usage:\n"
                  "  vfxexport unity <effect.vfx | preset-id>... --project <Unity project folder>\n"
                  "  vfxexport unity <effect.vfx | preset-id>... --package <out.unitypackage>\n"
+                 "  vfxexport unreal <effect.vfx | preset-id>... --out <folder> [--size n]\n"
                  "  vfxexport plan <effect.vfx | preset-id>... --out <folder> [--size n] [--times a,b,c]\n"
                  "      For checking an export in an engine: writes plan.json (how to frame each\n"
                  "      effect and when to look) and VFX Forge's own picture of each moment.\n"
@@ -168,10 +170,56 @@ int plan(const std::vector<std::string>& args) {
     return 0;
 }
 
+// The effects as flipbooks for Unreal, framed as their presets frame them.
+int unrealExport(const std::vector<std::string>& args) {
+    std::string out;
+    int size = 512;
+    std::vector<std::string> inputs;
+    for (std::size_t i = 1; i < args.size(); ++i) {
+        if (args[i] == "--out" && i + 1 < args.size()) {
+            out = args[++i];
+        } else if (args[i] == "--size" && i + 1 < args.size()) {
+            size = std::atoi(args[++i].c_str());
+        } else {
+            inputs.push_back(args[i]);
+        }
+    }
+    if (out.empty() || inputs.empty()) {
+        return usage();
+    }
+    for (const std::string& input : inputs) {
+        auto loaded = load(input);
+        if (!loaded) {
+            std::cerr << input << ": " << loaded.error().message << "\n";
+            return 1;
+        }
+        const Loaded& e = loaded.value();
+        UnrealOptions options;
+        options.frameSize = size;
+        options.view.centerX = options.view.targetX = e.viewX;
+        options.view.centerY = options.view.targetY = e.viewY;
+        options.view.unitsHigh = e.viewHeight;
+        options.view.distance = e.viewHeight * 1.45f;
+        options.view.yaw = 0;
+        options.view.pitch = 15;
+        auto written = exportToUnreal(e.effect, options, pathFromUtf8(out));
+        if (!written) {
+            std::cerr << input << ": " << written.error().message << "\n";
+            return 1;
+        }
+        std::cout << "wrote " << pathToUtf8(written.value().effect) << " (" << written.value().frames << " frames of "
+                  << written.value().frameSize << " px)\n";
+    }
+    return 0;
+}
+
 int main(int argc, char** argv) {
     std::vector<std::string> args(argv + 1, argv + argc);
     if (!args.empty() && args[0] == "plan") {
         return plan(args);
+    }
+    if (!args.empty() && args[0] == "unreal") {
+        return unrealExport(args);
     }
     if (args.size() < 3 || args[0] != "unity") {
         return usage();

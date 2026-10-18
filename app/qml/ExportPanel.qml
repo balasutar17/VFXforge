@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Dialogs
 import QtQuick.Layouts
 
-// Getting an effect out of VFX Forge: into Unity, or as animation frames.
+// Getting an effect out of VFX Forge: into Unity, into Unreal, or as animation frames.
 Rectangle {
     id: root
 
@@ -13,6 +13,7 @@ Rectangle {
     property int frameSize: 512
     property bool seeThrough: true
     property bool withSheet: true
+    property int unrealSize: 512
 
     color: "#c8000000"
 
@@ -36,6 +37,11 @@ Rectangle {
         defaultSuffix: "unitypackage"
         nameFilters: ["Unity packages (*.unitypackage)"]
         onAccepted: if (app.exportUnityPackage(selectedFile)) root.closeRequested()
+    }
+    FolderDialog {
+        id: unrealFolderDialog
+        title: "Choose where to put the Unreal files"
+        onAccepted: if (app.exportToUnreal(selectedFolder, root.unrealSize, root.viewState)) root.closeRequested()
     }
     FolderDialog {
         id: framesFolderDialog
@@ -127,6 +133,59 @@ Rectangle {
                             tip: "One file to send to someone, for Assets > Import Package"
                             onClicked: packageDialog.open()
                         }
+                    }
+                }
+            }
+
+            // ------------------------------------------------------ Unreal
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: unrealColumn.implicitHeight + 28
+                radius: 8
+                color: theme.raised
+                border.color: theme.line
+
+                ColumnLayout {
+                    id: unrealColumn
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 8
+
+                    Text {
+                        text: "Unreal Engine effect"
+                        color: theme.text
+                        font.pixelSize: 15
+                        font.weight: Font.DemiBold
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: theme.dim
+                        font.pixelSize: theme.fontSize
+                        text: "The effect exactly as VFX Forge draws it, as seen in the viewport now, played as a flipbook: "
+                              + "a Blueprint you drag into a level, with its Paper2D flipbook, sprites and material. "
+                              + "Writes a “VFXForge for Unreal” folder; in Unreal choose Tools > Execute Python Script "
+                              + "and pick VFXForge_Import.py in it. The layers are not separate in Unreal."
+                    }
+                    RowLayout {
+                        spacing: 6
+                        Text { text: "Frame size"; color: theme.dim; font.pixelSize: theme.fontSize; Layout.preferredWidth: 80 }
+                        Repeater {
+                            model: [256, 512, 1024]
+                            delegate: VButton {
+                                required property int modelData
+                                text: modelData + " px"
+                                tip: "Along the longer side; made smaller if every frame would not fit in one 4096 picture"
+                                checked: root.unrealSize === modelData
+                                onClicked: root.unrealSize = modelData
+                            }
+                        }
+                    }
+                    VButton {
+                        primary: true
+                        text: "Export for Unreal…"
+                        tip: "Export more effects to the same folder: the script brings in all of them"
+                        onClicked: unrealFolderDialog.open()
                     }
                 }
             }
