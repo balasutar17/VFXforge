@@ -32,6 +32,7 @@ namespace {
 int usage() {
     std::cerr << "Usage:\n"
                  "  vfxexport unity <effect.vfx | preset-id>... --project <Unity project folder>\n"
+                 "    [--model dummy|<file.obj|glb|gltf> [--model-at x z height turn]]\n"
                  "  vfxexport unity <effect.vfx | preset-id>... --package <out.unitypackage>\n"
                  "  vfxexport unreal <effect.vfx | preset-id>... --out <folder> [--size n]\n"
                  "  vfxexport plan <effect.vfx | preset-id>... --out <folder> [--size n] [--times a,b,c]\n"
@@ -224,10 +225,18 @@ int main(int argc, char** argv) {
     if (args.size() < 3 || args[0] != "unity") {
         return usage();
     }
-    std::string project, package;
+    std::string project, package, modelArg;
+    float modelX = 0, modelZ = 0, modelHeight = 3, modelTurn = 0;
     std::vector<std::string> inputs;
     for (std::size_t i = 1; i < args.size(); ++i) {
-        if (args[i] == "--project" && i + 1 < args.size()) {
+        if (args[i] == "--model" && i + 1 < args.size()) {
+            modelArg = args[++i];  // "dummy", or an .obj / .glb / .gltf file
+        } else if (args[i] == "--model-at" && i + 4 < args.size()) {
+            modelX = std::strtof(args[++i].c_str(), nullptr);
+            modelZ = std::strtof(args[++i].c_str(), nullptr);
+            modelHeight = std::strtof(args[++i].c_str(), nullptr);
+            modelTurn = std::strtof(args[++i].c_str(), nullptr);
+        } else if (args[i] == "--project" && i + 1 < args.size()) {
             project = args[++i];
         } else if (args[i] == "--package" && i + 1 < args.size()) {
             package = args[++i];
@@ -238,6 +247,26 @@ int main(int argc, char** argv) {
     if (inputs.empty() || (project.empty() == package.empty())) {
         return usage();
     }
+    Model model;
+    UnityModel carried;
+    if (!modelArg.empty()) {
+        if (modelArg == "dummy") {
+            model = practiceDummy();
+        } else {
+            auto read = loadModel(pathFromUtf8(modelArg));
+            if (!read) {
+                std::cerr << modelArg << ": " << read.error().message << "\n";
+                return 1;
+            }
+            model = std::move(read.value());
+        }
+        carried.model = &model;
+        carried.place.x = modelX;
+        carried.place.z = modelZ;
+        carried.place.height = modelHeight;
+        carried.place.turn = modelTurn;
+    }
+    const UnityModel* withModel = modelArg.empty() ? nullptr : &carried;
     std::vector<TarEntry> all;
     for (const std::string& input : inputs) {
         auto loaded = load(input);
@@ -248,14 +277,14 @@ int main(int argc, char** argv) {
         if (!project.empty()) {
             std::filesystem::path written;
             if (Status ok = exportToUnityProject(loaded.value().effect, pathFromUtf8(project), &written,
-                                                 loaded.value().folder);
+                                                 loaded.value().folder, withModel);
                 !ok) {
                 std::cerr << input << ": " << ok.error().message << "\n" << ok.error().detail << "\n";
                 return 1;
             }
             std::cout << "wrote " << pathToUtf8(written) << "\n";
         } else {
-            for (TarEntry& e : unityExportFiles(loaded.value().effect, loaded.value().folder)) {
+            for (TarEntry& e : unityExportFiles(loaded.value().effect, loaded.value().folder, withModel)) {
                 bool seen = false;
                 for (const TarEntry& have : all) {
                     seen = seen || have.path == e.path;

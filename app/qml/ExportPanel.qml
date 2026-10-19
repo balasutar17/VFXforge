@@ -134,6 +134,20 @@ Rectangle {
                             onClicked: packageDialog.open()
                         }
                     }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        visible: app.hasModel
+                        VButton {
+                            text: "Include the 3D model"
+                            checked: app.exportModel && !app.modelTooBigToExport
+                            enabled: !app.modelTooBigToExport
+                            tip: app.modelTooBigToExport
+                                 ? "This model has too many triangles to send"
+                                 : "Takes the model you made the effect on along, placed as it is here, hiding particles that pass behind it"
+                            onClicked: app.exportModel = !app.exportModel
+                        }
+                    }
                 }
             }
 

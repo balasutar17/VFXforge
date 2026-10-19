@@ -19,7 +19,7 @@ using UnityEngine;
 
 namespace VFXForge.EditorTools
 {
-    [ScriptedImporter(8, "vfxforge")]
+    [ScriptedImporter(9, "vfxforge")]
     public class VFXForgeImporter : ScriptedImporter
     {
         public const string ShaderPath = "Assets/VFXForge/Shaders/VFXForgeParticle.shader";
@@ -181,8 +181,83 @@ namespace VFXForge.EditorTools
                 child.SetActive(Bool(layer, "enabled", true));
             }
 
+            // The 3D model the effect was made on, when it came along: drawn
+            // by the VFX Forge model shader, which writes depth so particles
+            // behind it are hidden, as in VFX Forge.
+            var modelInfo = Obj(root, "model");
+            if (modelInfo != null)
+                AddModel(ctx, top, Str(modelInfo, "file", ""));
+
             ctx.AddObjectToAsset("effect", top);
             ctx.SetMainObject(top);
+        }
+
+        const string ModelShaderPath = "Assets/VFXForge/Shaders/VFXForgeModel.shader";
+
+        static void AddModel(AssetImportContext ctx, GameObject top, string path)
+        {
+            if (path.Length == 0)
+                return;
+            string full = Path.Combine(Path.GetDirectoryName(Application.dataPath), path);
+            ctx.DependsOnSourceAsset(path);
+            ctx.DependsOnArtifact(ModelShaderPath);
+            if (!File.Exists(full))
+            {
+                ctx.LogImportWarning("The model " + path + " is missing, so the effect has no model. Export from VFX Forge again to restore it.");
+                return;
+            }
+            byte[] data = File.ReadAllBytes(full);
+            if (data.Length < 16 || data[0] != 'V' || data[1] != 'F' || data[2] != 'X' || data[3] != 'M')
+            {
+                ctx.LogImportWarning("The model " + path + " is not a VFX Forge model.");
+                return;
+            }
+            int vertexCount = (int)System.BitConverter.ToUInt32(data, 8);
+            int indexCount = (int)System.BitConverter.ToUInt32(data, 12);
+            int at = 16;
+            long need = 16L + vertexCount * 24L + (((long)vertexCount * 3 + 3) & ~3L) + indexCount * 4L;
+            if (vertexCount <= 0 || indexCount <= 0 || data.Length < need)
+            {
+                ctx.LogImportWarning("The model " + path + " is cut short.");
+                return;
+            }
+            var positions = new Vector3[vertexCount];
+            var normals = new Vector3[vertexCount];
+            var colors = new Color32[vertexCount];
+            for (int i = 0; i < vertexCount; i++, at += 12)
+                positions[i] = new Vector3(System.BitConverter.ToSingle(data, at), System.BitConverter.ToSingle(data, at + 4), System.BitConverter.ToSingle(data, at + 8));
+            for (int i = 0; i < vertexCount; i++, at += 12)
+                normals[i] = new Vector3(System.BitConverter.ToSingle(data, at), System.BitConverter.ToSingle(data, at + 4), System.BitConverter.ToSingle(data, at + 8));
+            for (int i = 0; i < vertexCount; i++, at += 3)
+                colors[i] = new Color32(data[at], data[at + 1], data[at + 2], 255);
+            at = (int)(16L + vertexCount * 24L + (((long)vertexCount * 3 + 3) & ~3L));
+            var triangles = new int[indexCount];
+            for (int i = 0; i < indexCount; i++, at += 4)
+                triangles[i] = (int)System.BitConverter.ToUInt32(data, at);
+
+            var mesh = new Mesh { name = "Model" };
+            if (vertexCount > 65000)
+                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            mesh.vertices = positions;
+            mesh.normals = normals;
+            mesh.colors32 = colors;
+            mesh.triangles = triangles;
+            mesh.RecalculateBounds();
+
+            Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(ModelShaderPath);
+            if (shader == null)
+                shader = Shader.Find("VFX Forge/Model");
+            if (shader == null)
+                ctx.LogImportWarning("The VFX Forge model shader is missing from Assets/VFXForge/Shaders. Export from VFX Forge again to restore it.");
+            var material = new Material(shader != null ? shader : Shader.Find("Hidden/InternalErrorShader")) { name = "Model" };
+
+            // Positions are already in the effect's world: this object stays at the top's origin.
+            var modelObject = new GameObject("Model");
+            modelObject.transform.SetParent(top.transform, false);
+            modelObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+            modelObject.AddComponent<MeshRenderer>().sharedMaterial = material;
+            ctx.AddObjectToAsset("model mesh", mesh);
+            ctx.AddObjectToAsset("model material", material);
         }
 
         static Material BuildLayer(ParticleSystem system, Dictionary<string, object> layer, float duration,

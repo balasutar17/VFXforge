@@ -123,6 +123,9 @@ class AppController : public QObject {
     Q_PROPERTY(int modelTriangles READ modelTriangles NOTIFY modelChanged)
     Q_PROPERTY(QVariantMap modelPlace READ modelPlaceMap NOTIFY modelChanged)
     Q_PROPERTY(bool hideBehindModel READ hideBehindModel WRITE setHideBehindModel NOTIFY modelChanged)
+    // Whether an export to Unity takes the model along (see vfx/editor/UnityExport.h).
+    Q_PROPERTY(bool exportModel READ exportModel WRITE setExportModel NOTIFY modelChanged)
+    Q_PROPERTY(bool modelTooBigToExport READ modelTooBigToExport NOTIFY modelChanged)
 
     // Exports.
     Q_PROPERTY(bool exportOpen READ exportOpen WRITE setExportOpen NOTIFY exportOpenChanged)
@@ -199,6 +202,9 @@ public:
     int modelTriangles() const { return model_ ? static_cast<int>(model_->triangleCount()) : 0; }
     QVariantMap modelPlaceMap() const;
     bool hideBehindModel() const { return hideBehindModel_; }
+    bool exportModel() const { return exportModel_; }
+    void setExportModel(bool on);
+    bool modelTooBigToExport() const;
     void setHideBehindModel(bool hide);
     // For the viewport, which draws the model.
     std::shared_ptr<const vfx::editor::Model> model() const { return model_; }
@@ -514,6 +520,7 @@ private:
     QString modelPath_;  // empty for the practice dummy
     vfx::editor::ModelPlace modelPlace_;
     bool hideBehindModel_ = true;
+    bool exportModel_ = true;
     bool libraryOpen_ = false;
     bool exportOpen_ = false;
 

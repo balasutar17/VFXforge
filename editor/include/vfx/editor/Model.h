@@ -3,8 +3,10 @@
 // An artist brings in the character, weapon or prop an effect is for, and
 // sees the effect on it: the model is drawn behind the particles, lit in a
 // toon style, and particles that pass behind it are hidden. The model is
-// for seeing only: it is not part of the effect, not saved in the effect
-// file and not exported (in the game it is already there).
+// for seeing: it is not part of the effect and not saved in the effect file.
+// An export to Unity can take it along (see UnityExport.h), so the effect
+// shows in Unity as it does here; in the game itself it is usually there
+// already.
 //
 // Models are read from Wavefront OBJ (with its MTL colours) and glTF 2.0
 // (.glb, or .gltf with its .bin), the two formats every 3D program writes.

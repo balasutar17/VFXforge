@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <set>
 #include <string_view>
@@ -955,8 +956,69 @@ std::vector<UnityPicture> unitySounds(const Effect& effect, const std::filesyste
     return out;
 }
 
+std::string unityModelPath(const Effect& effect) {
+    return "Assets/VFXForge/Models/" + unityFileStem(effect) + ".vfxmodel";
+}
+
+std::string unityModelBytes(const UnityModel& in) {
+    const Model* m = in.model;
+    if (m == nullptr || m->triangles.empty() || m->triangleCount() > kUnityMaxModelTriangles ||
+        m->normals.size() != m->positions.size() || m->colors.size() != m->positions.size()) {
+        return {};
+    }
+    const std::size_t n = m->corners();
+    // Fitted as drawModel does: scaled to stand `height` tall, feet at y,
+    // the middle of its footprint at x, z, then turned about its upright.
+    const float tall = m->maxY - m->minY;
+    const float scale = (in.place.height > 0.0f ? in.place.height : 1.0f) / (tall > 1e-6f ? tall : 1.0f);
+    const float midX = 0.5f * (m->minX + m->maxX), midZ = 0.5f * (m->minZ + m->maxZ);
+    const float turn = in.place.turn * static_cast<float>(kPi) / 180.0f;
+    const float ct = std::cos(turn), st = std::sin(turn);
+
+    std::string out;
+    out.reserve(16 + n * 28 + m->triangles.size() * 4);
+    const auto put32 = [&out](std::uint32_t v) {
+        for (int i = 0; i < 4; ++i) out.push_back(static_cast<char>((v >> (8 * i)) & 0xFFu));
+    };
+    const auto putF = [&](float f) {
+        std::uint32_t bits;
+        static_assert(sizeof bits == sizeof f);
+        std::memcpy(&bits, &f, sizeof bits);
+        put32(bits);
+    };
+    out += "VFXM";
+    put32(1);
+    put32(static_cast<std::uint32_t>(n));
+    put32(static_cast<std::uint32_t>(m->triangles.size()));
+    for (std::size_t i = 0; i < n; ++i) {
+        const float px = (m->positions[i * 3] - midX) * scale;
+        const float py = (m->positions[i * 3 + 1] - m->minY) * scale;
+        const float pz = (m->positions[i * 3 + 2] - midZ) * scale;
+        putF(ct * px + st * pz + in.place.x);
+        putF(py + in.place.y);
+        putF(0.0f - (-st * px + ct * pz + in.place.z));  // Unity's Z points the other way
+    }
+    for (std::size_t i = 0; i < n; ++i) {
+        const float nx = m->normals[i * 3], ny = m->normals[i * 3 + 1], nz = m->normals[i * 3 + 2];
+        putF(ct * nx + st * nz);
+        putF(ny);
+        putF(0.0f - (-st * nx + ct * nz));
+    }
+    for (std::size_t i = 0; i < n * 3; ++i) {
+        out.push_back(static_cast<char>(std::lround(std::clamp(m->colors[i], 0.0f, 1.0f) * 255.0f)));
+    }
+    while (out.size() % 4 != 0) out.push_back('\0');
+    // Mirroring Z turns every triangle inside out; swapping two corners turns it back.
+    for (std::size_t t = 0; t + 2 < m->triangles.size(); t += 3) {
+        put32(m->triangles[t]);
+        put32(m->triangles[t + 2]);
+        put32(m->triangles[t + 1]);
+    }
+    return out;
+}
+
 std::string unityDescription(const Effect& effect, const std::vector<UnityPicture>& pictures,
-                             const std::vector<UnityPicture>& sounds) {
+                             const std::vector<UnityPicture>& sounds, const std::string& modelPath) {
     J root = J::object();
     root["format"] = "vfxforge.unity";
     root["formatVersion"] = kUnityFormatVersion;
@@ -975,6 +1037,11 @@ std::string unityDescription(const Effect& effect, const std::vector<UnityPictur
         layers.push_back(layerJson(effect, layer, order++, pictures, sounds));
     }
     root["layers"] = std::move(layers);
+    if (!modelPath.empty()) {
+        J model = J::object();
+        model["file"] = modelPath;
+        root["model"] = std::move(model);
+    }
     return root.dump(2) + "\n";
 }
 
@@ -1071,7 +1138,8 @@ std::vector<UnityShape> unityShapePictures(const Effect& effect) {
     return used;
 }
 
-std::vector<TarEntry> unityExportFiles(const Effect& effect, const std::filesystem::path& pictureFolder) {
+std::vector<TarEntry> unityExportFiles(const Effect& effect, const std::filesystem::path& pictureFolder,
+                                       const UnityModel* model) {
     std::vector<TarEntry> files;
     for (const UnityFile& f : unityHelperSources()) {
         files.push_back(TarEntry{std::string("Assets/VFXForge/") + f.path, std::string(f.text)});
@@ -1091,8 +1159,16 @@ std::vector<TarEntry> unityExportFiles(const Effect& effect, const std::filesyst
     for (const UnityPicture& s : sounds) {
         files.push_back(TarEntry{s.path, s.png});
     }
+    std::string modelPath;
+    if (model != nullptr) {
+        std::string bytes = unityModelBytes(*model);
+        if (!bytes.empty()) {
+            modelPath = unityModelPath(effect);
+            files.push_back(TarEntry{modelPath, std::move(bytes)});
+        }
+    }
     files.push_back(TarEntry{"Assets/VFXForge/Effects/" + unityFileStem(effect) + ".vfxforge",
-                             unityDescription(effect, pictures, sounds)});
+                             unityDescription(effect, pictures, sounds, modelPath)});
     return files;
 }
 
@@ -1103,13 +1179,14 @@ bool isUnityProject(const std::filesystem::path& folder) {
 }
 
 Status exportToUnityProject(const Effect& effect, const std::filesystem::path& projectFolder,
-                            std::filesystem::path* written, const std::filesystem::path& pictureFolder) {
+                            std::filesystem::path* written, const std::filesystem::path& pictureFolder,
+                            const UnityModel* model) {
     if (!isUnityProject(projectFolder)) {
         return makeError(
             "That folder is not a Unity project. Choose the project's own folder: the one that "
             "holds the Assets and ProjectSettings folders.");
     }
-    for (const TarEntry& f : unityExportFiles(effect, pictureFolder)) {
+    for (const TarEntry& f : unityExportFiles(effect, pictureFolder, model)) {
         const std::filesystem::path target = projectFolder / pathFromUtf8(f.path);
         std::error_code ec;
         std::filesystem::create_directories(target.parent_path(), ec);
@@ -1158,8 +1235,8 @@ std::string makeUnityPackage(const std::vector<TarEntry>& files) {
 }
 
 Status exportUnityPackage(const Effect& effect, const std::filesystem::path& file,
-                          const std::filesystem::path& pictureFolder) {
-    return writeFileAtomic(file, makeUnityPackage(unityExportFiles(effect, pictureFolder)));
+                          const std::filesystem::path& pictureFolder, const UnityModel* model) {
+    return writeFileAtomic(file, makeUnityPackage(unityExportFiles(effect, pictureFolder, model)));
 }
 
 }  // namespace vfx::editor

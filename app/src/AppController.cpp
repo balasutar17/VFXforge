@@ -2531,6 +2531,18 @@ void AppController::setHideBehindModel(bool hide) {
     storeStage();
 }
 
+void AppController::setExportModel(bool on) {
+    if (on == exportModel_) {
+        return;
+    }
+    exportModel_ = on;
+    emit modelChanged();
+}
+
+bool AppController::modelTooBigToExport() const {
+    return model_ && model_->triangleCount() > vfx::editor::kUnityMaxModelTriangles;
+}
+
 void AppController::storeBackdrop() {
     QSettings settings;
     const QString key = backdropKey();
@@ -2788,14 +2800,24 @@ bool AppController::exportToUnityPath(const QString& folder) {
         return false;
     }
     std::filesystem::path written;
-    if (!report(vfx::editor::exportToUnityProject(session_.effect(), project, &written, session_.projectFolder()))) {
+    vfx::editor::UnityModel unityModel;
+    const bool withModel = exportModel_ && model_ && !modelTooBigToExport();
+    if (withModel) {
+        unityModel.model = model_.get();
+        unityModel.place = modelPlace_;
+    }
+    if (!report(vfx::editor::exportToUnityProject(session_.effect(), project, &written, session_.projectFolder(),
+                                                  withModel ? &unityModel : nullptr))) {
         return false;
     }
     const QString projectPath = text(vfx::pathToUtf8(project));
     QSettings().setValue(QStringLiteral("export/unityProject"), projectPath);
     emit exportsChanged();
-    say(QStringLiteral("Exported to %1. In Unity, the prefab is in Assets/VFXForge/Effects: drag it into a scene.")
-            .arg(QFileInfo(projectPath).fileName()));
+    say(QStringLiteral("Exported to %1. In Unity, the prefab is in Assets/VFXForge/Effects: drag it into a scene.%2")
+            .arg(QFileInfo(projectPath).fileName(),
+                 withModel ? QStringLiteral(" The 3D model went with it.")
+                           : (exportModel_ && modelTooBigToExport() ? QStringLiteral(" The 3D model has too many triangles to send, so it was left out.")
+                                                                    : QString())));
     return true;
 }
 
@@ -2808,11 +2830,21 @@ bool AppController::exportUnityPackage(const QUrl& file) {
     if (!path.endsWith(QStringLiteral(".unitypackage"), Qt::CaseInsensitive)) {
         path += QStringLiteral(".unitypackage");
     }
-    if (!report(vfx::editor::exportUnityPackage(session_.effect(), toPath(path), session_.projectFolder()))) {
+    vfx::editor::UnityModel unityModel;
+    const bool withModel = exportModel_ && model_ && !modelTooBigToExport();
+    if (withModel) {
+        unityModel.model = model_.get();
+        unityModel.place = modelPlace_;
+    }
+    if (!report(vfx::editor::exportUnityPackage(session_.effect(), toPath(path), session_.projectFolder(),
+                                                withModel ? &unityModel : nullptr))) {
         return false;
     }
-    say(QStringLiteral("Saved %1. In Unity: Assets > Import Package > Custom Package.")
-            .arg(QFileInfo(path).fileName()));
+    say(QStringLiteral("Saved %1. In Unity: Assets > Import Package > Custom Package.%2")
+            .arg(QFileInfo(path).fileName(),
+                 withModel ? QStringLiteral(" The 3D model is in the package.")
+                           : (exportModel_ && modelTooBigToExport() ? QStringLiteral(" The 3D model has too many triangles to send, so it was left out.")
+                                                                    : QString())));
     return true;
 }
 

@@ -3,6 +3,7 @@
 #include <catch2/catch_amalgamated.hpp>
 
 #include <cmath>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <set>
@@ -672,4 +673,57 @@ TEST_CASE("3D layers on the ground reach Unity lying down, turning about Y, sort
     }
     CHECK(importer.find("orbitalY") != std::string::npos);
     CHECK(importer.find("\"distance\"") != std::string::npos);
+}
+
+TEST_CASE("the 3D model travels with the effect, placed and mirrored for Unity", "[unity][model]") {
+    const Model dummy = practiceDummy();
+    UnityModel carried;
+    carried.model = &dummy;
+    carried.place.x = 2.0f;
+    carried.place.z = 1.0f;
+    carried.place.height = 3.0f;
+
+    const std::string bytes = unityModelBytes(carried);
+    REQUIRE(bytes.size() > 16);
+    CHECK(bytes.substr(0, 4) == "VFXM");
+    const auto u32 = [&](std::size_t at) {
+        return static_cast<std::uint32_t>(static_cast<unsigned char>(bytes[at])) |
+               static_cast<std::uint32_t>(static_cast<unsigned char>(bytes[at + 1])) << 8 |
+               static_cast<std::uint32_t>(static_cast<unsigned char>(bytes[at + 2])) << 16 |
+               static_cast<std::uint32_t>(static_cast<unsigned char>(bytes[at + 3])) << 24;
+    };
+    const std::size_t corners = u32(8), indices = u32(12);
+    CHECK(corners == dummy.corners());
+    CHECK(indices == dummy.triangles.size());
+    const std::size_t colourBytes = (corners * 3 + 3) / 4 * 4;
+    CHECK(bytes.size() == 16 + corners * 24 + colourBytes + indices * 4);
+
+    // Feet at y 0 and 3 tall, as placed.
+    float lowest = 1e9f, highest = -1e9f;
+    for (std::size_t i = 0; i < corners; ++i) {
+        std::uint32_t bits = u32(16 + i * 12 + 4);
+        float y;
+        std::memcpy(&y, &bits, 4);
+        lowest = std::min(lowest, y);
+        highest = std::max(highest, y);
+    }
+    CHECK(lowest == Catch::Approx(0.0f).margin(1e-4));
+    CHECK(highest == Catch::Approx(3.0f).margin(1e-3));
+
+    // Nothing to send without a model, or with one that is too big.
+    CHECK(unityModelBytes(UnityModel{}).empty());
+
+    // Only asked-for models are in the files, and the effect names the file.
+    const Effect effect = preset("guardian-orbs-3d");
+    auto has = [](const std::vector<TarEntry>& files, const std::string& path) {
+        for (const TarEntry& f : files) if (f.path == path) return true;
+        return false;
+    };
+    CHECK_FALSE(has(unityExportFiles(effect), unityModelPath(effect)));
+    const auto with = unityExportFiles(effect, {}, &carried);
+    CHECK(has(with, unityModelPath(effect)));
+    CHECK(has(with, "Assets/VFXForge/Shaders/VFXForgeModel.shader"));
+    const J described = J::parse(unityDescription(effect, {}, {}, unityModelPath(effect)));
+    CHECK(described["model"]["file"] == unityModelPath(effect));
+    CHECK_FALSE(J::parse(unityDescription(effect)).contains("model"));
 }
