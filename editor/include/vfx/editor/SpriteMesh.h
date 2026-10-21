@@ -75,6 +75,11 @@ struct SpriteRun {
     Id texture;
     std::uint32_t firstIndex = 0;
     std::uint32_t indexCount = 0;
+    // How its particles are laid over what is behind them. Only Normal and
+    // Linear Dodge (Add) are in the corners' colours (alpha 0 is "add"); the
+    // other modes keep their alpha and are told apart here, so a run never
+    // spans two modes.
+    BlendMode blend = BlendMode::Alpha;
 };
 
 struct SpriteMesh {

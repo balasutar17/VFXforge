@@ -846,7 +846,10 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
     }
     // In 3D, ordinary particles are drawn far ones first, as the preview
     // draws them. Glowing ones add their light, so their order does not show.
-    if (!e.flat && e.blend != BlendMode::Additive) {
+    // Unity draws two blends, Normal and Linear Dodge (Add): any other mode
+    // is given the nearer of the two (see blendForUnity).
+    const BlendMode unityBlend = blendForUnity(e.blend);
+    if (!e.flat && unityBlend != BlendMode::Additive) {
         render["sort"] = "distance";
     }
     const int shapeNumber = static_cast<int>(e.spriteShape);
@@ -881,7 +884,7 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
         dissolve["edge"] = round6(e.dissolveEdge);
         render["dissolve"] = std::move(dissolve);
     }
-    render["additive"] = e.blend == BlendMode::Additive;
+    render["additive"] = unityBlend == BlendMode::Additive;
     render["glow"] = round6(glow);
     render["order"] = order;
     out["render"] = std::move(render);
@@ -954,6 +957,32 @@ std::vector<UnityPicture> unitySounds(const Effect& effect, const std::filesyste
         out.push_back(UnityPicture{asset.id, "Assets/VFXForge/Sounds/" + file, std::move(bytes)});
     }
     return out;
+}
+
+std::vector<std::string> unityBlendNotes(const Effect& effect) {
+    std::vector<std::string> notes;
+    for (const Layer& layer : effect.layers) {
+        if (!layer.enabled) {
+            continue;
+        }
+        for (const Module& m : layer.modules) {
+            if (m.type != "sprite" || !m.known()) {
+                continue;
+            }
+            const Value* blend = m.find("blend");
+            const auto* word = blend ? std::get_if<std::string>(blend) : nullptr;
+            if (!word) {
+                continue;
+            }
+            const BlendMode mode = blendFromName(*word);
+            const BlendMode used = blendForUnity(mode);
+            if (used != mode) {
+                notes.push_back(layer.name + ": " + blendLabel(mode) + " is drawn as " + blendLabel(used) +
+                                " in Unity");
+            }
+        }
+    }
+    return notes;
 }
 
 std::string unityModelPath(const Effect& effect) {

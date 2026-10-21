@@ -425,10 +425,10 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
                            : drawnFromPicture(shapeNumber, batch.shapeEdit)
                                  ? shapeTextureId(shapeNumber, batch.shapeEdit)
                                  : Id{};
-        if (!mesh.runs.empty() && mesh.runs.back().texture == texture) {
+        if (!mesh.runs.empty() && mesh.runs.back().texture == texture && mesh.runs.back().blend == batch.blend) {
             mesh.runs.back().indexCount += runEnd - runStart;
         } else {
-            mesh.runs.push_back(SpriteRun{texture, runStart, runEnd - runStart});
+            mesh.runs.push_back(SpriteRun{texture, runStart, runEnd - runStart, batch.blend});
         }
     }
 }

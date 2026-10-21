@@ -219,8 +219,15 @@ Registry::Registry() {
             .help("Your own picture or sprite sheet, drawn for each particle. None draws the Shape."),
         P("blend", "Blend Mode", ValueKind::Enum, text("alpha"))
             .simple()
-            .options({"alpha", "additive"})
-            .help("Alpha covers what is behind it. Additive adds light, so overlaps glow."),
+            .options({"alpha", "dissolve",
+                      "darken", "multiply", "colorburn", "linearburn", "darkercolor",
+                      "lighten", "screen", "colordodge", "additive", "lightercolor",
+                      "overlay", "softlight", "hardlight", "vividlight", "linearlight", "pinlight", "hardmix",
+                      "difference", "exclusion", "subtract", "divide",
+                      "hue", "saturation", "color", "luminosity"})
+            .help("How this layer's particles are laid over what is behind them, as Photoshop's layer "
+                  "blend modes do. Normal covers it; Linear Dodge (Add) adds light, so overlaps glow; "
+                  "Multiply darkens; Screen lightens."),
         P("glow", "Glow", ValueKind::Float, num(1.0))
             .simple().range(0, 1000).ui(0, 10)
             .help("Brightness multiplier. Above 1 the particle glows."),

@@ -420,8 +420,7 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
     if (sprite.present()) {
         e->drawn = true;
         e->texture = sprite.get<AssetRef>("texture").id;
-        e->blend = sprite.get<std::string>("blend") == "additive" ? BlendMode::Additive
-                                                                  : BlendMode::Alpha;
+        e->blend = blendFromName(sprite.get<std::string>("blend"));
         e->facing = sprite.get<std::string>("facing") == "plane" ? Facing::Plane : Facing::Camera;
         e->glow = f(sprite.get<double>("glow"));
 

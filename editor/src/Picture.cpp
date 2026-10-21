@@ -6,6 +6,7 @@
 
 #include "vfx/FileIO.h"
 #include "vfx/editor/Archive.h"
+#include "vfx/editor/Blend.h"
 #include "vfx/editor/Image.h"
 #include "vfx/editor/Model.h"
 #include "vfx/editor/ShapeLibrary.h"
@@ -29,7 +30,7 @@ Edge edgeThrough(const SpriteVertex& p, const SpriteVertex& q) {
 void drawTriangle(std::vector<float>& canvas, int width, int height, const SpriteVertex& v0,
                   const SpriteVertex& v1, const SpriteVertex& v2, SpriteShape shape,
                   std::vector<std::uint32_t>& taken, std::uint32_t stamp, bool keepAlpha,
-                  const MipChain* picture, const ShapeEdit& edit, const ModelPicture* model) {
+                  const MipChain* picture, const ShapeEdit& edit, const ModelPicture* model, BlendMode blend) {
     const float area = edgeThrough(v0, v1).at(v2.x, v2.y);
     if (!(std::fabs(area) > 1e-9f)) {
         return;
@@ -109,10 +110,7 @@ void drawTriangle(std::vector<float>& canvas, int width, int height, const Sprit
                 g *= eaten.keep;
                 b *= eaten.keep;
                 float* d = &canvas[index * 4u];
-                const float keep = 1.0f - pa;
-                d[0] = r + d[0] * keep;
-                d[1] = g + d[1] * keep;
-                d[2] = b + d[2] * keep;
+                blendOver(blend, r, g, b, pa, d, blendNoise(x, y));
                 if (keepAlpha) {
                     const float own = va > 0.0f ? pa
                                                    : std::min(1.0f, std::max({r, g, b}));
@@ -131,12 +129,10 @@ void drawTriangle(std::vector<float>& canvas, int width, int height, const Sprit
             float r = vr, g = vg, b = vb;
             applyTone(r, g, b, sample.tone);
             applyShine(r, g, b, va, std::max(sample.shine, eaten.rim));
-            // The one blend rule: source + destination * (1 - source alpha).
+            // Normal's rule is source + destination * (1 - source alpha); the
+            // other modes are in Blend.h.
             float* d = &canvas[index * 4u];
-            const float keep = 1.0f - va * cover;
-            d[0] = r * cover + d[0] * keep;
-            d[1] = g * cover + d[1] * keep;
-            d[2] = b * cover + d[2] * keep;
+            blendOver(blend, r * cover, g * cover, b * cover, va * cover, d, blendNoise(x, y));
             if (keepAlpha) {
                 // Coverage, for pictures with a see-through background. Light
                 // that is added (alpha 0) still has to show when the picture
@@ -218,6 +214,7 @@ Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor backgr
         if (run < mesh.runs.size() && mesh.runs[run].texture.valid()) {
             shapeFromTextureId(mesh.runs[run].texture, &edit);
         }
+        const BlendMode blend = run < mesh.runs.size() ? mesh.runs[run].blend : BlendMode::Alpha;
         for (std::size_t t = 0; t < 2; ++t) {
             const SpriteVertex& v0 = mesh.vertices[mesh.indices[i + t * 3]];
             const SpriteVertex& v1 = mesh.vertices[mesh.indices[i + t * 3 + 1]];
@@ -225,7 +222,7 @@ Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor backgr
             const int number = static_cast<int>(std::lround(v0.shape));
             const auto shape = static_cast<SpriteShape>(number >= 0 && number < shapeCount() ? number : 0);
             drawTriangle(canvas, out.width, out.height, v0, v1, v2, shape, taken, stamp,
-                         transparent, picture, edit, hideBehind);
+                         transparent, picture, edit, hideBehind, blend);
         }
     }
 

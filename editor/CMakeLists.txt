@@ -13,6 +13,7 @@ vfx_embed_unreal_files(${PROJECT_SOURCE_DIR}/unreal ${CMAKE_CURRENT_BINARY_DIR}/
 add_library(vfx_editor STATIC
     src/Archive.cpp
     src/Audio.cpp
+    src/Blend.cpp
     src/Frames.cpp
     src/Image.cpp
     src/Model.cpp

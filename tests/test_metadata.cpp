@@ -3,9 +3,12 @@
 #include <cmath>
 #include <limits>
 #include <set>
+#include <string>
+#include <vector>
 
 #include "vfx/Effect.h"
 #include "vfx/Metadata.h"
+#include "vfx/Program.h"
 
 using namespace vfx;
 
@@ -124,7 +127,8 @@ TEST_CASE("Validation checks every form a scalar can take") {
 TEST_CASE("Validation checks enums, colours, gradients, bursts and text") {
     const auto& blend = prop("sprite", "blend");
     CHECK(validateValue(blend, Value(std::string("additive"))).ok());
-    CHECK_FALSE(validateValue(blend, Value(std::string("multiply"))).ok());
+    CHECK(validateValue(blend, Value(std::string("multiply"))).ok());
+    CHECK_FALSE(validateValue(blend, Value(std::string("dodge"))).ok());
 
     const auto& color = prop("initial", "color");
     CHECK(validateValue(color, Value(Color{2.5, 0, 0, 1})).ok());  // brighter than white is fine
@@ -160,7 +164,36 @@ TEST_CASE("Repair clamps, reorders or falls back to the default") {
     CHECK(repairValue(lifetime, Value(Scalar::curve({}))) == lifetime.defaultValue);
 
     const auto& blend = prop("sprite", "blend");
-    CHECK(repairValue(blend, Value(std::string("multiply"))) == blend.defaultValue);
+    CHECK(repairValue(blend, Value(std::string("dodge"))) == blend.defaultValue);
+}
+
+TEST_CASE("Every blend mode is a choice of the Sprite module, in Photoshop's order, and round-trips by name") {
+    const auto& blend = prop("sprite", "blend");
+    std::vector<std::string> names;
+    for (const BlendMode mode : blendModes()) {
+        names.emplace_back(blendName(mode));
+        CHECK(blendFromName(blendName(mode)) == mode);
+        CHECK(std::string(blendLabel(mode)).size() > 2);
+    }
+    CHECK(names == blend.options);
+    CHECK(names.size() == 27);
+    // Normal and Linear Dodge (Add) keep the values they always had.
+    CHECK(static_cast<int>(BlendMode::Alpha) == 0);
+    CHECK(static_cast<int>(BlendMode::Additive) == 1);
+    CHECK(std::string(blendLabel(BlendMode::Additive)) == "Linear Dodge (Add)");
+    CHECK(blendFromName("no such mode") == BlendMode::Alpha);
+    // Photoshop's groups, each in one run of the list.
+    int last = 0;
+    for (const BlendMode mode : blendModes()) {
+        CHECK(blendGroup(mode) >= last);
+        last = blendGroup(mode);
+    }
+    // What the card does, and what Unity can be given.
+    CHECK(blendByCard(BlendMode::Screen));
+    CHECK_FALSE(blendByCard(BlendMode::Overlay));
+    CHECK(blendForUnity(BlendMode::Screen) == BlendMode::Additive);
+    CHECK(blendForUnity(BlendMode::Multiply) == BlendMode::Alpha);
+    CHECK(blendForUnity(BlendMode::Hue) == BlendMode::Alpha);
 }
 
 TEST_CASE("Whatever goes into repair, what comes out is valid") {

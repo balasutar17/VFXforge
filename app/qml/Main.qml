@@ -1419,6 +1419,7 @@ ApplicationWindow {
                                     var file = kind === "number" ? "ControlNumber.qml"
                                              : kind === "shape" ? "ControlShape.qml"
                                              : kind === "choice" ? "ControlChoice.qml"
+                                             : kind === "blend" ? "ControlBlend.qml"
                                              : kind === "range" ? "ControlRange.qml"
                                              : kind === "color" ? "ControlColor.qml"
                                              : kind === "direction" ? "ControlDirection.qml"

@@ -50,6 +50,7 @@ qt_add_resources(vfxforge "vfxforge_qml"
         qml/ControlColor.qml
         qml/ControlDirection.qml
         qml/ControlNote.qml
+        qml/ControlBlend.qml
         qml/ControlChoice.qml
         qml/ControlCurve.qml
         qml/ControlGradient.qml

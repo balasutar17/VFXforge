@@ -75,6 +75,40 @@ void bindDepth(QSGMaterialShader::RenderState& state, QSGTexture** texture, cons
     *texture = t;
 }
 
+// How a layer's particles are laid over what is behind them, for the modes
+// the graphics card can do from the particle and the pixel under it. A
+// particle's colour arrives premultiplied (p) with its alpha (a):
+//   Normal and Linear Dodge (Add)  p + pixel * (1 - a)   (Add has a = 0)
+//   Screen                         p + pixel * (1 - p)
+//   Multiply                       p * pixel + pixel * (1 - a)
+//   Exclusion                      p * (1 - pixel) + pixel * (1 - p)
+// Every other mode needs the pixel itself for its sums, which a card's
+// blending cannot give, so the preview draws it as Normal (the picture
+// renderer, and so exported frames, draw them all: see editor/Blend.h).
+bool applyBlend(QSGMaterialShader::GraphicsPipelineState* ps, vfx::BlendMode mode) {
+    using F = QSGMaterialShader::GraphicsPipelineState::BlendFactor;
+    ps->blendEnable = true;
+    switch (mode) {
+        case vfx::BlendMode::Screen:
+            ps->srcColor = F::One;
+            ps->dstColor = F::OneMinusSrcColor;
+            break;
+        case vfx::BlendMode::Multiply:
+            ps->srcColor = F::DstColor;
+            ps->dstColor = F::OneMinusSrcAlpha;
+            break;
+        case vfx::BlendMode::Exclusion:
+            ps->srcColor = F::OneMinusDstColor;
+            ps->dstColor = F::OneMinusSrcColor;
+            break;
+        default:
+            ps->srcColor = F::One;
+            ps->dstColor = F::OneMinusSrcAlpha;
+            break;
+    }
+    return true;
+}
+
 // The built-in shapes. The vertex colours arrive already premultiplied, so
 // ordinary and additive particles share one draw call, and the shape is
 // chosen per particle inside the shader.
@@ -89,6 +123,8 @@ public:
     bool updateUniformData(RenderState& state, QSGMaterial* material, QSGMaterial*) override;
     void updateSampledImage(RenderState& state, int binding, QSGTexture** texture, QSGMaterial* material,
                             QSGMaterial*) override;
+    bool updateGraphicsPipelineState(RenderState& state, GraphicsPipelineState* ps, QSGMaterial* material,
+                                     QSGMaterial*) override;
 };
 
 class SpriteMaterial : public QSGMaterial {
@@ -103,10 +139,19 @@ public:
     }
     int compare(const QSGMaterial* other) const override {
         const auto* o = static_cast<const SpriteMaterial*>(other);
+        if (mode != o->mode) {
+            return mode < o->mode ? -1 : 1;
+        }
         return shared == o->shared ? 0 : (shared < o->shared ? -1 : 1);
     }
     const SpriteState* shared = nullptr;
+    vfx::BlendMode mode = vfx::BlendMode::Alpha;
 };
+
+bool SpriteShader::updateGraphicsPipelineState(RenderState&, GraphicsPipelineState* ps, QSGMaterial* material,
+                                               QSGMaterial*) {
+    return applyBlend(ps, static_cast<SpriteMaterial*>(material)->mode);
+}
 
 bool SpriteShader::updateUniformData(RenderState& state, QSGMaterial* material, QSGMaterial*) {
     return writeUniforms(state, static_cast<SpriteMaterial*>(material)->shared);
@@ -131,6 +176,8 @@ public:
     bool updateUniformData(RenderState& state, QSGMaterial* material, QSGMaterial*) override;
     void updateSampledImage(RenderState& state, int binding, QSGTexture** texture,
                             QSGMaterial* material, QSGMaterial*) override;
+    bool updateGraphicsPipelineState(RenderState& state, GraphicsPipelineState* ps, QSGMaterial* material,
+                                     QSGMaterial*) override;
 };
 
 class ImageMaterial : public QSGMaterial {
@@ -145,6 +192,9 @@ public:
     }
     int compare(const QSGMaterial* other) const override {
         const auto* o = static_cast<const ImageMaterial*>(other);
+        if (mode != o->mode) {
+            return mode < o->mode ? -1 : 1;
+        }
         if (texture != o->texture) {
             return texture < o->texture ? -1 : 1;
         }
@@ -152,7 +202,13 @@ public:
     }
     QSGTexture* texture = nullptr;
     const SpriteState* shared = nullptr;
+    vfx::BlendMode mode = vfx::BlendMode::Alpha;
 };
+
+bool ImageShader::updateGraphicsPipelineState(RenderState&, GraphicsPipelineState* ps, QSGMaterial* material,
+                                              QSGMaterial*) {
+    return applyBlend(ps, static_cast<ImageMaterial*>(material)->mode);
+}
 
 bool ImageShader::updateUniformData(RenderState& state, QSGMaterial* material, QSGMaterial*) {
     return writeUniforms(state, static_cast<ImageMaterial*>(material)->shared);
@@ -372,11 +428,15 @@ QSGNode* updateSpriteNode(QSGNode* old, const vfx::editor::SpriteMesh& mesh,
             child->markDirty(QSGNode::DirtyMaterial);
         }
         // Its shaders read the item's size and the model's distances, which
-        // may change from frame to frame.
+        // may change from frame to frame. The card lays the run down in the
+        // layer's blend mode when it can do that by itself (see applyBlend).
+        const vfx::BlendMode mode = vfx::blendByCard(run.blend) ? run.blend : vfx::BlendMode::Alpha;
         if (image) {
             image->shared = &root->shared;
+            image->mode = mode;
         } else if (auto* shape = dynamic_cast<SpriteMaterial*>(child->material())) {
             shape->shared = &root->shared;
+            shape->mode = mode;
         }
         child->markDirty(QSGNode::DirtyMaterial);
 

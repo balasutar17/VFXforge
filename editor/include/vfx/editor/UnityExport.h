@@ -73,6 +73,12 @@ inline constexpr std::size_t kUnityMaxModelTriangles = 400'000;
 std::string unityModelBytes(const UnityModel& model);
 std::string unityModelPath(const Effect& effect);  // "Assets/VFXForge/Models/<name>.vfxmodel"
 
+// Unity's particle shader draws two blends: Normal and Linear Dodge (Add).
+// A layer set to any other of Photoshop's modes is drawn there with the
+// nearer of the two (see blendForUnity). One line for each such layer, in
+// words an artist reads: "Spark Trail: Overlay is drawn as Normal in Unity".
+std::vector<std::string> unityBlendNotes(const Effect& effect);
+
 // The effect, translated into Unity Particle System terms, as JSON text.
 // modelPath, when not empty, is the model file the effect shows.
 std::string unityDescription(const Effect& effect, const std::vector<UnityPicture>& pictures = {},

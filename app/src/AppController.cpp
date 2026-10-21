@@ -37,6 +37,7 @@
 #include "vfx/editor/Refine.h"
 #include "vfx/editor/Selection.h"
 #include "vfx/editor/ShapeLibrary.h"
+#include "vfx/Program.h"
 #include "vfx/editor/UnityExport.h"
 #include "vfx/editor/UserLibrary.h"
 #include "UserLibraryPath.h"
@@ -56,13 +57,30 @@ std::filesystem::path toPath(const QString& localFile) { return vfx::pathFromUtf
 // names; artists see these.
 QString optionLabel(const vfx::PropertyDesc& desc, const std::string& option) {
     if (desc.key == "blend") {
-        return option == "additive" ? QStringLiteral("Glow") : QStringLiteral("Normal");
+        return QString::fromUtf8(vfx::blendLabel(vfx::blendFromName(option)));  // Photoshop's names
     }
     QString label = text(option);
     if (!label.isEmpty()) {
         label[0] = label[0].toUpper();
     }
     return label;
+}
+
+// The layers whose blend mode Unity can only approximate, for the line that
+// says an export is done (empty when there are none).
+QString unityBlendText(const vfx::Effect& effect) {
+    const std::vector<std::string> notes = vfx::editor::unityBlendNotes(effect);
+    if (notes.empty()) {
+        return {};
+    }
+    QString out = QStringLiteral(" Blend modes: ");
+    for (std::size_t i = 0; i < notes.size() && i < 3; ++i) {
+        out += (i ? QStringLiteral("; ") : QString()) + text(notes[i]);
+    }
+    if (notes.size() > 3) {
+        out += QStringLiteral("; and %1 more").arg(static_cast<int>(notes.size()) - 3);
+    }
+    return out + QStringLiteral(".");
 }
 
 // ---- curves, gradients and bursts, to and from the window's lists
@@ -610,7 +628,9 @@ void AppController::rebuildControls() {
                     // The particle's shape is picked from pictures; any other
                     // choice (where particles appear, how they blend) from words.
                     const bool picture = d.key == "shape" && c.moduleType == "sprite";
-                    kind = picture ? QStringLiteral("shape") : QStringLiteral("choice");
+                    const bool blendChoice = d.key == "blend" && c.moduleType == "sprite";
+                    kind = picture ? QStringLiteral("shape")
+                                   : blendChoice ? QStringLiteral("blend") : QStringLiteral("choice");
                     if (picture) {
                         row.insert(QStringLiteral("picture"), pictureInfo());
                     }
@@ -620,6 +640,16 @@ void AppController::rebuildControls() {
                         QVariantMap entry;
                         entry.insert(QStringLiteral("value"), text(option));
                         entry.insert(QStringLiteral("label"), optionLabel(d, option));
+                        if (blendChoice) {
+                            // Photoshop's groups, whether the preview draws it
+                            // exactly, and what Unity draws instead (if not it).
+                            const vfx::BlendMode mode = vfx::blendFromName(option);
+                            const vfx::BlendMode unity = vfx::blendForUnity(mode);
+                            entry.insert(QStringLiteral("group"), vfx::blendGroup(mode));
+                            entry.insert(QStringLiteral("live"), vfx::blendByCard(mode));
+                            entry.insert(QStringLiteral("unity"),
+                                         unity == mode ? QString() : QString::fromUtf8(vfx::blendLabel(unity)));
+                        }
                         if (picture) {
                             // There are many shapes: each has a name an
                             // artist would use, and a group it is found in.
@@ -2996,9 +3026,10 @@ bool AppController::exportToUnityPath(const QString& folder) {
     emit exportsChanged();
     say(QStringLiteral("Exported to %1. In Unity, the prefab is in Assets/VFXForge/Effects: drag it into a scene.%2")
             .arg(QFileInfo(projectPath).fileName(),
-                 withModel ? QStringLiteral(" The 3D model went with it.")
-                           : (exportModel_ && modelTooBigToExport() ? QStringLiteral(" The 3D model has too many triangles to send, so it was left out.")
-                                                                    : QString())));
+                 (withModel ? QStringLiteral(" The 3D model went with it.")
+                            : (exportModel_ && modelTooBigToExport() ? QStringLiteral(" The 3D model has too many triangles to send, so it was left out.")
+                                                                     : QString())) +
+                     unityBlendText(session_.effect())));
     return true;
 }
 
@@ -3023,9 +3054,10 @@ bool AppController::exportUnityPackage(const QUrl& file) {
     }
     say(QStringLiteral("Saved %1. In Unity: Assets > Import Package > Custom Package.%2")
             .arg(QFileInfo(path).fileName(),
-                 withModel ? QStringLiteral(" The 3D model is in the package.")
-                           : (exportModel_ && modelTooBigToExport() ? QStringLiteral(" The 3D model has too many triangles to send, so it was left out.")
-                                                                    : QString())));
+                 (withModel ? QStringLiteral(" The 3D model is in the package.")
+                            : (exportModel_ && modelTooBigToExport() ? QStringLiteral(" The 3D model has too many triangles to send, so it was left out.")
+                                                                     : QString())) +
+                     unityBlendText(session_.effect())));
     return true;
 }
 

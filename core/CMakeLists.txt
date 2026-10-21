@@ -5,6 +5,7 @@
 # C++ standard library and the vendored JSON header are on its include path,
 # so a stray dependency fails to build.
 add_library(vfx_core STATIC
+    src/Blend.cpp
     src/Clock.cpp
     src/CommandStack.cpp
     src/Commands.cpp

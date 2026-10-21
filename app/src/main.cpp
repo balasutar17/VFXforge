@@ -716,7 +716,7 @@ int main(int argc, char* argv[]) {
                             adv << "advanced view: " << rows.size() << " rows; kinds: " << kinds.join(QStringLiteral(", "))
                                 << "\n";
                             for (const char* wanted : {"section", "number", "range", "curve", "gradient", "bursts", "vector",
-                                                       "choice", "shape", "direction", "sound"}) {
+                                                       "choice", "blend", "shape", "direction", "sound"}) {
                                 if (!kinds.contains(QString::fromLatin1(wanted))) {
                                     adv << "FAIL: the advanced view has no " << wanted << " row\n";
                                     selfTest.result = 1;
@@ -725,6 +725,38 @@ int main(int argc, char* argv[]) {
                             if (kinds.contains(QStringLiteral("unsupported"))) {
                                 adv << "FAIL: the advanced view has a setting it cannot edit\n";
                                 selfTest.result = 1;
+                            }
+                            // The layer's blend menu: Photoshop's whole list, in
+                            // groups, five of them drawn by the live preview.
+                            {
+                                int options = 0, live = 0, groups = 0;
+                                QString first, shownAs;
+                                int lastGroup = -1;
+                                for (const QVariant& item : controller.controls()) {
+                                    const QVariantMap row = item.toMap();
+                                    if (row.value(QStringLiteral("kind")).toString() != QStringLiteral("blend")) {
+                                        continue;
+                                    }
+                                    for (const QVariant& o : row.value(QStringLiteral("options")).toList()) {
+                                        const QVariantMap option = o.toMap();
+                                        first = options == 0 ? option.value(QStringLiteral("label")).toString() : first;
+                                        live += option.value(QStringLiteral("live")).toBool() ? 1 : 0;
+                                        const int group = option.value(QStringLiteral("group")).toInt();
+                                        groups += group != lastGroup ? 1 : 0;
+                                        lastGroup = group;
+                                        if (option.value(QStringLiteral("value")).toString() == QStringLiteral("screen")) {
+                                            shownAs = option.value(QStringLiteral("unity")).toString();
+                                        }
+                                        ++options;
+                                    }
+                                }
+                                adv << "blend menu: " << options << " modes in " << groups << " groups, first \"" << first
+                                    << "\", " << live << " drawn live, Screen is \"" << shownAs << "\" in Unity\n";
+                                if (options != 27 || groups != 6 || first != QStringLiteral("Normal") || live != 5 ||
+                                    shownAs != QStringLiteral("Linear Dodge (Add)")) {
+                                    adv << "FAIL: the blend menu is not Photoshop's list\n";
+                                    selfTest.result = 1;
+                                }
                             }
                             capture(window, selfTest, QStringLiteral("-advanced"), QStringLiteral("the advanced view"));
 

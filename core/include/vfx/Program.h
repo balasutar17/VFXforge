@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include "vfx/Document.h"
@@ -72,7 +73,40 @@ struct BurstF {
 };
 
 enum class ShapeType : std::uint8_t { Point, Circle, Rectangle, Sphere, Box, Cone, Path };
-enum class BlendMode : std::uint8_t { Alpha, Additive };
+// How a layer's particles are laid over what is behind them: Photoshop's
+// layer blend modes, in its order. Alpha is Photoshop's Normal and Additive
+// its Linear Dodge (Add); the first two values never change, as they are
+// part of what a simulation's checksum has always meant.
+enum class BlendMode : std::uint8_t {
+    Alpha, Additive,
+    Dissolve,
+    Darken, Multiply, ColorBurn, LinearBurn, DarkerColor,
+    Lighten, Screen, ColorDodge, LighterColor,
+    Overlay, SoftLight, HardLight, VividLight, LinearLight, PinLight, HardMix,
+    Difference, Exclusion, Subtract, Divide,
+    Hue, Saturation, Color, Luminosity,
+};
+
+// Every mode, in the order of Photoshop's menu (Normal, Dissolve, the
+// darkening group, the lightening group...).
+const std::vector<BlendMode>& blendModes();
+// The word the file keeps ("alpha", "additive", "softlight"), and back. A
+// word nothing knows is Alpha.
+const char* blendName(BlendMode mode);
+BlendMode blendFromName(std::string_view name);
+// What an artist reads: "Normal", "Linear Dodge (Add)", "Soft Light".
+const char* blendLabel(BlendMode mode);
+// Which of Photoshop's groups the menu lists it in: 0 Normal and Dissolve,
+// 1 darken, 2 lighten, 3 contrast, 4 comparison, 5 colour.
+int blendGroup(BlendMode mode);
+// Whether the graphics card lays this one down by itself, from the particle
+// and the pixel under it alone: Normal, Linear Dodge (Add), Screen, Multiply
+// and Exclusion. The others read the pixel behind and do sums with it.
+bool blendByCard(BlendMode mode);
+// The closest of Normal and Linear Dodge (Add), the two modes Unity's
+// particle shader draws, to this one: the lightening modes glow, the rest
+// are laid on as Normal.
+BlendMode blendForUnity(BlendMode mode);
 enum class Facing : std::uint8_t { Camera, Plane };
 // How a sprite sheet steps through its pictures.
 enum class Animate : std::uint8_t { Life, Loop, Random };
