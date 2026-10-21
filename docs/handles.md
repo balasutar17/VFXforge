@@ -32,6 +32,16 @@ stays exactly as it was. 0.20 follows the specification Bala wrote,
   inside the deepest group they all share, and puts them together in the
   list. **Ungroup** (Cmd+Shift+G) takes a group away one level: its layers
   and groups move up into its parent.
+- **Duplicate** (Cmd+D) copies what is selected: one layer, several layers
+  picked one by one, or a whole group. Several layers are copied together,
+  just below the last of them, each in its original's group, named "… copy".
+  A group is copied with the groups inside it as a new group beside it
+  ("Fire copy", then "Fire copy 2"). Copies are never locked, and the copies
+  are selected afterwards. Each is one undo step.
+- **Right-click** a layer or a group heading for the same in a menu:
+  Duplicate, Group N layers, Ungroup, Remove. A row that is not part of the
+  selection becomes the selection first; one that is keeps the selection, so
+  a right-click on one of several selected layers acts on all of them.
 - The triangle on a heading folds the group; its tick box hides or shows
   all of it; × removes all of it; the padlock locks all of it.
 - In the file a layer's group is a path, `"Fire Explosion/Sparks"`.

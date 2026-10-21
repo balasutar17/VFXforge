@@ -215,6 +215,15 @@ public:
     // just above the original).
     Status moveLayer(Id layer, int newIndex);
     Status duplicateLayer(Id layer, Id* created = nullptr);
+    // Copies several layers as one undo step. The copies go together just
+    // below the last of the originals, in the effect's order, and stay in the
+    // groups of their originals. created receives them in that order.
+    Status duplicateLayers(const std::vector<Id>& layers, std::vector<Id>* created = nullptr);
+    // Copies a whole group, and the groups inside it, as a new group beside
+    // it ("Fire copy", "Fire copy 2"...), as one undo step. The copy's layers
+    // go just below the group's last layer, unlocked. made receives the new
+    // group's path.
+    Status duplicateGroup(std::string_view group, std::string* made = nullptr);
 
     // Keeps the original reference file with the project, untouched: it is
     // copied into the project's "reference" folder and listed with the

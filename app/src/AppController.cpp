@@ -866,6 +866,81 @@ void AppController::groupSelection() {
             .arg(text(vfx::editor::groupName(made))));
 }
 
+void AppController::prepareLayerMenu(int index) {
+    const auto& layers = session_.effect().layers;
+    if (index < 0 || index >= static_cast<int>(layers.size())) {
+        return;
+    }
+    const vfx::Id id = layers[static_cast<std::size_t>(index)].id;
+    const vfx::editor::ResolvedSelection r = session_.resolve(selection_);
+    const bool inside = std::find(r.targets.begin(), r.targets.end(), id) != r.targets.end() ||
+                        std::find(r.locked.begin(), r.locked.end(), id) != r.locked.end();
+    if (!inside) {
+        clickLayer(index, 0);
+    }
+}
+
+void AppController::prepareGroupMenu(const QString& path) {
+    const std::string g = utf8(path);
+    const auto& layers = session_.effect().layers;
+    const bool inside = std::find(selection_.groups.begin(), selection_.groups.end(), g) != selection_.groups.end() ||
+                        std::any_of(selection_.layers.begin(), selection_.layers.end(), [&](vfx::Id id) {
+                            const int i = vfx::layerIndex(session_.effect(), id);
+                            return i >= 0 && vfx::editor::inGroup(layers[static_cast<std::size_t>(i)], g);
+                        });
+    if (!inside) {
+        clickGroup(path, 0);
+    }
+}
+
+void AppController::duplicateSelection() {
+    session_.endEdit();
+    const QString group = selectedGroup();
+    if (!group.isEmpty()) {
+        std::string made;
+        if (!report(session_.duplicateGroup(utf8(group), &made))) {
+            return;
+        }
+        selection_ = {};
+        selection_.groups.push_back(made);
+        for (std::size_t i = 0; i < session_.effect().layers.size(); ++i) {
+            if (vfx::editor::inGroup(session_.effect().layers[i], made)) {
+                selected_ = static_cast<int>(i);
+                break;
+            }
+        }
+        selectionFor_ = selectedLayerId();
+        changed(Structure);
+        say(QStringLiteral("Copied the group %1 as %2.").arg(group, text(made)));
+        return;
+    }
+    const vfx::editor::ResolvedSelection r = session_.resolve(selection_);
+    std::vector<vfx::Id> ids = r.targets;
+    ids.insert(ids.end(), r.locked.begin(), r.locked.end());
+    if (ids.empty()) {
+        // Nothing picked out in the list: the layer being edited.
+        const auto& layers = session_.effect().layers;
+        if (selected_ < 0 || selected_ >= static_cast<int>(layers.size())) {
+            say(QStringLiteral("Select the layers to copy first."), true);
+            return;
+        }
+        ids.push_back(layers[static_cast<std::size_t>(selected_)].id);
+    }
+    std::vector<vfx::Id> made;
+    if (!report(session_.duplicateLayers(ids, &made))) {
+        return;
+    }
+    selection_ = {};
+    selection_.layers = made;
+    selectedNothing_ = false;
+    selected_ = vfx::layerIndex(session_.effect(), made.front());
+    selectionFor_ = selectedLayerId();
+    selection_.active = selectionFor_;
+    changed(Structure);
+    say(made.size() == 1 ? QStringLiteral("Copied the layer.")
+                         : QStringLiteral("Copied %1 layers.").arg(static_cast<int>(made.size())));
+}
+
 void AppController::ungroupSelection() {
     const QString g = selectedGroup();
     if (g.isEmpty()) {

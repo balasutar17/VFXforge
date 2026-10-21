@@ -1569,15 +1569,13 @@ Status Session::moveLayer(Id layer, int newIndex) {
     return state_->commands.push(std::make_unique<MoveLayerCommand>(layer, newIndex));
 }
 
-Status Session::duplicateLayer(Id layerId, Id* created) {
-    const Layer* source = findLayer(effect(), layerId);
-    if (!source) {
-        return makeError("That layer is no longer there.");
-    }
-    Document& doc = state_->document;
-    Layer copy = *source;
+namespace {
+
+// A layer like this one with ids of its own (its modules and controls too),
+// unlocked. The name and group are left as they were.
+Layer copyOfLayer(Document& doc, const Layer& source) {
+    Layer copy = source;
     copy.id = doc.newId();
-    copy.name = source->name + " copy";
     copy.locked = false;
     std::map<std::uint64_t, Id> renamed;
     for (Module& m : copy.modules) {
@@ -1593,6 +1591,92 @@ Status Session::duplicateLayer(Id layerId, Id* created) {
             }
         }
     }
+    return copy;
+}
+
+}  // namespace
+
+Status Session::duplicateLayers(const std::vector<Id>& layers, std::vector<Id>* created) {
+    std::vector<const Layer*> sources;
+    int last = -1;
+    for (std::size_t i = 0; i < effect().layers.size(); ++i) {  // in the effect's order
+        const Layer& l = effect().layers[i];
+        if (std::find(layers.begin(), layers.end(), l.id) != layers.end()) {
+            sources.push_back(&l);
+            last = static_cast<int>(i);
+        }
+    }
+    if (sources.empty()) {
+        return makeError("Select the layers to copy first.");
+    }
+    Document& doc = state_->document;
+    std::vector<CommandPtr> steps;
+    std::vector<Id> ids;
+    int at = last + 1;
+    for (const Layer* source : sources) {
+        Layer copy = copyOfLayer(doc, *source);
+        copy.name = source->name + " copy";
+        ids.push_back(copy.id);
+        steps.push_back(std::make_unique<AddLayerCommand>(std::move(copy), at++));
+    }
+    const std::string name = sources.size() == 1 ? "Copy " + sources.front()->name
+                                                 : "Copy " + std::to_string(sources.size()) + " layers";
+    Status pushed = state_->commands.push(std::make_unique<CompositeCommand>(name, std::move(steps)));
+    if (pushed && created) {
+        *created = std::move(ids);
+    }
+    return pushed;
+}
+
+Status Session::duplicateGroup(std::string_view group, std::string* made) {
+    std::vector<const Layer*> sources;
+    int last = -1;
+    for (std::size_t i = 0; i < effect().layers.size(); ++i) {
+        const Layer& l = effect().layers[i];
+        if (inGroup(l, group)) {
+            sources.push_back(&l);
+            last = static_cast<int>(i);
+        }
+    }
+    if (sources.empty()) {
+        return makeError("There is no group called that to copy.");
+    }
+    // Beside the original, in the same parent, under a name nothing has.
+    const std::string parent = parentGroup(group);
+    const std::string base = cleanGroupName(groupName(group) + " copy");
+    const std::vector<std::string> existing = groups();
+    std::string path;
+    for (int n = 1;; ++n) {
+        const std::string leaf = n == 1 ? base : base + " " + std::to_string(n);
+        path = parent.empty() ? leaf : parent + "/" + leaf;
+        if (std::find(existing.begin(), existing.end(), path) == existing.end()) {
+            break;
+        }
+    }
+    Document& doc = state_->document;
+    std::vector<CommandPtr> steps;
+    int at = last + 1;
+    for (const Layer* source : sources) {
+        Layer copy = copyOfLayer(doc, *source);
+        // Groups inside the original are inside the copy, the same way.
+        copy.group = path + source->group.substr(group.size());
+        steps.push_back(std::make_unique<AddLayerCommand>(std::move(copy), at++));
+    }
+    Status pushed = state_->commands.push(std::make_unique<CompositeCommand>(groupStep("Copy", groupName(group)), std::move(steps)));
+    if (pushed && made) {
+        *made = path;
+    }
+    return pushed;
+}
+
+Status Session::duplicateLayer(Id layerId, Id* created) {
+    const Layer* source = findLayer(effect(), layerId);
+    if (!source) {
+        return makeError("That layer is no longer there.");
+    }
+    Document& doc = state_->document;
+    Layer copy = copyOfLayer(doc, *source);
+    copy.name = source->name + " copy";
     const Id id = copy.id;
     const int index = layerIndex(effect(), layerId);
     Status pushed = state_->commands.push(std::make_unique<AddLayerCommand>(std::move(copy), index + 1));

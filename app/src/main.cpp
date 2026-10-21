@@ -331,6 +331,42 @@ int main(int argc, char* argv[]) {
                     groupsOut << "FAIL: the handles reached more than the selection\n";
                     selfTest.result = 1;
                 }
+                // The layer list's menu: copy two layers at once, group them,
+                // copy the group; every step undoes and nothing is left over.
+                {
+                    const std::string untouched = vfx::writeEffect(controller.session().effect());
+                    const std::size_t layersBefore = controller.session().effect().layers.size();
+                    const std::size_t groupSize = static_cast<std::size_t>(
+                        std::count_if(controller.session().effect().layers.begin(),
+                                      controller.session().effect().layers.end(),
+                                      [&](const vfx::Layer& l) { return l.group == group.toStdString(); }));
+                    controller.clickLayer(orbsIndex, 0);
+                    controller.clickLayer(0, int(Qt::ControlModifier));
+                    controller.duplicateSelection();
+                    const bool twoCopied = controller.session().effect().layers.size() == layersBefore + 2 &&
+                                           controller.selectionCount() == 2;
+                    controller.groupSelection();
+                    const bool grouped = controller.selectedGroup() == QStringLiteral("Group");
+                    controller.duplicateSelection();
+                    const bool groupCopied = controller.selectedGroup() == QStringLiteral("Group copy") &&
+                                             controller.session().effect().layers.size() == layersBefore + 4;
+                    // Right-clicking a layer outside the selection selects it alone.
+                    controller.prepareLayerMenu(0);
+                    const bool menuSelects = controller.selectionCount() == 1 && controller.selectedGroup().isEmpty();
+                    for (int i = 0; i < 3; ++i) {
+                        controller.undo();
+                    }
+                    const bool restored = vfx::writeEffect(controller.session().effect()) == untouched;
+                    groupsOut << "duplicate: two layers " << (twoCopied ? "yes" : "NO") << ", grouped "
+                              << (grouped ? "yes" : "NO") << ", the group copied " << (groupCopied ? "yes" : "NO")
+                              << ", menu selects the clicked row " << (menuSelects ? "yes" : "NO")
+                              << ", undone to the start " << (restored ? "yes" : "NO") << " (group of " << groupSize
+                              << " layers)\n";
+                    if (!(twoCopied && grouped && groupCopied && menuSelects && restored)) {
+                        groupsOut << "FAIL: copying or grouping layers did not work\n";
+                        selfTest.result = 1;
+                    }
+                }
                 // The turn rings, for the picture.
                 controller.clickGroup(group, 0);
                 controller.setGizmoMode(QStringLiteral("turn"));

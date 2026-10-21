@@ -102,6 +102,77 @@ ApplicationWindow {
     Shortcut { enabled: !root.asking && !app.libraryOpen; sequence: "R"; onActivated: app.gizmoMode = "size" }
     Shortcut { enabled: !root.asking; sequence: "Ctrl+G"; onActivated: app.groupSelection() }
     Shortcut { enabled: !root.asking; sequence: "Ctrl+Shift+G"; onActivated: app.ungroupSelection() }
+    Shortcut { enabled: !root.asking; sequence: "Ctrl+D"; onActivated: app.duplicateSelection() }
+
+    // The menu of the layer list: right-click a layer or a group heading. It
+    // acts on what is selected (a row outside the selection becomes the
+    // selection first), so it copies and groups several layers at once.
+    function openLayerMenu(item, mouse) {
+        var p = item.mapToItem(Overlay.overlay, mouse.x, mouse.y)
+        layerMenu.x = Math.max(4, Math.min(p.x, root.width - layerMenu.width - 4))
+        layerMenu.y = Math.max(4, Math.min(p.y, root.height - 190))
+        layerMenu.open()
+    }
+    Popup {
+        id: layerMenu
+        objectName: "layerMenu"
+        parent: Overlay.overlay
+        width: 230
+        padding: 6
+        modal: false
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        background: Rectangle { color: theme.panel; border.color: theme.line; radius: 8 }
+        readonly property bool onGroup: app.selectedGroup !== ""
+        readonly property int count: app.selectionCount
+
+        contentItem: Column {
+            spacing: 2
+            VButton {
+                objectName: "menuDuplicate"
+                width: parent.width
+                quiet: true
+                text: layerMenu.onGroup ? "Duplicate group"
+                    : layerMenu.count > 1 ? "Duplicate " + layerMenu.count + " layers" : "Duplicate layer"
+                tip: "Make a copy of what is selected (Cmd+D)"
+                onClicked: { layerMenu.close(); app.duplicateSelection() }
+            }
+            VButton {
+                objectName: "menuGroup"
+                width: parent.width
+                visible: layerMenu.count > 1 && !layerMenu.onGroup
+                height: visible ? implicitHeight : 0
+                quiet: true
+                text: "Group " + layerMenu.count + " layers"
+                tip: "Make the selected layers a group (Cmd+G)"
+                onClicked: { layerMenu.close(); app.groupSelection() }
+            }
+            VButton {
+                objectName: "menuUngroup"
+                width: parent.width
+                visible: layerMenu.onGroup
+                height: visible ? implicitHeight : 0
+                quiet: true
+                text: "Ungroup"
+                tip: "Keep the layers, one group level up (Cmd+Shift+G)"
+                onClicked: { layerMenu.close(); app.ungroupSelection() }
+            }
+            VButton {
+                objectName: "menuRemove"
+                width: parent.width
+                visible: layerMenu.onGroup || layerMenu.count === 1
+                height: visible ? implicitHeight : 0
+                quiet: true
+                text: layerMenu.onGroup ? "Remove group" : "Remove layer"
+                tip: "Undo brings it back"
+                onClicked: {
+                    layerMenu.close()
+                    if (layerMenu.onGroup) app.removeGroup(app.selectedGroup)
+                    else app.removeLayer(app.selectedLayer)
+                }
+            }
+        }
+    }
 
     FileDialog {
         id: backdropDialog
@@ -529,9 +600,17 @@ ApplicationWindow {
                                     border.width: rowItem.modelData.selected ? 1 : 0
                                     border.color: theme.accent
                                     MouseArea {
+                                        id: groupArea
                                         anchors.fill: parent
-                                        acceptedButtons: Qt.LeftButton
-                                        onClicked: function(mouse) { app.clickGroup(rowItem.modelData.path, mouse.modifiers) }
+                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                        onClicked: function(mouse) {
+                                            if (mouse.button === Qt.RightButton) {
+                                                app.prepareGroupMenu(rowItem.modelData.path)
+                                                root.openLayerMenu(groupArea, mouse)
+                                            } else {
+                                                app.clickGroup(rowItem.modelData.path, mouse.modifiers)
+                                            }
+                                        }
                                     }
                                     Text {
                                         id: foldMark
@@ -613,7 +692,15 @@ ApplicationWindow {
                                         id: rowArea
                                         anchors.fill: parent
                                         hoverEnabled: true
-                                        onClicked: function(mouse) { app.clickLayer(rowItem.modelData.index, mouse.modifiers) }
+                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                        onClicked: function(mouse) {
+                                            if (mouse.button === Qt.RightButton) {
+                                                app.prepareLayerMenu(rowItem.modelData.index)
+                                                root.openLayerMenu(rowArea, mouse)
+                                            } else {
+                                                app.clickLayer(rowItem.modelData.index, mouse.modifiers)
+                                            }
+                                        }
                                     }
                                     VCheck {
                                         id: enabledBox
@@ -696,7 +783,7 @@ ApplicationWindow {
                             enabled: app.selectedLayer >= 0 && app.selectedLayer < app.layers.length
                             VButton { Layout.fillWidth: true; text: "\u2191"; tip: "Move the selected layer up: drawn earlier, further back"; onClicked: app.moveLayer(app.selectedLayer, -1) }
                             VButton { Layout.fillWidth: true; text: "\u2193"; tip: "Move the selected layer down: drawn later, in front"; onClicked: app.moveLayer(app.selectedLayer, 1) }
-                            VButton { Layout.fillWidth: true; text: "Copy"; tip: "Make a copy of the selected layer"; onClicked: app.duplicateLayer(app.selectedLayer) }
+                            VButton { Layout.fillWidth: true; text: "Duplicate"; tip: "Make a copy of what is selected: a layer, several layers or a group (Cmd+D). Right-click a layer for more."; onClicked: app.duplicateSelection() }
                             VButton {
                                 Layout.fillWidth: true
                                 readonly property bool locked: parent.enabled && app.layers[app.selectedLayer].locked === true

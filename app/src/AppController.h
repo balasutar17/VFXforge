@@ -272,6 +272,13 @@ public:
     // ungrouped one level (Cmd+Shift+G).
     Q_INVOKABLE void groupSelection();
     Q_INVOKABLE void ungroupSelection();
+    // Copies what is selected (Cmd+D): one layer, several layers, or a whole
+    // group. The copies are selected afterwards. Each is one undo step.
+    Q_INVOKABLE void duplicateSelection();
+    // The layer list's menu is for the row that was clicked: if it is not
+    // already part of the selection it becomes the selection first.
+    Q_INVOKABLE void prepareLayerMenu(int index);
+    Q_INVOKABLE void prepareGroupMenu(const QString& path);
     QString gizmoMode() const { return gizmoMode_; }
     void setGizmoMode(const QString& mode);
     QString pivotMode() const { return pivotMode_; }

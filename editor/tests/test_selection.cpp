@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <map>
+#include <set>
 
 #include "vfx/Serialize.h"
 #include "vfx/editor/Selection.h"
@@ -295,6 +296,85 @@ TEST_CASE("selected layers become a group inside the group they share, together 
     REQUIRE(sc.s.undo());
     CHECK(sc.layer("Flames").group == "Fire");
     CHECK(layerIndex(sc.s.effect(), sc.id["Flames"]) == 2);
+}
+
+TEST_CASE("several layers are copied together, below the last of them, in their groups", "[selection][duplicate]") {
+    Scene sc;
+    const std::size_t before = sc.s.effect().layers.size();
+    std::vector<Id> made;
+    // Given out of order on purpose: the copies keep the effect's order.
+    REQUIRE(sc.s.duplicateLayers({sc.id["Spark 2"], sc.id["Flames"]}, &made));
+    REQUIRE(made.size() == 2);
+    CHECK(sc.s.effect().layers.size() == before + 2);
+    const int at = layerIndex(sc.s.effect(), sc.id["Spark 2"]);
+    CHECK(layerIndex(sc.s.effect(), made[0]) == at + 1);
+    CHECK(layerIndex(sc.s.effect(), made[1]) == at + 2);
+    CHECK(findLayer(sc.s.effect(), made[0])->name == "Flames copy");
+    CHECK(findLayer(sc.s.effect(), made[1])->name == "Spark 2 copy");
+    CHECK(findLayer(sc.s.effect(), made[0])->group == "Fire");
+    CHECK(findLayer(sc.s.effect(), made[1])->group == "Fire/Sparks");
+    // Every id in the effect is still its own.
+    const std::vector<Id> ids = collectIds(sc.s.effect());
+    std::set<std::uint64_t> unique;
+    for (Id i : ids) unique.insert(i.value);
+    CHECK(unique.size() == ids.size());
+    // A locked original gives an unlocked copy.
+    REQUIRE(sc.s.set(Path::layerField(sc.id["Smoke"], "locked"), Value(true)));
+    REQUIRE(sc.s.duplicateLayers({sc.id["Smoke"]}, &made));
+    CHECK_FALSE(findLayer(sc.s.effect(), made[0])->locked);
+    // One undo takes all the copies of one go away.
+    REQUIRE(sc.s.undo());
+    CHECK(sc.s.effect().layers.size() == before + 2);
+    REQUIRE(sc.s.undo());  // the lock
+    REQUIRE(sc.s.undo());
+    CHECK(sc.s.effect().layers.size() == before);
+    // Nothing picked, or layers that are gone: refused, nothing changed.
+    CHECK_FALSE(sc.s.duplicateLayers({}, nullptr).ok());
+    CHECK_FALSE(sc.s.duplicateLayers({Id{}}, nullptr).ok());
+    CHECK(sc.s.effect().layers.size() == before);
+}
+
+TEST_CASE("a group is copied whole, groups inside it too, as a new group beside it", "[selection][duplicate]") {
+    Scene sc;
+    const std::size_t before = sc.s.effect().layers.size();
+    std::string made;
+    REQUIRE(sc.s.duplicateGroup("Fire", &made));
+    CHECK(made == "Fire copy");
+    CHECK(sc.s.effect().layers.size() == before + 4);
+    // Just below the last layer of the original.
+    const int last = layerIndex(sc.s.effect(), sc.id["Spark 2"]);
+    int copies = 0;
+    for (std::size_t i = 0; i < sc.s.effect().layers.size(); ++i) {
+        const Layer& l = sc.s.effect().layers[i];
+        if (inGroup(l, "Fire copy")) {
+            ++copies;
+            CHECK(static_cast<int>(i) > last);
+            CHECK_FALSE(l.locked);
+        }
+    }
+    CHECK(copies == 4);
+    CHECK(groupPaths(sc.s.effect()) ==
+          std::vector<std::string>{"Fire", "Fire/Sparks", "Fire copy", "Fire copy/Sparks", "Glow"});
+    // The original is untouched, and a second copy gets its own name.
+    CHECK(sc.layer("Spark 1").group == "Fire/Sparks");
+    REQUIRE(sc.s.duplicateGroup("Fire", &made));
+    CHECK(made == "Fire copy 2");
+    // A group inside a group is copied beside itself, inside the same parent.
+    REQUIRE(sc.s.duplicateGroup("Fire/Sparks", &made));
+    CHECK(made == "Fire/Sparks copy");
+    // Copies of the copies' layers are all different layers with their own ids.
+    const std::vector<Id> ids = collectIds(sc.s.effect());
+    std::set<std::uint64_t> unique;
+    for (Id i : ids) unique.insert(i.value);
+    CHECK(unique.size() == ids.size());
+    // Undo, step by step, takes them away; a group that is not there is refused.
+    REQUIRE(sc.s.undo());
+    REQUIRE(sc.s.undo());
+    REQUIRE(sc.s.undo());
+    CHECK(sc.s.effect().layers.size() == before);
+    CHECK_FALSE(sc.s.duplicateGroup("Nothing", nullptr).ok());
+    // "Fire" is not "Fire Explosion": only whole steps match.
+    CHECK_FALSE(sc.s.duplicateGroup("Fir", nullptr).ok());
 }
 
 TEST_CASE("a selection of hundreds of layers in an effect of a thousand changes quickly", "[selection][slow]") {
