@@ -69,6 +69,11 @@ public:
     // Starts a new effect from one of the library's presets.
     Status openPreset(std::string_view presetId);
 
+    // Starts a new, unsaved effect that is a copy of this one (a saved effect
+    // from the user library). Its pictures and sounds are read from
+    // assetFolder.
+    Status openEffectCopy(Effect effect, const std::filesystem::path& assetFolder);
+
     // Replaces the open effect only when the file loads. Notes from the
     // loader (repaired values, newer file version) are kept in loadNotes().
     Status open(const std::filesystem::path& path);
@@ -100,6 +105,10 @@ public:
     // through added. When the preset lasts longer than the effect, the
     // effect is made as long, so none of it is cut off.
     Status addPreset(std::string_view presetId, int* added = nullptr);
+    // The same for any effect whose IDs are new to this one (see withFreshIds),
+    // with its pictures and sounds in assetFolder (empty when it has none).
+    Status addEffectAsGroup(Effect effect, const std::string& groupName, const std::filesystem::path& assetFolder,
+                            int* added = nullptr);
 
     // ---------------------------------------------------------- the target
     // The picture the effect is made for (a slot symbol, a logo). Setting

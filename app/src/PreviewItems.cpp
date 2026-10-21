@@ -1,5 +1,8 @@
 #include "PreviewItems.h"
 
+#include "UserLibraryPath.h"
+#include "vfx/editor/UserLibrary.h"
+
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -29,7 +32,24 @@ void PresetPreview::setPreset(const QString& id) {
     frame_ = vfx::RenderFrame{};
 
     const std::string key = id.toStdString();
-    if (const vfx::editor::PresetInfo* info = vfx::editor::findPreset(key)) {
+    if (id.startsWith(QStringLiteral("user:"))) {
+        // One of the artist's own effects: its card has the camera and the moment.
+        const std::string entry = key.substr(5);
+        auto card = vfx::editor::userEffectInfo(userLibraryRoot(), entry);
+        auto loaded = vfx::editor::loadUserEffect(userLibraryRoot(), entry);
+        if (card && loaded) {
+            info_ = vfx::editor::PresetInfo{};
+            info_.viewX = card.value().viewX;
+            info_.viewY = card.value().viewY;
+            info_.viewHeight = card.value().viewHeight;
+            info_.previewTime = card.value().previewTime;
+            simulation_ = std::make_unique<vfx::Simulation>(vfx::compileEffect(loaded.value()));
+            duration_ = loaded.value().duration;
+            time_ = info_.previewTime;
+            simulation_->seek(static_cast<std::int64_t>(time_ / vfx::kSimulationStep));
+            simulation_->extract(frame_);
+        }
+    } else if (const vfx::editor::PresetInfo* info = vfx::editor::findPreset(key)) {
         info_ = *info;
         // Fixed IDs: every showing of a preview looks the same.
         vfx::IdGenerator ids(2026);

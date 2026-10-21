@@ -175,6 +175,12 @@ ApplicationWindow {
                 VButton { text: "Open…"; tip: "Open a .vfx file"; onClicked: root.guard(function() { openDialog.open() }) }
                 VButton { text: "Save"; tip: "Save this effect"; enabled: app.dirty || !app.hasFile; onClicked: root.saveThen(null) }
                 VButton { text: "Save As…"; tip: "Save a copy under a new name"; onClicked: root.saveAsThen(null) }
+                VButton {
+                    objectName: "addToLibrary"
+                    text: "Add to Library"
+                    tip: "Keep this effect in your own library, under the effect's name, to open or add to other effects later. The same name replaces the one there."
+                    onClicked: app.saveToLibrary(viewport.viewState())
+                }
                 VButton { text: "Export…"; tip: "To Unity, or as animation frames (Ctrl/Cmd+E)"; onClicked: app.exportOpen = true }
                 // One-click changes to the whole effect, built on the
                 // animation principles. Locked layers are left alone.

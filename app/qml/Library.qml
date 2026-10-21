@@ -13,7 +13,7 @@ Rectangle {
     property string category: ""   // empty shows everything
 
     readonly property var shown: {
-        var all = app.presets
+        var all = app.libraryItems
         if (category === "")
             return all
         var some = []
@@ -94,7 +94,7 @@ Rectangle {
                 onClicked: root.category = ""
             }
             Repeater {
-                model: app.presetCategories
+                model: app.libraryCategories
                 delegate: VButton {
                     required property string modelData
                     text: modelData
@@ -194,6 +194,29 @@ Rectangle {
                         onClicked: root.openRequested(cell.modelData.id)
                     }
 
+                    // Only the artist's own effects can be taken out of the library.
+                    VButton {
+                        id: removeButton
+                        objectName: "removeFromLibrary"
+                        visible: cell.modelData.user === true
+                        property bool sure: false
+                        anchors.left: stage.left
+                        anchors.bottom: stage.bottom
+                        anchors.margins: 6
+                        opacity: hover.hovered ? 1.0 : 0.8
+                        text: sure ? "Remove it?" : "Remove"
+                        tip: "Take this effect out of your library. Effects you opened from it are not touched."
+                        onClicked: {
+                            if (sure) {
+                                app.removeFromLibrary(cell.modelData.id)
+                            } else {
+                                sure = true
+                                sureTimer.restart()
+                            }
+                        }
+                        Timer { id: sureTimer; interval: 3000; onTriggered: removeButton.sure = false }
+                    }
+
                     VButton {
                         objectName: "addToEffect"
                         anchors.right: stage.right
@@ -216,7 +239,7 @@ Rectangle {
             anchors.leftMargin: 24
             anchors.rightMargin: 24
             anchors.bottomMargin: 12
-            text: "Click a card to open it as a new effect. “+ Add” puts it into the effect you already have, as a group you can move, delay and size."
+            text: "Click a card to open it as a new effect. “+ Add” puts it into the effect you already have, as a group you can move, delay and size. “Add to Library” on the toolbar keeps your own effect here."
             color: theme.faint
             font.pixelSize: theme.smallFontSize
             elide: Text.ElideRight

@@ -38,6 +38,8 @@
 #include "vfx/editor/Selection.h"
 #include "vfx/editor/ShapeLibrary.h"
 #include "vfx/editor/UnityExport.h"
+#include "vfx/editor/UserLibrary.h"
+#include "UserLibraryPath.h"
 #include "vfx/editor/UnrealExport.h"
 
 using vfx::editor::ControlView;
@@ -2244,7 +2246,97 @@ void AppController::setLibraryOpen(bool open) {
     }
 }
 
+static const QString kUserPrefix = QStringLiteral("user:");
+
+QVariantList AppController::libraryItems() const {
+    QVariantList list = presets();
+    for (const vfx::editor::UserEffectInfo& info : vfx::editor::listUserEffects(userLibraryRoot())) {
+        QVariantMap row;
+        row.insert(QStringLiteral("id"), kUserPrefix + text(info.id));
+        row.insert(QStringLiteral("name"), text(info.name));
+        row.insert(QStringLiteral("category"), QStringLiteral("My effects"));
+        row.insert(QStringLiteral("description"),
+                   QStringLiteral("%1 layers, %2 s, %3").arg(info.layers).arg(info.duration, 0, 'g', 3)
+                       .arg(info.space == "3d" ? QStringLiteral("3D") : QStringLiteral("2D")));
+        row.insert(QStringLiteral("user"), true);
+        list.push_back(row);
+    }
+    return list;
+}
+
+QStringList AppController::libraryCategories() const {
+    QStringList list = presetCategories();
+    if (!vfx::editor::listUserEffects(userLibraryRoot()).empty()) {
+        list.push_front(QStringLiteral("My effects"));
+    }
+    return list;
+}
+
+bool AppController::saveToLibrary(const QVariantMap& view) {
+    auto number = [&view](const char* key, double fallback) {
+        bool ok = false;
+        const double d = view.value(QString::fromLatin1(key)).toDouble(&ok);
+        return ok && std::isfinite(d) ? d : fallback;
+    };
+    const vfx::Effect& effect = session_.effect();
+    const bool flat = effect.space != "3d";
+    // A flat effect is framed as the window shows it; a 3D one by a
+    // middle-of-the-stage guess, since its cards are drawn from the front.
+    const float x = flat ? static_cast<float>(number("centerX", 0.0)) : 0.0f;
+    const float y = flat ? static_cast<float>(number("centerY", 0.0)) : 1.5f;
+    const float high = flat ? static_cast<float>(number("unitsHigh", 6.0)) : 6.0f;
+    const double at = std::min(effect.duration * 0.4, 1.0);
+    session_.endEdit();
+    auto saved = vfx::editor::saveUserEffect(userLibraryRoot(), effect, session_.projectFolder(), x, y,
+                                             high > 0.0f ? high : 6.0f, at);
+    if (!report(saved)) {
+        return false;
+    }
+    emit userLibraryChanged();
+    say(saved.value().replaced
+            ? QStringLiteral("Replaced “%1” in your library. Find it in the Library under My effects.").arg(text(effect.name))
+            : QStringLiteral("Saved “%1” to your library. Find it in the Library under My effects.").arg(text(effect.name)));
+    return true;
+}
+
+bool AppController::removeFromLibrary(const QString& id) {
+    if (!id.startsWith(kUserPrefix)) {
+        return false;
+    }
+    if (!report(vfx::editor::removeUserEffect(userLibraryRoot(), utf8(id.mid(kUserPrefix.size()))))) {
+        return false;
+    }
+    emit userLibraryChanged();
+    say(QStringLiteral("Removed it from your library."));
+    return true;
+}
+
 bool AppController::openPreset(const QString& id) {
+    if (id.startsWith(kUserPrefix)) {
+        const std::string key = utf8(id.mid(kUserPrefix.size()));
+        auto loaded = vfx::editor::loadUserEffect(userLibraryRoot(), key);
+        if (!report(loaded)) {
+            return false;
+        }
+        const std::string name = loaded.value().name;
+        if (!report(session_.openEffectCopy(std::move(loaded.value()),
+                                            vfx::editor::userEffectFolder(userLibraryRoot(), key)))) {
+            return false;
+        }
+        selected_ = 0;
+        loadBackdrop();
+        changed(Structure);
+        emit playbackChanged();
+        for (const vfx::editor::UserEffectInfo& info : vfx::editor::listUserEffects(userLibraryRoot())) {
+            if (info.id == key) {
+                emit viewSuggested(static_cast<double>(info.viewX), static_cast<double>(info.viewY),
+                                   static_cast<double>(info.viewHeight) * 1.25);
+            }
+        }
+        say(QStringLiteral("Opened “%1” from your library as a new effect. Saving it makes a file of its own; "
+                           "the library copy stays as it was.").arg(text(name)));
+        return true;
+    }
     const std::string key = utf8(id);
     if (!report(session_.openPreset(key))) {
         return false;
@@ -2322,7 +2414,21 @@ void AppController::ungroup(const QString& group) {
 bool AppController::addPreset(const QString& id) {
     const int before = static_cast<int>(session_.effect().layers.size());
     int added = 0;
-    if (!report(session_.addPreset(utf8(id), &added))) {
+    QString shownName = id;
+    if (id.startsWith(kUserPrefix)) {
+        const std::string key = utf8(id.mid(kUserPrefix.size()));
+        auto loaded = vfx::editor::loadUserEffect(userLibraryRoot(), key);
+        if (!report(loaded)) {
+            return false;
+        }
+        vfx::IdGenerator ids = vfx::IdGenerator::fromEntropy();
+        vfx::Effect made = vfx::editor::withFreshIds(std::move(loaded.value()), [&ids]() { return ids.next(); });
+        shownName = text(made.name);
+        if (!report(session_.addEffectAsGroup(std::move(made), utf8(shownName),
+                                              vfx::editor::userEffectFolder(userLibraryRoot(), key), &added))) {
+            return false;
+        }
+    } else if (!report(session_.addPreset(utf8(id), &added))) {
         return false;
     }
     selected_ = before;  // the first of the new layers
@@ -2342,7 +2448,7 @@ bool AppController::addPreset(const QString& id) {
     const vfx::editor::PresetInfo* info = vfx::editor::findPreset(utf8(id));
     emit playbackChanged();  // it may have made the effect longer
     say(QStringLiteral("Added %1 (%2 layers) as a group: move, delay or size it under Layers. Undo takes it out again.")
-            .arg(info ? text(info->name) : id)
+            .arg(info ? text(info->name) : shownName)
             .arg(added));
     return true;
 }

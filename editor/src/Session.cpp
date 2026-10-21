@@ -411,6 +411,40 @@ Status Session::openPreset(std::string_view presetId) {
     return {};
 }
 
+// Copies the pictures and sounds an effect uses from one folder into
+// another, leaving any that is already there.
+static void copyAssetFiles(const std::filesystem::path& from, const std::filesystem::path& to, const Effect& effect) {
+    if (from.empty() || to.empty() || from == to) {
+        return;
+    }
+    for (const Asset& asset : effect.assets) {
+        const auto source = from / pathFromUtf8(asset.path);
+        const auto target = to / pathFromUtf8(asset.path);
+        std::error_code error;
+        if (std::filesystem::exists(target, error) || !std::filesystem::exists(source, error)) {
+            continue;
+        }
+        auto bytes = readFile(source);
+        if (!bytes) {
+            continue;
+        }
+        std::filesystem::create_directories(target.parent_path(), error);
+        (void)writeFileAtomic(target, bytes.value());
+    }
+}
+
+Status Session::openEffectCopy(Effect effect, const std::filesystem::path& assetFolder) {
+    path_.clear();
+    scratch_.clear();
+    ensureScratch();
+    copyAssetFiles(assetFolder, scratch_, effect);
+    adopt(std::move(effect));
+    readOnly_ = false;
+    notes_.clear();
+    state_->clock.play();
+    return {};
+}
+
 Status Session::open(const std::filesystem::path& path) {
     auto loaded = loadEffect(path);
     if (!loaded) {
@@ -518,8 +552,18 @@ Status Session::addPreset(std::string_view presetId, int* added) {
         return made.error();
     }
     const PresetInfo* info = findPreset(presetId);
-    // The group's name: the preset's, numbered when it is there already.
-    const std::string base = cleanGroupName(info ? info->name : std::string("Preset"));
+    return addEffectAsGroup(std::move(made.value()), info ? info->name : std::string("Preset"), {}, added);
+}
+
+Status Session::addEffectAsGroup(Effect madeEffect, const std::string& groupName,
+                                 const std::filesystem::path& assetFolder, int* added) {
+    Result<Effect> made = std::move(madeEffect);
+    // The group's name: the effect's, numbered when it is there already.
+    const std::string base = cleanGroupName(groupName.empty() ? std::string("Effect") : groupName);
+    if (!assetFolder.empty() && !made.value().assets.empty()) {
+        ensureScratch();
+        copyAssetFiles(assetFolder, projectFolder(), made.value());
+    }
     const std::vector<std::string> existing = groups();
     std::string group = base;
     for (int n = 2; std::find(existing.begin(), existing.end(), group) != existing.end(); ++n) {

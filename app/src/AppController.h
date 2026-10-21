@@ -93,6 +93,10 @@ class AppController : public QObject {
     Q_PROPERTY(QVariantList presets READ presets CONSTANT)
     Q_PROPERTY(QStringList presetCategories READ presetCategories CONSTANT)
     Q_PROPERTY(bool libraryOpen READ libraryOpen WRITE setLibraryOpen NOTIFY libraryOpenChanged)
+    // The library as the gallery shows it: the built-in presets, then the
+    // artist's own saved effects (category "My effects", user true).
+    Q_PROPERTY(QVariantList libraryItems READ libraryItems NOTIFY userLibraryChanged)
+    Q_PROPERTY(QStringList libraryCategories READ libraryCategories NOTIFY userLibraryChanged)
 
     // A picture shown behind the effect, to work against. It is not part of
     // the effect and is remembered on this computer only.
@@ -187,6 +191,8 @@ public:
     QVariantList presets() const;
     QStringList presetCategories() const;
     bool libraryOpen() const { return libraryOpen_; }
+    QVariantList libraryItems() const;
+    QStringList libraryCategories() const;
     void setLibraryOpen(bool open);
 
     QUrl backdropSource() const { return backdrop_.source; }
@@ -224,6 +230,10 @@ public:
     Q_INVOKABLE bool saveAs(const QUrl& file);
 
     // ---------------------------------------------------------- library
+    // Keeps the open effect in the artist's own library under its name (the
+    // same name replaces it). view is the viewport's camera, for the card.
+    Q_INVOKABLE bool saveToLibrary(const QVariantMap& view);
+    Q_INVOKABLE bool removeFromLibrary(const QString& id);  // an id as libraryItems gives it ("user:...")
     Q_INVOKABLE bool openPreset(const QString& id);  // replaces the open effect
     Q_INVOKABLE bool addPreset(const QString& id);   // adds its layers to the open effect, as a group
     // A group of layers (an effect added from the library), changed as one.
@@ -450,6 +460,7 @@ signals:
     // The picture needs drawing again.
     void redraw();
     void libraryOpenChanged();
+    void userLibraryChanged();
     void backdropChanged();
     void previewChanged();
     void modelChanged();
@@ -492,6 +503,11 @@ private:
     void refreshControls();
     void say(const QString& text, bool error = false);
     bool report(const vfx::Status& status);
+    // The same for a result that carries a value: true when there is one.
+    template <class T>
+    bool report(const vfx::Result<T>& result) {
+        return result ? true : report(vfx::Status(result.error()));
+    }
     vfx::Id selectedLayerId() const;
     bool control(int index, vfx::editor::ControlView& out) const;
     // The settings shown now: the Simple controls, or every setting.

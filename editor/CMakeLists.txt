@@ -38,6 +38,7 @@ add_library(vfx_editor STATIC
     src/SoundLibrary.cpp
     src/SpriteMesh.cpp
     src/UnityExport.cpp
+    src/UserLibrary.cpp
     src/UnrealExport.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/UnityFiles.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/UnrealFiles.cpp
