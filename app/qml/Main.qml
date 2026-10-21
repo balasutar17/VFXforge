@@ -275,494 +275,509 @@ ApplicationWindow {
                 Layout.fillHeight: true
                 color: theme.panel
 
-                ColumnLayout {
+                // The whole column scrolls when the effect, target, model and
+                // layer sections together are taller than the window.
+                Flickable {
+                    id: leftScroll
                     anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 6
+                    clip: true
+                    contentWidth: width
+                    contentHeight: leftColumn.implicitHeight + 24
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-                    PanelTitle { Layout.fillWidth: true; text: "Effect"; detail: app.threeD ? "3D" : "2D" }
-
-                    VTextField {
-                        Layout.fillWidth: true
-                        text: app.effectName
-                        onEdited: function(newText) { app.setEffectName(newText) }
-                    }
-
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: 2
-                        columnSpacing: 8
-                        rowSpacing: 6
-
-                        Text { text: "Length (seconds)"; color: theme.dim; font.pixelSize: theme.fontSize; Layout.fillWidth: true }
-                        VNumberField { value: app.duration; decimals: 2; onEdited: function(v) { app.setDuration(v) } }
-
-                        Text { text: "Frames per second"; color: theme.dim; font.pixelSize: theme.fontSize; Layout.fillWidth: true }
-                        VNumberField { value: app.frameRate; decimals: 0; onEdited: function(v) { app.setFrameRate(v) } }
-
-                        Text { text: "Variation number"; color: theme.dim; font.pixelSize: theme.fontSize; Layout.fillWidth: true }
-                        VNumberField { value: app.seed; decimals: 0; onEdited: function(v) { app.setSeed(v) } }
-                    }
-
-                    VButton {
-                        Layout.fillWidth: true
-                        text: "Try another variation"
-                        tip: "Same settings, different random result"
-                        onClicked: app.newVariation()
-                    }
-
-                    Item { Layout.preferredHeight: 6 }
-                    PanelTitle { Layout.fillWidth: true; text: "Target"; detail: app.targetName }
-                    VButton {
-                        Layout.fillWidth: true
-                        visible: !app.hasTarget
-                        text: "Import a symbol…"
-                        tip: "The picture the effect is for: a slot symbol, a logo, a gem. A PNG with a see-through "
-                             + "background works best. Effects from Symbol Outlines follow its shape."
-                        onClicked: targetDialog.open()
-                    }
-                    GridLayout {
-                        Layout.fillWidth: true
-                        visible: app.hasTarget
-                        columns: 2
-                        columnSpacing: 8
-                        rowSpacing: 6
-                        Text { text: "Width (units)"; color: theme.dim; font.pixelSize: theme.fontSize; Layout.fillWidth: true }
-                        VNumberField { value: app.targetWidth; decimals: 2; onEdited: function(v) { app.placeTarget(v, app.targetX, app.targetY) } }
-                        Text { text: "X"; color: theme.dim; font.pixelSize: theme.fontSize }
-                        VNumberField { value: app.targetX; decimals: 2; onEdited: function(v) { app.placeTarget(app.targetWidth, v, app.targetY) } }
-                        Text { text: "Y"; color: theme.dim; font.pixelSize: theme.fontSize }
-                        VNumberField { value: app.targetY; decimals: 2; onEdited: function(v) { app.placeTarget(app.targetWidth, app.targetX, v) } }
-                    }
-                    VButton {
-                        Layout.fillWidth: true
-                        visible: app.hasTarget
-                        text: "Fit selected layers to it"
-                        tip: "The selected layers send their particles from the target's outline (Shape: Path, Fit to target). "
-                             + "Padding, Thickness and Travel under Shape shape the outline effect."
-                        onClicked: app.fitSelectionToTarget()
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        visible: app.hasTarget
+                    ColumnLayout {
+                        id: leftColumn
+                        x: 12
+                        y: 12
+                        width: leftScroll.width - 24
                         spacing: 6
-                        VButton { Layout.fillWidth: true; text: "Change…"; tip: "Another symbol: the fitted layers follow its shape"; onClicked: targetDialog.open() }
-                        VButton { Layout.fillWidth: true; text: "Remove"; onClicked: app.clearTarget() }
-                    }
 
-                    Item { Layout.preferredHeight: 6 }
-                    PanelTitle { Layout.fillWidth: true; text: "Backdrop"; detail: app.backdropName }
+                        PanelTitle { Layout.fillWidth: true; text: "Effect"; detail: app.threeD ? "3D" : "2D" }
 
-                    VButton {
-                        Layout.fillWidth: true
-                        visible: !app.hasBackdrop
-                        text: "Import a picture…"
-                        tip: "Show a character, button or scene behind the effect"
-                        onClicked: backdropDialog.open()
-                    }
-                    GridLayout {
-                        Layout.fillWidth: true
-                        visible: app.hasBackdrop
-                        columns: 2
-                        columnSpacing: 8
-                        rowSpacing: 6
-
-                        Text { text: "Height (units)"; color: theme.dim; font.pixelSize: theme.fontSize; Layout.fillWidth: true }
-                        VNumberField { value: app.backdropHeight; decimals: 2; onEdited: function(v) { app.setBackdropPlace(app.backdropX, app.backdropY, v) } }
-
-                        Text { text: "Opacity"; color: theme.dim; font.pixelSize: theme.fontSize }
-                        VSlider {
+                        VTextField {
                             Layout.fillWidth: true
-                            from: 0
-                            to: 1
-                            value: app.backdropOpacity
-                            onMoved: function(v) { app.setBackdropOpacity(v) }
+                            text: app.effectName
+                            onEdited: function(newText) { app.setEffectName(newText) }
                         }
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        visible: app.hasBackdrop
-                        spacing: 6
-                        VButton { Layout.fillWidth: true; text: "Change…"; onClicked: backdropDialog.open() }
-                        VButton { Layout.fillWidth: true; text: "Remove"; onClicked: app.clearBackdrop() }
-                    }
 
-                    // A 3D model to make the effect on, drawn under the particles.
-                    Item { Layout.preferredHeight: 6 }
-                    PanelTitle {
-                        Layout.fillWidth: true
-                        text: "Model"
-                        detail: app.hasModel ? app.modelName : ""
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        visible: !app.hasModel
-                        spacing: 6
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: 2
+                            columnSpacing: 8
+                            rowSpacing: 6
+
+                            Text { text: "Length (seconds)"; color: theme.dim; font.pixelSize: theme.fontSize; Layout.fillWidth: true }
+                            VNumberField { value: app.duration; decimals: 2; onEdited: function(v) { app.setDuration(v) } }
+
+                            Text { text: "Frames per second"; color: theme.dim; font.pixelSize: theme.fontSize; Layout.fillWidth: true }
+                            VNumberField { value: app.frameRate; decimals: 0; onEdited: function(v) { app.setFrameRate(v) } }
+
+                            Text { text: "Variation number"; color: theme.dim; font.pixelSize: theme.fontSize; Layout.fillWidth: true }
+                            VNumberField { value: app.seed; decimals: 0; onEdited: function(v) { app.setSeed(v) } }
+                        }
+
                         VButton {
                             Layout.fillWidth: true
-                            text: "Import a model…"
-                            tip: "Show a character, weapon or prop (.obj, .glb, .gltf) and make the effect on it"
-                            onClicked: modelDialog.open()
+                            text: "Try another variation"
+                            tip: "Same settings, different random result"
+                            onClicked: app.newVariation()
+                        }
+
+                        Item { Layout.preferredHeight: 6 }
+                        PanelTitle { Layout.fillWidth: true; text: "Target"; detail: app.targetName }
+                        VButton {
+                            Layout.fillWidth: true
+                            visible: !app.hasTarget
+                            text: "Import a symbol…"
+                            tip: "The picture the effect is for: a slot symbol, a logo, a gem. A PNG with a see-through "
+                                 + "background works best. Effects from Symbol Outlines follow its shape."
+                            onClicked: targetDialog.open()
+                        }
+                        GridLayout {
+                            Layout.fillWidth: true
+                            visible: app.hasTarget
+                            columns: 2
+                            columnSpacing: 8
+                            rowSpacing: 6
+                            Text { text: "Width (units)"; color: theme.dim; font.pixelSize: theme.fontSize; Layout.fillWidth: true }
+                            VNumberField { value: app.targetWidth; decimals: 2; onEdited: function(v) { app.placeTarget(v, app.targetX, app.targetY) } }
+                            Text { text: "X"; color: theme.dim; font.pixelSize: theme.fontSize }
+                            VNumberField { value: app.targetX; decimals: 2; onEdited: function(v) { app.placeTarget(app.targetWidth, v, app.targetY) } }
+                            Text { text: "Y"; color: theme.dim; font.pixelSize: theme.fontSize }
+                            VNumberField { value: app.targetY; decimals: 2; onEdited: function(v) { app.placeTarget(app.targetWidth, app.targetX, v) } }
                         }
                         VButton {
-                            objectName: "practiceDummy"
-                            text: "Dummy"
-                            quiet: true
-                            tip: "Try a practice dummy, made for trying effects on"
-                            onClicked: app.useSampleModel()
-                        }
-                    }
-                    GridLayout {
-                        Layout.fillWidth: true
-                        visible: app.hasModel
-                        columns: 4
-                        columnSpacing: 6
-                        rowSpacing: 6
-
-                        Text { text: "Height"; color: theme.dim; font.pixelSize: theme.fontSize }
-                        VNumberField {
                             Layout.fillWidth: true
-                            value: app.modelPlace.height
-                            decimals: 2
-                            onEdited: function(v) { app.setModelPlace("height", v) }
+                            visible: app.hasTarget
+                            text: "Fit selected layers to it"
+                            tip: "The selected layers send their particles from the target's outline (Shape: Path, Fit to target). "
+                                 + "Padding, Thickness and Travel under Shape shape the outline effect."
+                            onClicked: app.fitSelectionToTarget()
                         }
-                        Text { text: "Turn"; color: theme.dim; font.pixelSize: theme.fontSize }
-                        VNumberField {
+                        RowLayout {
                             Layout.fillWidth: true
-                            value: app.modelPlace.turn
-                            decimals: 0
-                            onEdited: function(v) { app.setModelPlace("turn", v) }
+                            visible: app.hasTarget
+                            spacing: 6
+                            VButton { Layout.fillWidth: true; text: "Change…"; tip: "Another symbol: the fitted layers follow its shape"; onClicked: targetDialog.open() }
+                            VButton { Layout.fillWidth: true; text: "Remove"; onClicked: app.clearTarget() }
                         }
-                        Text { text: "X"; color: theme.dim; font.pixelSize: theme.fontSize }
-                        VNumberField {
+
+                        Item { Layout.preferredHeight: 6 }
+                        PanelTitle { Layout.fillWidth: true; text: "Backdrop"; detail: app.backdropName }
+
+                        VButton {
                             Layout.fillWidth: true
-                            value: app.modelPlace.x
-                            decimals: 2
-                            onEdited: function(v) { app.setModelPlace("x", v) }
+                            visible: !app.hasBackdrop
+                            text: "Import a picture…"
+                            tip: "Show a character, button or scene behind the effect"
+                            onClicked: backdropDialog.open()
                         }
-                        Text { text: "Y"; color: theme.dim; font.pixelSize: theme.fontSize }
-                        VNumberField {
+                        GridLayout {
                             Layout.fillWidth: true
-                            value: app.modelPlace.y
-                            decimals: 2
-                            onEdited: function(v) { app.setModelPlace("y", v) }
+                            visible: app.hasBackdrop
+                            columns: 2
+                            columnSpacing: 8
+                            rowSpacing: 6
+
+                            Text { text: "Height (units)"; color: theme.dim; font.pixelSize: theme.fontSize; Layout.fillWidth: true }
+                            VNumberField { value: app.backdropHeight; decimals: 2; onEdited: function(v) { app.setBackdropPlace(app.backdropX, app.backdropY, v) } }
+
+                            Text { text: "Opacity"; color: theme.dim; font.pixelSize: theme.fontSize }
+                            VSlider {
+                                Layout.fillWidth: true
+                                from: 0
+                                to: 1
+                                value: app.backdropOpacity
+                                onMoved: function(v) { app.setBackdropOpacity(v) }
+                            }
                         }
-                        Text { text: "Z"; color: theme.dim; font.pixelSize: theme.fontSize; visible: app.threeD }
-                        VNumberField {
+                        RowLayout {
                             Layout.fillWidth: true
-                            visible: app.threeD
-                            value: app.modelPlace.z
-                            decimals: 2
-                            onEdited: function(v) { app.setModelPlace("z", v) }
+                            visible: app.hasBackdrop
+                            spacing: 6
+                            VButton { Layout.fillWidth: true; text: "Change…"; onClicked: backdropDialog.open() }
+                            VButton { Layout.fillWidth: true; text: "Remove"; onClicked: app.clearBackdrop() }
                         }
-                    }
-                    VCheck {
-                        Layout.fillWidth: true
-                        visible: app.hasModel
-                        text: "Hide particles behind it"
-                        checked: app.hideBehindModel
-                        onToggled: function(on) { app.hideBehindModel = on }
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        visible: app.hasModel
-                        spacing: 6
-                        VButton { Layout.fillWidth: true; text: "Change…"; onClicked: modelDialog.open() }
-                        VButton { Layout.fillWidth: true; text: "Remove"; onClicked: app.clearModel() }
-                    }
 
-                    Item { Layout.preferredHeight: 6 }
-                    PanelTitle { Layout.fillWidth: true; text: "Layers" }
+                        // A 3D model to make the effect on, drawn under the particles.
+                        Item { Layout.preferredHeight: 6 }
+                        PanelTitle {
+                            Layout.fillWidth: true
+                            text: "Model"
+                            detail: app.hasModel ? app.modelName : ""
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: !app.hasModel
+                            spacing: 6
+                            VButton {
+                                Layout.fillWidth: true
+                                text: "Import a model…"
+                                tip: "Show a character, weapon or prop (.obj, .glb, .gltf) and make the effect on it"
+                                onClicked: modelDialog.open()
+                            }
+                            VButton {
+                                objectName: "practiceDummy"
+                                text: "Dummy"
+                                quiet: true
+                                tip: "Try a practice dummy, made for trying effects on"
+                                onClicked: app.useSampleModel()
+                            }
+                        }
+                        GridLayout {
+                            Layout.fillWidth: true
+                            visible: app.hasModel
+                            columns: 4
+                            columnSpacing: 6
+                            rowSpacing: 6
 
-                    // The layers, under the headings of the groups they are in
-                    // (groups can hold groups). Click to select one; Cmd-click
-                    // (Ctrl-click) to add or take away; Shift-click for all
-                    // between. Click a heading to select the whole group; its
-                    // triangle folds it.
-                    ListView {
-                        id: layerList
-                        objectName: "layerList"
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Layout.minimumHeight: 100
-                        clip: true
-                        spacing: 2
-                        model: app.layerRows
-                        boundsBehavior: Flickable.StopAtBounds
+                            Text { text: "Height"; color: theme.dim; font.pixelSize: theme.fontSize }
+                            VNumberField {
+                                Layout.fillWidth: true
+                                value: app.modelPlace.height
+                                decimals: 2
+                                onEdited: function(v) { app.setModelPlace("height", v) }
+                            }
+                            Text { text: "Turn"; color: theme.dim; font.pixelSize: theme.fontSize }
+                            VNumberField {
+                                Layout.fillWidth: true
+                                value: app.modelPlace.turn
+                                decimals: 0
+                                onEdited: function(v) { app.setModelPlace("turn", v) }
+                            }
+                            Text { text: "X"; color: theme.dim; font.pixelSize: theme.fontSize }
+                            VNumberField {
+                                Layout.fillWidth: true
+                                value: app.modelPlace.x
+                                decimals: 2
+                                onEdited: function(v) { app.setModelPlace("x", v) }
+                            }
+                            Text { text: "Y"; color: theme.dim; font.pixelSize: theme.fontSize }
+                            VNumberField {
+                                Layout.fillWidth: true
+                                value: app.modelPlace.y
+                                decimals: 2
+                                onEdited: function(v) { app.setModelPlace("y", v) }
+                            }
+                            Text { text: "Z"; color: theme.dim; font.pixelSize: theme.fontSize; visible: app.threeD }
+                            VNumberField {
+                                Layout.fillWidth: true
+                                visible: app.threeD
+                                value: app.modelPlace.z
+                                decimals: 2
+                                onEdited: function(v) { app.setModelPlace("z", v) }
+                            }
+                        }
+                        VCheck {
+                            Layout.fillWidth: true
+                            visible: app.hasModel
+                            text: "Hide particles behind it"
+                            checked: app.hideBehindModel
+                            onToggled: function(on) { app.hideBehindModel = on }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: app.hasModel
+                            spacing: 6
+                            VButton { Layout.fillWidth: true; text: "Change…"; onClicked: modelDialog.open() }
+                            VButton { Layout.fillWidth: true; text: "Remove"; onClicked: app.clearModel() }
+                        }
 
-                        delegate: Item {
-                            id: rowItem
-                            required property var modelData
-                            required property int index
-                            readonly property bool isGroup: modelData.kind === "group"
-                            readonly property real indent: (modelData.depth || 0) * 12
-                            width: layerList.width
-                            height: isGroup ? 28 : 32
+                        Item { Layout.preferredHeight: 6 }
+                        PanelTitle { Layout.fillWidth: true; text: "Layers" }
 
-                            // ---- a group's heading
-                            Rectangle {
-                                visible: rowItem.isGroup
-                                anchors.fill: parent
-                                anchors.leftMargin: rowItem.indent
-                                radius: 5
-                                color: rowItem.modelData.selected ? theme.hover : theme.raised
-                                border.width: rowItem.modelData.selected ? 1 : 0
-                                border.color: theme.accent
-                                MouseArea {
+                        // The layers, under the headings of the groups they are in
+                        // (groups can hold groups). Click to select one; Cmd-click
+                        // (Ctrl-click) to add or take away; Shift-click for all
+                        // between. Click a heading to select the whole group; its
+                        // triangle folds it.
+                        ListView {
+                            id: layerList
+                            objectName: "layerList"
+                            Layout.fillWidth: true
+                            // Tall enough for its rows, up to a limit; after that the list scrolls by itself.
+                            Layout.preferredHeight: Math.max(220, Math.min(app.layerRows.length * 34 + 8, 520))
+                            clip: true
+                            spacing: 2
+                            model: app.layerRows
+                            boundsBehavior: Flickable.StopAtBounds
+                            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+                            delegate: Item {
+                                id: rowItem
+                                required property var modelData
+                                required property int index
+                                readonly property bool isGroup: modelData.kind === "group"
+                                readonly property real indent: (modelData.depth || 0) * 12
+                                width: layerList.width
+                                height: isGroup ? 28 : 32
+
+                                // ---- a group's heading
+                                Rectangle {
+                                    visible: rowItem.isGroup
                                     anchors.fill: parent
-                                    acceptedButtons: Qt.LeftButton
-                                    onClicked: function(mouse) { app.clickGroup(rowItem.modelData.path, mouse.modifiers) }
-                                }
-                                Text {
-                                    id: foldMark
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 6
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: 14
-                                    text: rowItem.modelData.folded ? "\u25b8" : "\u25be"
-                                    color: theme.dim
-                                    font.pixelSize: theme.fontSize
+                                    anchors.leftMargin: rowItem.indent
+                                    radius: 5
+                                    color: rowItem.modelData.selected ? theme.hover : theme.raised
+                                    border.width: rowItem.modelData.selected ? 1 : 0
+                                    border.color: theme.accent
                                     MouseArea {
                                         anchors.fill: parent
-                                        anchors.margins: -4
-                                        onClicked: app.toggleFold(rowItem.modelData.path)
+                                        acceptedButtons: Qt.LeftButton
+                                        onClicked: function(mouse) { app.clickGroup(rowItem.modelData.path, mouse.modifiers) }
+                                    }
+                                    Text {
+                                        id: foldMark
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 6
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 14
+                                        text: rowItem.modelData.folded ? "\u25b8" : "\u25be"
+                                        color: theme.dim
+                                        font.pixelSize: theme.fontSize
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            anchors.margins: -4
+                                            onClicked: app.toggleFold(rowItem.modelData.path)
+                                        }
+                                    }
+                                    Text {
+                                        anchors.left: foldMark.right
+                                        anchors.leftMargin: 4
+                                        anchors.right: groupLock.left
+                                        anchors.rightMargin: 4
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: rowItem.modelData.name + "  \u00b7  " + rowItem.modelData.count
+                                        color: rowItem.modelData.shown ? theme.text : theme.faint
+                                        font.pixelSize: theme.fontSize
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                    }
+                                    VButton {
+                                        id: groupLock
+                                        anchors.right: groupShown.left
+                                        anchors.rightMargin: 2
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        implicitWidth: 24
+                                        implicitHeight: 22
+                                        quiet: true
+                                        checked: rowItem.modelData.locked === true
+                                        text: checked ? "\uD83D\uDD12" : "\uD83D\uDD13"
+                                        tip: checked ? "Locked: the handles leave this group alone. Click to unlock."
+                                                     : "Lock the group so the handles leave it alone"
+                                        onClicked: app.setGroupLocked(rowItem.modelData.path, !checked)
+                                    }
+                                    VCheck {
+                                        id: groupShown
+                                        anchors.right: groupRemove.left
+                                        anchors.rightMargin: 2
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        checked: rowItem.modelData.shown === true
+                                        onToggled: function(nowChecked) { app.setGroupEnabled(rowItem.modelData.path, nowChecked) }
+                                    }
+                                    VButton {
+                                        id: groupRemove
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 4
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        implicitWidth: 24
+                                        implicitHeight: 22
+                                        quiet: true
+                                        text: "\u00d7"
+                                        tip: "Remove the whole group"
+                                        onClicked: app.removeGroup(rowItem.modelData.path)
                                     }
                                 }
+
+                                // ---- a layer
+                                Rectangle {
+                                    id: layerRow
+                                    visible: !rowItem.isGroup
+                                    readonly property bool active: rowItem.modelData.active === true
+                                    readonly property bool chosen: rowItem.modelData.selected === true
+                                    anchors.fill: parent
+                                    anchors.leftMargin: rowItem.indent
+                                    radius: 5
+                                    color: chosen ? theme.raised : (rowArea.containsMouse ? theme.hover : "transparent")
+                                    border.width: chosen ? 1 : 0
+                                    border.color: active ? theme.accent : theme.line
+
+                                    MouseArea {
+                                        id: rowArea
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: function(mouse) { app.clickLayer(rowItem.modelData.index, mouse.modifiers) }
+                                    }
+                                    VCheck {
+                                        id: enabledBox
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 8
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        checked: rowItem.modelData.enabled === true
+                                        onToggled: function(nowChecked) { app.setLayerEnabled(rowItem.modelData.index, nowChecked) }
+                                    }
+                                    Text {
+                                        visible: !layerRow.active
+                                        anchors.left: enabledBox.right
+                                        anchors.leftMargin: 8
+                                        anchors.right: lockMark.left
+                                        anchors.rightMargin: 4
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: rowItem.modelData.name || ""
+                                        color: rowItem.modelData.enabled ? theme.text : theme.faint
+                                        font.pixelSize: theme.fontSize
+                                        elide: Text.ElideRight
+                                    }
+                                    VTextField {
+                                        visible: layerRow.active
+                                        anchors.left: enabledBox.right
+                                        anchors.leftMargin: 6
+                                        anchors.right: lockMark.left
+                                        anchors.rightMargin: 4
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: rowItem.modelData.name || ""
+                                        onEdited: function(newText) { app.renameLayer(rowItem.modelData.index, newText) }
+                                    }
+                                    Text {
+                                        id: lockMark
+                                        anchors.right: removeButton.left
+                                        anchors.rightMargin: 2
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: rowItem.modelData.locked ? "\uD83D\uDD12" : ""
+                                        font.pixelSize: theme.smallFontSize
+                                    }
+                                    VButton {
+                                        id: removeButton
+                                        visible: layerRow.active
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 4
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        implicitWidth: layerRow.active ? 26 : 0
+                                        implicitHeight: 24
+                                        quiet: true
+                                        text: "\u00d7"
+                                        tip: "Remove this layer"
+                                        onClicked: app.removeLayer(rowItem.modelData.index)
+                                    }
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+                            visible: app.selectionCount > 1 || app.selectedGroup !== ""
+                            VButton {
+                                Layout.fillWidth: true
+                                visible: app.selectionCount > 1 && app.selectedGroup === ""
+                                text: "Group " + app.selectionCount + " layers"
+                                tip: "Make the selected layers a group (Cmd+G)"
+                                onClicked: app.groupSelection()
+                            }
+                            VButton {
+                                Layout.fillWidth: true
+                                visible: app.selectedGroup !== ""
+                                text: "Ungroup"
+                                tip: "Keep the layers, one group level up (Cmd+Shift+G)"
+                                onClicked: app.ungroupSelection()
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+                            enabled: app.selectedLayer >= 0 && app.selectedLayer < app.layers.length
+                            VButton { Layout.fillWidth: true; text: "\u2191"; tip: "Move the selected layer up: drawn earlier, further back"; onClicked: app.moveLayer(app.selectedLayer, -1) }
+                            VButton { Layout.fillWidth: true; text: "\u2193"; tip: "Move the selected layer down: drawn later, in front"; onClicked: app.moveLayer(app.selectedLayer, 1) }
+                            VButton { Layout.fillWidth: true; text: "Copy"; tip: "Make a copy of the selected layer"; onClicked: app.duplicateLayer(app.selectedLayer) }
+                            VButton {
+                                Layout.fillWidth: true
+                                readonly property bool locked: parent.enabled && app.layers[app.selectedLayer].locked === true
+                                text: locked ? "Locked" : "Lock"
+                                checked: locked
+                                tip: "A locked layer is left alone by Refine and by rebuilding from a reference"
+                                onClicked: app.setLayerLocked(app.selectedLayer, !locked)
+                            }
+                        }
+                        VButton {
+                            Layout.fillWidth: true
+                            text: "Add a layer"
+                            tip: "Add another emitter to this effect"
+                            onClicked: app.addLayer()
+                        }
+
+                        // The group of the selected layer: moved, delayed and
+                        // sized as one. Each click is one undo step.
+                        ColumnLayout {
+                            id: groupPanel
+                            objectName: "groupPanel"
+                            readonly property string group: app.selectedGroup
+                            readonly property var row: {
+                                var rows = app.layerRows
+                                for (var i = 0; i < rows.length; ++i)
+                                    if (rows[i].kind === "group" && rows[i].path === group)
+                                        return rows[i]
+                                return null
+                            }
+                            readonly property real step: 0.25
+                            Layout.fillWidth: true
+                            visible: group !== ""
+                            spacing: 4
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.topMargin: 4
+                                spacing: 4
                                 Text {
-                                    anchors.left: foldMark.right
-                                    anchors.leftMargin: 4
-                                    anchors.right: groupLock.left
-                                    anchors.rightMargin: 4
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: rowItem.modelData.name + "  \u00b7  " + rowItem.modelData.count
-                                    color: rowItem.modelData.shown ? theme.text : theme.faint
-                                    font.pixelSize: theme.fontSize
+                                    Layout.fillWidth: true
+                                    text: "GROUP  " + groupPanel.group.split("/").pop()
+                                    color: theme.dim
+                                    font.pixelSize: theme.smallFontSize
                                     font.bold: true
                                     elide: Text.ElideRight
                                 }
                                 VButton {
-                                    id: groupLock
-                                    anchors.right: groupShown.left
-                                    anchors.rightMargin: 2
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    implicitWidth: 24
                                     implicitHeight: 22
                                     quiet: true
-                                    checked: rowItem.modelData.locked === true
-                                    text: checked ? "\uD83D\uDD12" : "\uD83D\uDD13"
-                                    tip: checked ? "Locked: the handles leave this group alone. Click to unlock."
-                                                 : "Lock the group so the handles leave it alone"
-                                    onClicked: app.setGroupLocked(rowItem.modelData.path, !checked)
-                                }
-                                VCheck {
-                                    id: groupShown
-                                    anchors.right: groupRemove.left
-                                    anchors.rightMargin: 2
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    checked: rowItem.modelData.shown === true
-                                    onToggled: function(nowChecked) { app.setGroupEnabled(rowItem.modelData.path, nowChecked) }
-                                }
-                                VButton {
-                                    id: groupRemove
-                                    anchors.right: parent.right
-                                    anchors.rightMargin: 4
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    implicitWidth: 24
-                                    implicitHeight: 22
-                                    quiet: true
-                                    text: "\u00d7"
-                                    tip: "Remove the whole group"
-                                    onClicked: app.removeGroup(rowItem.modelData.path)
+                                    text: "Ungroup"
+                                    tip: "Keep the layers, but no longer as a group"
+                                    onClicked: app.ungroup(groupPanel.group)
                                 }
                             }
-
-                            // ---- a layer
-                            Rectangle {
-                                id: layerRow
-                                visible: !rowItem.isGroup
-                                readonly property bool active: rowItem.modelData.active === true
-                                readonly property bool chosen: rowItem.modelData.selected === true
-                                anchors.fill: parent
-                                anchors.leftMargin: rowItem.indent
-                                radius: 5
-                                color: chosen ? theme.raised : (rowArea.containsMouse ? theme.hover : "transparent")
-                                border.width: chosen ? 1 : 0
-                                border.color: active ? theme.accent : theme.line
-
-                                MouseArea {
-                                    id: rowArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    onClicked: function(mouse) { app.clickLayer(rowItem.modelData.index, mouse.modifiers) }
-                                }
-                                VCheck {
-                                    id: enabledBox
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 8
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    checked: rowItem.modelData.enabled === true
-                                    onToggled: function(nowChecked) { app.setLayerEnabled(rowItem.modelData.index, nowChecked) }
-                                }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 3
+                                VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u2190"; tip: "Move the group left"; onClicked: app.moveGroup(groupPanel.group, -groupPanel.step, 0, 0) }
+                                VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u2192"; tip: "Move the group right"; onClicked: app.moveGroup(groupPanel.group, groupPanel.step, 0, 0) }
+                                VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u2191"; tip: "Move the group up"; onClicked: app.moveGroup(groupPanel.group, 0, groupPanel.step, 0) }
+                                VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u2193"; tip: "Move the group down"; onClicked: app.moveGroup(groupPanel.group, 0, -groupPanel.step, 0) }
+                                VButton { Layout.fillWidth: true; implicitHeight: 26; visible: app.threeD; text: "\u2299"; tip: "Move the group nearer, towards the front"; onClicked: app.moveGroup(groupPanel.group, 0, 0, groupPanel.step) }
+                                VButton { Layout.fillWidth: true; implicitHeight: 26; visible: app.threeD; text: "\u2297"; tip: "Move the group further, towards the back"; onClicked: app.moveGroup(groupPanel.group, 0, 0, -groupPanel.step) }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 3
+                                VButton { implicitWidth: 26; implicitHeight: 26; text: "\u2212"; tip: "Start the group a tenth of a second earlier"; onClicked: app.delayGroup(groupPanel.group, -0.1) }
                                 Text {
-                                    visible: !layerRow.active
-                                    anchors.left: enabledBox.right
-                                    anchors.leftMargin: 8
-                                    anchors.right: lockMark.left
-                                    anchors.rightMargin: 4
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: rowItem.modelData.name || ""
-                                    color: rowItem.modelData.enabled ? theme.text : theme.faint
-                                    font.pixelSize: theme.fontSize
-                                    elide: Text.ElideRight
-                                }
-                                VTextField {
-                                    visible: layerRow.active
-                                    anchors.left: enabledBox.right
-                                    anchors.leftMargin: 6
-                                    anchors.right: lockMark.left
-                                    anchors.rightMargin: 4
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: rowItem.modelData.name || ""
-                                    onEdited: function(newText) { app.renameLayer(rowItem.modelData.index, newText) }
-                                }
-                                Text {
-                                    id: lockMark
-                                    anchors.right: removeButton.left
-                                    anchors.rightMargin: 2
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: rowItem.modelData.locked ? "\uD83D\uDD12" : ""
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: "starts " + (groupPanel.row ? groupPanel.row.start : 0).toFixed(1) + " s"
+                                    color: theme.text
                                     font.pixelSize: theme.smallFontSize
                                 }
-                                VButton {
-                                    id: removeButton
-                                    visible: layerRow.active
-                                    anchors.right: parent.right
-                                    anchors.rightMargin: 4
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    implicitWidth: layerRow.active ? 26 : 0
-                                    implicitHeight: 24
-                                    quiet: true
-                                    text: "\u00d7"
-                                    tip: "Remove this layer"
-                                    onClicked: app.removeLayer(rowItem.modelData.index)
-                                }
+                                VButton { implicitWidth: 26; implicitHeight: 26; text: "+"; tip: "Start the group a tenth of a second later"; onClicked: app.delayGroup(groupPanel.group, 0.1) }
+                                Item { Layout.preferredWidth: 6 }
+                                VButton { implicitWidth: 26; implicitHeight: 26; text: "\u2212"; tip: "The whole group 10% smaller, particles and reach"; onClicked: app.sizeGroup(groupPanel.group, 1.0 / 1.1) }
+                                Text { text: "size"; color: theme.text; font.pixelSize: theme.smallFontSize }
+                                VButton { implicitWidth: 26; implicitHeight: 26; text: "+"; tip: "The whole group 10% larger, particles and reach"; onClicked: app.sizeGroup(groupPanel.group, 1.1) }
                             }
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
-                        visible: app.selectionCount > 1 || app.selectedGroup !== ""
-                        VButton {
-                            Layout.fillWidth: true
-                            visible: app.selectionCount > 1 && app.selectedGroup === ""
-                            text: "Group " + app.selectionCount + " layers"
-                            tip: "Make the selected layers a group (Cmd+G)"
-                            onClicked: app.groupSelection()
-                        }
-                        VButton {
-                            Layout.fillWidth: true
-                            visible: app.selectedGroup !== ""
-                            text: "Ungroup"
-                            tip: "Keep the layers, one group level up (Cmd+Shift+G)"
-                            onClicked: app.ungroupSelection()
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
-                        enabled: app.selectedLayer >= 0 && app.selectedLayer < app.layers.length
-                        VButton { Layout.fillWidth: true; text: "\u2191"; tip: "Move the selected layer up: drawn earlier, further back"; onClicked: app.moveLayer(app.selectedLayer, -1) }
-                        VButton { Layout.fillWidth: true; text: "\u2193"; tip: "Move the selected layer down: drawn later, in front"; onClicked: app.moveLayer(app.selectedLayer, 1) }
-                        VButton { Layout.fillWidth: true; text: "Copy"; tip: "Make a copy of the selected layer"; onClicked: app.duplicateLayer(app.selectedLayer) }
-                        VButton {
-                            Layout.fillWidth: true
-                            readonly property bool locked: parent.enabled && app.layers[app.selectedLayer].locked === true
-                            text: locked ? "Locked" : "Lock"
-                            checked: locked
-                            tip: "A locked layer is left alone by Refine and by rebuilding from a reference"
-                            onClicked: app.setLayerLocked(app.selectedLayer, !locked)
-                        }
-                    }
-                    VButton {
-                        Layout.fillWidth: true
-                        text: "Add a layer"
-                        tip: "Add another emitter to this effect"
-                        onClicked: app.addLayer()
-                    }
-
-                    // The group of the selected layer: moved, delayed and
-                    // sized as one. Each click is one undo step.
-                    ColumnLayout {
-                        id: groupPanel
-                        objectName: "groupPanel"
-                        readonly property string group: app.selectedGroup
-                        readonly property var row: {
-                            var rows = app.layerRows
-                            for (var i = 0; i < rows.length; ++i)
-                                if (rows[i].kind === "group" && rows[i].path === group)
-                                    return rows[i]
-                            return null
-                        }
-                        readonly property real step: 0.25
-                        Layout.fillWidth: true
-                        visible: group !== ""
-                        spacing: 4
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Layout.topMargin: 4
-                            spacing: 4
-                            Text {
+                            RowLayout {
                                 Layout.fillWidth: true
-                                text: "GROUP  " + groupPanel.group.split("/").pop()
-                                color: theme.dim
-                                font.pixelSize: theme.smallFontSize
-                                font.bold: true
-                                elide: Text.ElideRight
+                                spacing: 3
+                                VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u21ba 15\u00b0"; tip: "Turn the group 15 degrees counter-clockwise"; onClicked: app.turnSelection(15) }
+                                VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u21bb 15\u00b0"; tip: "Turn the group 15 degrees clockwise"; onClicked: app.turnSelection(-15) }
                             }
-                            VButton {
-                                implicitHeight: 22
-                                quiet: true
-                                text: "Ungroup"
-                                tip: "Keep the layers, but no longer as a group"
-                                onClicked: app.ungroup(groupPanel.group)
-                            }
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 3
-                            VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u2190"; tip: "Move the group left"; onClicked: app.moveGroup(groupPanel.group, -groupPanel.step, 0, 0) }
-                            VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u2192"; tip: "Move the group right"; onClicked: app.moveGroup(groupPanel.group, groupPanel.step, 0, 0) }
-                            VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u2191"; tip: "Move the group up"; onClicked: app.moveGroup(groupPanel.group, 0, groupPanel.step, 0) }
-                            VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u2193"; tip: "Move the group down"; onClicked: app.moveGroup(groupPanel.group, 0, -groupPanel.step, 0) }
-                            VButton { Layout.fillWidth: true; implicitHeight: 26; visible: app.threeD; text: "\u2299"; tip: "Move the group nearer, towards the front"; onClicked: app.moveGroup(groupPanel.group, 0, 0, groupPanel.step) }
-                            VButton { Layout.fillWidth: true; implicitHeight: 26; visible: app.threeD; text: "\u2297"; tip: "Move the group further, towards the back"; onClicked: app.moveGroup(groupPanel.group, 0, 0, -groupPanel.step) }
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 3
-                            VButton { implicitWidth: 26; implicitHeight: 26; text: "\u2212"; tip: "Start the group a tenth of a second earlier"; onClicked: app.delayGroup(groupPanel.group, -0.1) }
-                            Text {
-                                Layout.fillWidth: true
-                                horizontalAlignment: Text.AlignHCenter
-                                text: "starts " + (groupPanel.row ? groupPanel.row.start : 0).toFixed(1) + " s"
-                                color: theme.text
-                                font.pixelSize: theme.smallFontSize
-                            }
-                            VButton { implicitWidth: 26; implicitHeight: 26; text: "+"; tip: "Start the group a tenth of a second later"; onClicked: app.delayGroup(groupPanel.group, 0.1) }
-                            Item { Layout.preferredWidth: 6 }
-                            VButton { implicitWidth: 26; implicitHeight: 26; text: "\u2212"; tip: "The whole group 10% smaller, particles and reach"; onClicked: app.sizeGroup(groupPanel.group, 1.0 / 1.1) }
-                            Text { text: "size"; color: theme.text; font.pixelSize: theme.smallFontSize }
-                            VButton { implicitWidth: 26; implicitHeight: 26; text: "+"; tip: "The whole group 10% larger, particles and reach"; onClicked: app.sizeGroup(groupPanel.group, 1.1) }
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 3
-                            VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u21ba 15\u00b0"; tip: "Turn the group 15 degrees counter-clockwise"; onClicked: app.turnSelection(15) }
-                            VButton { Layout.fillWidth: true; implicitHeight: 26; text: "\u21bb 15\u00b0"; tip: "Turn the group 15 degrees clockwise"; onClicked: app.turnSelection(-15) }
                         }
                     }
                 }
