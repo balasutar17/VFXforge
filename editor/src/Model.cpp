@@ -1067,4 +1067,73 @@ Model practiceDummy() {
     return finish(std::move(m)).value();
 }
 
+namespace {
+
+struct Builder {
+    Model& m;
+    const float* colour;
+    // A flat polygon, counter-clockwise seen from outside, as triangles from its first corner.
+    void poly(const std::vector<std::array<float, 3>>& p) {
+        const auto first = static_cast<std::uint32_t>(m.positions.size() / 3);
+        const auto& a = p[0];
+        const auto& b = p[1];
+        const auto& c = p[2];
+        const float ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+        const float wx = c[0] - a[0], wy = c[1] - a[1], wz = c[2] - a[2];
+        float nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+        const float l = std::sqrt(nx * nx + ny * ny + nz * nz);
+        nx /= l; ny /= l; nz /= l;
+        for (const auto& v : p) {
+            m.positions.insert(m.positions.end(), v.begin(), v.end());
+            m.normals.insert(m.normals.end(), {nx, ny, nz});
+            m.colors.insert(m.colors.end(), colour, colour + 3);
+        }
+        for (std::uint32_t i = 1; i + 1 < p.size(); ++i) {
+            m.triangles.insert(m.triangles.end(), {first, first + i, first + i + 1});
+        }
+    }
+};
+
+}  // namespace
+
+Model hardSurfaceSample() {
+    Model m;
+    m.name = "Hard-surface sample";
+    const float grey[3] = {0.72f, 0.73f, 0.76f};
+    Builder b{m, grey};
+    using P = std::array<float, 3>;
+    // The box: 2 wide, 1.6 tall, 2 deep.
+    const float hw = 1.0f, bh = 1.6f, hd = 1.0f;
+    b.poly({P{-hw, 0, hd}, P{hw, 0, hd}, P{hw, bh, hd}, P{-hw, bh, hd}});     // front
+    b.poly({P{hw, 0, -hd}, P{-hw, 0, -hd}, P{-hw, bh, -hd}, P{hw, bh, -hd}}); // back
+    b.poly({P{hw, 0, hd}, P{hw, 0, -hd}, P{hw, bh, -hd}, P{hw, bh, hd}});     // right
+    b.poly({P{-hw, 0, -hd}, P{-hw, 0, hd}, P{-hw, bh, hd}, P{-hw, bh, -hd}}); // left
+    b.poly({P{-hw, 0, -hd}, P{hw, 0, -hd}, P{hw, 0, hd}, P{-hw, 0, hd}});     // bottom
+    b.poly({P{-hw, bh, hd}, P{hw, bh, hd}, P{hw, bh, -hd}, P{-hw, bh, -hd}}); // top
+    // The tower: a square frustum, 1.2 across at the foot, 0.8 at the top, 1.7 tall.
+    const float f = 0.6f, t = 0.4f, th = bh + 1.7f;
+    b.poly({P{-f, bh, f}, P{f, bh, f}, P{t, th, t}, P{-t, th, t}});
+    b.poly({P{f, bh, -f}, P{-f, bh, -f}, P{-t, th, -t}, P{t, th, -t}});
+    b.poly({P{f, bh, f}, P{f, bh, -f}, P{t, th, -t}, P{t, th, t}});
+    b.poly({P{-f, bh, -f}, P{-f, bh, f}, P{-t, th, t}, P{-t, th, -t}});
+    b.poly({P{-t, th, t}, P{t, th, t}, P{t, th, -t}, P{-t, th, -t}});
+    // The pipe: along z from inside the tower out to z = 1.3, with a bore.
+    const float ro = 0.34f, ri = 0.22f, py = 2.55f, px = 0.0f, z0 = 0.2f, z1 = 1.3f;
+    const int around = 24;
+    for (int i = 0; i < around; ++i) {
+        const float a0 = 2.0f * kPi * static_cast<float>(i) / static_cast<float>(around);
+        const float a1 = 2.0f * kPi * static_cast<float>(i + 1) / static_cast<float>(around);
+        const float c0 = std::cos(a0), s0 = std::sin(a0), c1 = std::cos(a1), s1 = std::sin(a1);
+        b.poly({P{px + ro * c0, py + ro * s0, z0}, P{px + ro * c1, py + ro * s1, z0},
+                P{px + ro * c1, py + ro * s1, z1}, P{px + ro * c0, py + ro * s0, z1}});           // outside
+        b.poly({P{px + ri * c1, py + ri * s1, z0}, P{px + ri * c0, py + ri * s0, z0},
+                P{px + ri * c0, py + ri * s0, z1}, P{px + ri * c1, py + ri * s1, z1}});           // bore
+        b.poly({P{px + ri * c0, py + ri * s0, z1}, P{px + ro * c0, py + ro * s0, z1},
+                P{px + ro * c1, py + ro * s1, z1}, P{px + ri * c1, py + ri * s1, z1}});           // rim
+        b.poly({P{px + ri * c1, py + ri * s1, z0}, P{px + ro * c1, py + ro * s1, z0},
+                P{px + ro * c0, py + ro * s0, z0}, P{px + ri * c0, py + ri * s0, z0}});           // inside the tower
+    }
+    return finish(std::move(m)).value();
+}
+
 }  // namespace vfx::editor

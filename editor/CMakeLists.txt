@@ -16,6 +16,8 @@ add_library(vfx_editor STATIC
     src/Blend.cpp
     src/Frames.cpp
     src/Image.cpp
+    src/MeshAnalysis.cpp
+    src/MeshVfx.cpp
     src/Model.cpp
     src/Picture.cpp
     src/Compare.cpp

@@ -92,4 +92,10 @@ ModelPicture drawModel(const Model& model, const ModelPlace& place, const View& 
 // on before bringing in a model of one's own.
 Model practiceDummy();
 
+// A hard-surface test piece, made here: a box with a tapered tower on it and
+// a hollow pipe through the tower's side. Flat faces, sharp corners and a
+// round part with a bore, about 400 triangles: the shapes an outline, a scan
+// and a ring have to follow, and what the tests measure them against.
+Model hardSurfaceSample();
+
 }  // namespace vfx::editor

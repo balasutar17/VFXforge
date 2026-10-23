@@ -72,9 +72,10 @@ Registry::Registry() {
 
     modules_.push_back(module("shape", "Shape", Stage::Spawn, {
         P("shape", "Shape", ValueKind::Enum, text("point"))
-            .options({"point", "circle", "rectangle", "sphere", "box", "cone", "path"})
+            .options({"point", "circle", "rectangle", "sphere", "box", "cone", "path", "mesh"})
             .help("Where new particles appear. Path: along a line or outline of your own, "
-                  "or one traced from a picture (a slot symbol's silhouette)."),
+                  "or one traced from a picture (a slot symbol's silhouette). Mesh: on the surface or "
+                  "edges of a 3D model (3D effects only)."),
         P("radius", "Radius", ValueKind::Float, num(1.0))
             .range(0, 10000).ui(0, 10)
             .help("Size of a circle, sphere or cone base."),
@@ -130,6 +131,32 @@ Registry::Registry() {
             .options({"direction", "outward", "along"})
             .help("Which way particles from a path are sent: the layer's Direction, straight out "
                   "from the path (in for below 0 speed), or along it."),
+        P("meshKind", "Mesh Part", ValueKind::Enum, text("surface"))
+            .options({"surface", "edges", "silhouette"})
+            .help("The Mesh shape: particles on the whole surface, along the edges worth lighting, or along "
+                  "the outline as the camera saw it when the effect was made on the model."),
+        P("meshData", "Mesh Data", ValueKind::Points, PointList{})
+            .help("The model's shape as this layer carries it, standing where the model stands. "
+                  "Made by Generate on Model; fitted again when the model moves."),
+        P("meshDensity", "Surface Samples", ValueKind::Int, integer(16000))
+            .range(500, 100000).ui(2000, 40000)
+            .help("How many points the surface is sampled at. More follows thin bands more smoothly."),
+        P("scanMode", "Scan", ValueKind::Enum, text("none"))
+            .options({"none", "height", "ripple"})
+            .help("Restrict the surface to a moving band: Height sweeps up the model, Ripple spreads "
+                  "from the Scan Origin like rings on water. None: the whole surface at once."),
+        P("scanSpeed", "Scan Speed", ValueKind::Float, num(0.5))
+            .unit("sweeps per second").range(-20, 20).ui(-3, 3)
+            .help("How many times a second the band crosses the whole model (below 0 the other way)."),
+        P("scanWidth", "Scan Width", ValueKind::Float, num(0.15))
+            .unit("units").range(0.001, 1000).ui(0.01, 2)
+            .help("How wide the band is, measured across the surface."),
+        P("scanBands", "Scan Bands", ValueKind::Int, integer(1))
+            .range(1, 32).ui(1, 12)
+            .help("How many bands cross at once, evenly spaced."),
+        P("scanOrigin", "Scan Origin", ValueKind::Vec3, Vec3{0, 0, 0})
+            .range(-10000, 10000).ui(-10, 10)
+            .help("Where a Ripple starts, in the effect's units."),
     }));
 
     modules_.push_back(module("initial", "Initial State", Stage::Spawn, {

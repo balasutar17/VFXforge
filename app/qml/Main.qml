@@ -495,6 +495,13 @@ ApplicationWindow {
                                 onClicked: modelDialog.open()
                             }
                             VButton {
+                                objectName: "hardSample"
+                                text: "Block"
+                                quiet: true
+                                tip: "Try a hard-surface test piece (a box, a tower and a pipe) for outlines and scans"
+                                onClicked: app.useHardSurfaceModel()
+                            }
+                            VButton {
                                 objectName: "practiceDummy"
                                 text: "Dummy"
                                 quiet: true
@@ -559,6 +566,48 @@ ApplicationWindow {
                             spacing: 6
                             VButton { Layout.fillWidth: true; text: "Change…"; onClicked: modelDialog.open() }
                             VButton { Layout.fillWidth: true; text: "Remove"; onClicked: app.clearModel() }
+                        }
+
+                        // Effects made from the model's own shape: outlines along its
+                        // real edges and silhouette, an energy coat and scan bands on its
+                        // surfaces, and rings fitted to its footprint.
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: app.hasModel
+                            spacing: 6
+                            Text { text: "Quality"; color: theme.dim; font.pixelSize: theme.fontSize }
+                            Repeater {
+                                model: ["Preview", "Balanced", "High"]
+                                VButton {
+                                    Layout.fillWidth: true
+                                    text: modelData
+                                    quiet: app.meshQuality !== index
+                                    tip: index === 0 ? "Fewer samples: quick on big models"
+                                                     : index === 1 ? "A good balance" : "Most detail: slower on dense models"
+                                    onClicked: app.meshQuality = index
+                                }
+                            }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: app.hasModel
+                            spacing: 6
+                            VButton {
+                                objectName: "generateOnModel"
+                                Layout.fillWidth: true
+                                text: "Generate on model"
+                                tip: "Make layers that follow this model's real surface, edges and footprint (3D effects)"
+                                onClicked: app.generateOnModel(viewport.viewState())
+                            }
+                            VButton {
+                                objectName: "fitToModel"
+                                Layout.fillWidth: true
+                                visible: app.hasMeshVfx
+                                text: "Fit to model"
+                                quiet: true
+                                tip: "Follow the model again after it moved or changed; your settings stay"
+                                onClicked: app.fitToModel(viewport.viewState())
+                            }
                         }
 
                         Item { Layout.preferredHeight: 6 }

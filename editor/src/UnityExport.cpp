@@ -373,6 +373,46 @@ J shapeJson(const EmitterProgram& e) {
             s["exact"] = !e.flat && spreadDeg == 0.0;
             break;
 
+        case ShapeType::Mesh: {
+            // A model's surface or edges: the importer builds a mesh from the
+            // layer's own copy of the shape and emits from its triangles or
+            // lines (Unity's Mesh shape, Triangle or Edge). The normals carry
+            // the aim, as for a path. Z is mirrored for Unity, as the model's is.
+            s["type"] = "mesh";
+            s["part"] = e.meshEdges ? "edge" : "triangle";
+            J verts = J::array();
+            if (e.meshEdges) {
+                for (std::size_t i = 0; i < e.segAx.size(); ++i) {
+                    verts.push_back(round6(e.segAx[i]));
+                    verts.push_back(round6(e.segAy[i]));
+                    verts.push_back(round6(-e.segAz[i]));
+                    verts.push_back(round6(e.segBx[i]));
+                    verts.push_back(round6(e.segBy[i]));
+                    verts.push_back(round6(-e.segBz[i]));
+                }
+            } else {
+                // Mirroring Z turns a triangle inside out: its corners b and c swap back.
+                for (std::size_t i = 0; i + 8 < e.meshTriangles.size(); i += 9) {
+                    const float* t = &e.meshTriangles[i];
+                    const int order[3] = {0, 2, 1};
+                    for (int c : order) {
+                        verts.push_back(round6(t[c * 3]));
+                        verts.push_back(round6(t[c * 3 + 1]));
+                        verts.push_back(round6(-t[c * 3 + 2]));
+                    }
+                }
+            }
+            s["vertices"] = std::move(verts);
+            s["centre"] = J::array({round6(e.meshCx), round6(e.meshCy), round6(-e.meshCz)});
+            s["aim"] = e.aim == 1 ? "outward" : "direction";
+            s["direction"] = J::array({round6(e.dirX), round6(e.dirY), round6(-e.dirZ)});
+            s["normalOffset"] = round6(e.meshOffset);
+            s["randomDirection"] = round6(mix);
+            // Unity's mesh shape cannot be limited to a moving band.
+            s["exact"] = e.scanMode == 0;
+            break;
+        }
+
         case ShapeType::Path: {
             // The importer builds a mesh that follows the path and emits from
             // it: along its edges (evenly, stepping round them in order, as
@@ -957,6 +997,35 @@ std::vector<UnityPicture> unitySounds(const Effect& effect, const std::filesyste
         out.push_back(UnityPicture{asset.id, "Assets/VFXForge/Sounds/" + file, std::move(bytes)});
     }
     return out;
+}
+
+std::vector<std::string> unityMeshNotes(const Effect& effect) {
+    std::vector<std::string> notes;
+    for (const Layer& layer : effect.layers) {
+        if (!layer.enabled) {
+            continue;
+        }
+        for (const Module& m : layer.modules) {
+            if (m.type != "shape" || !m.known()) {
+                continue;
+            }
+            const auto word = [&m](const char* key) -> std::string {
+                const Value* v = m.find(key);
+                const auto* s = v ? std::get_if<std::string>(v) : nullptr;
+                return s ? *s : std::string();
+            };
+            if (word("shape") != "mesh") {
+                continue;
+            }
+            if (word("scanMode") != "none" && !word("scanMode").empty()) {
+                notes.push_back(layer.name + ": Unity cannot limit emission to a moving band, so it emits over the whole surface");
+            }
+            if (word("meshKind") == "silhouette") {
+                notes.push_back(layer.name + ": the outline is fixed to the camera it was made from; Unity does not follow the view");
+            }
+        }
+    }
+    return notes;
 }
 
 std::vector<std::string> unityBlendNotes(const Effect& effect) {

@@ -95,7 +95,15 @@
           "travelHeads": 1,
           "travelMode": "run",
           "alignToPath": false,
-          "aim": "direction"
+          "aim": "direction",
+          "meshKind": "surface",
+          "meshData": {"points": []},
+          "meshDensity": 16000,
+          "scanMode": "none",
+          "scanSpeed": 0.5,
+          "scanWidth": 0.15,
+          "scanBands": 1,
+          "scanOrigin": [0.0, 0.0, 0.0]
         },
         {
           "id": "m-e89911b266b19078",

@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "vfx/DetMath.h"
+#include "vfx/MeshData.h"
 #include "vfx/Metadata.h"
 
 namespace vfx {
@@ -166,6 +167,7 @@ ShapeType shapeFrom(const std::string& name) {
     if (name == "box") return ShapeType::Box;
     if (name == "cone") return ShapeType::Cone;
     if (name == "path") return ShapeType::Path;
+    if (name == "mesh") return ShapeType::Mesh;
     return ShapeType::Point;
 }
 
@@ -246,6 +248,157 @@ void compilePath(EmitterProgram& e, const PointList& list, bool closed, double p
     e.pathTotal = total;
 }
 
+// The Mesh shape: edges as segments with their running length; a surface as a
+// cloud of points spread evenly over the triangles by area (a few to a
+// triangle in proportion to its size, never more crowded where the model has
+// more small triangles), then sorted by height or by distance from the scan's
+// origin so a band is a run of the list.
+void compileMesh(EmitterProgram& e, const Reader& shape) {
+    const bool edges = shape.get<std::string>("meshKind") != "surface";
+    const PointList& data = shape.get<PointList>("meshData");
+    e.meshEdges = edges;
+    e.meshOffset = static_cast<float>(shape.get<double>("padding"));
+    const std::string& scan = shape.get<std::string>("scanMode");
+    e.scanMode = scan == "height" ? 1 : scan == "ripple" ? 2 : 0;
+    e.scanSpeed = static_cast<float>(shape.get<double>("scanSpeed"));
+    e.scanWidth = std::max(0.0005f, static_cast<float>(shape.get<double>("scanWidth")));
+    e.scanBands = static_cast<int>(std::clamp<std::int64_t>(shape.get<std::int64_t>("scanBands"), 1, 32));
+    const Vec3& origin = shape.get<Vec3>("scanOrigin");
+    e.scanOx = static_cast<float>(origin.x);
+    e.scanOy = static_cast<float>(origin.y);
+    e.scanOz = static_cast<float>(origin.z);
+
+    double sx = 0, sy = 0, sz = 0;
+    std::size_t corners = 0;
+    if (edges) {
+        const std::vector<MeshSegment> segments = unpackSegments(data);
+        float total = 0;
+        for (const MeshSegment& s : segments) {
+            const float dx = s.v[3] - s.v[0], dy = s.v[4] - s.v[1], dz = s.v[5] - s.v[2];
+            const float len = std::sqrt(dx * dx + dy * dy + dz * dz);
+            if (!(len > 1e-7f) || !std::isfinite(len)) {
+                continue;
+            }
+            total += len;
+            e.segAx.push_back(s.v[0]);
+            e.segAy.push_back(s.v[1]);
+            e.segAz.push_back(s.v[2]);
+            e.segBx.push_back(s.v[3]);
+            e.segBy.push_back(s.v[4]);
+            e.segBz.push_back(s.v[5]);
+            e.segCum.push_back(total);
+            sx += s.v[0] + s.v[3];
+            sy += s.v[1] + s.v[4];
+            sz += s.v[2] + s.v[5];
+            corners += 2;
+        }
+        if (e.segCum.empty()) {
+            e.shape = ShapeType::Point;  // nothing to emit along
+        }
+    } else {
+        const std::vector<MeshTriangle> triangles = unpackTriangles(data);
+        struct Tri {
+            float v[9];
+            float nx, ny, nz, area;
+        };
+        std::vector<Tri> good;
+        double totalArea = 0;
+        for (const MeshTriangle& t : triangles) {
+            const float ux = t.v[3] - t.v[0], uy = t.v[4] - t.v[1], uz = t.v[5] - t.v[2];
+            const float wx = t.v[6] - t.v[0], wy = t.v[7] - t.v[1], wz = t.v[8] - t.v[2];
+            const float cx = uy * wz - uz * wy, cy = uz * wx - ux * wz, cz = ux * wy - uy * wx;
+            const float twice = std::sqrt(cx * cx + cy * cy + cz * cz);
+            if (!(twice > 1e-9f) || !std::isfinite(twice)) {
+                continue;
+            }
+            Tri g{};
+            for (int k = 0; k < 9; ++k) g.v[k] = t.v[k];
+            g.nx = cx / twice;
+            g.ny = cy / twice;
+            g.nz = cz / twice;
+            g.area = 0.5f * twice;
+            totalArea += g.area;
+            good.push_back(g);
+            e.meshTriangles.insert(e.meshTriangles.end(), t.v.begin(), t.v.end());
+            for (int k = 0; k < 3; ++k) {
+                sx += t.v[k * 3];
+                sy += t.v[k * 3 + 1];
+                sz += t.v[k * 3 + 2];
+            }
+            corners += 3;
+        }
+        if (good.empty() || !(totalArea > 0)) {
+            e.shape = ShapeType::Point;
+            return;
+        }
+        const std::size_t want = static_cast<std::size_t>(std::clamp<std::int64_t>(shape.get<std::int64_t>("meshDensity"), 500, 100000));
+        e.meshSpacing = static_cast<float>(std::sqrt(totalArea / static_cast<double>(want)));
+        struct Sample {
+            float p[3], n[3], key;
+        };
+        std::vector<Sample> cloud;
+        cloud.reserve(want + good.size());
+        // Samples to each triangle in proportion to its area, the remainder
+        // carried on so the total comes out right; inside it, a low-discrepancy
+        // spread (no two close together by chance).
+        double carry = 0;
+        const double perArea = static_cast<double>(want) / totalArea;
+        for (const Tri& g : good) {
+            carry += g.area * perArea;
+            const std::size_t k = static_cast<std::size_t>(carry);
+            carry -= static_cast<double>(k);
+            for (std::size_t j = 0; j < k; ++j) {
+                double a = 0.5 + 0.7548776662466927 * static_cast<double>(j + 1);
+                a -= std::floor(a);
+                double b = 0.5 + 0.5698402909980532 * static_cast<double>(j + 1);
+                b -= std::floor(b);
+                if (a + b > 1.0) {
+                    a = 1.0 - a;
+                    b = 1.0 - b;
+                }
+                const float fa = static_cast<float>(a), fb = static_cast<float>(b), fc = 1.0f - fa - fb;
+                Sample s{};
+                s.p[0] = fc * g.v[0] + fa * g.v[3] + fb * g.v[6];
+                s.p[1] = fc * g.v[1] + fa * g.v[4] + fb * g.v[7];
+                s.p[2] = fc * g.v[2] + fa * g.v[5] + fb * g.v[8];
+                s.n[0] = g.nx;
+                s.n[1] = g.ny;
+                s.n[2] = g.nz;
+                cloud.push_back(s);
+            }
+        }
+        for (Sample& s : cloud) {
+            if (e.scanMode == 2) {
+                const float dx = s.p[0] - e.scanOx, dy = s.p[1] - e.scanOy, dz = s.p[2] - e.scanOz;
+                s.key = std::sqrt(dx * dx + dy * dy + dz * dz);
+            } else {
+                s.key = s.p[1];
+            }
+        }
+        std::stable_sort(cloud.begin(), cloud.end(), [](const Sample& a, const Sample& b) { return a.key < b.key; });
+        if (cloud.empty()) {
+            e.shape = ShapeType::Point;
+            return;
+        }
+        for (const Sample& s : cloud) {
+            e.meshPx.push_back(s.p[0]);
+            e.meshPy.push_back(s.p[1]);
+            e.meshPz.push_back(s.p[2]);
+            e.meshNx.push_back(s.n[0]);
+            e.meshNy.push_back(s.n[1]);
+            e.meshNz.push_back(s.n[2]);
+            e.meshKey.push_back(s.key);
+        }
+        e.meshKeyMin = e.meshKey.front();
+        e.meshKeyMax = e.meshKey.back();
+    }
+    if (corners > 0) {
+        e.meshCx = static_cast<float>(sx / static_cast<double>(corners));
+        e.meshCy = static_cast<float>(sy / static_cast<double>(corners));
+        e.meshCz = static_cast<float>(sz / static_cast<double>(corners));
+    }
+}
+
 std::uint64_t toCount(double value) {
     if (!(value > 0.0)) {
         return 0;
@@ -309,6 +462,14 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         e->offsetZ = e->flat ? 0.0f : finite(offset.z);
         e->offset = e->offsetX != 0.0f || e->offsetY != 0.0f || e->offsetZ != 0.0f;
         e->ground = !e->flat && shape.get<std::string>("plane") == "ground";
+        if (e->flat && e->shape == ShapeType::Mesh) {
+            e->shape = ShapeType::Point;  // a model's surface needs a 3D effect
+        }
+        if (e->shape == ShapeType::Mesh) {
+            compileMesh(*e, shape);
+            const std::string& aim = shape.get<std::string>("aim");
+            e->aim = aim == "outward" ? 1 : 0;
+        }
         if (e->shape == ShapeType::Path) {
             compilePath(*e, shape.get<PointList>("path"), shape.get<bool>("closed"), shape.get<double>("padding"));
             e->pathThickness = std::max(0.0f, f(shape.get<double>("thickness")));

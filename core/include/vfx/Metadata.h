@@ -84,7 +84,7 @@ Value repairValue(const PropertyDesc& desc, const Value& value);
 // Sanity limits that keep a damaged or hostile file from exhausting memory.
 inline constexpr std::size_t kMaxCurveKeys = 1024;
 inline constexpr std::size_t kMaxBursts = 1024;
-inline constexpr std::size_t kMaxPathPoints = 4096;
+inline constexpr std::size_t kMaxPathPoints = 40000;  // a path, or a model's shape (MeshData.h)
 inline constexpr std::size_t kMaxTextLength = 1024;
 
 }  // namespace vfx

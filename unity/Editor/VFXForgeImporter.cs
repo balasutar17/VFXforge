@@ -314,9 +314,11 @@ namespace VFXForge.EditorTools
                 shape.shapeType = Bool(shapeInfo, "edge", false) ? ParticleSystemShapeType.BoxEdge : ParticleSystemShapeType.Box;
             else if (type == "path")
                 pathMesh = PathShape(system, shapeInfo, layer, duration, out turnAlong);
+            else if (type == "mesh")
+                pathMesh = MeshShape(system, shapeInfo);
             else
                 shape.shapeType = ParticleSystemShapeType.Circle;
-            if (type != "path")
+            if (type != "path" && type != "mesh")
             {
             shape.radius = (float)Num(shapeInfo, "radius", 0.0001);
             shape.radiusThickness = (float)Num(shapeInfo, "radiusThickness", 1);
@@ -698,6 +700,66 @@ namespace VFXForge.EditorTools
                 even.Add(Vector2.Lerp(points[at], points[at + 1], f));
             }
             return even;
+        }
+
+        // A model's surface or edges: Unity's Mesh shape on a mesh built from
+        // the layer's own copy of the shape (already where the model stands,
+        // in Unity's space). Triangles emit from the surface, lines along the
+        // edges; the normals carry the aim, outward or the layer's direction.
+        static Mesh MeshShape(ParticleSystem system, Dictionary<string, object> info)
+        {
+            var shape = system.shape;
+            var raw = List(info, "vertices");
+            bool edges = Str(info, "part", "triangle") == "edge";
+            bool outward = Str(info, "aim", "direction") == "outward";
+            Vector3 centre = Vec(info, "centre", Vector3.zero);
+            Vector3 direction = Vec(info, "direction", Vector3.up).normalized;
+            int per = edges ? 6 : 9;
+            var vertices = new List<Vector3>();
+            var normals = new List<Vector3>();
+            var indices = new List<int>();
+            for (int i = 0; i + per <= raw.Count; i += per)
+            {
+                int at = vertices.Count;
+                int corners = edges ? 2 : 3;
+                Vector3[] p = new Vector3[corners];
+                for (int c = 0; c < corners; c++)
+                    p[c] = new Vector3((float)(double)raw[i + c * 3], (float)(double)raw[i + c * 3 + 1], (float)(double)raw[i + c * 3 + 2]);
+                Vector3 faceNormal = edges ? Vector3.up : Vector3.Cross(p[1] - p[0], p[2] - p[0]).normalized;
+                for (int c = 0; c < corners; c++)
+                {
+                    vertices.Add(p[c]);
+                    if (!outward)
+                        normals.Add(direction);
+                    else if (edges)
+                        normals.Add((p[c] - centre).sqrMagnitude > 1e-12f ? (p[c] - centre).normalized : Vector3.up);
+                    else
+                        normals.Add(faceNormal);
+                    indices.Add(at + c);
+                }
+            }
+            if (vertices.Count == 0)
+            {
+                shape.shapeType = ParticleSystemShapeType.Circle;
+                shape.radius = 0.0001f;
+                return null;
+            }
+            var mesh = new Mesh();
+            mesh.name = system.gameObject.name + " mesh";
+            mesh.indexFormat = vertices.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
+            mesh.SetVertices(vertices);
+            mesh.SetNormals(normals);
+            mesh.SetIndices(indices, edges ? MeshTopology.Lines : MeshTopology.Triangles, 0);
+            mesh.RecalculateBounds();
+            shape.shapeType = ParticleSystemShapeType.Mesh;
+            shape.mesh = mesh;
+            shape.meshShapeType = edges ? ParticleSystemMeshShapeType.Edge : ParticleSystemMeshShapeType.Triangle;
+            shape.useMeshColors = false;
+            shape.normalOffset = (float)Num(info, "normalOffset", 0);
+            shape.randomDirectionAmount = (float)Num(info, "randomDirection", 0);
+            shape.scale = Vector3.one;
+            shape.rotation = Vector3.zero;
+            return mesh;
         }
 
         static Mesh PathShape(ParticleSystem system, Dictionary<string, object> info, Dictionary<string, object> layer,

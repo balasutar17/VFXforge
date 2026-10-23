@@ -72,7 +72,7 @@ struct BurstF {
     std::uint32_t count = 0;
 };
 
-enum class ShapeType : std::uint8_t { Point, Circle, Rectangle, Sphere, Box, Cone, Path };
+enum class ShapeType : std::uint8_t { Point, Circle, Rectangle, Sphere, Box, Cone, Path, Mesh };
 // How a layer's particles are laid over what is behind them: Photoshop's
 // layer blend modes, in its order. Alpha is Photoshop's Normal and Additive
 // its Linear Dodge (Add); the first two values never change, as they are
@@ -194,6 +194,24 @@ struct EmitterProgram {
     bool travelDraw = false;  // draws the path on from its start instead of running round it
     std::uint8_t aim = 0;     // 0 the layer's Direction, 1 straight out from the path, 2 along it
     bool pathAlign = false;   // each particle's Rotation follows the path
+
+    // The Mesh shape: where a model's surface or edges are (see MeshData.h).
+    // Surface: a cloud of points spread evenly over the triangles by area,
+    // sorted by `meshKey` (height, or distance from the scan's origin) so
+    // that a band of the surface is a run of the list. Edges: segments with
+    // the running length up to each.
+    bool meshEdges = false;
+    std::vector<float> meshPx, meshPy, meshPz, meshNx, meshNy, meshNz, meshKey;
+    float meshKeyMin = 0, meshKeyMax = 1;
+    float meshSpacing = 0;    // about how far apart neighbouring cloud points are
+    float meshOffset = 0;     // along the normal, off the surface
+    float meshCx = 0, meshCy = 0, meshCz = 0;  // middle of the model, for "outward" from edges
+    std::vector<float> meshTriangles;  // the surface's triangles, nine numbers each (for exporters)
+    std::vector<float> segAx, segAy, segAz, segBx, segBy, segBz, segCum;
+    std::uint8_t scanMode = 0;  // 0 none, 1 height, 2 ripple from scanO
+    float scanSpeed = 0, scanWidth = 0.15f;
+    int scanBands = 1;
+    float scanOx = 0, scanOy = 0, scanOz = 0;
 
     // What each particle starts with. A curve reads across the layer's duration.
     ScalarF lifetime, speed, size, rotation;

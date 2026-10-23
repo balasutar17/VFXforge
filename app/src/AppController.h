@@ -123,6 +123,8 @@ class AppController : public QObject {
     Q_PROPERTY(double backdropOpacity READ backdropOpacity NOTIFY backdropChanged)
     // A 3D model to make the effect on (see vfx/editor/Model.h).
     Q_PROPERTY(bool hasModel READ hasModel NOTIFY modelChanged)
+    Q_PROPERTY(bool hasMeshVfx READ hasMeshVfx NOTIFY modelChanged)
+    Q_PROPERTY(int meshQuality READ meshQuality WRITE setMeshQuality NOTIFY modelChanged)
     Q_PROPERTY(QString modelName READ modelName NOTIFY modelChanged)
     Q_PROPERTY(int modelTriangles READ modelTriangles NOTIFY modelChanged)
     Q_PROPERTY(QVariantMap modelPlace READ modelPlaceMap NOTIFY modelChanged)
@@ -204,6 +206,9 @@ public:
     double backdropOpacity() const { return backdrop_.opacity; }
 
     bool hasModel() const { return model_ != nullptr; }
+    bool hasMeshVfx() const;
+    int meshQuality() const { return meshQuality_; }
+    void setMeshQuality(int quality);
     QString modelName() const;
     int modelTriangles() const { return model_ ? static_cast<int>(model_->triangleCount()) : 0; }
     QVariantMap modelPlaceMap() const;
@@ -319,6 +324,11 @@ public:
     // The model: one of the artist's own (.obj, .glb, .gltf), or the practice dummy.
     Q_INVOKABLE bool useModel(const QUrl& file);
     Q_INVOKABLE void useSampleModel();
+    Q_INVOKABLE void useHardSurfaceModel();
+    // Effects made from the model's own shape (see vfx/editor/MeshVfx.h).
+    // view is the viewport's camera; quality 0 Preview, 1 Balanced, 2 High.
+    Q_INVOKABLE bool generateOnModel(const QVariantMap& view);
+    Q_INVOKABLE bool fitToModel(const QVariantMap& view);
     Q_INVOKABLE void clearModel();
     // key: "x", "y", "z", "turn" or "height".
     Q_INVOKABLE void setModelPlace(const QString& key, double value);
@@ -542,6 +552,7 @@ private:
     std::shared_ptr<const vfx::editor::Model> model_;
     QString modelPath_;  // empty for the practice dummy
     vfx::editor::ModelPlace modelPlace_;
+    int meshQuality_ = 1;
     bool hideBehindModel_ = true;
     bool exportModel_ = true;
     bool libraryOpen_ = false;

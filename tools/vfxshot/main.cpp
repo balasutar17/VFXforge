@@ -9,6 +9,7 @@
 #include "vfx/FileIO.h"
 #include "vfx/Program.h"
 #include "vfx/Simulation.h"
+#include "vfx/editor/MeshVfx.h"
 #include "vfx/editor/Model.h"
 #include "vfx/editor/Picture.h"
 #include "vfx/editor/Presets.h"
@@ -32,6 +33,8 @@ const char* kUsage =
     "      Draw one preset at one moment.\n"
     "  vfxshot sheet <out.png> [--category name] [--cell WxH]\n"
     "      Draw every preset (or one category) at four moments, one row each.\n"
+    "  vfxshot meshvfx <out.png> --model hard|dummy|<file> [--times a,b,c] [--only layer,layer] [--size WxH]\n"
+    "      Generate the mesh-aware effect on the model and draw it at each time.\n"
     "  vfxshot shapes <out.png>\n"
     "      Draw every built-in particle shape, large and small.\n"
     "  vfxshot library <out.png> [--category name] [--cell N] [--columns N]\n"
@@ -135,6 +138,8 @@ int main(int argc, char** argv) {
     if (!modelFile.empty()) {
         if (modelFile == "dummy") {
             gModel = practiceDummy();
+        } else if (modelFile == "hard") {
+            gModel = hardSurfaceSample();
         } else {
             auto loaded = loadModel(pathFromUtf8(modelFile));
             if (!loaded) {
@@ -173,6 +178,58 @@ int main(int argc, char** argv) {
         }
         return save(args[1], draw(build(*info), time < 0 ? info->previewTime : time,
                                   viewFor(*info, width, height)));
+    }
+
+    if (command == "meshvfx" && !args.empty() && gModel) {
+        int width = 480, height = 480;
+        if (!parseSize(option(args, "--size", "480x480"), width, height)) {
+            std::fputs(kUsage, stderr);
+            return 2;
+        }
+        std::vector<double> times;
+        {
+            std::string list = option(args, "--times", "0.5,1.5,2.5,3.5");
+            std::size_t at = 0;
+            while (at < list.size()) {
+                const std::size_t comma = list.find(',', at);
+                times.push_back(std::atof(list.substr(at, comma == std::string::npos ? std::string::npos : comma - at).c_str()));
+                if (comma == std::string::npos) break;
+                at = comma + 1;
+            }
+        }
+        const std::string only = option(args, "--only", "");
+        PresetInfo info;
+        info.viewX = 0;
+        info.viewY = 1.5f;
+        info.viewHeight = 6.0f;
+        const View view = viewFor(info, width, height);
+        IdGenerator ids(2026);
+        const IdSource newId = [&ids]() { return ids.next(); };
+        auto made = generateOnModel(*gModel, gPlace, view, MeshVfxOptions{}, newId);
+        if (!made) {
+            std::fprintf(stderr, "%s\n", made.error().message.c_str());
+            return 1;
+        }
+        const MeshVfxResult& r = made.value();
+        std::printf("%zu triangles, %zu corners welded, area %.2f, %zu open edges, %zu pieces; proxy %zu tris, %zu hard edges, %zu silhouette edges\n",
+                    r.report.triangles, r.report.vertices, r.report.area, r.report.openEdges, r.report.components,
+                    r.proxyTriangles, r.edgeSegments, r.silhouetteSegments);
+        for (const std::string& w : r.warnings) std::printf("warning: %s\n", w.c_str());
+        Effect effect = r.effect;
+        if (!only.empty()) {
+            for (Layer& l : effect.layers) {
+                l.enabled = only.find(l.name) != std::string::npos;
+            }
+        }
+        for (const Layer& l : effect.layers) std::printf("  layer %-20s %s\n", l.name.c_str(), l.enabled ? "on" : "off");
+        Picture sheet;
+        sheet.width = static_cast<int>(times.size()) * (width + 4) + 4;
+        sheet.height = height + 8;
+        sheet.rgba.assign(static_cast<std::size_t>(sheet.width) * static_cast<std::size_t>(sheet.height) * 4u, 60);
+        for (std::size_t i = 0; i < times.size(); ++i) {
+            paste(sheet, draw(effect, times[i], view), 4 + static_cast<int>(i) * (width + 4), 4);
+        }
+        return save(args[0], sheet);
     }
 
     if (command == "sheet" && !args.empty()) {

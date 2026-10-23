@@ -577,6 +577,70 @@ void Simulation::Emitter::spawn(std::int64_t inPass, double offset, float progre
         }
         case ShapeType::Point:
             break;
+        case ShapeType::Mesh: {
+            const float time = progress * static_cast<float>(e.duration);
+            // A tiny sideways scatter, so a fixed cloud of points never shows as dots.
+            auto scatter = [&](det::Vec3f at, det::Vec3f normal, float amount) {
+                det::Vec3f t, b;
+                det::basis(normal, t, b);
+                const float a = (random(kChShapeW) - 0.5f) * amount, c = (det::unitFloat(det::mix64(key ^ 0x4d455348ull)) - 0.5f) * amount;
+                return det::Vec3f{at.x + t.x * a + b.x * c, at.y + t.y * a + b.y * c, at.z + t.z * a + b.z * c};
+            };
+            if (e.meshEdges) {
+                const std::size_t n = e.segCum.size();
+                const float target = u * e.segCum[n - 1];
+                std::size_t lo = 0, hi = n - 1;
+                while (lo < hi) {
+                    const std::size_t mid = (lo + hi) / 2;
+                    if (e.segCum[mid] < target) {
+                        lo = mid + 1;
+                    } else {
+                        hi = mid;
+                    }
+                }
+                const float start = lo > 0 ? e.segCum[lo - 1] : 0.0f;
+                const float len = e.segCum[lo] - start;
+                const float t = len > 0.0f ? (target - start) / len : 0.0f;
+                pos = det::Vec3f{e.segAx[lo] + (e.segBx[lo] - e.segAx[lo]) * t, e.segAy[lo] + (e.segBy[lo] - e.segAy[lo]) * t,
+                                 e.segAz[lo] + (e.segBz[lo] - e.segAz[lo]) * t};
+                const det::Vec3f out = det::normalizeOr(det::Vec3f{pos.x - e.meshCx, pos.y - e.meshCy, pos.z - e.meshCz}, axis);
+                pos = det::Vec3f{pos.x + out.x * e.meshOffset, pos.y + out.y * e.meshOffset, pos.z + out.z * e.meshOffset};
+                if (e.aim == 1) {
+                    dir = out;
+                }
+            } else {
+                const std::size_t n = e.meshKey.size();
+                std::size_t lo = 0, hi = n;
+                if (e.scanMode != 0) {
+                    const float range = e.meshKeyMax - e.meshKeyMin;
+                    float phase = e.scanSpeed * time;
+                    phase -= std::floor(phase);
+                    const int band = static_cast<int>(v * static_cast<float>(e.scanBands)) < e.scanBands
+                                         ? static_cast<int>(v * static_cast<float>(e.scanBands)) : e.scanBands - 1;
+                    float at = phase + static_cast<float>(band) / static_cast<float>(e.scanBands);
+                    at -= std::floor(at);
+                    const float centre = e.meshKeyMin + at * range;
+                    const float half = 0.5f * e.scanWidth;
+                    lo = static_cast<std::size_t>(std::lower_bound(e.meshKey.begin(), e.meshKey.end(), centre - half) - e.meshKey.begin());
+                    hi = static_cast<std::size_t>(std::upper_bound(e.meshKey.begin(), e.meshKey.end(), centre + half) - e.meshKey.begin());
+                    if (hi <= lo) {
+                        // Between two points: the nearest one, so a thin band never goes dark.
+                        lo = lo < n ? lo : n - 1;
+                        hi = lo + 1;
+                    }
+                }
+                std::size_t pick = lo + static_cast<std::size_t>(u * static_cast<float>(hi - lo));
+                pick = pick < hi ? pick : hi - 1;
+                const det::Vec3f normal{e.meshNx[pick], e.meshNy[pick], e.meshNz[pick]};
+                pos = det::Vec3f{e.meshPx[pick] + normal.x * e.meshOffset, e.meshPy[pick] + normal.y * e.meshOffset,
+                                 e.meshPz[pick] + normal.z * e.meshOffset};
+                pos = scatter(pos, normal, e.meshSpacing);
+                if (e.aim == 1) {
+                    dir = normal;
+                }
+            }
+            break;
+        }
         case ShapeType::Circle: {
             double s = 0.0, c = 1.0;
             det::sinCos(det::kTwoPi * static_cast<double>(u), s, c);

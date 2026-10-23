@@ -188,6 +188,25 @@ public:
     }
     Make& at3(double x, double y, double z) { return put("shape", "offset", Vec3{x, y, z}); }
 
+    // ---- the Mesh shape (see vfx/MeshData.h): "surface", "edges" or "silhouette"
+    Make& mesh(const char* kind, PointList data, std::int64_t samples = 16000) {
+        put("shape", "shape", std::string("mesh"));
+        put("shape", "meshKind", std::string(kind));
+        put("shape", "meshData", std::move(data));
+        return put("shape", "meshDensity", Value(samples));
+    }
+    // Restricts the surface to a band that crosses the model: "height" or "ripple".
+    Make& scan(const char* mode, double sweepsPerSecond, double width, std::int64_t bands = 1,
+               Vec3 origin = Vec3{0, 0, 0}) {
+        put("shape", "scanMode", std::string(mode));
+        put("shape", "scanSpeed", sweepsPerSecond);
+        put("shape", "scanWidth", width);
+        put("shape", "scanBands", Value(bands));
+        return put("shape", "scanOrigin", origin);
+    }
+    // How far off the surface (along its normal) particles are born.
+    Make& surfaceOffset(double units) { return put("shape", "padding", units); }
+
     // ---- the Path shape
     Make& path(PointList points, bool closed = true) {
         put("shape", "shape", std::string("path"));

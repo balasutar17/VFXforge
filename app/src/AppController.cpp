@@ -38,6 +38,7 @@
 #include "vfx/editor/Selection.h"
 #include "vfx/editor/ShapeLibrary.h"
 #include "vfx/Program.h"
+#include "vfx/editor/MeshVfx.h"
 #include "vfx/editor/UnityExport.h"
 #include "vfx/editor/UserLibrary.h"
 #include "UserLibraryPath.h"
@@ -69,11 +70,24 @@ QString optionLabel(const vfx::PropertyDesc& desc, const std::string& option) {
 // The layers whose blend mode Unity can only approximate, for the line that
 // says an export is done (empty when there are none).
 QString unityBlendText(const vfx::Effect& effect) {
+    // What Unity cannot match for layers made on a model comes first.
+    QString meshPart;
+    const std::vector<std::string> meshNotes = vfx::editor::unityMeshNotes(effect);
+    if (!meshNotes.empty()) {
+        meshPart = QStringLiteral(" Model layers: ");
+        for (std::size_t i = 0; i < meshNotes.size() && i < 2; ++i) {
+            meshPart += (i ? QStringLiteral("; ") : QString()) + text(meshNotes[i]);
+        }
+        if (meshNotes.size() > 2) {
+            meshPart += QStringLiteral("; and %1 more").arg(static_cast<int>(meshNotes.size()) - 2);
+        }
+        meshPart += QStringLiteral(".");
+    }
     const std::vector<std::string> notes = vfx::editor::unityBlendNotes(effect);
     if (notes.empty()) {
-        return {};
+        return meshPart;
     }
-    QString out = QStringLiteral(" Blend modes: ");
+    QString out = meshPart + QStringLiteral(" Blend modes: ");
     for (std::size_t i = 0; i < notes.size() && i < 3; ++i) {
         out += (i ? QStringLiteral("; ") : QString()) + text(notes[i]);
     }
@@ -2705,6 +2719,95 @@ void AppController::useSampleModel() {
     }
     storeStage();
     say(QStringLiteral("Showing the practice dummy. Place it under Backdrop."));
+}
+
+static vfx::editor::View viewFromMap(const QVariantMap& view);
+
+void AppController::useHardSurfaceModel() {
+    const bool had = model_ != nullptr;
+    model_ = std::make_shared<const vfx::editor::Model>(vfx::editor::hardSurfaceSample());
+    modelPath_.clear();
+    if (!had) {
+        modelPlace_ = vfx::editor::ModelPlace{};
+        hideBehindModel_ = session_.effect().space == "3d";
+    }
+    storeStage();
+    say(QStringLiteral("Showing the hard-surface sample: a box, a tapered tower and a pipe, for trying outlines and scans on."));
+}
+
+bool AppController::hasMeshVfx() const { return vfx::editor::hasMeshLayers(session_.effect()); }
+
+void AppController::setMeshQuality(int quality) {
+    meshQuality_ = std::clamp(quality, 0, 2);
+    emit modelChanged();
+}
+
+static vfx::editor::MeshVfxOptions meshOptions(int quality) {
+    vfx::editor::MeshVfxOptions o;
+    o.quality = quality == 0 ? vfx::editor::MeshQuality::Preview
+                             : (quality == 2 ? vfx::editor::MeshQuality::High : vfx::editor::MeshQuality::Balanced);
+    return o;
+}
+
+static QString meshSummary(const vfx::editor::MeshReport& r, const std::vector<std::string>& warnings) {
+    QString out = QStringLiteral("%1 triangles, %2 piece%3, %4 surface area.")
+                      .arg(r.triangles)
+                      .arg(r.components)
+                      .arg(r.components == 1 ? QString() : QStringLiteral("s"))
+                      .arg(r.area, 0, 'f', 1);
+    for (std::size_t i = 0; i < warnings.size() && i < 2; ++i) {
+        out += QStringLiteral(" ") + text(warnings[i]);
+    }
+    return out;
+}
+
+bool AppController::generateOnModel(const QVariantMap& view) {
+    if (!model_) {
+        say(QStringLiteral("Bring in a model first (Model > Import, or try the samples)."), true);
+        return false;
+    }
+    if (session_.effect().space != "3d") {
+        say(QStringLiteral("Effects that follow a model's shape need a 3D effect. Start a new 3D effect, then try again."), true);
+        return false;
+    }
+    vfx::IdGenerator ids = vfx::IdGenerator::fromEntropy();
+    const vfx::IdSource newId = [&ids]() { return ids.next(); };
+    auto made = vfx::editor::generateOnModel(*model_, modelPlace_, viewFromMap(view), meshOptions(meshQuality_), newId);
+    if (!report(made)) {
+        return false;
+    }
+    const std::size_t before = session_.effect().layers.size();
+    int added = 0;
+    if (!report(session_.addEffectAsGroup(std::move(made.value().effect), "Mesh VFX", {}, &added))) {
+        return false;
+    }
+    selected_ = static_cast<int>(before);
+    emit modelChanged();
+    say(QStringLiteral("Made %1 layers that follow %2: %3 Edit any layer; if you move or change the model, press Fit to model.")
+            .arg(added)
+            .arg(modelName(), meshSummary(made.value().report, made.value().warnings)));
+    return true;
+}
+
+bool AppController::fitToModel(const QVariantMap& view) {
+    if (!model_) {
+        say(QStringLiteral("There is no model to fit to."), true);
+        return false;
+    }
+    vfx::Effect next = session_.effect();
+    std::vector<std::string> warnings;
+    const std::size_t fitted =
+        vfx::editor::fitToModel(next, *model_, modelPlace_, viewFromMap(view), meshOptions(meshQuality_), &warnings);
+    if (fitted == 0) {
+        say(QStringLiteral("No layers made on a model were found to fit."), true);
+        return false;
+    }
+    if (!report(session_.applyEffect(next, "Fit to model"))) {
+        return false;
+    }
+    emit modelChanged();
+    say(QStringLiteral("Fitted %1 layers to %2 as it stands now. Your settings were kept.").arg(fitted).arg(modelName()));
+    return true;
 }
 
 void AppController::clearModel() {

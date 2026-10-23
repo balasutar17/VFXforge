@@ -16,6 +16,7 @@ add_library(vfx_core STATIC
     src/FileIO.cpp
     src/Id.cpp
     src/JsonWriter.cpp
+    src/MeshData.cpp
     src/Metadata.cpp
     src/Path.cpp
     src/Serialize.cpp

@@ -79,6 +79,11 @@ std::string unityModelPath(const Effect& effect);  // "Assets/VFXForge/Models/<n
 // words an artist reads: "Spark Trail: Overlay is drawn as Normal in Unity".
 std::vector<std::string> unityBlendNotes(const Effect& effect);
 
+// Layers made on a model (the Mesh shape) whose look Unity cannot match
+// exactly: a scan or ripple band (Unity's mesh shape has no band), and a
+// silhouette outline (fixed to the camera it was made from).
+std::vector<std::string> unityMeshNotes(const Effect& effect);
+
 // The effect, translated into Unity Particle System terms, as JSON text.
 // modelPath, when not empty, is the model file the effect shows.
 std::string unityDescription(const Effect& effect, const std::vector<UnityPicture>& pictures = {},
