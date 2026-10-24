@@ -1172,6 +1172,8 @@ void ShaderPreviewItem::schedule() {
     }
     busy_ = true;
     again_ = false;
+    // A still picture goes straight to the large size (it steps back down if drawing is slow).
+    if (studio_ && !studio_->playing() && side_ < 800) side_ = std::min(std::max(maxSize_, 900), 800);
     const double aspect = width() / height();
     int w = aspect >= 1 ? side_ : static_cast<int>(std::lround(side_ * aspect));
     int h = aspect >= 1 ? static_cast<int>(std::lround(side_ / aspect)) : side_;
