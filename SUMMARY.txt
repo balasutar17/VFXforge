@@ -1,0 +1,8 @@
+commit:      cf2ac5890f8b55787f0ddaccc06f75be88c4f689
+run:         https://github.com/balasutar17/VFXforge/actions/runs/40094936516
+core:        success
+sanitizers:  success
+unity:       success
+app-linux:   success
+app-mac:     success
+app-windows: success

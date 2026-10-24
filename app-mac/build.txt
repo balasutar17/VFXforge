@@ -1,0 +1,110 @@
+[  1%] Running qmlimportscanner for vfxforge
+[  2%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Blend.cpp.o
+[  4%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Clock.cpp.o
+[  5%] Building CXX object core/CMakeFiles/vfx_core.dir/src/CommandStack.cpp.o
+[  5%] Built target vfxforge_qmlimportscan
+[  6%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Commands.cpp.o
+[  8%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Compile.cpp.o
+[  9%] Building CXX object core/CMakeFiles/vfx_core.dir/src/DetMath.cpp.o
+[ 11%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Document.cpp.o
+[ 12%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Effect.cpp.o
+[ 13%] Building CXX object core/CMakeFiles/vfx_core.dir/src/FileIO.cpp.o
+[ 15%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Id.cpp.o
+[ 16%] Building CXX object core/CMakeFiles/vfx_core.dir/src/JsonWriter.cpp.o
+[ 18%] Building CXX object core/CMakeFiles/vfx_core.dir/src/MeshData.cpp.o
+[ 19%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Metadata.cpp.o
+[ 20%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Path.cpp.o
+[ 22%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Serialize.cpp.o
+[ 23%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Simulation.cpp.o
+[ 25%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Templates.cpp.o
+[ 26%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Value.cpp.o
+[ 27%] Linking CXX static library libvfx_core.a
+[ 27%] Built target vfx_core
+[ 29%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Archive.cpp.o
+[ 30%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Audio.cpp.o
+[ 31%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Blend.cpp.o
+[ 33%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Frames.cpp.o
+[ 34%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Image.cpp.o
+[ 36%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/MeshAnalysis.cpp.o
+[ 37%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/MeshVfx.cpp.o
+/Users/runner/work/VFXforge/VFXforge/editor/src/MeshVfx.cpp:46:7: warning: unused function 'totalLength' [-Wunused-function]
+   46 | float totalLength(const std::vector<MeshSegment>& s) {
+      |       ^~~~~~~~~~~
+[ 38%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Model.cpp.o
+1 warning generated.
+[ 40%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Picture.cpp.o
+[ 41%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Compare.cpp.o
+/Users/runner/work/VFXforge/VFXforge/editor/src/MeshVfx.cpp:46:7: warning: unused function 'totalLength' [-Wunused-function]
+   46 | float totalLength(const std::vector<MeshSegment>& s) {
+      |       ^~~~~~~~~~~
+1 warning generated.
+[ 43%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/CurveTools.cpp.o
+[ 44%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/EffectTools.cpp.o
+[ 45%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Presets.cpp.o
+[ 47%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Reconstruct.cpp.o
+[ 48%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Refine.cpp.o
+[ 50%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Reference.cpp.o
+[ 51%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ReferenceGround.cpp.o
+[ 52%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ReferenceStill.cpp.o
+[ 54%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ReferenceLines.cpp.o
+[ 55%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ReferenceSheet.cpp.o
+[ 56%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ReferenceTime.cpp.o
+[ 58%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Session.cpp.o
+[ 59%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Transform.cpp.o
+[ 61%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Selection.cpp.o
+[ 62%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Silhouette.cpp.o
+[ 63%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ShapeLibrary.cpp.o
+[ 65%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Shapes.cpp.o
+[ 66%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/SoundLibrary.cpp.o
+[ 68%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/SpriteMesh.cpp.o
+/Users/runner/work/VFXforge/VFXforge/editor/src/SpriteMesh.cpp:24:17: warning: unused variable 'kPi' [-Wunused-const-variable]
+   24 | constexpr float kPi = 3.14159265358979323846f;
+      |                 ^~~
+1 warning generated.
+[ 69%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/UnityExport.cpp.o
+[ 70%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/UserLibrary.cpp.o
+/Users/runner/work/VFXforge/VFXforge/editor/src/SpriteMesh.cpp:24:17: warning: unused variable 'kPi' [-Wunused-const-variable]
+   24 | constexpr float kPi = 3.14159265358979323846f;
+      |                 ^~~
+1 warning generated.
+[ 72%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/UnrealExport.cpp.o
+[ 73%] Building CXX object editor/CMakeFiles/vfx_editor.dir/UnityFiles.cpp.o
+[ 75%] Building CXX object editor/CMakeFiles/vfx_editor.dir/UnrealFiles.cpp.o
+[ 76%] Linking CXX static library libvfx_editor.a
+[ 76%] Built target vfx_editor
+[ 76%] Built target vfxforge_autogen_timestamp_deps
+[ 77%] Automatic MOC for target vfxforge
+[ 77%] Built target vfxforge_autogen
+[ 79%] Generating .qsb/shaders/sprite.vert.qsb
+[ 80%] Generating .qsb/shaders/sprite.frag.qsb
+[ 81%] Generating .qsb/shaders/image.frag.qsb
+[ 83%] Running rcc for resource vfxforge_qml
+[ 84%] Running rcc for resource vfxforge_shaders
+[ 86%] Building CXX object app/CMakeFiles/vfxforge.dir/vfxforge_autogen/mocs_compilation.cpp.o
+[ 87%] Building CXX object app/CMakeFiles/vfxforge.dir/src/AppController.cpp.o
+[ 88%] Building CXX object app/CMakeFiles/vfxforge.dir/src/main.cpp.o
+[ 90%] Building CXX object app/CMakeFiles/vfxforge.dir/src/AudioPlayer.cpp.o
+/Users/runner/work/VFXforge/VFXforge/app/src/AppController.cpp:670:39: warning: declaration shadows a local variable [-Wshadow]
+  670 |                             const int number = vfx::editor::shapeNumber(option);
+      |                                       ^
+/Users/runner/work/VFXforge/VFXforge/app/src/AppController.cpp:577:33: note: previous declaration is here
+  577 |                 if (const auto* number = std::get_if<double>(&c.value)) {
+      |                                 ^
+[ 91%] Building CXX object app/CMakeFiles/vfxforge.dir/src/PreviewItems.cpp.o
+[ 93%] Building CXX object app/CMakeFiles/vfxforge.dir/src/ReferenceController.cpp.o
+1 warning generated.
+[ 94%] Building CXX object app/CMakeFiles/vfxforge.dir/src/SpriteNode.cpp.o
+/Users/runner/work/VFXforge/VFXforge/app/src/AppController.cpp:670:39: warning: declaration shadows a local variable [-Wshadow]
+  670 |                             const int number = vfx::editor::shapeNumber(option);
+      |                                       ^
+/Users/runner/work/VFXforge/VFXforge/app/src/AppController.cpp:577:33: note: previous declaration is here
+  577 |                 if (const auto* number = std::get_if<double>(&c.value)) {
+      |                                 ^
+[ 95%] Building CXX object app/CMakeFiles/vfxforge.dir/src/ViewportItem.cpp.o
+[ 97%] Building CXX object app/CMakeFiles/vfxforge.dir/.qt/rcc/qrc_vfxforge_qml.cpp.o
+[ 98%] Building CXX object app/CMakeFiles/vfxforge.dir/.qt/rcc/qrc_vfxforge_shaders.cpp.o
+1 warning generated.
+Copying OS X content app/VFX Forge.app/Contents/Resources/VFXForge.icns
+[100%] Linking CXX executable "VFX Forge.app/Contents/MacOS/VFX Forge"
+[100%] Built target vfxforge
+Architectures in the fat file: build/app/VFX Forge.app/Contents/MacOS/VFX Forge are: x86_64 arm64 

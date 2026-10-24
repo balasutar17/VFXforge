@@ -1,0 +1,96 @@
+MSBuild version 18.11.1-1.26513.3+940033be3 for .NET Framework
+
+  1>Checking Build System
+  Running qmlimportscanner for vfxforge
+  Building Custom Rule D:/a/VFXforge/VFXforge/app/CMakeLists.txt
+  Building Custom Rule D:/a/VFXforge/VFXforge/core/CMakeLists.txt
+  Blend.cpp
+  Clock.cpp
+  CommandStack.cpp
+  Commands.cpp
+  Compile.cpp
+  DetMath.cpp
+  Document.cpp
+  Effect.cpp
+  FileIO.cpp
+  Id.cpp
+  JsonWriter.cpp
+  MeshData.cpp
+  Metadata.cpp
+  Path.cpp
+  Serialize.cpp
+  Simulation.cpp
+  Templates.cpp
+  Value.cpp
+  Generating Code...
+  vfx_core.vcxproj -> D:\a\VFXforge\VFXforge\build\core\Release\vfx_core.lib
+  Building Custom Rule D:/a/VFXforge/VFXforge/editor/CMakeLists.txt
+  Archive.cpp
+  Audio.cpp
+  Blend.cpp
+  Frames.cpp
+  Image.cpp
+  MeshAnalysis.cpp
+  MeshVfx.cpp
+  Model.cpp
+  Picture.cpp
+  Compare.cpp
+  CurveTools.cpp
+  EffectTools.cpp
+  Presets.cpp
+  Reconstruct.cpp
+  Refine.cpp
+  Reference.cpp
+  ReferenceGround.cpp
+  ReferenceStill.cpp
+  ReferenceLines.cpp
+  ReferenceSheet.cpp
+  Generating Code...
+  Compiling...
+  ReferenceTime.cpp
+  Session.cpp
+  Transform.cpp
+  Selection.cpp
+  Silhouette.cpp
+  ShapeLibrary.cpp
+  Shapes.cpp
+  SoundLibrary.cpp
+  SpriteMesh.cpp
+  UnityExport.cpp
+  UserLibrary.cpp
+  UnrealExport.cpp
+  UnityFiles.cpp
+  UnrealFiles.cpp
+  Generating Code...
+  vfx_editor.vcxproj -> D:\a\VFXforge\VFXforge\build\editor\Release\vfx_editor.lib
+  1>Automatic MOC for target vfxforge
+  Running rcc for resource vfxforge_qml
+  Generating .qsb/shaders/image.frag.qsb
+  Generating .qsb/shaders/sprite.frag.qsb
+  Generating .qsb/shaders/sprite.vert.qsb
+  Building Custom Rule D:/a/VFXforge/VFXforge/app/CMakeLists.txt
+  Running rcc for resource vfxforge_shaders
+  main.cpp
+  AppController.cpp
+D:\a\VFXforge\VFXforge\app\src\AppController.cpp(670,39): warning C4456: declaration of 'number' hides previous local declaration [D:\a\VFXforge\VFXforge\build\app\vfxforge.vcxproj]
+      D:\a\VFXforge\VFXforge\app\src\AppController.cpp(577,33):
+      see declaration of 'number'
+  
+  AudioPlayer.cpp
+  PreviewItems.cpp
+  ReferenceController.cpp
+  SpriteNode.cpp
+  ViewportItem.cpp
+D:\a\VFXforge\VFXforge\app\src\ViewportItem.cpp(289,30): warning C4458: declaration of 'd' hides class member [D:\a\VFXforge\VFXforge\build\app\vfxforge.vcxproj]
+      D:\a\VFXforge\Qt\6.10.1\msvc2022_64\include\QtQml\qqmlparserstatus.h(23,14):
+      see declaration of 'QQmlParserStatus::d'
+  
+D:\a\VFXforge\VFXforge\app\src\ViewportItem.cpp(302,37): warning C4458: declaration of 'd' hides class member [D:\a\VFXforge\VFXforge\build\app\vfxforge.vcxproj]
+      D:\a\VFXforge\Qt\6.10.1\msvc2022_64\include\QtQml\qqmlparserstatus.h(23,14):
+      see declaration of 'QQmlParserStatus::d'
+  
+  qrc_vfxforge_qml.cpp
+  qrc_vfxforge_shaders.cpp
+  mocs_compilation_Release.cpp
+  Generating Code...
+  vfxforge.vcxproj -> D:\a\VFXforge\VFXforge\build\app\Release\VFX Forge.exe

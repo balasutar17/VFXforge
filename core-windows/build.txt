@@ -1,0 +1,124 @@
+MSBuild version 18.11.1-1.26513.3+940033be3 for .NET Framework
+
+  1>Checking Build System
+  Building Custom Rule D:/a/VFXforge/VFXforge/tests/CMakeLists.txt
+  catch_amalgamated.cpp
+  Building Custom Rule D:/a/VFXforge/VFXforge/core/CMakeLists.txt
+  Blend.cpp
+  Clock.cpp
+  CommandStack.cpp
+  Commands.cpp
+  Compile.cpp
+  DetMath.cpp
+  Document.cpp
+  Effect.cpp
+  FileIO.cpp
+  Id.cpp
+  JsonWriter.cpp
+  catch2_amalgamated.vcxproj -> D:\a\VFXforge\VFXforge\build\tests\Release\catch2_amalgamated.lib
+  MeshData.cpp
+  Metadata.cpp
+  Path.cpp
+  Serialize.cpp
+  Simulation.cpp
+  Templates.cpp
+  Value.cpp
+  Generating Code...
+  vfx_core.vcxproj -> D:\a\VFXforge\VFXforge\build\core\Release\vfx_core.lib
+  Building Custom Rule D:/a/VFXforge/VFXforge/tests/CMakeLists.txt
+  Building Custom Rule D:/a/VFXforge/VFXforge/editor/CMakeLists.txt
+  test_clock.cpp
+  Archive.cpp
+  Building Custom Rule D:/a/VFXforge/VFXforge/tools/vfxcli/CMakeLists.txt
+  main.cpp
+  Audio.cpp
+  test_commands.cpp
+  Blend.cpp
+  vfxcli.vcxproj -> D:\a\VFXforge\VFXforge\build\tools\vfxcli\Release\vfxcli.exe
+  Frames.cpp
+  test_compile.cpp
+  Image.cpp
+  test_detmath.cpp
+  MeshAnalysis.cpp
+  MeshVfx.cpp
+  test_determinism.cpp
+  Model.cpp
+  test_fileio.cpp
+  test_fuzz.cpp
+  Picture.cpp
+  Compare.cpp
+  test_ids_paths.cpp
+  CurveTools.cpp
+  EffectTools.cpp
+  test_metadata.cpp
+  Presets.cpp
+  test_random_edits.cpp
+  Reconstruct.cpp
+  test_serialize.cpp
+  Refine.cpp
+  Reference.cpp
+  test_principles.cpp
+  ReferenceGround.cpp
+  test_simulation.cpp
+  ReferenceStill.cpp
+  test_stack.cpp
+  ReferenceLines.cpp
+  Generating Code...
+  ReferenceSheet.cpp
+  Generating Code...
+  vfx_tests.vcxproj -> D:\a\VFXforge\VFXforge\build\tests\Release\vfx_tests.exe
+  Compiling...
+  ReferenceTime.cpp
+  Session.cpp
+  Transform.cpp
+  Selection.cpp
+  Silhouette.cpp
+  ShapeLibrary.cpp
+  Shapes.cpp
+  SoundLibrary.cpp
+  SpriteMesh.cpp
+  UnityExport.cpp
+  UserLibrary.cpp
+  UnrealExport.cpp
+  UnityFiles.cpp
+  UnrealFiles.cpp
+  Generating Code...
+  vfx_editor.vcxproj -> D:\a\VFXforge\VFXforge\build\editor\Release\vfx_editor.lib
+  Building Custom Rule D:/a/VFXforge/VFXforge/tools/vfxref/CMakeLists.txt
+  Building Custom Rule D:/a/VFXforge/VFXforge/tools/vfxshot/CMakeLists.txt
+  Building Custom Rule D:/a/VFXforge/VFXforge/tools/vfxexport/CMakeLists.txt
+  main.cpp
+  main.cpp
+  main.cpp
+  Building Custom Rule D:/a/VFXforge/VFXforge/editor/tests/CMakeLists.txt
+  test_archive.cpp
+  test_audio.cpp
+  vfxref.vcxproj -> D:\a\VFXforge\VFXforge\build\tools\vfxref\Release\vfxref.exe
+  vfxexport.vcxproj -> D:\a\VFXforge\VFXforge\build\tools\vfxexport\Release\vfxexport.exe
+  vfxshot.vcxproj -> D:\a\VFXforge\VFXforge\build\tools\vfxshot\Release\vfxshot.exe
+  test_blend.cpp
+  test_curve_tools.cpp
+  test_frames.cpp
+  test_image.cpp
+  test_mesh_vfx.cpp
+  test_model.cpp
+  test_presets.cpp
+  test_principles.cpp
+  test_reference.cpp
+  test_reference_lines.cpp
+  test_session.cpp
+  test_shape_edits.cpp
+  test_transform.cpp
+  test_selection.cpp
+  test_target.cpp
+  test_shape_library.cpp
+  test_shapes.cpp
+  test_sprite_mesh.cpp
+  Generating Code...
+  Compiling...
+  test_unity.cpp
+  test_unreal.cpp
+  test_user_library.cpp
+  Generating Code...
+  vfx_editor_tests.vcxproj -> D:\a\VFXforge\VFXforge\build\editor\tests\Release\vfx_editor_tests.exe
+  Building Custom Rule D:/a/VFXforge/VFXforge/CMakeLists.txt
