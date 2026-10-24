@@ -135,13 +135,12 @@ Rectangle {
                 }
                 VButton { text: "Pin"; tip: "Remember the current look to compare against"; onClicked: shaderStudio.pinForCompare() }
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 24; color: theme.line }
-                Text { text: "Quality"; color: theme.dim; font.pixelSize: theme.smallFontSize }
                 Repeater {
                     model: shaderStudio.qualityNames()
                     delegate: VButton {
                         required property string modelData
                         required property int index
-                        text: modelData
+                        text: modelData === "Standard" ? "Std" : modelData === "Cinematic" ? "Cine" : modelData
                         checked: shaderStudio.quality === index
                         tip: shaderStudio.qualityNote(index)
                         onClicked: shaderStudio.quality = index
@@ -526,7 +525,7 @@ Rectangle {
                             placeholder: "Search parameters"
                             onTextChanged: root.paramSearch = text
                         }
-                        VButton { text: "Hue −30°"; tip: "A colour variant: turn every colour round"; onClicked: { shaderStudio.checkpoint(); shaderStudio.colorVariant(-30) } }
+                        VButton { text: "−30°"; tip: "A colour variant: turn every colour round"; onClicked: { shaderStudio.checkpoint(); shaderStudio.colorVariant(-30) } }
                         VButton { text: "+30°"; tip: "A colour variant: turn every colour round"; onClicked: { shaderStudio.checkpoint(); shaderStudio.colorVariant(30) } }
                         VButton { text: "Reset all"; tip: "Back to the preset's own values"; onClicked: shaderStudio.resetAll() }
                     }
@@ -742,7 +741,7 @@ Rectangle {
         // ------------------------------------------------------------ timeline
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 218
+            Layout.preferredHeight: 236
             color: theme.panel
             border.color: theme.line
             border.width: 1
@@ -791,9 +790,14 @@ Rectangle {
                         font.pixelSize: theme.fontSize
                     }
                     Item { Layout.fillWidth: true }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
                     Text { text: "Animation"; color: theme.dim; font.pixelSize: theme.smallFontSize }
                     Flow {
-                        Layout.preferredWidth: 560
+                        Layout.fillWidth: true
                         spacing: 3
                         Repeater {
                             model: shaderStudio.animationModes()
@@ -958,7 +962,7 @@ Rectangle {
         Rectangle {
             anchors.centerIn: parent
             width: Math.min(640, parent.width - 60)
-            height: Math.min(parent.height - 80, reportColumn.implicitHeight + 40)
+            height: Math.min(parent.height - 80, 460)
             radius: 8
             color: theme.panel
             border.color: theme.line
@@ -977,7 +981,7 @@ Rectangle {
                 }
                 Flickable {
                     width: parent.width
-                    height: Math.min(parent.parent.height - 120, reportText.implicitHeight)
+                    height: Math.min(parent.height - 90, reportText.implicitHeight)
                     contentHeight: reportText.implicitHeight
                     clip: true
                     ScrollBar.vertical: ScrollBar {}
