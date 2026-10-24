@@ -1149,6 +1149,7 @@ void ShaderPreviewItem::setStudio(ShaderStudio* studio) {
     if (studio_) disconnect(studio_, nullptr, this, nullptr);
     studio_ = studio;
     if (studio_) connect(studio_, &ShaderStudio::previewChanged, this, [this] { schedule(); });
+    if (studio_) connect(studio_, &ShaderStudio::playingChanged, this, [this] { schedule(); });
     emit studioChanged();
     schedule();
 }
@@ -1189,8 +1190,13 @@ void ShaderPreviewItem::schedule() {
                 self->busy_ = false;
                 if (self->studio_) self->studio_->reportRenderMs(ms);
                 // Keep the picture size to what the computer can draw about fifteen times a second.
-                if (ms > 80 && self->side_ > 160) self->side_ = std::max(160, static_cast<int>(self->side_ * 0.85));
-                else if (ms < 30 && self->side_ < self->maxSize_) self->side_ = std::min(self->maxSize_, static_cast<int>(self->side_ * 1.12) + 1);
+                // Playing, favour speed; paused, a still picture can afford more detail so edges stay smooth.
+                const bool still = self->studio_ && !self->studio_->playing();
+                const int cap = still ? std::max(self->maxSize_, 900) : self->maxSize_;
+                const double slow = still ? 220 : 80, fast = still ? 90 : 30;
+                if (ms > slow && self->side_ > 160) self->side_ = std::max(160, static_cast<int>(self->side_ * 0.85));
+                else if (ms < fast && self->side_ < cap) self->side_ = std::min(cap, static_cast<int>(self->side_ * 1.12) + 1);
+                else if (!still && self->side_ > self->maxSize_) self->side_ = self->maxSize_;
                 self->update();
                 if (self->again_) self->schedule();
             },
