@@ -75,7 +75,7 @@ PointList ellipseAround(const Footprint& f, double scale, int points) {
 // A solid line along edges: short soft streaks laid along each edge, spread evenly by the
 // emitter and overlapping a few times, so they read as one smooth continuous line (dots
 // close together showed as beads, and piled up to white).
-double lineReach(double thickness) { return std::max(thickness * 4.0, 0.03); }
+double lineReach(double thickness) { return std::max(thickness * 2.0, 0.02); }
 
 // The edges drawn a little shorter at each end, so a streak centred near a corner does not
 // stick out past it (that showed as spikes round every corner and curve).
@@ -101,7 +101,7 @@ Make& edgeLine(Make& m, unsigned colour, double thickness, double length, double
     const double life = 0.5;
     const double reach = lineReach(thickness);
     const double speed = reach / 8.0;  // so the streak's length in seconds stays within the property's range
-    const double alive = std::max(12.0, length / reach * 4.0);
+    const double alive = std::max(12.0, length / reach * 3.0);
     return m.rate(std::min(60000.0, std::round(alive / life))).life(life * 0.9, life * 1.1).speed(speed, speed).sendAlong().toward(0, 1, 0, 0)
         .size(thickness, thickness).color(colour, alpha).gravity(0, 0).additive().glow(glow).look("beam")
         .streak(reach / speed).fade({{0, 0.6}, {0.3, 1}, {0.7, 1}, {1, 0.6}});
@@ -214,10 +214,10 @@ Result<MeshVfxResult> generateOnModel(const Model& model, const ModelPlace& plac
         // The coat: the whole surface tinted, built from many small soft dots laid evenly
         // (normal blending, so the tint stays cyan instead of piling up to white).
         const double dot = std::max(spacing * 4.0, 0.05 * range);
-        const double covered = f.report.area / (3.14159 * dot * dot * 0.25) * 6.0;
+        const double covered = f.report.area / (3.14159 * dot * dot * 0.25) * 9.0;
         Make coat(id, kCoat);
-        add(e, coat.mesh("surface", surface, N).rate(std::min(50000.0, covered / 0.9)).life(0.8, 1.0).speed(0, 0)
-                   .size(dot, dot * 1.2).color(o.primary, 0.1).gravity(0, 0).look("soft")
+        add(e, coat.mesh("surface", surface, N).rate(std::min(60000.0, covered / 0.9)).life(0.8, 1.0).speed(0, 0)
+                   .size(dot, dot * 1.2).color(o.primary, 0.07).gravity(0, 0).look("soft")
                    .fade({{0, 0}, {0.3, 1}, {0.7, 1}, {1, 0}}).surfaceOffset(t * 0.3));
         // Ripples: broad soft rings spreading over every surface from the side facing the camera,
         // drawn as short streaks round the ring.
@@ -227,22 +227,22 @@ Result<MeshVfxResult> generateOnModel(const Model& model, const ModelPlace& plac
         Make rip(id, kRipples);
         add(e, rip.mesh("surface", surface, N).scan("ripple", 0.25, width, 3, origin).sendAlong().toward(0, 1, 0, 0)
                    .rate(std::min(40000.0, bandPoints / 4.0 / 0.25)).life(0.2, 0.3).speed(ripReach / 8.0, ripReach / 8.0).streak(8.0)
-                   .size(dot * 0.8, dot * 1.0).color(o.highlight, 0.07).gravity(0, 0).additive().look("soft")
+                   .size(dot * 0.8, dot * 1.0).color(o.highlight, 0.05).gravity(0, 0).additive().look("soft")
                    .fade({{0, 0}, {0.3, 1}, {1, 0}}).surfaceOffset(t * 0.4));
     }
     if (o.bands) {
         // Scan bands: short streaks level with the ground, so a band reads as a solid line round the object.
         const double width = 0.016 * range;
         const double bandPoints = static_cast<double>(N) * width / range * 4.0;
-        const double reach = 0.07 * range;
+        const double reach = 0.04 * range;
         Make sg(id, kBandGlow);
         add(e, sg.mesh("surface", surface, N).scan("height", 0.25, width * 3.5, 4).sendAlong().toward(0, 1, 0, 0)
-                   .rate(std::min(40000.0, bandPoints * 3.5 / 0.15)).life(0.12, 0.18).speed(reach / 8.0, reach / 8.0).streak(8.0)
-                   .size(t * 5.0, t * 5.0).color(o.primary, 0.2).gravity(0, 0).additive().look("beam").surfaceOffset(t));
+                   .rate(std::min(40000.0, bandPoints * 1.5 / 0.15)).life(0.12, 0.18).speed(reach / 8.0, reach / 8.0).streak(8.0)
+                   .size(t * 4.0, t * 4.0).color(o.primary, 0.12).gravity(0, 0).additive().look("beam").surfaceOffset(t));
         Make sb(id, kBands);
         add(e, sb.mesh("surface", surface, N).scan("height", 0.25, width, 4).sendAlong().toward(0, 1, 0, 0)
-                   .rate(std::min(40000.0, bandPoints / 0.15)).life(0.12, 0.18).speed(reach / 8.0, reach / 8.0).streak(8.0)
-                   .size(t * 1.6, t * 1.6).color(o.highlight, 0.9).gravity(0, 0).additive().look("beam").glow(1.2).surfaceOffset(t));
+                   .rate(std::min(40000.0, bandPoints * 0.5 / 0.15)).life(0.12, 0.18).speed(reach / 8.0, reach / 8.0).streak(8.0)
+                   .size(t * 1.3, t * 1.3).color(o.highlight, 0.6).gravity(0, 0).additive().look("beam").glow(1.2).surfaceOffset(t));
     }
     if (o.particles) {
         Make mo(id, kMotes);
@@ -268,7 +268,7 @@ Result<MeshVfxResult> generateOnModel(const Model& model, const ModelPlace& plac
                         2.0 * 3.14159 * r1, 0.6, 1.3));
         Make light(id, kRingLight);
         add(e, light.path(ring2).ground().put("shape", "offset", up).travel(0.25, 0.08, 3).rate(220).life(0.1, 0.16)
-                   .speed(0, 0).size(t * 2.5, t * 3.5).color(o.highlight, 0.9).gravity(0, 0).additive().glow(1.8));
+                   .speed(0, 0).size(t * 1.6, t * 2.2).color(o.highlight, 0.9).gravity(0, 0).additive().glow(1.8));
         Make beams(id, kBeams);
         add(e, beams.path(ring1).ground().put("shape", "offset", up).rate(12).life(0.9, 1.4).speed(0.9 * H, 1.2 * H)
                    .toward(0, 1, 0, 0).size(t * 2.0, t * 3.0).color(o.primary, 0.8).gravity(0, 0).look("beam").additive()
