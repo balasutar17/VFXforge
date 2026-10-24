@@ -111,7 +111,8 @@ constexpr BlendMode kAlpha = BlendMode::Alpha;
 
 std::vector<Preset> emissivePresets() {
     return {
-        preset("fire-energy", "Fire Energy", "Hot orange veins that flow upward", "sphere", kAdd, PresetBuilder{}),
+        preset("fire-energy", "Fire Energy", "Hot orange veins that flow upward", "sphere", kAdd,
+               PresetBuilder{}.n("intensity", 1.25f).n("coreGlow", 0.2f).n("rimIntensity", 0.6f)),
         preset("arcane-energy", "Arcane Energy", "Violet magic that turns slowly", "sphere", kAdd,
                PresetBuilder{}.c("color1", 0.30f, 0.04f, 0.95f).c("color2", 0.80f, 0.30f, 1.0f).c("color3", 1.0f, 0.88f, 1.0f)
                    .n("rotateSpeed", 0.45f).n("flowSpeed", 0.5f).n("distortion", 0.55f)),

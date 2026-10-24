@@ -304,7 +304,7 @@ Rectangle {
                         SearchBox {
                             id: presetName
                             Layout.fillWidth: true
-                            placeholder: "Name for this look"
+                            placeholder: "Name to save this look as"
                         }
                         VButton {
                             text: "Save"
@@ -315,8 +315,9 @@ Rectangle {
                     }
                     ListView {
                         id: myList
+                        visible: count > 0
                         Layout.fillWidth: true
-                        Layout.preferredHeight: Math.min(110, Math.max(24, count * 28))
+                        Layout.preferredHeight: count > 0 ? Math.min(110, count * 28) : 0
                         clip: true
                         model: { shaderStudio.libraryRevision; return shaderStudio.userPresets() }
                         ScrollBar.vertical: ScrollBar {}
@@ -351,13 +352,6 @@ Rectangle {
                                 onClicked: shaderStudio.deleteUserPreset(mine.modelData.name)
                             }
                         }
-                    }
-                    Text {
-                        visible: myList.count === 0
-                        Layout.fillWidth: true
-                        text: "Saved looks appear here."
-                        color: theme.faint
-                        font.pixelSize: theme.smallFontSize
                     }
                 }
             }
@@ -962,7 +956,7 @@ Rectangle {
         Rectangle {
             anchors.centerIn: parent
             width: Math.min(640, parent.width - 60)
-            height: Math.min(parent.height - 80, 460)
+            height: 36 + 24 + 10 + reportFlick.height + 10 + 32
             radius: 8
             color: theme.panel
             border.color: theme.line
@@ -980,8 +974,9 @@ Rectangle {
                     font.weight: Font.DemiBold
                 }
                 Flickable {
+                    id: reportFlick
                     width: parent.width
-                    height: Math.min(parent.height - 90, reportText.implicitHeight)
+                    height: Math.min(Math.max(80, root.height - 260), reportText.implicitHeight)
                     contentHeight: reportText.implicitHeight
                     clip: true
                     ScrollBar.vertical: ScrollBar {}
