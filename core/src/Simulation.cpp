@@ -586,9 +586,16 @@ void Simulation::Emitter::spawn(std::int64_t inPass, double offset, float progre
                 const float a = (random(kChShapeW) - 0.5f) * amount, c = (det::unitFloat(det::mix64(key ^ 0x4d455348ull)) - 0.5f) * amount;
                 return det::Vec3f{at.x + t.x * a + b.x * c, at.y + t.y * a + b.y * c, at.z + t.z * a + b.z * c};
             };
+            // Even coverage: the points a layer picks follow a low-discrepancy sequence in the
+            // order they are born, so any stretch of time has them spread along the whole edge
+            // or surface instead of clumped (random picks showed as beads and blotches).
+            double spreadPos = 0.5 + 0.6180339887498949 * static_cast<double>(index & 0xffffffffull) +
+                               static_cast<double>(det::unitFloat(det::mix64(e.key ^ static_cast<std::uint64_t>(inPass * 977 + 13))));
+            spreadPos -= std::floor(spreadPos);
+            const float ud = static_cast<float>(spreadPos);
             if (e.meshEdges) {
                 const std::size_t n = e.segCum.size();
-                const float target = u * e.segCum[n - 1];
+                const float target = ud * e.segCum[n - 1];
                 std::size_t lo = 0, hi = n - 1;
                 while (lo < hi) {
                     const std::size_t mid = (lo + hi) / 2;
@@ -607,6 +614,8 @@ void Simulation::Emitter::spawn(std::int64_t inPass, double offset, float progre
                 pos = det::Vec3f{pos.x + out.x * e.meshOffset, pos.y + out.y * e.meshOffset, pos.z + out.z * e.meshOffset};
                 if (e.aim == 1) {
                     dir = out;
+                } else if (e.aim == 2) {
+                    dir = det::normalizeOr(det::Vec3f{e.segBx[lo] - e.segAx[lo], e.segBy[lo] - e.segAy[lo], e.segBz[lo] - e.segAz[lo]}, axis);
                 }
             } else {
                 const std::size_t n = e.meshKey.size();
@@ -629,7 +638,7 @@ void Simulation::Emitter::spawn(std::int64_t inPass, double offset, float progre
                         hi = lo + 1;
                     }
                 }
-                std::size_t pick = lo + static_cast<std::size_t>(u * static_cast<float>(hi - lo));
+                std::size_t pick = lo + static_cast<std::size_t>(ud * static_cast<float>(hi - lo));
                 pick = pick < hi ? pick : hi - 1;
                 const det::Vec3f normal{e.meshNx[pick], e.meshNy[pick], e.meshNz[pick]};
                 pos = det::Vec3f{e.meshPx[pick] + normal.x * e.meshOffset, e.meshPy[pick] + normal.y * e.meshOffset,
@@ -637,6 +646,19 @@ void Simulation::Emitter::spawn(std::int64_t inPass, double offset, float progre
                 pos = scatter(pos, normal, e.meshSpacing);
                 if (e.aim == 1) {
                     dir = normal;
+                } else if (e.aim == 2) {
+                    // Along the band: level with the ground for a height scan, round the origin for a ripple.
+                    det::Vec3f g = e.scanMode == 2 ? det::Vec3f{pos.x - e.scanOx, pos.y - e.scanOy, pos.z - e.scanOz} : det::Vec3f{0.0f, 1.0f, 0.0f};
+                    const float gn = g.x * normal.x + g.y * normal.y + g.z * normal.z;
+                    g = det::Vec3f{g.x - normal.x * gn, g.y - normal.y * gn, g.z - normal.z * gn};
+                    const det::Vec3f c{normal.y * g.z - normal.z * g.y, normal.z * g.x - normal.x * g.z, normal.x * g.y - normal.y * g.x};
+                    if (c.x * c.x + c.y * c.y + c.z * c.z < 1e-4f) {
+                        det::Vec3f t, b;  // a surface facing straight up has no level direction: any along it will do
+                        det::basis(normal, t, b);
+                        dir = t;
+                    } else {
+                        dir = det::normalizeOr(c, axis);
+                    }
                 }
             }
             break;

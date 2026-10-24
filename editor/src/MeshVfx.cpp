@@ -72,13 +72,39 @@ PointList ellipseAround(const Footprint& f, double scale, int points) {
     return out;
 }
 
-// A bright line along edges, as soft dots close together (see glowLine).
+// A solid line along edges: short soft streaks laid along each edge, spread evenly by the
+// emitter and overlapping a few times, so they read as one smooth continuous line (dots
+// close together showed as beads, and piled up to white).
+double lineReach(double thickness) { return std::max(thickness * 4.0, 0.03); }
+
+// The edges drawn a little shorter at each end, so a streak centred near a corner does not
+// stick out past it (that showed as spikes round every corner and curve).
+PointList insetEdges(const std::vector<MeshSegment>& edges, double reach, double* lengthOut) {
+    std::vector<MeshSegment> out;
+    double total = 0;
+    for (const MeshSegment& s : edges) {
+        const double dx = s.v[3] - s.v[0], dy = s.v[4] - s.v[1], dz = s.v[5] - s.v[2];
+        const double len = std::sqrt(dx * dx + dy * dy + dz * dz);
+        if (len < 1e-6) continue;
+        const double cut = std::min(0.45 * reach, 0.4 * len) / len;
+        MeshSegment t;
+        t.v = {static_cast<float>(s.v[0] + dx * cut), static_cast<float>(s.v[1] + dy * cut), static_cast<float>(s.v[2] + dz * cut),
+               static_cast<float>(s.v[3] - dx * cut), static_cast<float>(s.v[4] - dy * cut), static_cast<float>(s.v[5] - dz * cut)};
+        total += len * (1.0 - 2.0 * cut);
+        out.push_back(t);
+    }
+    if (lengthOut) *lengthOut = total;
+    return packSegments(out);
+}
+
 Make& edgeLine(Make& m, unsigned colour, double thickness, double length, double alpha, double glow) {
-    const double life = 0.12;
-    const double alive = std::max(8.0, length / (thickness * 0.22));
-    return m.rate(std::min(60000.0, std::round(alive / life))).life(life * 0.8, life * 1.2).speed(0, 0)
-        .size(thickness * 3.4, thickness * 3.8).color(colour, alpha * 0.55).gravity(0, 0).additive().glow(glow)
-        .fade({{0, 0.5}, {0.4, 1}, {1, 0}});
+    const double life = 0.5;
+    const double reach = lineReach(thickness);
+    const double speed = reach / 8.0;  // so the streak's length in seconds stays within the property's range
+    const double alive = std::max(12.0, length / reach * 4.0);
+    return m.rate(std::min(60000.0, std::round(alive / life))).life(life * 0.9, life * 1.1).speed(speed, speed).sendAlong().toward(0, 1, 0, 0)
+        .size(thickness, thickness).color(colour, alpha).gravity(0, 0).additive().glow(glow).look("beam")
+        .streak(reach / speed).fade({{0, 0.6}, {0.3, 1}, {0.7, 1}, {1, 0.6}});
 }
 
 struct Fit {
@@ -161,60 +187,67 @@ Result<MeshVfxResult> generateOnModel(const Model& model, const ModelPlace& plac
     const double H = f.height;
     const double t = std::clamp(H * 0.012, 0.015, 0.06);   // line thickness
     const double spacing = std::sqrt(f.report.area / static_cast<double>(f.sizes.samples));
-    const double lenEdges = totalLength(f.edges), lenSil = totalLength(f.silhouette);
     const PointList surface = packTriangles(f.proxy);
-    const PointList hard = packSegments(f.edges);
-    const PointList sil = packSegments(f.silhouette);
     const Vec3 origin = rippleOrigin(f);
     const std::int64_t N = static_cast<std::int64_t>(f.sizes.samples);
     const double range = std::max<double>(f.height, 0.01);
 
     if (o.outline && !f.edges.empty()) {
+        double l1 = 0, l2 = 0, l3 = 0;
+        const PointList h1 = insetEdges(f.edges, lineReach(t * 8.0), &l1);
+        const PointList h2 = insetEdges(f.edges, lineReach(t * 4.0), &l2);
+        const PointList h3 = insetEdges(f.edges, lineReach(t * 1.1), &l3);
         Make glowM(id, kOutlineGlow);
-        add(e, edgeLine(glowM.mesh("edges", hard, N), o.glow, t * 3.5, lenEdges, 0.14, 1.0).surfaceOffset(t * 0.5));
+        add(e, edgeLine(glowM.mesh("edges", h1, N), o.glow, t * 8.0, l1, 0.12, 1.0).surfaceOffset(t * 0.5));
         Make line(id, kEdgeOutline);
-        add(e, edgeLine(line.mesh("edges", hard, N), o.primary, t, lenEdges, 0.75, 1.6).surfaceOffset(t * 0.5));
+        add(e, edgeLine(line.mesh("edges", h2, N), o.primary, t * 4.0, l2, 1.0, 1.4).surfaceOffset(t * 0.5));
         Make core(id, kEdgeCore);
-        add(e, edgeLine(core.mesh("edges", hard, N), o.highlight, t * 0.4, lenEdges, 0.7, 1.4).surfaceOffset(t * 0.5));
+        add(e, edgeLine(core.mesh("edges", h3, N), o.highlight, t * 1.1, l3, 0.8, 1.2).surfaceOffset(t * 0.5));
     }
     if (o.silhouette && !f.silhouette.empty()) {
+        double ls = 0;
+        const PointList sl = insetEdges(f.silhouette, lineReach(t * 2.0), &ls);
         Make line(id, kSilhouette);
-        add(e, edgeLine(line.mesh("silhouette", sil, N), o.primary, t * 0.9, lenSil, 0.85, 1.6).surfaceOffset(t * 0.5));
+        add(e, edgeLine(line.mesh("silhouette", sl, N), o.primary, t * 2.0, ls, 0.9, 1.4).surfaceOffset(t * 0.5));
     }
     if (o.surface) {
-        // The coat: the whole surface faintly lit, shimmering as dots come and go.
-        const double dot = std::max(spacing * 7.0, 0.07 * range);
-        const double covered = f.report.area / (3.14159 * dot * dot * 0.25) * 3.0;
+        // The coat: the whole surface tinted, built from many small soft dots laid evenly
+        // (normal blending, so the tint stays cyan instead of piling up to white).
+        const double dot = std::max(spacing * 4.0, 0.05 * range);
+        const double covered = f.report.area / (3.14159 * dot * dot * 0.25) * 6.0;
         Make coat(id, kCoat);
-        add(e, coat.mesh("surface", surface, N).rate(std::min(40000.0, covered / 0.9)).life(0.7, 1.1).speed(0, 0)
-                   .size(dot, dot * 1.3).color(o.primary, 0.07).gravity(0, 0).additive().look("soft")
-                   .fade({{0, 0}, {0.35, 1}, {1, 0}}).surfaceOffset(t * 0.3));
-        // Ripples: broad soft rings spreading over every surface from the side facing the camera.
+        add(e, coat.mesh("surface", surface, N).rate(std::min(50000.0, covered / 0.9)).life(0.8, 1.0).speed(0, 0)
+                   .size(dot, dot * 1.2).color(o.primary, 0.1).gravity(0, 0).look("soft")
+                   .fade({{0, 0}, {0.3, 1}, {0.7, 1}, {1, 0}}).surfaceOffset(t * 0.3));
+        // Ripples: broad soft rings spreading over every surface from the side facing the camera,
+        // drawn as short streaks round the ring.
         const double width = 0.1 * range;
         const double bandPoints = static_cast<double>(N) * width / range * 3.0;
+        const double ripReach = 0.12 * range;
         Make rip(id, kRipples);
-        add(e, rip.mesh("surface", surface, N).scan("ripple", 0.25, width, 3, origin)
-                   .rate(std::min(40000.0, bandPoints / 4.0 / 0.25)).life(0.2, 0.3).speed(0, 0).size(dot * 0.7, dot * 0.9)
-                   .color(o.highlight, 0.22).gravity(0, 0).additive().look("soft").fade({{0, 0}, {0.3, 1}, {1, 0}})
-                   .surfaceOffset(t * 0.4));
+        add(e, rip.mesh("surface", surface, N).scan("ripple", 0.25, width, 3, origin).sendAlong().toward(0, 1, 0, 0)
+                   .rate(std::min(40000.0, bandPoints / 4.0 / 0.25)).life(0.2, 0.3).speed(ripReach / 8.0, ripReach / 8.0).streak(8.0)
+                   .size(dot * 0.8, dot * 1.0).color(o.highlight, 0.07).gravity(0, 0).additive().look("soft")
+                   .fade({{0, 0}, {0.3, 1}, {1, 0}}).surfaceOffset(t * 0.4));
     }
     if (o.bands) {
+        // Scan bands: short streaks level with the ground, so a band reads as a solid line round the object.
         const double width = 0.016 * range;
         const double bandPoints = static_cast<double>(N) * width / range * 4.0;
-        const double dot = std::max(spacing * 1.8, t * 1.2);
+        const double reach = 0.07 * range;
         Make sg(id, kBandGlow);
-        add(e, sg.mesh("surface", surface, N).scan("height", 0.25, width * 3.5, 4)
-                   .rate(std::min(40000.0, bandPoints * 3.5 / 1.0 / 0.15)).life(0.12, 0.18).speed(0, 0)
-                   .size(dot * 2.0, dot * 2.4).color(o.primary, 0.18).gravity(0, 0).additive().surfaceOffset(t));
+        add(e, sg.mesh("surface", surface, N).scan("height", 0.25, width * 3.5, 4).sendAlong().toward(0, 1, 0, 0)
+                   .rate(std::min(40000.0, bandPoints * 3.5 / 0.15)).life(0.12, 0.18).speed(reach / 8.0, reach / 8.0).streak(8.0)
+                   .size(t * 5.0, t * 5.0).color(o.primary, 0.2).gravity(0, 0).additive().look("beam").surfaceOffset(t));
         Make sb(id, kBands);
-        add(e, sb.mesh("surface", surface, N).scan("height", 0.25, width, 4)
-                   .rate(std::min(40000.0, bandPoints / 0.7 / 0.15)).life(0.12, 0.18).speed(0, 0)
-                   .size(dot, dot * 1.2).color(o.highlight, 0.9).gravity(0, 0).additive().glow(1.6).surfaceOffset(t));
+        add(e, sb.mesh("surface", surface, N).scan("height", 0.25, width, 4).sendAlong().toward(0, 1, 0, 0)
+                   .rate(std::min(40000.0, bandPoints / 0.15)).life(0.12, 0.18).speed(reach / 8.0, reach / 8.0).streak(8.0)
+                   .size(t * 1.6, t * 1.6).color(o.highlight, 0.9).gravity(0, 0).additive().look("beam").glow(1.2).surfaceOffset(t));
     }
     if (o.particles) {
         Make mo(id, kMotes);
-        add(e, mo.mesh("surface", surface, N).rate(70).life(1.2, 2.0).speed(0.1 * H, 0.3 * H).size(t * 1.6, t * 3.2)
-                   .color(o.highlight, 0.9).gravity(0, 0.1).sendOut().additive().glow(1.8).turbulence(0.1 * H, 0.3 * H, 0.5)
+        add(e, mo.mesh("surface", surface, N).rate(70).life(1.2, 2.0).speed(0.1 * H, 0.3 * H).size(t * 1.1, t * 2.0)
+                   .color(o.primary, 0.8).gravity(0, 0.1).sendOut().additive().glow(0.8).turbulence(0.1 * H, 0.3 * H, 0.5)
                    .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).surfaceOffset(t * 2).from(0.0, 4.0));
     }
     if (o.ground) {
@@ -224,18 +257,18 @@ Result<MeshVfxResult> generateOnModel(const Model& model, const ModelPlace& plac
         const Vec3 up = Vec3{0, f.report.footprint.baseY + y, 0};
         const double r1 = std::max(f.report.footprint.halfA, f.report.footprint.halfB) * 1.4142 * 1.55;
         Make disc(id, kDisc);
-        add(e, disc.path(ring2).fillPath().ground().burst(2400).life(4.0, 4.0).speed(0, 0).size(r1 * 0.2, r1 * 0.26)
-                   .color(o.primary, 0.03).gravity(0, 0).additive().solid().flatOnPlane().look("soft")
+        add(e, disc.path(ring2).fillPath().ground().burst(7000).life(4.0, 4.0).speed(0, 0).size(r1 * 0.12, r1 * 0.16)
+                   .color(o.primary, 0.012).gravity(0, 0).additive().solid().flatOnPlane().look("soft")
                    .put("shape", "offset", up));
         Make ringM(id, kRing);
-        add(e, edgeLine(ringM.path(ring1).ground().put("shape", "offset", up), o.primary, t * 1.6,
-                        2.0 * 3.14159 * r1 * 0.75, 0.7, 1.5).flatOnPlane());
+        add(e, edgeLine(ringM.path(ring1).ground().put("shape", "offset", up), o.primary, t * 3.0,
+                        2.0 * 3.14159 * r1 * 0.75, 0.7, 1.5));
         Make outer(id, kOuterRing);
-        add(e, edgeLine(outer.path(ring2).ground().put("shape", "offset", up), o.glow, t * 1.1,
-                        2.0 * 3.14159 * r1, 0.6, 1.3).flatOnPlane());
+        add(e, edgeLine(outer.path(ring2).ground().put("shape", "offset", up), o.glow, t * 2.2,
+                        2.0 * 3.14159 * r1, 0.6, 1.3));
         Make light(id, kRingLight);
         add(e, light.path(ring2).ground().put("shape", "offset", up).travel(0.25, 0.08, 3).rate(220).life(0.1, 0.16)
-                   .speed(0, 0).size(t * 5, t * 7).color(o.highlight, 0.9).gravity(0, 0).additive().glow(1.8));
+                   .speed(0, 0).size(t * 2.5, t * 3.5).color(o.highlight, 0.9).gravity(0, 0).additive().glow(1.8));
         Make beams(id, kBeams);
         add(e, beams.path(ring1).ground().put("shape", "offset", up).rate(12).life(0.9, 1.4).speed(0.9 * H, 1.2 * H)
                    .toward(0, 1, 0, 0).size(t * 2.0, t * 3.0).color(o.primary, 0.8).gravity(0, 0).look("beam").additive()
@@ -274,16 +307,17 @@ std::size_t fitToModel(Effect& effect, const Model& model, const ModelPlace& pla
         *warnings = f.report.warnings;
     }
     std::size_t fitted = 0;
-    const PointList surface = packTriangles(f.proxy), hard = packSegments(f.edges), sil = packSegments(f.silhouette);
+    const PointList surface = packTriangles(f.proxy);
     const Vec3 origin = rippleOrigin(f);
-    for (const char* name : {kEdgeOutline, kEdgeCore, kOutlineGlow}) {
-        if (Layer* l = findLayer(effect, name)) {
-            setShape(*l, "meshData", hard);
+    const double t = std::clamp(static_cast<double>(f.height) * 0.012, 0.015, 0.06);
+    for (const auto& pair : {std::pair<const char*, double>{kEdgeOutline, 4.0}, {kEdgeCore, 1.1}, {kOutlineGlow, 8.0}}) {
+        if (Layer* l = findLayer(effect, pair.first)) {
+            setShape(*l, "meshData", insetEdges(f.edges, lineReach(t * pair.second), nullptr));
             ++fitted;
         }
     }
     if (Layer* l = findLayer(effect, kSilhouette)) {
-        setShape(*l, "meshData", sil);
+        setShape(*l, "meshData", insetEdges(f.silhouette, lineReach(t * 2.0), nullptr));
         ++fitted;
     }
     for (const char* name : {kCoat, kRipples, kBands, kBandGlow, kMotes}) {

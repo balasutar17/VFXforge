@@ -315,16 +315,16 @@ TEST_CASE("Test A: the outline is made of the model's edges, not its box", "[mes
         if (e.layers[i].id == line->id) index = i;
     }
     const ParticleView p = sim.particles(index);
-    REQUIRE(p.count > 500);
+    REQUIRE(p.count > 100);
     // No particle is out in the empty corner of the bounding box, where a box-shaped
     // outline would have its corners: the tower's top is narrower (0.8 across) than the box.
     int empty = 0, onTower = 0;
     for (std::uint32_t i = 0; i < p.count; ++i) {
         if (p.y[i] > 3.0f && (std::fabs(p.x[i]) > 0.6f || std::fabs(p.z[i] + 0.15f) > 0.6f)) ++empty;
-        if (p.y[i] > 3.2f) ++onTower;
+        if (p.y[i] > 3.1f) ++onTower;
     }
     CHECK(empty == 0);
-    CHECK(onTower > 10);
+    CHECK(onTower > 3);
 }
 
 TEST_CASE("Test D/E: the ring fits the footprint and layers are independent", "[mesh]") {

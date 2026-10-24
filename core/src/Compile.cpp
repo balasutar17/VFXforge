@@ -468,7 +468,7 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         if (e->shape == ShapeType::Mesh) {
             compileMesh(*e, shape);
             const std::string& aim = shape.get<std::string>("aim");
-            e->aim = aim == "outward" ? 1 : 0;
+            e->aim = aim == "outward" ? 1 : aim == "along" ? 2 : 0;  // along: an edge's own direction
         }
         if (e->shape == ShapeType::Path) {
             compilePath(*e, shape.get<PointList>("path"), shape.get<bool>("closed"), shape.get<double>("padding"));
