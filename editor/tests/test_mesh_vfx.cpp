@@ -457,3 +457,31 @@ TEST_CASE("Test I: Unity gets the model's triangles and edges and is told what i
     for (const std::string& n : notes) band = band || n.find("band") != std::string::npos;
     CHECK(band);
 }
+
+TEST_CASE("the hologram look draws a translucent cyan model, and solid stays as it was", "[mesh]") {
+    const Model block = hardSurfaceSample();
+    View view;
+    ModelPlace solid = standing();
+    ModelPlace holo = solid;
+    holo.look = 1;
+    const ModelPicture a = drawModel(block, solid, view, false, 200, 200, 1);
+    const ModelPicture b = drawModel(block, holo, view, false, 200, 200, 1);
+    REQUIRE_FALSE(a.empty());
+    REQUIRE_FALSE(b.empty());
+    long covered = 0, tinted = 0;
+    double alphaSolid = 0, alphaHolo = 0;
+    for (std::size_t i = 0; i < a.depth.size(); ++i) {
+        if (!std::isfinite(a.depth[i])) continue;
+        ++covered;
+        alphaSolid += a.picture.rgba[i * 4 + 3];
+        alphaHolo += b.picture.rgba[i * 4 + 3];
+        if (b.picture.rgba[i * 4 + 2] > b.picture.rgba[i * 4]) ++tinted;  // blue above red: cyan
+    }
+    REQUIRE(covered > 1000);
+    CHECK(tinted > covered * 0.95);
+    CHECK(alphaHolo < alphaSolid * 0.8);  // it shows through
+    // Where the model is, the two looks cover the same pixels.
+    for (std::size_t i = 0; i < a.depth.size(); ++i) {
+        CHECK(std::isfinite(a.depth[i]) == std::isfinite(b.depth[i]));
+    }
+}

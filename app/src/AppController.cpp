@@ -2619,6 +2619,7 @@ QVariantMap AppController::modelPlaceMap() const {
     out.insert(QStringLiteral("z"), static_cast<double>(modelPlace_.z));
     out.insert(QStringLiteral("turn"), static_cast<double>(modelPlace_.turn));
     out.insert(QStringLiteral("height"), static_cast<double>(modelPlace_.height));
+    out.insert(QStringLiteral("look"), modelPlace_.look);
     return out;
 }
 
@@ -2662,6 +2663,7 @@ void AppController::loadStage() {
         modelPlace_.z = settings.value(key + QStringLiteral("/z"), 0.0).toFloat();
         modelPlace_.turn = settings.value(key + QStringLiteral("/turn"), 0.0).toFloat();
         modelPlace_.height = settings.value(key + QStringLiteral("/height"), 3.0).toFloat();
+        modelPlace_.look = settings.value(key + QStringLiteral("/look"), 0).toInt() == 1 ? 1 : 0;
         hideBehindModel_ = settings.value(key + QStringLiteral("/hide"), true).toBool();
     }
     emit modelChanged();
@@ -2680,6 +2682,7 @@ void AppController::storeStage() {
         settings.setValue(key + QStringLiteral("/z"), static_cast<double>(modelPlace_.z));
         settings.setValue(key + QStringLiteral("/turn"), static_cast<double>(modelPlace_.turn));
         settings.setValue(key + QStringLiteral("/height"), static_cast<double>(modelPlace_.height));
+        settings.setValue(key + QStringLiteral("/look"), modelPlace_.look);
         settings.setValue(key + QStringLiteral("/hide"), hideBehindModel_);
     }
     emit modelChanged();
@@ -2831,6 +2834,8 @@ void AppController::setModelPlace(const QString& key, double value) {
         modelPlace_.turn = std::fmod(v, 360.0f);
     } else if (key == QStringLiteral("height")) {
         modelPlace_.height = std::clamp(v, 0.01f, 1000.0f);
+    } else if (key == QStringLiteral("look")) {
+        modelPlace_.look = v >= 0.5f ? 1 : 0;
     } else {
         return;
     }

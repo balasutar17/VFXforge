@@ -853,6 +853,8 @@ ModelPicture drawModel(const Model& model, const ModelPlace& place, const View& 
     const std::size_t samples = static_cast<std::size_t>(W) * static_cast<std::size_t>(H);
     std::vector<float> depth(samples, std::numeric_limits<float>::infinity());
     std::vector<float> colour(samples * 3, 0.0f);
+    std::vector<float> opacity(samples, 1.0f);  // how much of the model shows through (hologram look)
+    const bool holo = place.look == 1;
     const auto band = [](float x, float at) { return clamp01((x - at) / 0.08f + 0.5f); };
 
     for (std::size_t t = 0; t + 2 < model.triangles.size(); t += 3) {
@@ -920,11 +922,26 @@ ModelPicture drawModel(const Model& model, const ModelPlace& place, const View& 
                 const float lit = nx * lx + ny * ly + nz * lz;
                 const float tone = 0.5f + 0.28f * band(lit, -0.2f) + 0.22f * band(lit, 0.45f);
                 const float rim = 0.28f * band(1.0f - facing, 0.72f);
-                for (int ch = 0; ch < 3; ++ch) {
-                    const float base = w0 * model.colors[a * 3 + static_cast<std::size_t>(ch)] +
-                                       w1 * model.colors[b * 3 + static_cast<std::size_t>(ch)] +
-                                       w2 * model.colors[c * 3 + static_cast<std::size_t>(ch)];
-                    colour[at * 3 + static_cast<std::size_t>(ch)] = std::min(1.0f, base * tone + rim);
+                if (holo) {
+                    // Hologram: a pale cyan glass. Faces turned away from the viewer thin out and
+                    // glow at the rim (fresnel); the model's own tone shows faintly through.
+                    const float fres = std::pow(1.0f - clamp01(facing), 2.2f);
+                    const float grey = (w0 * (model.colors[a * 3] + model.colors[a * 3 + 1] + model.colors[a * 3 + 2]) +
+                                        w1 * (model.colors[b * 3] + model.colors[b * 3 + 1] + model.colors[b * 3 + 2]) +
+                                        w2 * (model.colors[c * 3] + model.colors[c * 3 + 1] + model.colors[c * 3 + 2])) / 3.0f;
+                    const float body = 0.30f + 0.32f * tone + 0.12f * grey;
+                    const float glow = clamp01(fres * 1.25f);
+                    colour[at * 3] = std::min(1.0f, 0.10f * body + glow * 0.80f);
+                    colour[at * 3 + 1] = std::min(1.0f, 0.78f * body + glow * 0.97f);
+                    colour[at * 3 + 2] = std::min(1.0f, 1.00f * body + glow * 1.0f);
+                    opacity[at] = clamp01(0.42f + 0.58f * glow);
+                } else {
+                    for (int ch = 0; ch < 3; ++ch) {
+                        const float base = w0 * model.colors[a * 3 + static_cast<std::size_t>(ch)] +
+                                           w1 * model.colors[b * 3 + static_cast<std::size_t>(ch)] +
+                                           w2 * model.colors[c * 3 + static_cast<std::size_t>(ch)];
+                        colour[at * 3 + static_cast<std::size_t>(ch)] = std::min(1.0f, base * tone + rim);
+                    }
                 }
             }
         }
@@ -939,7 +956,7 @@ ModelPicture drawModel(const Model& model, const ModelPlace& place, const View& 
                      std::numeric_limits<float>::infinity());
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            float r = 0, g = 0, bl = 0, nearest = std::numeric_limits<float>::infinity();
+            float r = 0, g = 0, bl = 0, nearest = std::numeric_limits<float>::infinity(), shown = 0;
             int covered = 0;
             for (int j = 0; j < k; ++j) {
                 for (int i = 0; i < k; ++i) {
@@ -950,6 +967,7 @@ ModelPicture drawModel(const Model& model, const ModelPlace& place, const View& 
                         r += colour[at * 3];
                         g += colour[at * 3 + 1];
                         bl += colour[at * 3 + 2];
+                        shown += opacity[at];
                         nearest = std::min(nearest, depth[at]);
                     }
                 }
@@ -962,7 +980,7 @@ ModelPicture drawModel(const Model& model, const ModelPlace& place, const View& 
                 out.picture.rgba[o * 4 + 1] = static_cast<std::uint8_t>(std::lround(clamp01(g / n) * 255.0f));
                 out.picture.rgba[o * 4 + 2] = static_cast<std::uint8_t>(std::lround(clamp01(bl / n) * 255.0f));
                 out.picture.rgba[o * 4 + 3] =
-                    static_cast<std::uint8_t>(std::lround(n / static_cast<float>(k * k) * 255.0f));
+                    static_cast<std::uint8_t>(std::lround(shown / static_cast<float>(k * k) * 255.0f));
             }
         }
     }

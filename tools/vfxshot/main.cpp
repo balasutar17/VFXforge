@@ -154,6 +154,7 @@ int main(int argc, char** argv) {
             std::fputs(kUsage, stderr);
             return 2;
         }
+        if (option(args, "--look", "solid") == "hologram") gPlace.look = 1;
         std::printf("model: %s, %zu triangles\n", gModel->name.c_str(), gModel->triangleCount());
     }
 

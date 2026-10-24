@@ -47,6 +47,8 @@ struct ModelPlace {
     float x = 0, y = 0, z = 0;
     float turn = 0;     // degrees, counter-clockwise seen from above
     float height = 3;   // world units
+    // How it is drawn: 0 solid (toon shaded), 1 hologram (translucent tint with a glowing rim).
+    int look = 0;
 };
 
 // Reading. A model with no triangles, or bigger than kMaxModelTriangles,

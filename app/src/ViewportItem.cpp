@@ -211,7 +211,7 @@ bool sameView(const vfx::editor::View& a, const vfx::editor::View& b) {
 }
 
 bool samePlace(const vfx::editor::ModelPlace& a, const vfx::editor::ModelPlace& b) {
-    return a.x == b.x && a.y == b.y && a.z == b.z && a.turn == b.turn && a.height == b.height;
+    return a.x == b.x && a.y == b.y && a.z == b.z && a.turn == b.turn && a.height == b.height && a.look == b.look;
 }
 
 }  // namespace

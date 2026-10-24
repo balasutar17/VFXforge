@@ -568,6 +568,25 @@ ApplicationWindow {
                             VButton { Layout.fillWidth: true; text: "Remove"; onClicked: app.clearModel() }
                         }
 
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: app.hasModel
+                            spacing: 6
+                            Text { text: "Look"; color: theme.dim; font.pixelSize: theme.fontSize }
+                            Repeater {
+                                model: ["Solid", "Hologram"]
+                                VButton {
+                                    objectName: index === 1 ? "lookHologram" : "lookSolid"
+                                    Layout.fillWidth: true
+                                    text: modelData
+                                    quiet: app.modelPlace.look !== index
+                                    tip: index === 0 ? "The model drawn as a solid, toon-shaded object"
+                                                     : "A translucent cyan glass with a glowing rim"
+                                    onClicked: app.setModelPlace("look", index)
+                                }
+                            }
+                        }
+
                         // Effects made from the model's own shape: outlines along its
                         // real edges and silhouette, an energy coat and scan bands on its
                         // surfaces, and rings fitted to its footprint.
