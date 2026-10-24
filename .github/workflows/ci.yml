@@ -57,6 +57,14 @@ jobs:
           set -o pipefail
           ctest --test-dir build -C Release --output-on-failure 2>&1 | tee "$OUT/tests.txt"
 
+      - name: Check the exported shaders' HLSL (Linux)
+        if: matrix.name == 'linux'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq glslang-tools
+          build/tools/vfxshot/vfxshot shaderexport "$RUNNER_TEMP/shaders" | tee "$OUT/shader-export.txt"
+          python3 tools/scripts/check_shaders.py "$RUNNER_TEMP/shaders" 2>&1 | tee "$OUT/shader-check.txt"
+          grep -qE "^0 of [0-9]+ failed" "$OUT/shader-check.txt"
+
       - name: Fingerprints and speed
         run: |
           set -o pipefail

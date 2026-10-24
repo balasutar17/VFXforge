@@ -12,6 +12,7 @@ add_executable(vfx_editor_tests
     test_reference.cpp
     test_reference_lines.cpp
     test_session.cpp
+    test_shader.cpp
     test_shape_edits.cpp
     test_transform.cpp
     test_selection.cpp

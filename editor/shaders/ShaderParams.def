@@ -1,0 +1,123 @@
+// The parameters of every shader family, in one place. Included several times with different
+// macro definitions: for the index constants the shader code reads them by, for the tables
+// the editor and the exporter read, and for the exporter's property list.
+//
+// VFX_COMMON(key, label, tip, min, max, default, advanced)       every family has these first
+// VFX_FAMILY(CODE)                                              starts a family
+// VFX_F(CODE, key, label, tip, min, max, default, advanced)     a number
+// VFX_C(CODE, key, label, tip, r, g, b, a)                      a colour (may be brighter than 1: HDR)
+// VFX_CH(CODE, key, label, tip, default, "A|B|C")               a choice
+//
+// Keep the order: an index is the position in this file.
+
+VFX_COMMON(speed, "Animation speed", "How fast everything moves; 0 freezes it", 0, 4, 1, 0)
+VFX_COMMON(pulseAmp, "Pulse amount", "How much the glow swells and fades", 0, 1, 0.2, 0)
+VFX_COMMON(pulseFreq, "Pulse speed", "Pulses per second", 0, 8, 1.2, 0)
+VFX_COMMON(flowSpeed, "Flow speed", "How fast the pattern flows (negative flows the other way)", -3, 3, 0.35, 0)
+VFX_COMMON(rotateSpeed, "Rotate speed", "How fast the pattern turns round the object", -3, 3, 0, 0)
+VFX_COMMON(flicker, "Flicker", "Irregular flickering of the light", 0, 1, 0, 0)
+VFX_COMMON(noiseAmt, "Noise", "Random variation added to the pattern", 0, 1, 0.25, 1)
+VFX_COMMON(reveal, "Reveal", "0 is gone, 1 is fully shown: dissolves in and out", 0, 1, 1, 0)
+
+// ---------------------------------------------------------------- 11 Emissive / Glow
+VFX_FAMILY(EM)
+VFX_C(EM, color1, "Primary colour", "The hot colour of the energy", 1.0, 0.30, 0.04, 1)
+VFX_C(EM, color2, "Secondary colour", "The middle of the colour ramp", 1.0, 0.72, 0.10, 1)
+VFX_C(EM, color3, "Tertiary colour", "The brightest veins", 1.0, 0.96, 0.70, 1)
+VFX_F(EM, intensity, "Glow intensity", "Brightness of the emission (above 1 is HDR and blooms)", 0, 8, 2.2, 0)
+VFX_F(EM, rimIntensity, "Rim light", "Light round the edge of the object", 0, 4, 0.8, 0)
+VFX_F(EM, rimPower, "Rim width", "Higher keeps the rim thin", 0.5, 8, 2.5, 1)
+VFX_F(EM, patternScale, "Pattern scale", "Size of the energy pattern", 0.5, 12, 3.2, 0)
+VFX_F(EM, veins, "Vein contrast", "How sharp the bright veins are", 0, 1, 0.7, 0)
+VFX_F(EM, distortion, "Distortion", "How much the pattern is warped", 0, 1, 0.35, 0)
+VFX_F(EM, coreGlow, "Core glow", "Extra brightness in the middle of the object", 0, 2, 0.6, 0)
+VFX_CH(EM, pattern, "Pattern", "The kind of energy pattern", 0, "Swirl|Cells|Streaks")
+
+// ---------------------------------------------------------------- 12 Hologram / Energy
+VFX_FAMILY(HG)
+VFX_C(HG, color, "Hologram colour", "Main colour of the projection", 0.15, 0.80, 1.0, 1)
+VFX_C(HG, edgeColor, "Edge colour", "Colour of the glowing rim", 0.70, 1.0, 1.0, 1)
+VFX_F(HG, intensity, "Glow intensity", "Brightness (above 1 is HDR and blooms)", 0, 6, 2.0, 0)
+VFX_F(HG, transparency, "Body opacity", "How solid the middle of the hologram is", 0, 1, 0.5, 0)
+VFX_F(HG, fresnel, "Fresnel", "How much the rim glows; higher keeps it thin", 0.2, 8, 2.0, 0)
+VFX_F(HG, scanDensity, "Scanline density", "Lines per unit of height", 4, 160, 46, 0)
+VFX_F(HG, scanWidth, "Scanline width", "How thick each line is", 0.05, 1, 0.4, 0)
+VFX_F(HG, scanSpeed, "Scanline speed", "How fast the lines move up (negative moves down)", -4, 4, 1.0, 0)
+VFX_F(HG, scanIntensity, "Scanline intensity", "Brightness of the lines", 0, 3, 1.1, 0)
+VFX_F(HG, sweep, "Scan bar", "Brightness of the bar that sweeps up the object", 0, 3, 1.0, 0)
+VFX_F(HG, gridScale, "Pattern scale", "Size of the grid pattern", 1, 40, 10, 0)
+VFX_F(HG, gridStrength, "Pattern strength", "How visible the grid is", 0, 1, 0.3, 0)
+VFX_F(HG, glitch, "Glitch amount", "Share of the object that jumps sideways", 0, 1, 0.15, 0)
+VFX_F(HG, glitchFreq, "Glitch frequency", "How often it glitches", 0.1, 10, 1.6, 1)
+VFX_F(HG, heightFade, "Projection fade", "Fades the hologram out toward the top", 0, 1, 0.5, 0)
+
+// ---------------------------------------------------------------- 14 Force field / Shield
+VFX_FAMILY(FF)
+VFX_C(FF, color, "Shield colour", "Main colour of the shield", 0.45, 0.20, 1.0, 1)
+VFX_C(FF, edgeColor, "Edge colour", "Colour of the glowing rim", 0.90, 0.60, 1.0, 1)
+VFX_C(FF, hitColor, "Impact colour", "Colour of an impact", 1.0, 0.90, 0.60, 1)
+VFX_F(FF, intensity, "Glow intensity", "Brightness (above 1 is HDR and blooms)", 0, 8, 2.4, 0)
+VFX_F(FF, fresnel, "Fresnel", "How much the rim glows; higher keeps it thin", 0.3, 8, 2.4, 0)
+VFX_F(FF, edgeGlow, "Edge glow", "Brightness of the rim", 0, 4, 1.4, 0)
+VFX_F(FF, transparency, "Body opacity", "How solid the middle of the shield is", 0, 1, 0.25, 0)
+VFX_F(FF, hexScale, "Pattern scale", "Size of the hexagons", 1, 30, 7, 0)
+VFX_F(FF, hexStrength, "Pattern strength", "How visible the hexagons are", 0, 1, 0.65, 0)
+VFX_F(FF, hexScroll, "Pattern scroll", "How fast the pattern moves", -2, 2, 0.15, 0)
+VFX_F(FF, distortion, "Distortion", "Waviness of the surface", 0, 1, 0.15, 0)
+VFX_F(FF, ripple, "Surface ripples", "Slow ripples over the shield", 0, 1, 0.5, 0)
+VFX_F(FF, hitRadius, "Impact radius", "How wide an impact spreads", 0.05, 2, 0.55, 0)
+VFX_F(FF, hitIntensity, "Impact intensity", "Brightness of an impact", 0, 6, 3.0, 0)
+VFX_F(FF, hitDecay, "Impact decay", "How quickly an impact fades", 0.1, 8, 1.8, 0)
+VFX_F(FF, autoHit, "Test impact every (s)", "The preview and the demo scene repeat an impact this often; 0 is off", 0, 8, 3, 1)
+
+// ---------------------------------------------------------------- 15 Particle / VFX material
+VFX_FAMILY(PV)
+VFX_C(PV, color1, "Colour at birth", "Colour when the particle appears", 1.0, 0.95, 0.55, 1)
+VFX_C(PV, color2, "Colour in the middle", "Colour half way through its life", 1.0, 0.45, 0.05, 1)
+VFX_C(PV, color3, "Colour at death", "Colour as it ends", 0.25, 0.05, 0.0, 1)
+VFX_F(PV, intensity, "Glow intensity", "Brightness (above 1 is HDR and blooms)", 0, 8, 2.0, 0)
+VFX_F(PV, noiseScale, "Noise scale", "Size of the turbulence", 0.5, 12, 3, 0)
+VFX_F(PV, turbulence, "Turbulence", "How much the shape is churned", 0, 2, 0.8, 0)
+VFX_F(PV, stretch, "Stretch", "Pulls the pattern up the particle", 0.2, 4, 1.5, 0)
+VFX_F(PV, softness, "Edge softness", "Soft or crisp particle edge", 0, 1, 0.5, 0)
+VFX_F(PV, fadeIn, "Fade in", "Share of its life spent appearing", 0, 1, 0.15, 0)
+VFX_F(PV, fadeOut, "Fade out", "Share of its life spent fading", 0, 1, 0.5, 0)
+VFX_CH(PV, pattern, "Pattern", "The kind of particle", 0, "Fire|Smoke|Sparks|Swirl|Dust")
+
+// ---------------------------------------------------------------- 16 UI / Sprite
+VFX_FAMILY(UI)
+VFX_C(UI, color1, "Main colour", "The top colour of the gradient", 1.0, 0.88, 0.18, 1)
+VFX_C(UI, color2, "Second colour", "The bottom colour of the gradient", 1.0, 0.52, 0.04, 1)
+VFX_C(UI, glowColor, "Glow colour", "Colour of the glow and the shine", 1.0, 0.95, 0.55, 1)
+VFX_C(UI, outlineColor, "Outline colour", "Colour of the outline", 1.0, 0.97, 0.80, 1)
+VFX_F(UI, glowIntensity, "Glow intensity", "Glow round the shape", 0, 4, 1.4, 0)
+VFX_F(UI, shineIntensity, "Shine intensity", "Brightness of the sweeping shine", 0, 4, 1.4, 0)
+VFX_F(UI, shineWidth, "Shine width", "How wide the shine band is", 0.02, 1, 0.22, 0)
+VFX_F(UI, shineAngle, "Shine angle", "Angle of the shine band, degrees", 0, 180, 35, 0)
+VFX_F(UI, shineSpeed, "Shine speed", "How fast the shine sweeps", 0, 4, 1.0, 0)
+VFX_F(UI, shineInterval, "Shine pause (s)", "Pause between sweeps", 0, 4, 1.2, 0)
+VFX_F(UI, outlineWidth, "Outline width", "Width of the outline", 0, 0.2, 0.03, 0)
+VFX_F(UI, scrollU, "Scroll across", "Scrolls the colours sideways", -2, 2, 0, 1)
+VFX_F(UI, scrollV, "Scroll down", "Scrolls the colours up or down", -2, 2, 0, 1)
+VFX_F(UI, sparkle, "Sparkles", "Rotating sparkle pattern", 0, 1, 0.3, 0)
+VFX_F(UI, frameWidth, "Frame width", "Width of the border (Border mode)", 0.01, 0.3, 0.08, 0)
+VFX_F(UI, frameRadius, "Frame roundness", "Corner radius (Border mode)", 0, 0.5, 0.18, 0)
+VFX_CH(UI, frameMode, "Shape from", "Use the sprite's own shape, or draw a rounded border", 0, "Sprite|Border")
+
+// ---------------------------------------------------------------- 18 Ice / Snow
+VFX_FAMILY(IC)
+VFX_C(IC, iceColor, "Ice colour", "Colour of the ice", 0.45, 0.80, 1.0, 1)
+VFX_C(IC, deepColor, "Deep colour", "Colour deep inside the ice", 0.04, 0.22, 0.60, 1)
+VFX_C(IC, frostColor, "Frost colour", "Colour of frost and snow", 0.92, 0.97, 1.0, 1)
+VFX_F(IC, smoothness, "Smoothness", "Glossy highlights", 0, 1, 0.85, 0)
+VFX_F(IC, refraction, "Refraction (look)", "Bends the inner pattern; a look, not true refraction", 0, 1, 0.4, 0)
+VFX_F(IC, transparency, "Body opacity", "How solid the ice is", 0, 1, 0.65, 0)
+VFX_F(IC, frost, "Frost amount", "Frost covering the surface", 0, 1, 0.35, 0)
+VFX_F(IC, frostScale, "Frost scale", "Size of the frost pattern", 1, 20, 6, 0)
+VFX_F(IC, cracks, "Crack strength", "How visible the cracks are", 0, 1, 0.5, 0)
+VFX_F(IC, crackScale, "Crack density", "Number of cracks", 1, 20, 6, 0)
+VFX_F(IC, snow, "Snow", "Snow collected on upward faces", 0, 1, 0, 0)
+VFX_F(IC, crystalScale, "Crystal facets", "Size of the facets inside the ice", 1, 20, 4, 0)
+VFX_F(IC, edgeHighlight, "Edge highlight", "Bright edges", 0, 4, 1.4, 0)
+VFX_F(IC, shimmer, "Shimmer", "Moving highlights", 0, 2, 1.0, 0)
+VFX_F(IC, melt, "Melt", "0 is frozen, 1 is melted away", 0, 1, 0, 0)

@@ -243,6 +243,7 @@ ApplicationWindow {
                 VButton { text: "From a reference…"; tip: "Rebuild an effect from a picture, a GIF or a short video of it (Ctrl/Cmd+R)"; onClicked: reference.open = true }
                 VButton { text: "New 2D"; tip: "Start a new flat effect"; onClicked: root.guard(function() { app.newEffect(false) }) }
                 VButton { text: "New 3D"; tip: "Start a new effect with depth"; onClicked: root.guard(function() { app.newEffect(true) }) }
+                VButton { text: "Shader"; tip: "Make a game shader: pick a look, adjust it, animate it, and export a material to Unity"; onClicked: shaderStudio.open = true }
                 VButton { text: "Open…"; tip: "Open a .vfx file"; onClicked: root.guard(function() { openDialog.open() }) }
                 VButton { text: "Save"; tip: "Save this effect"; enabled: app.dirty || !app.hasFile; onClicked: root.saveThen(null) }
                 VButton { text: "Save As…"; tip: "Save a copy under a new name"; onClicked: root.saveAsThen(null) }
@@ -1598,6 +1599,14 @@ ApplicationWindow {
         anchors.fill: parent
         visible: reference.open
         onCloseRequested: reference.open = false
+    }
+
+    // ------------------------------------------------------ shaders
+
+    ShaderWorkspace {
+        anchors.fill: parent
+        visible: shaderStudio.open
+        onCloseRequested: shaderStudio.open = false
     }
 
     // --------------------------------------------- "save your changes?"

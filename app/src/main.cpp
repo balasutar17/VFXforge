@@ -32,6 +32,7 @@
 #include "AppController.h"
 #include "PreviewItems.h"
 #include "ReferenceController.h"
+#include "ShaderStudio.h"
 #include "ViewportItem.h"
 
 #ifndef VFX_APP_VERSION
@@ -140,8 +141,13 @@ int main(int argc, char* argv[]) {
     qmlRegisterUncreatableType<ReferenceController>("VfxForge", 1, 0, "ReferenceController",
                                                     QStringLiteral("The app provides this."));
 
+    qmlRegisterType<ShaderPreviewItem>("VfxForge", 1, 0, "ShaderPreview");
+    qmlRegisterType<ShaderThumb>("VfxForge", 1, 0, "ShaderThumb");
+    qmlRegisterUncreatableType<ShaderStudio>("VfxForge", 1, 0, "ShaderStudio", QStringLiteral("The app provides this."));
+
     AppController controller;
     ReferenceController referenceController(&controller);
+    ShaderStudio shaderStudio;
     QQmlPropertyMap theme;
     fillTheme(theme);
 
@@ -154,6 +160,7 @@ int main(int argc, char* argv[]) {
                      });
     engine.rootContext()->setContextProperty(QStringLiteral("app"), &controller);
     engine.rootContext()->setContextProperty(QStringLiteral("reference"), &referenceController);
+    engine.rootContext()->setContextProperty(QStringLiteral("shaderStudio"), &shaderStudio);
     engine.rootContext()->setContextProperty(QStringLiteral("theme"), &theme);
     // A fresh start opens on the library. Opening a file goes straight to it.
     engine.rootContext()->setContextProperty(QStringLiteral("showLibraryAtStart"),
@@ -433,7 +440,40 @@ int main(int argc, char* argv[]) {
                             selfTest.result = 1;
                         }
                         controller.setPreviewBackground(QStringLiteral("dark"));
-                        finish();
+                        // The Shader tab: a preset, a keyframe, the picture, a save and open, and the Unity export.
+                        shaderStudio.setOpen(true);
+                        shaderStudio.loadPreset(QStringLiteral("hologram"), QStringLiteral("hologram-globe"));
+                        shaderStudio.setPlayhead(1.0);
+                        shaderStudio.toggleKey(shaderStudio.controls(QStringLiteral("intensity"), true).value(0).toMap().value(QStringLiteral("index")).toInt());
+                        QTimer::singleShot(1500, &application, [&, window, software, finish]() {
+                            QTextStream out(&selfTest.report);
+                            const int lit = capture(window, selfTest, QStringLiteral("-shader"), QStringLiteral("the Shader tab"));
+                            if (!software && lit < 500) {
+                                out << "FAIL: the Shader tab shows nothing\n";
+                                selfTest.result = 1;
+                            }
+                            const QString scratch = QDir::tempPath() + QStringLiteral("/vfxforge-selftest-shader");
+                            QDir(scratch).removeRecursively();
+                            QDir().mkpath(scratch + QStringLiteral("/Unity Project/Assets"));
+                            QDir().mkpath(scratch + QStringLiteral("/Unity Project/ProjectSettings"));
+                            const bool saved = shaderStudio.saveAs(QUrl::fromLocalFile(scratch + QStringLiteral("/globe")));
+                            const bool opened = shaderStudio.openFile(QUrl::fromLocalFile(scratch + QStringLiteral("/globe.vfxshader")));
+                            const bool exported = shaderStudio.exportToUnity(QUrl::fromLocalFile(scratch + QStringLiteral("/Unity Project/Assets")));
+                            const QString folder = scratch + QStringLiteral("/Unity Project/Assets/VFXForge/Shaders/Hologram_Globe/");
+                            const bool files = QFile::exists(folder + QStringLiteral("Hologram_Globe.shader")) &&
+                                               QFile::exists(folder + QStringLiteral("Hologram_Globe.mat")) &&
+                                               QFile::exists(folder + QStringLiteral("Hologram_Globe.anim.json")) &&
+                                               QFile::exists(scratch + QStringLiteral("/Unity Project/Assets/VFXForge/Runtime/VFXForgeShaderAnimator.cs"));
+                            out << "shader tab: save " << (saved ? "yes" : "NO") << ", open " << (opened ? "yes" : "NO") << ", export "
+                                << (exported && files ? "yes" : "NO") << ", preview " << qRound(shaderStudio.renderMs()) << " ms\n";
+                            if (!saved || !opened || !exported || !files) {
+                                out << "FAIL: the Shader tab's save, open or export did not work: " << shaderStudio.status() << "\n";
+                                selfTest.result = 1;
+                            }
+                            QDir(scratch).removeRecursively();
+                            shaderStudio.setOpen(false);
+                            finish();
+                        });
                     });
                 });
             });

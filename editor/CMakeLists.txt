@@ -7,6 +7,7 @@
 # a thin skin over this.
 include(${CMAKE_CURRENT_SOURCE_DIR}/EmbedUnityFiles.cmake)
 vfx_embed_unity_files(${PROJECT_SOURCE_DIR}/unity ${CMAKE_CURRENT_BINARY_DIR}/UnityFiles.cpp)
+vfx_embed_text(${CMAKE_CURRENT_SOURCE_DIR}/shaders/ShaderCore.hlsli ${CMAKE_CURRENT_BINARY_DIR}/ShaderCoreText.cpp shaderCoreSource)
 include(${CMAKE_CURRENT_SOURCE_DIR}/EmbedUnrealFiles.cmake)
 vfx_embed_unreal_files(${PROJECT_SOURCE_DIR}/unreal ${CMAKE_CURRENT_BINARY_DIR}/UnrealFiles.cpp)
 
@@ -41,6 +42,10 @@ add_library(vfx_editor STATIC
     src/SoundLibrary.cpp
     src/SpriteMesh.cpp
     src/UnityExport.cpp
+    src/ShaderLib.cpp
+    src/ShaderPreview.cpp
+    src/ShaderExport.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/ShaderCoreText.cpp
     src/UserLibrary.cpp
     src/UnrealExport.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/UnityFiles.cpp

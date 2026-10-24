@@ -17,6 +17,8 @@ qt_add_executable(vfxforge WIN32 MACOSX_BUNDLE
     src/PreviewItems.h
     src/ReferenceController.cpp
     src/ReferenceController.h
+    src/ShaderStudio.cpp
+    src/ShaderStudio.h
     src/SpriteNode.cpp
     src/SpriteNode.h
     src/ViewportItem.cpp
@@ -63,6 +65,7 @@ qt_add_resources(vfxforge "vfxforge_qml"
         qml/ExportPanel.qml
         qml/ControlSound.qml
         qml/ReferenceWorkspace.qml
+        qml/ShaderWorkspace.qml
         qml/Gizmo.qml
         samples/toon-flame-4x2.png
         samples/reference-flash.png

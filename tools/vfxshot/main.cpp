@@ -1,5 +1,6 @@
 // vfxshot: pictures of effects, with no window and no graphics card.
 #include <cstdio>
+#include <filesystem>
 #include <cstdlib>
 #include <cstring>
 #include <optional>
@@ -13,6 +14,8 @@
 #include "vfx/editor/Model.h"
 #include "vfx/editor/Picture.h"
 #include "vfx/editor/Presets.h"
+#include "vfx/editor/ShaderExport.h"
+#include "vfx/editor/ShaderPreview.h"
 #include "vfx/editor/ShapeLibrary.h"
 #include "vfx/editor/Shapes.h"
 #include "vfx/editor/SpriteMesh.h"
@@ -43,6 +46,10 @@ const char* kUsage =
     "  vfxshot edits <out.png> [--cell N]\n"
     "      Draw every shape that has settings of its own, one to a row: as\n"
     "      drawn, then at each end of its count, thickness, pointiness, roundness.\n"
+    "  vfxshot shaderpreview <out.png> [--family id] [--times a,b,c] [--cell N] [--shape name] [--quality 0-3]\n"
+    "      Draw every preset of a shader family (all families when none is named), one row each.\n"
+    "  vfxshot shaderexport <folder> [--family id] [--preset id]\n"
+    "      Write the Unity files of shader presets (every one when none is named) under <folder>/Assets/VFXForge.\n"
     "  vfxshot file <effect.vfx> <out.png> [--time s] [--size WxH] [--view x,y,height]\n"
     "      Draw a saved effect at one moment.\n";
 
@@ -389,6 +396,87 @@ int main(int argc, char** argv) {
                         shapeInfo(wanted[n]).category);
         }
         return save(args[0], sheet);
+    }
+
+    if (command == "shaderpreview" && !args.empty()) {
+        namespace sh = vfx::editor::shader;
+        const std::string familyId = option(args, "--family", "");
+        const int cell = std::atoi(option(args, "--cell", "200").c_str());
+        const std::string shapeName = option(args, "--shape", "");
+        const int quality = std::atoi(option(args, "--quality", "1").c_str());
+        std::vector<double> times;
+        {
+            std::string list = option(args, "--times", "0.5,1.5,2.5");
+            std::size_t at = 0;
+            while (at < list.size()) {
+                const std::size_t comma = list.find(',', at);
+                times.push_back(std::atof(list.substr(at, comma == std::string::npos ? std::string::npos : comma - at).c_str()));
+                if (comma == std::string::npos) break;
+                at = comma + 1;
+            }
+        }
+        if (cell < 32 || cell > 1024 || times.empty()) {
+            std::fputs(kUsage, stderr);
+            return 2;
+        }
+        std::vector<sh::Settings> rows;
+        for (const sh::Family& family : sh::families()) {
+            if (!familyId.empty() && family.id != familyId) continue;
+            for (const sh::Preset& preset : family.presets) {
+                sh::Settings st = sh::presetSettings(family, preset);
+                st.quality = quality;
+                rows.push_back(st);
+            }
+        }
+        if (rows.empty()) {
+            std::fprintf(stderr, "no such shader family\n");
+            return 1;
+        }
+        Picture sheet;
+        sheet.width = static_cast<int>(times.size()) * (cell + 4) + 4;
+        sheet.height = static_cast<int>(rows.size()) * (cell + 4) + 4;
+        sheet.rgba.assign(static_cast<std::size_t>(sheet.width) * static_cast<std::size_t>(sheet.height) * 4u, 60);
+        for (std::size_t r = 0; r < rows.size(); ++r) {
+            for (std::size_t c = 0; c < times.size(); ++c) {
+                sh::PreviewOptions opt;
+                opt.width = opt.height = cell;
+                opt.time = times[c];
+                opt.shape = shapeName;
+                paste(sheet, sh::renderPreview(rows[r], opt), 4 + static_cast<int>(c) * (cell + 4), 4 + static_cast<int>(r) * (cell + 4));
+            }
+            std::printf("%-12s %s\n", rows[r].family.c_str(), rows[r].preset.c_str());
+        }
+        return save(args[0], sheet);
+    }
+
+    if (command == "shaderexport" && !args.empty()) {
+        namespace sh = vfx::editor::shader;
+        const std::string familyId = option(args, "--family", "");
+        const std::string presetId = option(args, "--preset", "");
+        int count = 0;
+        for (const sh::Family& family : sh::families()) {
+            if (!familyId.empty() && family.id != familyId) continue;
+            for (const sh::Preset& preset : family.presets) {
+                if (!presetId.empty() && preset.id != presetId) continue;
+                sh::Settings st = sh::presetSettings(family, preset);
+                auto made = sh::exportShader(st);
+                if (!made) {
+                    std::fprintf(stderr, "%s\n", made.error().message.c_str());
+                    return 1;
+                }
+                for (const auto& f : made.value().files) {
+                    const std::filesystem::path path = std::filesystem::path(args[0]) / "Assets" / "VFXForge" / f.path;
+                    std::filesystem::create_directories(path.parent_path());
+                    FILE* out = std::fopen(path.string().c_str(), "wb");
+                    if (!out) return 1;
+                    std::fwrite(f.text.data(), 1, f.text.size(), out);
+                    std::fclose(out);
+                }
+                ++count;
+            }
+        }
+        std::printf("exported %d shaders\n", count);
+        return count > 0 ? 0 : 1;
     }
 
     if (command == "edits" && !args.empty()) {
