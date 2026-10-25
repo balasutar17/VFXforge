@@ -1289,14 +1289,24 @@ bool ShaderStudio::exportToUnity(const QUrl& folder) {
         say(QStringLiteral("That folder is not inside a Unity project. Choose the project's folder: the one that holds Assets and ProjectSettings."), true);
         return false;
     }
-    auto made = sh::exportShader(s_);
+    const std::filesystem::path root = project / "Assets" / "VFXForge";
+    // If the project already has the Shader Animator script, its own GUID is the one to point the prefab at.
+    const std::filesystem::path animatorMeta = root / "Runtime" / "VFXForgeShaderAnimator.cs.meta";
+    std::string animatorGuid;
+    if (auto old = vfx::readFile(animatorMeta)) {
+        const std::string& t = old.value();
+        const auto at = t.find("guid: ");
+        if (at != std::string::npos && t.size() >= at + 6 + 32) animatorGuid = t.substr(at + 6, 32);
+    }
+    auto made = sh::exportShader(s_, animatorGuid);
     if (!made) {
         say(text(made.error().message), true);
         return false;
     }
-    const std::filesystem::path root = project / "Assets" / "VFXForge";
     for (const vfx::editor::UnityFile& f : made.value().files) {
         const std::filesystem::path target = root / vfx::pathFromUtf8(f.path);
+        std::error_code exists;
+        if (f.path == "Runtime/VFXForgeShaderAnimator.cs.meta" && std::filesystem::exists(target, exists)) continue;  // keep the project's own GUID
         std::error_code ec;
         std::filesystem::create_directories(target.parent_path(), ec);
         const auto written = vfx::writeFileAtomic(target, f.text);
@@ -1309,7 +1319,7 @@ bool ShaderStudio::exportToUnity(const QUrl& folder) {
     QSettings().setValue(QStringLiteral("export/unityProject"), projectPath);
     QStringList lines;
     lines << QStringLiteral("Written to Assets/VFXForge/%1 in %2.").arg(text(made.value().folder), QFileInfo(projectPath).fileName());
-    lines << QStringLiteral("Use %1.mat on a mesh, Particle System or UI Image. Add the Shader Animator component for the timeline and for gameplay events.").arg(text(made.value().name));
+    lines << QStringLiteral("Drag %1.prefab into a scene, or use %1.mat on a mesh, Particle System or UI Image. The Shader Animator plays the timeline and gameplay events.").arg(text(made.value().name));
     lines << QStringLiteral("Not opened in Unity by VFX Forge: if Unity shows a shader error, the message is what is needed to fix it.");
     for (const std::string& n : made.value().notes) lines << text(n);
     setReport(QStringLiteral("Exported to Unity"), lines);

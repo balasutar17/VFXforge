@@ -606,6 +606,23 @@ Rectangle {
                             }
                         }
                     }
+
+                    Heading { text: "SAVE TO LIBRARY" }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        SearchBox {
+                            id: layerPresetName
+                            Layout.fillWidth: true
+                            placeholder: "Name for this shader"
+                        }
+                        VButton {
+                            text: "Save"
+                            tip: "Keep this shader in the library under My presets (Library tab) to open or reuse later"
+                            enabled: layerPresetName.text.trim().length > 0
+                            onClicked: { shaderStudio.saveUserPreset(layerPresetName.text); layerPresetName.text = "" }
+                        }
+                    }
                 }
             }
 

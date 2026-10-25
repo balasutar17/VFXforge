@@ -684,3 +684,47 @@ TEST_CASE("layers can be added, removed, duplicated, moved and named", "[shader]
         CHECK(layerName(back.value().settings, 0) == "Ring");
     }
 }
+
+TEST_CASE("a mesh shader exports a prefab that points at its own material and timeline", "[shader][export]") {
+    using namespace vfx::editor::shader;
+    const Family* f = findFamily("layers");
+    REQUIRE(f != nullptr);
+    Settings s = presetSettings(*f, f->presets.front());
+    s.name = "My Orb";
+    auto plain = exportShader(s);
+    REQUIRE(plain.ok());
+    auto find = [](const vfx::editor::shader::ShaderExport& e, const std::string& path) -> const vfx::editor::UnityFile* {
+        for (const auto& file : e.files) if (file.path == path) return &file;
+        return nullptr;
+    };
+    const auto* prefab = find(plain.value(), "Shaders/My_Orb/My_Orb.prefab");
+    REQUIRE(prefab != nullptr);
+    CHECK(prefab->text.find("guid: " + assetGuid("My_Orb", "mat")) != std::string::npos);
+    CHECK(prefab->text.find("MonoBehaviour") == std::string::npos);  // no timeline, no animator
+    const auto* matMeta = find(plain.value(), "Shaders/My_Orb/My_Orb.mat.meta");
+    REQUIRE(matMeta != nullptr);
+    CHECK(matMeta->text.find("guid: " + assetGuid("My_Orb", "mat")) != std::string::npos);
+    CHECK(find(plain.value(), "Shaders/My_Orb/My_Orb.prefab.meta") != nullptr);
+
+    // With a timeline the prefab carries the animator and the .anim.json's GUID.
+    Track t;
+    t.param = "brightness";
+    t.keys = {{0.0, 1.0f, Easing::Linear}, {1.0, 2.0f, Easing::Linear}};
+    s.animation.tracks.push_back(t);
+    auto timed = exportShader(s, "0123456789abcdef0123456789abcdef");
+    REQUIRE(timed.ok());
+    const auto* p2 = find(timed.value(), "Shaders/My_Orb/My_Orb.prefab");
+    REQUIRE(p2 != nullptr);
+    CHECK(p2->text.find("MonoBehaviour") != std::string::npos);
+    CHECK(p2->text.find("guid: 0123456789abcdef0123456789abcdef") != std::string::npos);
+    CHECK(p2->text.find("guid: " + assetGuid("My_Orb", "anim")) != std::string::npos);
+
+    // A UI shader goes on an Image: no prefab.
+    const Family* ui = nullptr;
+    for (const Family& fam : families()) if (fam.isUi) { ui = &fam; break; }
+    if (ui) {
+        auto u = exportShader(presetSettings(*ui, ui->presets.front()));
+        REQUIRE(u.ok());
+        for (const auto& file : u.value().files) CHECK(file.path.find(".prefab") == std::string::npos);
+    }
+}

@@ -47,6 +47,18 @@ std::string generateAnimationJson(const Settings& settings);
 // A stable 32-digit GUID made from the shader's name.
 std::string shaderGuid(const std::string& name);
 
-Result<ShaderExport> exportShader(const Settings& settings);
+// A stable GUID for one of the shader's other assets ("mat", "prefab", "anim"), made from its name.
+std::string assetGuid(const std::string& name, const std::string& kind);
+// The GUID fixed for the Shader Animator script's .meta, which the prefab points at.
+std::string animatorScriptGuid();
+
+// The Unity prefab text: an object with the material on a mesh, and, when the shader has a
+// timeline, the Shader Animator already pointing at its .anim.json. Empty for UI and
+// particle shaders, which belong on an Image or a Particle System, not a mesh.
+std::string generatePrefab(const Settings& settings, const std::string& animatorGuid);
+
+// `animatorGuid`: the GUID of the Shader Animator script when the project already has it
+// (read from its .meta); empty uses the fixed one this export also writes a .meta for.
+Result<ShaderExport> exportShader(const Settings& settings, const std::string& animatorGuid = {});
 
 }  // namespace vfx::editor::shader

@@ -288,7 +288,51 @@ std::string generateAnimationJson(const Settings& s) {
     return j.dump(2) + "\n";
 }
 
-Result<ShaderExport> exportShader(const Settings& s) {
+std::string assetGuid(const std::string& name, const std::string& kind) {
+    return hex16(fnv("vfxforge." + kind + ":" + name, 1469598103934665603ull)) + hex16(fnv(name + ":" + kind + ":guid", 7809847782465536322ull));
+}
+
+std::string animatorScriptGuid() { return "5f0c2d8e3b7a4c19a6d1e94b7c3a58f2"; }
+
+std::string generatePrefab(const Settings& s, const std::string& animatorGuid) {
+    const Family* family = findFamily(s.family);
+    if (!family || family->isUi || family->isParticle) return {};
+    const std::string name = safeName(s.name);
+    const bool sphere = family->id == "shield" || family->id == "emissive" || family->id == "hologram" || family->id == "ice";
+    const bool timeline = !s.animation.tracks.empty();
+    const std::string head = "  m_ObjectHideFlags: 0\n  m_CorrespondingSourceObject: {fileID: 0}\n  m_PrefabInstance: {fileID: 0}\n  m_PrefabAsset: {fileID: 0}\n";
+    std::ostringstream o;
+    o.imbue(std::locale::classic());
+    o << "%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n"
+      << "--- !u!1 &100000\nGameObject:\n" << head
+      << "  serializedVersion: 6\n  m_Component:\n  - component: {fileID: 400000}\n  - component: {fileID: 3300000}\n  - component: {fileID: 2300000}\n";
+    if (timeline) o << "  - component: {fileID: 11400000}\n";
+    o << "  m_Layer: 0\n  m_Name: " << name << "\n  m_TagString: Untagged\n  m_Icon: {fileID: 0}\n  m_NavMeshLayer: 0\n  m_StaticEditorFlags: 0\n  m_IsActive: 1\n"
+      << "--- !u!4 &400000\nTransform:\n" << head
+      << "  m_GameObject: {fileID: 100000}\n  serializedVersion: 2\n  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}\n  m_LocalPosition: {x: 0, y: 0, z: 0}\n"
+      << "  m_LocalScale: {x: 1, y: 1, z: 1}\n  m_Children: []\n  m_Father: {fileID: 0}\n  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}\n"
+      << "--- !u!33 &3300000\nMeshFilter:\n" << head
+      << "  m_GameObject: {fileID: 100000}\n  m_Mesh: {fileID: " << (sphere ? 10207 : 10210) << ", guid: 0000000000000000e000000000000000, type: 0}\n"
+      << "--- !u!23 &2300000\nMeshRenderer:\n" << head
+      << "  m_GameObject: {fileID: 100000}\n  m_Enabled: 1\n  m_CastShadows: 0\n  m_ReceiveShadows: 0\n  m_DynamicOccludee: 1\n  m_MotionVectors: 1\n"
+      << "  m_LightProbeUsage: 0\n  m_ReflectionProbeUsage: 0\n  m_RenderingLayerMask: 1\n  m_RendererPriority: 0\n"
+      << "  m_Materials:\n  - {fileID: 2100000, guid: " << assetGuid(name, "mat") << ", type: 2}\n"
+      << "  m_StaticBatchInfo:\n    firstSubMesh: 0\n    subMeshCount: 0\n  m_StaticBatchRoot: {fileID: 0}\n  m_ProbeAnchor: {fileID: 0}\n"
+      << "  m_LightProbeVolumeOverride: {fileID: 0}\n  m_ScaleInLightmap: 1\n  m_ReceiveGI: 1\n  m_PreserveUVs: 0\n  m_IgnoreNormalsForChartDetection: 0\n"
+      << "  m_ImportantGI: 0\n  m_StitchLightmapSeams: 1\n  m_SelectedEditorRenderState: 3\n  m_MinimumChartSize: 4\n  m_AutoUVMaxDistance: 0.5\n"
+      << "  m_AutoUVMaxAngle: 89\n  m_LightmapParameters: {fileID: 0}\n  m_SortingLayerID: 0\n  m_SortingLayer: 0\n  m_SortingOrder: 0\n  serializedVersion: 2\n";
+    if (timeline) {
+        o << "--- !u!114 &11400000\nMonoBehaviour:\n" << head
+          << "  m_GameObject: {fileID: 100000}\n  m_Enabled: 1\n  m_EditorHideFlags: 0\n"
+          << "  m_Script: {fileID: 11500000, guid: " << (animatorGuid.empty() ? animatorScriptGuid() : animatorGuid) << ", type: 3}\n"
+          << "  m_Name: \n  m_EditorClassIdentifier: \n"
+          << "  animationFile: {fileID: 4900000, guid: " << assetGuid(name, "anim") << ", type: 3}\n"
+          << "  material: {fileID: 0}\n  playOnEnable: 1\n  playbackSpeed: 1\n  autoBounds: 1\n";
+    }
+    return o.str();
+}
+
+Result<ShaderExport> exportShader(const Settings& s, const std::string& animatorGuid) {
     const Family* family = findFamily(s.family);
     if (!family) return makeError("The shader family is not known, so nothing was exported.");
     if (s.values.size() != family->params.size()) {
@@ -303,11 +347,25 @@ Result<ShaderExport> exportShader(const Settings& s) {
     add(out.folder + out.name + ".shader.meta",
         "fileFormatVersion: 2\nguid: " + guid + "\nShaderImporter:\n  externalObjects: {}\n  defaultTextures: []\n  nonModifiableTextures: []\n  userData: \n  assetBundleName: \n  assetBundleVariant: \n");
     add(out.folder + out.name + ".mat", generateMaterial(s, guid));
+    add(out.folder + out.name + ".mat.meta",
+        "fileFormatVersion: 2\nguid: " + assetGuid(out.name, "mat") + "\nNativeFormatImporter:\n  externalObjects: {}\n  mainObjectFileID: 2100000\n  userData: \n  assetBundleName: \n  assetBundleVariant: \n");
     add(out.folder + out.name + ".vfxshader", writeSettings(s));
     add(out.folder + out.name + ".anim.json", generateAnimationJson(s));
+    add(out.folder + out.name + ".anim.json.meta",
+        "fileFormatVersion: 2\nguid: " + assetGuid(out.name, "anim") + "\nTextScriptImporter:\n  externalObjects: {}\n  userData: \n  assetBundleName: \n  assetBundleVariant: \n");
+    const std::string prefab = generatePrefab(s, animatorGuid);
+    if (!prefab.empty()) {
+        add(out.folder + out.name + ".prefab", prefab);
+        add(out.folder + out.name + ".prefab.meta",
+            "fileFormatVersion: 2\nguid: " + assetGuid(out.name, "prefab") + "\nPrefabImporter:\n  externalObjects: {}\n  userData: \n  assetBundleName: \n  assetBundleVariant: \n");
+    }
     for (const UnityFile& f : unityHelperSources()) {
         if (f.path == "Runtime/VFXForgeShaderAnimator.cs" || f.path == "Runtime/VFXForgeShaderDemoHits.cs" || f.path == "Editor/VFXForgeShaderDemo.cs") out.files.push_back(f);
     }
+    // The animator's .meta fixes the GUID the prefab points at. The app leaves an existing .meta alone
+    // (and passes its GUID in), so another export's references stay good.
+    add("Runtime/VFXForgeShaderAnimator.cs.meta",
+        "fileFormatVersion: 2\nguid: " + animatorScriptGuid() + "\nMonoImporter:\n  externalObjects: {}\n  serializedVersion: 2\n  defaultReferences: []\n  executionOrder: 0\n  icon: {instanceID: 0}\n  userData: \n  assetBundleName: \n  assetBundleVariant: \n");
 
     for (const std::string& n : validateSettings(s)) out.notes.push_back(n);
     for (const std::string& n : family->limits) out.notes.push_back(n);
@@ -328,6 +386,15 @@ Result<ShaderExport> exportShader(const Settings& s) {
     }
 
     std::ostringstream r;
+    if (prefab.empty()) {
+        out.notes.push_back(family->isUi ? "No prefab for a UI shader: put the material on a UI Image."
+                                          : "No prefab for a particle shader: put the material on a Particle System's renderer.");
+    } else {
+        out.notes.push_back("Prefab: drag " + out.name + ".prefab into the scene. It is a " + std::string(prefab.find("fileID: 10207") != std::string::npos ? "sphere" : "quad") +
+                            " with the material" + (s.animation.tracks.empty() ? "." : " and the Shader Animator set to the timeline.") +
+                            " It was written by hand, not by Unity, and has not been opened in Unity.");
+    }
+
     r << "VFX Forge shader: " << s.name << "\n"
       << "Family: " << family->name << "   Preset: " << s.preset << "   Quality profile: " << qualityProfiles()[static_cast<std::size_t>(std::clamp(s.quality, 0, 3))].name << "\n\n"
       << "SETUP\n"
