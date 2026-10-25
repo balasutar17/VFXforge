@@ -49,3 +49,14 @@ material (7), 16 UI / Sprite (7), 18 Ice / Snow (6).
   No cost estimate is shown because none is measured.
 * Bloom is the preview's own; in Unity add Bloom with HDR.
 * The exported demo is an editor menu that builds an object; no `.unity` scene file is written.
+
+## AI Shader Artist (first slice, 0.38.0)
+
+The **AI** tab (beside Library and Layers) lets you describe a layer shader in words.
+
+- **Generate Shader** builds a new layer shader; **Refine Selected** changes the selected layer only (unless you ask for more); **Animate** edits timeline keyframes only; **Explain** answers questions and changes nothing.
+- The model never edits the shader directly. It is shown the real shader state and the real parts list (elements, settings, limits) and answers with edit commands. Each command is checked against the shader library, clamped to the real ranges and applied to a copy; invalid commands are refused one by one and listed.
+- The copy is shown in the preview as a proposal. **Apply** keeps it (one Undo step), **Reject** drops it, **Regenerate** asks again.
+- Providers: Claude (Anthropic API) or any OpenAI-compatible server. The key is stored on this computer only, in the app settings (not encrypted), or read from `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`. Without a key nothing is sent.
+- Not built yet: variations, reference image/video analysis, optimize, diagnose and fix.
+- Tests: `[shader][ai]` covers command validation, layer/animation edits, save and export, and both providers' request and reply formats. A live model call has not been tested in CI.

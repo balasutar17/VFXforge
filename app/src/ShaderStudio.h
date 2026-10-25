@@ -158,6 +158,13 @@ public:
     // For the preview items.
     ShaderFrame frame() const;
 
+    // For the AI assistant: the open shader, a one-step change made from outside, and a proposed
+    // shader shown in the preview (not applied) until it is accepted or dropped.
+    const vfx::editor::shader::Settings& settings() const { return s_; }
+    void applyExternal(const vfx::editor::shader::Settings& next, const QString& label, int selectSlot);
+    void showProposal(const vfx::editor::shader::Settings& proposal);
+    void clearProposal();
+
     // ---- the library
     Q_INVOKABLE QStringList tags() const;
     Q_INVOKABLE QVariantList library(const QString& search, const QString& tag) const;
@@ -271,6 +278,7 @@ private:
     std::vector<vfx::editor::shader::Settings> undo_, redo_;
     bool checkpointed_ = false;
     std::unique_ptr<vfx::editor::shader::Settings> pinned_;
+    std::unique_ptr<vfx::editor::shader::Settings> proposal_;  // shown instead of the shader while the AI's proposal is looked at
     std::shared_ptr<const vfx::editor::Model> model_;  // modelBase_ turned by modelOrient_
     std::shared_ptr<const vfx::editor::Model> modelBase_;
     int modelOrient_ = 0;

@@ -1334,9 +1334,32 @@ bool ShaderStudio::exportToUnity(const QUrl& folder) {
     return true;
 }
 
+void ShaderStudio::applyExternal(const sh::Settings& next, const QString& label, int selectSlot) {
+    proposal_.reset();
+    pushUndo();
+    const bool structure = next.family != s_.family;
+    adopt(next, structure, false);
+    if (isLayers() && selectSlot >= 0 && selectSlot < sh::layerTop(s_)) setSelectedLayer(selectSlot);
+    emit playheadChanged();
+    say(label);
+}
+
+void ShaderStudio::showProposal(const sh::Settings& proposal) {
+    proposal_ = std::make_unique<sh::Settings>(proposal);
+    ++previewRevision_;
+    emit previewChanged();
+}
+
+void ShaderStudio::clearProposal() {
+    if (!proposal_) return;
+    proposal_.reset();
+    ++previewRevision_;
+    emit previewChanged();
+}
+
 ShaderFrame ShaderStudio::frame() const {
     ShaderFrame f;
-    f.settings = s_;
+    f.settings = proposal_ ? *proposal_ : s_;
     f.compare = compareOn_ && pinned_ != nullptr;
     if (pinned_) f.other = *pinned_;
     f.options.time = playhead_;

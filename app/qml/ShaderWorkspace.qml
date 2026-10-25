@@ -80,6 +80,8 @@ Rectangle {
         id: box
         property string text: ""
         property string placeholder: "Search"
+        property int echo: TextInput.Normal
+        onTextChanged: { if (field.text !== text) field.text = text }
         implicitHeight: 26
         radius: 4
         color: theme.field
@@ -97,6 +99,7 @@ Rectangle {
             font.pixelSize: theme.fontSize
             selectByMouse: true
             clip: true
+            echoMode: box.echo
             onTextChanged: box.text = text
         }
         Text {
@@ -208,6 +211,13 @@ Rectangle {
                             if (!shaderStudio.isLayers) shaderStudio.newLayerShader()
                             root.leftTab = "layers"
                         }
+                    }
+                    VButton {
+                        Layout.preferredWidth: 52
+                        text: "AI"
+                        checked: root.leftTab === "ai"
+                        tip: "Describe a shader in words and let an AI model build or change layers"
+                        onClicked: root.leftTab = "ai"
                     }
                 }
 
@@ -622,6 +632,253 @@ Rectangle {
                             enabled: layerPresetName.text.trim().length > 0
                             onClicked: { shaderStudio.saveUserPreset(layerPresetName.text); layerPresetName.text = "" }
                         }
+                    }
+                }
+
+                // ---- the AI Shader Artist
+                Flickable {
+                    id: aiFlick
+                    visible: root.leftTab === "ai"
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: leftTabs.bottom
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 10
+                    contentWidth: width
+                    contentHeight: aiColumn.implicitHeight
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    property bool setupOpen: !shaderAssistant.configured
+                    property int providerPick: shaderAssistant.provider
+
+                    ColumnLayout {
+                        id: aiColumn
+                        width: aiFlick.width
+                        spacing: 8
+
+                        Heading { text: "AI SHADER ARTIST" }
+                        Text {
+                            Layout.fillWidth: true
+                            text: shaderAssistant.configured
+                                  ? "Connected: " + shaderAssistant.model
+                                  : "Not connected. Nothing is sent until you add a key below."
+                            color: shaderAssistant.configured ? theme.dim : theme.warn
+                            font.pixelSize: theme.smallFontSize
+                            wrapMode: Text.WordWrap
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 96
+                            color: theme.field
+                            border.color: theme.line
+                            radius: 4
+                            ScrollView {
+                                anchors.fill: parent
+                                anchors.margins: 2
+                                TextArea {
+                                    id: aiPrompt
+                                    wrapMode: TextArea.Wrap
+                                    color: theme.text
+                                    font.pixelSize: theme.fontSize
+                                    placeholderText: "Describe the shader or the change, e.g. a golden energy ring with two counter-rotating bands"
+                                    placeholderTextColor: theme.faint
+                                    background: null
+                                    selectByMouse: true
+                                }
+                            }
+                        }
+
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: 6
+                            VButton {
+                                text: "Generate Shader"
+                                primary: true
+                                enabled: !shaderAssistant.busy && aiPrompt.text.trim().length > 0
+                                tip: "Build a new layer shader from the description. The open shader is replaced only if you apply the result, and Undo brings it back"
+                                onClicked: shaderAssistant.send(aiPrompt.text, "generate")
+                            }
+                            VButton {
+                                text: "Refine Selected"
+                                enabled: !shaderAssistant.busy && shaderStudio.isLayers && aiPrompt.text.trim().length > 0
+                                tip: shaderStudio.selectedLayer >= 0 ? "Change only the selected layer, unless you ask for more" : "Change the open layer shader. Select a layer to limit the change to it"
+                                onClicked: shaderAssistant.send(aiPrompt.text, "refine")
+                            }
+                            VButton {
+                                text: "Animate"
+                                enabled: !shaderAssistant.busy && shaderStudio.isLayers && aiPrompt.text.trim().length > 0
+                                tip: "Add or change keyframes on the timeline only"
+                                onClicked: shaderAssistant.send(aiPrompt.text, "animate")
+                            }
+                            VButton {
+                                text: "Explain"
+                                enabled: !shaderAssistant.busy && shaderStudio.isLayers
+                                tip: "Ask a question about this shader. Nothing is changed"
+                                onClicked: shaderAssistant.send(aiPrompt.text.trim().length > 0 ? aiPrompt.text : "Explain how this shader is built and what each layer does.", "explain")
+                            }
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: "Not built yet: variations, reference image or video, optimize, diagnose and fix."
+                            color: theme.faint
+                            font.pixelSize: theme.smallFontSize
+                            wrapMode: Text.WordWrap
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: shaderAssistant.busy
+                            Text {
+                                Layout.fillWidth: true
+                                text: shaderAssistant.message
+                                color: theme.dim
+                                font.pixelSize: theme.smallFontSize
+                                wrapMode: Text.WordWrap
+                            }
+                            VButton { text: "Cancel"; onClicked: shaderAssistant.cancel() }
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            visible: !shaderAssistant.busy && shaderAssistant.message.length > 0
+                            text: shaderAssistant.message
+                            color: shaderAssistant.messageIsError ? theme.warn : theme.dim
+                            font.pixelSize: theme.smallFontSize
+                            wrapMode: Text.WordWrap
+                        }
+
+                        // answer to Explain
+                        Text {
+                            Layout.fillWidth: true
+                            visible: shaderAssistant.answer.length > 0
+                            text: shaderAssistant.answer
+                            color: theme.text
+                            font.pixelSize: theme.smallFontSize
+                            wrapMode: Text.WordWrap
+                            textFormat: Text.PlainText
+                        }
+
+                        // the proposal
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            visible: shaderAssistant.hasProposal
+                            spacing: 6
+                            Heading { text: "PROPOSED CHANGES" }
+                            Text {
+                                Layout.fillWidth: true
+                                text: shaderAssistant.proposalSummary
+                                color: theme.text
+                                font.pixelSize: theme.fontSize
+                                font.bold: true
+                                wrapMode: Text.WordWrap
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                visible: shaderAssistant.proposalExplanation.length > 0
+                                text: shaderAssistant.proposalExplanation
+                                color: theme.dim
+                                font.pixelSize: theme.smallFontSize
+                                wrapMode: Text.WordWrap
+                            }
+                            Repeater {
+                                model: shaderAssistant.proposalChanges
+                                delegate: Text {
+                                    required property string modelData
+                                    Layout.fillWidth: true
+                                    text: "• " + modelData
+                                    color: theme.text
+                                    font.pixelSize: theme.smallFontSize
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                            Text {
+                                visible: shaderAssistant.proposalRefused.length > 0
+                                text: "Not applied:"
+                                color: theme.warn
+                                font.pixelSize: theme.smallFontSize
+                            }
+                            Repeater {
+                                model: shaderAssistant.proposalRefused
+                                delegate: Text {
+                                    required property string modelData
+                                    Layout.fillWidth: true
+                                    text: "• " + modelData
+                                    color: theme.warn
+                                    font.pixelSize: theme.smallFontSize
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "The preview shows the proposal. Your shader is unchanged until you apply it."
+                                color: theme.faint
+                                font.pixelSize: theme.smallFontSize
+                                wrapMode: Text.WordWrap
+                            }
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 6
+                                VButton { text: "Apply"; primary: true; tip: "Keep these changes. Undo takes them back in one step"; onClicked: shaderAssistant.apply() }
+                                VButton { text: "Reject"; tip: "Drop the proposal"; onClicked: shaderAssistant.reject() }
+                                VButton { text: "Regenerate"; enabled: !shaderAssistant.busy; tip: "Ask again with the same request"; onClicked: shaderAssistant.regenerate() }
+                            }
+                        }
+
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: 6
+                            VButton { text: "Undo"; enabled: shaderStudio.canUndo; onClicked: shaderStudio.undo() }
+                            VButton { text: "Redo"; enabled: shaderStudio.canRedo; onClicked: shaderStudio.redo() }
+                            VButton { text: "New conversation"; tip: "Forget the earlier requests in this chat"; onClicked: shaderAssistant.newConversation() }
+                        }
+
+                        // connection
+                        VButton {
+                            text: aiFlick.setupOpen ? "Hide connection" : "Connect…"
+                            onClicked: aiFlick.setupOpen = !aiFlick.setupOpen
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            visible: aiFlick.setupOpen
+                            spacing: 6
+                            Heading { text: "CONNECTION" }
+                            RowLayout {
+                                spacing: 6
+                                VButton { text: "Claude"; checked: aiFlick.providerPick === 0; onClicked: aiFlick.providerPick = 0 }
+                                VButton { text: "OpenAI-compatible"; checked: aiFlick.providerPick === 1; onClicked: aiFlick.providerPick = 1 }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: aiFlick.providerPick === 0
+                                      ? "Claude (Anthropic). Your key is sent only to api.anthropic.com."
+                                      : "OpenAI or any compatible server. Your key is sent only to the address you give."
+                                color: theme.faint
+                                font.pixelSize: theme.smallFontSize
+                                wrapMode: Text.WordWrap
+                            }
+                            SearchBox { id: aiModel; Layout.fillWidth: true; placeholder: aiFlick.providerPick === 0 ? "Model (default claude-sonnet-5-5)" : "Model (default gpt-4o)" }
+                            SearchBox { id: aiBase; Layout.fillWidth: true; visible: aiFlick.providerPick === 1; placeholder: "Server address (default https://api.openai.com/v1)" }
+                            SearchBox { id: aiKey; Layout.fillWidth: true; echo: TextInput.Password; placeholder: shaderAssistant.hasKey ? "A key is saved. Type a new one to replace it" : "API key" }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "The key is stored on this computer only, in the app's settings, not encrypted. It is never put in a shader file or an export."
+                                color: theme.faint
+                                font.pixelSize: theme.smallFontSize
+                                wrapMode: Text.WordWrap
+                            }
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 6
+                                VButton {
+                                    text: "Save connection"
+                                    primary: true
+                                    onClicked: { shaderAssistant.configure(aiFlick.providerPick, aiModel.text, aiBase.text, aiKey.text); aiKey.text = "" }
+                                }
+                                VButton { text: "Remove saved key"; enabled: shaderAssistant.hasKey; onClicked: shaderAssistant.forgetKey() }
+                            }
+                        }
+                        Item { Layout.preferredHeight: 12 }
                     }
                 }
             }

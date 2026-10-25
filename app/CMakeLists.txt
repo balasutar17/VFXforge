@@ -3,7 +3,7 @@
 # This is the only part of VFX Forge that needs Qt. It is built when
 # VFX_BUILD_APP is ON; the core, the editor layer and all their tests build
 # without it.
-find_package(Qt6 6.5 REQUIRED COMPONENTS Gui Qml Quick QuickControls2 ShaderTools Multimedia)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Gui Qml Quick QuickControls2 ShaderTools Multimedia Network)
 
 set(CMAKE_AUTOMOC ON)
 
@@ -17,6 +17,8 @@ qt_add_executable(vfxforge WIN32 MACOSX_BUNDLE
     src/PreviewItems.h
     src/ReferenceController.cpp
     src/ReferenceController.h
+    src/ShaderAssistant.cpp
+    src/ShaderAssistant.h
     src/ShaderStudio.cpp
     src/ShaderStudio.h
     src/SpriteNode.cpp
@@ -32,6 +34,7 @@ target_link_libraries(vfxforge PRIVATE
     Qt6::Quick
     Qt6::QuickControls2
     Qt6::Multimedia
+    Qt6::Network
 )
 target_compile_definitions(vfxforge PRIVATE VFX_APP_VERSION="${PROJECT_VERSION}")
 

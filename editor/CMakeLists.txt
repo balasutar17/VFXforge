@@ -45,6 +45,7 @@ add_library(vfx_editor STATIC
     src/ShaderLib.cpp
     src/ShaderPreview.cpp
     src/ShaderExport.cpp
+    src/ShaderAi.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/ShaderCoreText.cpp
     src/UserLibrary.cpp
     src/UnrealExport.cpp

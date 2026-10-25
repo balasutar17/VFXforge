@@ -32,6 +32,7 @@
 #include "AppController.h"
 #include "PreviewItems.h"
 #include "ReferenceController.h"
+#include "ShaderAssistant.h"
 #include "ShaderStudio.h"
 #include "ViewportItem.h"
 
@@ -148,6 +149,7 @@ int main(int argc, char* argv[]) {
     AppController controller;
     ReferenceController referenceController(&controller);
     ShaderStudio shaderStudio;
+    ShaderAssistant shaderAssistant(&shaderStudio);
     QQmlPropertyMap theme;
     fillTheme(theme);
 
@@ -161,6 +163,7 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("app"), &controller);
     engine.rootContext()->setContextProperty(QStringLiteral("reference"), &referenceController);
     engine.rootContext()->setContextProperty(QStringLiteral("shaderStudio"), &shaderStudio);
+    engine.rootContext()->setContextProperty(QStringLiteral("shaderAssistant"), &shaderAssistant);
     engine.rootContext()->setContextProperty(QStringLiteral("theme"), &theme);
     // A fresh start opens on the library. Opening a file goes straight to it.
     engine.rootContext()->setContextProperty(QStringLiteral("showLibraryAtStart"),
