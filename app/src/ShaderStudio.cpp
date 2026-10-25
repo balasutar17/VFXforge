@@ -189,6 +189,16 @@ void ShaderStudio::checkpoint() { pushUndo(); }
 
 void ShaderStudio::adopt(const sh::Settings& s, bool structure, bool clean) {
     s_ = s;
+    // A newly opened layer shader selects its top layer; undo and redo keep the selection where it can.
+    if (structure) {
+        selectedLayer_ = isLayers() ? sh::layerTop(s_) - 1 : -1;
+    } else {
+        normaliseSelection();
+        if (isLayers()) {  // the layers' settings may have changed under the controls
+            ++structureRevision_;
+            emit structureChanged();
+        }
+    }
     dirty_ = !clean;
     ++revision_;
     ++previewRevision_;
@@ -510,13 +520,42 @@ QVariantList ShaderStudio::controls(const QString& search, bool advanced) const 
     const sh::Family* f = family();
     if (!f) return out;
     const QString needle = search.trimmed().toLower();
+    // A layer shader shows one layer's settings at a time (or the shader's own, when none is selected).
+    const bool layered = isLayers();
+    const int layerFirst = layered ? sh::layerParamIndex(*f, 0, "el") : 0;
+    const sh::ElementInfo* element = nullptr;
+    if (layered && selectedLayer_ >= 0) {
+        const int el = static_cast<int>(s_.values[static_cast<std::size_t>(layerFirst + selectedLayer_ * sh::kLayerStride)][0] + 0.5f);
+        if (el >= 0 && static_cast<std::size_t>(el) < sh::layerElements().size()) element = &sh::layerElements()[static_cast<std::size_t>(el)];
+    }
     for (const sh::ParamDef& p : f->params) {
+        std::string label = p.label;
+        if (layered) {
+            const bool inLayers = p.index >= layerFirst;
+            if (selectedLayer_ < 0 && inLayers) continue;
+            if (selectedLayer_ >= 0) {
+                const int rel = p.index - (layerFirst + selectedLayer_ * sh::kLayerStride);
+                if (rel < 0 || rel >= sh::kLayerStride) continue;
+                if (rel == sh::kLOn) continue;  // the eye in the stack does this
+                // The part of the key after "L3_": what this setting is called for this element.
+                const std::string shortKey = p.key.substr(p.key.find('_') + 1);
+                if (element) {
+                    bool hidden = false;
+                    for (const std::string& h : element->hide) hidden = hidden || h == shortKey;
+                    if (hidden && needle.isEmpty()) continue;
+                    for (const auto& [k, l] : element->labels) {
+                        if (k == shortKey) label = l;
+                    }
+                }
+                if (rel == sh::kLEl) label = "Element";
+            }
+        }
         if (!advanced && p.advanced && needle.isEmpty()) continue;
-        if (!needle.isEmpty() && !contains(p.label, needle) && !contains(p.tip, needle) && !contains(p.key, needle)) continue;
+        if (!needle.isEmpty() && !contains(label, needle) && !contains(p.tip, needle) && !contains(p.key, needle)) continue;
         QVariantMap m;
         m[QStringLiteral("index")] = p.index;
         m[QStringLiteral("key")] = text(p.key);
-        m[QStringLiteral("label")] = text(p.label);
+        m[QStringLiteral("label")] = text(label);
         m[QStringLiteral("tip")] = text(p.tip);
         m[QStringLiteral("kind")] = p.kind == sh::ParamKind::Color ? QStringLiteral("color")
                                     : p.kind == sh::ParamKind::Choice ? QStringLiteral("choice") : QStringLiteral("number");
@@ -531,6 +570,140 @@ QVariantList ShaderStudio::controls(const QString& search, bool advanced) const 
     }
     return out;
 }
+
+// ---------------------------------------------------------------- layers
+
+bool ShaderStudio::isLayers() const { return s_.family == "layers"; }
+
+void ShaderStudio::setSelectedLayer(int slot) {
+    if (!isLayers()) slot = -1;
+    slot = std::clamp(slot, -1, sh::kLayerCount - 1);
+    if (slot == selectedLayer_) return;
+    selectedLayer_ = slot;
+    ++structureRevision_;
+    emit structureChanged();
+}
+
+void ShaderStudio::normaliseSelection() {
+    if (!isLayers()) {
+        selectedLayer_ = -1;
+        return;
+    }
+    selectedLayer_ = std::min(selectedLayer_, sh::layerTop(s_) - 1);
+}
+
+QVariantList ShaderStudio::layers() const {
+    QVariantList out;
+    const sh::Family* f = family();
+    if (!isLayers() || !f) return out;
+    const auto& list = sh::layerElements();
+    for (int slot = sh::layerTop(s_) - 1; slot >= 0; --slot) {
+        const auto at = [&](const char* key) -> const std::array<float, 4>& { return s_.values[static_cast<std::size_t>(sh::layerParamIndex(*f, slot, key))]; };
+        const int el = static_cast<int>(at("el")[0] + 0.5f);
+        const int bm = static_cast<int>(at("blend")[0] + 0.5f);
+        QVariantMap m;
+        m[QStringLiteral("slot")] = slot;
+        m[QStringLiteral("name")] = text(sh::layerName(s_, slot));
+        m[QStringLiteral("element")] = el >= 0 && static_cast<std::size_t>(el) < list.size() ? text(list[static_cast<std::size_t>(el)].name) : QString();
+        m[QStringLiteral("group")] = el >= 0 && static_cast<std::size_t>(el) < list.size() ? text(list[static_cast<std::size_t>(el)].group) : QString();
+        m[QStringLiteral("empty")] = el <= 0;
+        m[QStringLiteral("visible")] = at("on")[0] > 0.5f;
+        m[QStringLiteral("blend")] = bm >= 0 && static_cast<std::size_t>(bm) < sh::layerBlendNames().size() ? text(sh::layerBlendNames()[static_cast<std::size_t>(bm)]) : QString();
+        const auto& c = at("colA");
+        const auto& c2 = at("colB");
+        const auto shown = [](const std::array<float, 4>& v) {
+            const float boost = std::max({1.0f, v[0], v[1], v[2]});
+            return QColor::fromRgbF(std::clamp(v[0] / boost, 0.0f, 1.0f), std::clamp(v[1] / boost, 0.0f, 1.0f), std::clamp(v[2] / boost, 0.0f, 1.0f));
+        };
+        m[QStringLiteral("colourA")] = shown(c);
+        m[QStringLiteral("colourB")] = shown(c2);
+        out << m;
+    }
+    return out;
+}
+
+QVariantList ShaderStudio::elements() const {
+    QVariantList out;
+    const auto& list = sh::layerElements();
+    for (std::size_t i = 1; i < list.size(); ++i) {
+        QVariantMap m;
+        m[QStringLiteral("index")] = static_cast<int>(i);
+        m[QStringLiteral("name")] = text(list[i].name);
+        m[QStringLiteral("group")] = text(list[i].group);
+        m[QStringLiteral("tip")] = text(list[i].tip);
+        out << m;
+    }
+    return out;
+}
+
+bool ShaderStudio::addLayer(int element) {
+    if (!isLayers()) return false;
+    sh::Settings next = s_;
+    if (!sh::layerAdd(next, element)) {
+        say(QStringLiteral("All eight layers are in use. Remove or hide one first."), true);
+        return false;
+    }
+    pushUndo();
+    s_ = next;
+    selectedLayer_ = sh::layerTop(s_) - 1;
+    touch(true, true);
+    say(QStringLiteral("Added %1.").arg(text(sh::layerName(s_, selectedLayer_))));
+    return true;
+}
+
+void ShaderStudio::removeLayer(int slot) {
+    sh::Settings next = s_;
+    if (!sh::layerRemove(next, slot)) return;
+    pushUndo();
+    s_ = next;
+    normaliseSelection();
+    touch(true, true);
+}
+
+void ShaderStudio::duplicateLayer(int slot) {
+    sh::Settings next = s_;
+    if (!sh::layerDuplicate(next, slot)) {
+        say(QStringLiteral("All eight layers are in use. Remove or hide one first."), true);
+        return;
+    }
+    pushUndo();
+    s_ = next;
+    selectedLayer_ = slot + 1;
+    touch(true, true);
+}
+
+void ShaderStudio::moveLayer(int slot, int delta) {
+    sh::Settings next = s_;
+    if (!sh::layerMove(next, slot, delta)) return;
+    pushUndo();
+    s_ = next;
+    selectedLayer_ = slot + delta;
+    touch(true, true);
+}
+
+void ShaderStudio::toggleLayer(int slot) {
+    const sh::Family* f = family();
+    if (!isLayers() || !f || slot < 0 || slot >= sh::layerTop(s_)) return;
+    const int at = sh::layerParamIndex(*f, slot, "on");
+    if (at < 0) return;
+    pushUndo();
+    float& v = s_.values[static_cast<std::size_t>(at)][0];
+    v = v > 0.5f ? 0.0f : 1.0f;
+    touch(true);
+}
+
+void ShaderStudio::renameLayer(int slot, const QString& name) {
+    if (!isLayers() || slot < 0 || slot >= sh::layerTop(s_)) return;
+    pushUndo();
+    s_.layerNames.resize(static_cast<std::size_t>(sh::kLayerCount));
+    const QString trimmed = name.trimmed().left(40);
+    // A name the same as the element's own is no name at all.
+    s_.layerNames[static_cast<std::size_t>(slot)].clear();
+    if (!trimmed.isEmpty() && utf8(trimmed) != sh::layerName(s_, slot)) s_.layerNames[static_cast<std::size_t>(slot)] = utf8(trimmed);
+    touch(true, true);
+}
+
+void ShaderStudio::newLayerShader() { loadPreset(QStringLiteral("layers"), QStringLiteral("blank")); }
 
 double ShaderStudio::number(int index) const {
     const sh::Family* f = family();
@@ -634,7 +807,8 @@ void ShaderStudio::setChoice(int index, int choice) {
     const sh::ParamDef& p = f->params[static_cast<std::size_t>(index)];
     pushUndo();
     s_.values[static_cast<std::size_t>(index)][0] = static_cast<float>(std::clamp(choice, 0, std::max(0, static_cast<int>(p.choices.size()) - 1)));
-    touch();
+    // Changing a layer's element changes which settings it shows and what they are called.
+    touch(isLayers());
 }
 
 void ShaderStudio::setColorHsv(int index, double hue, double saturation, double value, double boost) {
@@ -833,7 +1007,13 @@ QVariantList ShaderStudio::tracks() const {
         if (!p) continue;
         QVariantMap m;
         m[QStringLiteral("index")] = p->index;
-        m[QStringLiteral("label")] = text(p->label);
+        QString label = text(p->label);
+        if (isLayers() && p->key.size() > 3 && p->key[0] == 'L' && p->key[2] == '_') {
+            // "Ring · Size": which layer a track belongs to.
+            const int slot = p->key[1] - '0';
+            label = text(sh::layerName(s_, slot)) + QStringLiteral(" · ") + label;
+        }
+        m[QStringLiteral("label")] = label;
         QVariantList keys;
         for (const sh::Key& k : t.keys) {
             QVariantMap km;

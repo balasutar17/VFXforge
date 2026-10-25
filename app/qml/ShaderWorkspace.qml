@@ -15,7 +15,20 @@ Rectangle {
     property string tag: "All"
     property string search: ""
     property string paramSearch: ""
+    property string leftTab: "library"
+    property string lastFamily: ""
     readonly property var backgrounds: ["Dark", "Grey", "Light", "Checker"]
+
+    // Opening a layer shader shows its layers; any other shader shows the library.
+    Connections {
+        target: shaderStudio
+        function onStructureChanged() {
+            if (shaderStudio.familyId !== root.lastFamily) {
+                root.leftTab = shaderStudio.isLayers ? "layers" : "library"
+                root.lastFamily = shaderStudio.familyId
+            }
+        }
+    }
 
     color: theme.window
 
@@ -171,8 +184,39 @@ Rectangle {
                 border.color: theme.line
                 border.width: 1
 
+                // Library or layer stack. The stack belongs to the Layer Shader family only.
+                RowLayout {
+                    id: leftTabs
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 10
+                    spacing: 4
+                    VButton {
+                        Layout.fillWidth: true
+                        text: "Library"
+                        checked: root.leftTab === "library"
+                        tip: "Shader families and presets"
+                        onClicked: root.leftTab = "library"
+                    }
+                    VButton {
+                        Layout.fillWidth: true
+                        text: shaderStudio.isLayers ? "Layers" : "Build in layers"
+                        checked: root.leftTab === "layers"
+                        tip: shaderStudio.isLayers ? "The layers this shader is built from" : "Start a shader from layers: shapes, gradients and patterns you stack and animate"
+                        onClicked: {
+                            if (!shaderStudio.isLayers) shaderStudio.newLayerShader()
+                            root.leftTab = "layers"
+                        }
+                    }
+                }
+
                 ColumnLayout {
-                    anchors.fill: parent
+                    visible: root.leftTab === "library"
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: leftTabs.bottom
+                    anchors.bottom: parent.bottom
                     anchors.margins: 10
                     spacing: 8
 
@@ -350,6 +394,215 @@ Rectangle {
                                 implicitHeight: 22
                                 tip: "Delete this preset"
                                 onClicked: shaderStudio.deleteUserPreset(mine.modelData.name)
+                            }
+                        }
+                    }
+                }
+
+                // ---- the layer stack
+                ColumnLayout {
+                    visible: root.leftTab === "layers"
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: leftTabs.bottom
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 10
+                    spacing: 6
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Heading { text: "LAYERS" }
+                        Item { Layout.fillWidth: true }
+                        Text {
+                            text: shaderStudio.layers().length + " of 8"
+                            color: theme.faint
+                            font.pixelSize: theme.smallFontSize
+                        }
+                    }
+                    Text {
+                        visible: shaderStudio.layers().length === 0
+                        Layout.fillWidth: true
+                        text: "No layers yet. Add an element below."
+                        color: theme.dim
+                        font.pixelSize: theme.smallFontSize
+                        wrapMode: Text.WordWrap
+                    }
+
+                    ListView {
+                        id: layerList
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: Math.min(contentHeight, 232)
+                        clip: true
+                        spacing: 2
+                        boundsBehavior: Flickable.StopAtBounds
+                        model: { shaderStudio.revision; shaderStudio.structureRevision; return shaderStudio.layers() }
+                        ScrollBar.vertical: ScrollBar {}
+
+                        delegate: Rectangle {
+                            id: row
+                            required property var modelData
+                            readonly property bool picked: shaderStudio.selectedLayer === modelData.slot
+                            property bool editing: false
+                            width: layerList.width - 8
+                            height: 42
+                            radius: 5
+                            color: picked ? theme.hover : rowArea.containsMouse ? theme.raised : "transparent"
+                            border.width: picked ? 1 : 0
+                            border.color: theme.accent
+
+                            MouseArea {
+                                id: rowArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: shaderStudio.selectedLayer = row.modelData.slot
+                                onDoubleClicked: { shaderStudio.selectedLayer = row.modelData.slot; row.editing = true; nameEdit.forceActiveFocus(); nameEdit.selectAll() }
+                            }
+
+                            Text {
+                                id: eye
+                                x: 6
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: row.modelData.visible ? "●" : "○"
+                                color: row.modelData.visible ? theme.accent : theme.faint
+                                font.pixelSize: 15
+                                MouseArea {
+                                    anchors.fill: parent
+                                    anchors.margins: -5
+                                    onClicked: shaderStudio.toggleLayer(row.modelData.slot)
+                                }
+                            }
+                            Rectangle {
+                                id: swatch
+                                anchors.left: eye.right
+                                anchors.leftMargin: 8
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 22
+                                height: 22
+                                radius: 4
+                                border.width: 1
+                                border.color: theme.line
+                                gradient: Gradient {
+                                    orientation: Gradient.Horizontal
+                                    GradientStop { position: 0; color: row.modelData.colourA }
+                                    GradientStop { position: 1; color: row.modelData.colourB }
+                                }
+                                opacity: row.modelData.visible ? 1 : 0.4
+                            }
+                            Column {
+                                anchors.left: swatch.right
+                                anchors.leftMargin: 8
+                                anchors.right: tools.left
+                                anchors.rightMargin: 4
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 1
+                                Text {
+                                    visible: !row.editing
+                                    width: parent.width
+                                    text: row.modelData.name
+                                    color: row.modelData.visible ? theme.text : theme.faint
+                                    font.pixelSize: theme.fontSize
+                                    elide: Text.ElideRight
+                                }
+                                TextInput {
+                                    id: nameEdit
+                                    visible: row.editing
+                                    width: parent.width
+                                    text: row.modelData.name
+                                    color: theme.text
+                                    selectionColor: theme.accent
+                                    selectedTextColor: theme.accentText
+                                    font.pixelSize: theme.fontSize
+                                    selectByMouse: true
+                                    clip: true
+                                    onAccepted: { shaderStudio.renameLayer(row.modelData.slot, text); row.editing = false }
+                                    onActiveFocusChanged: if (!activeFocus && row.editing) { shaderStudio.renameLayer(row.modelData.slot, text); row.editing = false }
+                                    Keys.onEscapePressed: row.editing = false
+                                }
+                                Text {
+                                    width: parent.width
+                                    text: row.modelData.group + " · " + row.modelData.blend
+                                    color: theme.dim
+                                    font.pixelSize: theme.smallFontSize
+                                    elide: Text.ElideRight
+                                }
+                            }
+                            Row {
+                                id: tools
+                                anchors.right: parent.right
+                                anchors.rightMargin: 2
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 0
+                                VButton { text: "▲"; quiet: true; implicitWidth: 24; implicitHeight: 24; tip: "Move up (drawn later, on top)"; enabled: row.modelData.slot < shaderStudio.layers().length - 1; onClicked: shaderStudio.moveLayer(row.modelData.slot, 1) }
+                                VButton { text: "▼"; quiet: true; implicitWidth: 24; implicitHeight: 24; tip: "Move down"; enabled: row.modelData.slot > 0; onClicked: shaderStudio.moveLayer(row.modelData.slot, -1) }
+                                VButton { text: "⧉"; quiet: true; implicitWidth: 24; implicitHeight: 24; tip: "Duplicate this layer"; onClicked: shaderStudio.duplicateLayer(row.modelData.slot) }
+                                VButton { text: "×"; quiet: true; implicitWidth: 24; implicitHeight: 24; tip: "Delete this layer"; onClicked: shaderStudio.removeLayer(row.modelData.slot) }
+                            }
+                        }
+                    }
+
+                    VButton {
+                        Layout.fillWidth: true
+                        text: "Whole shader: glow, brightness, opacity"
+                        checked: shaderStudio.selectedLayer === -1
+                        tip: "Settings that apply to every layer together"
+                        onClicked: shaderStudio.selectedLayer = -1
+                    }
+
+                    Heading { text: "ADD AN ELEMENT" }
+                    ListView {
+                        id: elementList
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        spacing: 2
+                        boundsBehavior: Flickable.StopAtBounds
+                        model: shaderStudio.elements()
+                        ScrollBar.vertical: ScrollBar {}
+                        section.property: "group"
+                        section.delegate: Text {
+                            required property string section
+                            width: elementList.width
+                            height: 22
+                            verticalAlignment: Text.AlignBottom
+                            text: section === "Shape" ? "SHAPES" : section === "Gradient" ? "GRADIENTS" : "PATTERNS"
+                            color: theme.faint
+                            font.pixelSize: theme.smallFontSize
+                            font.letterSpacing: 1.1
+                        }
+                        delegate: Rectangle {
+                            id: item
+                            required property var modelData
+                            width: elementList.width - 8
+                            height: 30
+                            radius: 4
+                            color: itemArea.containsMouse ? theme.raised : "transparent"
+                            Text {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 8
+                                anchors.right: plus.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: item.modelData.name
+                                color: theme.text
+                                font.pixelSize: theme.fontSize
+                                elide: Text.ElideRight
+                            }
+                            Text {
+                                id: plus
+                                anchors.right: parent.right
+                                anchors.rightMargin: 8
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "+"
+                                color: itemArea.containsMouse ? theme.accent : theme.faint
+                                font.pixelSize: 16
+                            }
+                            MouseArea {
+                                id: itemArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: shaderStudio.addLayer(item.modelData.index)
+                                ToolTip.visible: containsMouse
+                                ToolTip.delay: 500
+                                ToolTip.text: item.modelData.tip
                             }
                         }
                     }

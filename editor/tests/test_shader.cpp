@@ -611,3 +611,76 @@ TEST_CASE("layer shaders save, load and export for both pipelines", "[shader][la
         }
     }
 }
+
+TEST_CASE("layers can be added, removed, duplicated, moved and named", "[shader][layers]") {
+    const Family& f = layersFamily();
+    Settings s = emptyLayers();
+    CHECK(layerTop(s) == 0);
+    REQUIRE(layerAdd(s, 2));   // ring
+    REQUIRE(layerAdd(s, 5));   // star
+    REQUIRE(layerAdd(s, 22));  // noise
+    CHECK(layerTop(s) == 3);
+    CHECK(layerName(s, 0) == "Ring");
+    CHECK(layerName(s, 1) == "Star");
+    CHECK(layerName(s, 2) == "Noise");
+    // a new layer starts with its element's own values
+    CHECK(s.values[static_cast<std::size_t>(layerParamIndex(f, 1, "count"))][0] == Catch::Approx(5.0f));
+    CHECK(!layerAdd(s, 0));
+    CHECK(!layerAdd(s, 999));
+
+    // a keyframe track on the star's size follows the star
+    Track t;
+    t.param = "L1_size";
+    t.keys.push_back({0.0, 0.5f, Easing::Linear});
+    t.keys.push_back({1.0, 1.0f, Easing::Linear});
+    s.animation.tracks.push_back(t);
+
+    SECTION("moving swaps two layers and their tracks") {
+        REQUIRE(layerMove(s, 1, 1));
+        CHECK(layerName(s, 1) == "Noise");
+        CHECK(layerName(s, 2) == "Star");
+        CHECK(s.animation.tracks.size() == 1);
+        CHECK(s.animation.tracks[0].param == "L2_size");
+        CHECK(!layerMove(s, 2, 1));  // already on top
+        CHECK(!layerMove(s, 0, -1));
+    }
+    SECTION("removing closes the gap and drops that layer's tracks") {
+        REQUIRE(layerRemove(s, 0));
+        CHECK(layerTop(s) == 2);
+        CHECK(layerName(s, 0) == "Star");
+        CHECK(s.animation.tracks.size() == 1);
+        CHECK(s.animation.tracks[0].param == "L0_size");
+        REQUIRE(layerRemove(s, 0));
+        CHECK(s.animation.tracks.empty());
+        CHECK(layerName(s, 0) == "Noise");
+        CHECK(!layerRemove(s, 5));
+    }
+    SECTION("duplicating copies the layer and its tracks just above it") {
+        REQUIRE(layerDuplicate(s, 1));
+        CHECK(layerTop(s) == 4);
+        CHECK(layerName(s, 1) == "Star");
+        CHECK(layerName(s, 2) == "Star");
+        CHECK(layerName(s, 3) == "Noise");
+        CHECK(s.animation.tracks.size() == 2);
+        std::set<std::string> params;
+        for (const Track& tr : s.animation.tracks) params.insert(tr.param);
+        CHECK(params == std::set<std::string>{"L1_size", "L2_size"});
+    }
+    SECTION("the stack stops at eight layers") {
+        while (layerAdd(s, 1)) {}
+        CHECK(layerTop(s) == kLayerCount);
+        CHECK(!layerAdd(s, 1));
+        CHECK(!layerDuplicate(s, 0));
+        REQUIRE(layerMove(s, 6, 1));  // moving still works when full
+        CHECK(layerName(s, 7) == "Circle");
+    }
+    SECTION("names are kept in the file") {
+        s.layerNames.assign(static_cast<std::size_t>(kLayerCount), "");
+        s.layerNames[1] = "Hero star";
+        CHECK(layerName(s, 1) == "Hero star");
+        auto back = readSettings(writeSettings(s));
+        REQUIRE(back.ok());
+        CHECK(layerName(back.value().settings, 1) == "Hero star");
+        CHECK(layerName(back.value().settings, 0) == "Ring");
+    }
+}

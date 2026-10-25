@@ -67,6 +67,10 @@ class ShaderStudio : public QObject {
     Q_PROPERTY(bool hasModel READ hasModel NOTIFY previewChanged)
     Q_PROPERTY(double renderMs READ renderMs NOTIFY renderMsChanged)
 
+    // Layer shaders: which layer the controls show (-1 shows the whole shader's own settings).
+    Q_PROPERTY(bool isLayers READ isLayers NOTIFY structureChanged)
+    Q_PROPERTY(int selectedLayer READ selectedLayer WRITE setSelectedLayer NOTIFY structureChanged)
+
     // The timeline.
     Q_PROPERTY(double playhead READ playhead WRITE setPlayhead NOTIFY playheadChanged)
     Q_PROPERTY(double timelineTime READ timelineTime NOTIFY playheadChanged)
@@ -165,6 +169,20 @@ public:
     Q_INVOKABLE void saveUserPreset(const QString& name);
     Q_INVOKABLE void deleteUserPreset(const QString& name);
 
+    // ---- layers (the "layers" family): the stack, top layer first
+    bool isLayers() const;
+    int selectedLayer() const { return selectedLayer_; }
+    void setSelectedLayer(int slot);
+    Q_INVOKABLE QVariantList layers() const;
+    Q_INVOKABLE QVariantList elements() const;
+    Q_INVOKABLE bool addLayer(int element);
+    Q_INVOKABLE void removeLayer(int slot);
+    Q_INVOKABLE void duplicateLayer(int slot);
+    Q_INVOKABLE void moveLayer(int slot, int delta);
+    Q_INVOKABLE void toggleLayer(int slot);
+    Q_INVOKABLE void renameLayer(int slot, const QString& name);
+    Q_INVOKABLE void newLayerShader();
+
     // ---- the controls
     Q_INVOKABLE QVariantList controls(const QString& search, bool advanced) const;
     Q_INVOKABLE double number(int index) const;
@@ -243,7 +261,10 @@ private:
     const vfx::editor::shader::Family* family() const;
     void setReport(const QString& title, const QStringList& lines);
 
+    void normaliseSelection();
+
     bool open_ = false;
+    int selectedLayer_ = -1;
     vfx::editor::shader::Settings s_;
     std::vector<vfx::editor::shader::Settings> undo_, redo_;
     bool checkpointed_ = false;

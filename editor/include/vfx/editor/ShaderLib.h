@@ -105,6 +105,7 @@ struct Settings {
     std::string shape = "sphere";
     int quality = 1;
     Animation animation;
+    std::vector<std::string> layerNames;  // "layers" family: a name per layer slot; empty means the element's own name
 };
 
 // ---- layer shaders (the "layers" family): eight layers of 21 values each
@@ -127,6 +128,15 @@ const std::vector<ElementInfo>& layerElements();
 // The index in a shader's values of one setting of one layer ("thick" of layer 2), or -1.
 int layerParamIndex(const Family& family, int layer, const std::string& key);
 const std::vector<std::string>& layerBlendNames();
+
+// Layer operations on a shader's settings. The stack is the slots from 0 (the bottom) up to the
+// highest one holding an element. Keyframe tracks follow their layer.
+int layerTop(const Settings& s);                 // how many slots the stack spans (0 when empty)
+bool layerAdd(Settings& s, int element);         // on top, with the element's starting values; false when full
+bool layerRemove(Settings& s, int slot);         // the layers above move down
+bool layerDuplicate(Settings& s, int slot);      // the copy goes just above; false when full
+bool layerMove(Settings& s, int slot, int delta); // swaps with the neighbour; false at the ends
+std::string layerName(const Settings& s, int slot); // the given name, or the element's
 
 // A family's own defaults, or one of its presets.
 Settings defaultSettings(const Family& family);

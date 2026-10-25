@@ -481,6 +481,150 @@ const char* easeName(Easing e) {
 
 }  // namespace
 
+// ---------------------------------------------------------------- layer operations
+namespace {
+
+int layerBase(const Family& f) {
+    const ParamDef* p = findParam(f, "L0_el");
+    return p ? p->index : -1;
+}
+
+// "L3_size" -> 3, anything else -> -1.
+int trackLayerOf(const std::string& key) {
+    if (key.size() < 3 || key[0] != 'L' || key[1] < '0' || key[1] > '9' || key[2] != '_') return -1;
+    return key[1] - '0';
+}
+
+std::string withLayer(const std::string& key, int layer) { return "L" + std::to_string(layer) + key.substr(2); }
+
+void resetLayer(Settings& s, const Family& f, int slot) {
+    const int base = layerBase(f) + slot * kLayerStride;
+    const Settings d = defaultSettings(f);
+    for (int k = 0; k < kLayerStride; ++k) s.values[static_cast<std::size_t>(base + k)] = d.values[static_cast<std::size_t>(base + k)];
+    if (static_cast<std::size_t>(slot) < s.layerNames.size()) s.layerNames[static_cast<std::size_t>(slot)].clear();
+}
+
+void copyLayer(Settings& s, const Family& f, int from, int to) {
+    const int a = layerBase(f) + from * kLayerStride, b = layerBase(f) + to * kLayerStride;
+    for (int k = 0; k < kLayerStride; ++k) s.values[static_cast<std::size_t>(b + k)] = s.values[static_cast<std::size_t>(a + k)];
+    if (s.layerNames.size() < static_cast<std::size_t>(kLayerCount)) s.layerNames.resize(static_cast<std::size_t>(kLayerCount));
+    s.layerNames[static_cast<std::size_t>(to)] = s.layerNames[static_cast<std::size_t>(from)];
+}
+
+// Renames the tracks of layers by a map from old slot to new slot (-1 drops the track).
+template <class Map>
+void remapTracks(Settings& s, Map map) {
+    std::vector<Track> out;
+    for (Track& t : s.animation.tracks) {
+        const int layer = trackLayerOf(t.param);
+        if (layer < 0) {
+            out.push_back(std::move(t));
+            continue;
+        }
+        const int to = map(layer);
+        if (to < 0) continue;
+        t.param = withLayer(t.param, to);
+        out.push_back(std::move(t));
+    }
+    s.animation.tracks = std::move(out);
+}
+
+}  // namespace
+
+int layerTop(const Settings& s) {
+    const Family* f = findFamily(s.family);
+    if (!f || f->id != "layers") return 0;
+    const int base = layerBase(*f);
+    int top = 0;
+    for (int i = 0; i < kLayerCount; ++i) {
+        const std::size_t at = static_cast<std::size_t>(base + i * kLayerStride);
+        if (at < s.values.size() && s.values[at][0] > 0.5f) top = i + 1;
+    }
+    return top;
+}
+
+std::string layerName(const Settings& s, int slot) {
+    if (slot < 0 || slot >= kLayerCount) return {};
+    if (static_cast<std::size_t>(slot) < s.layerNames.size() && !s.layerNames[static_cast<std::size_t>(slot)].empty()) return s.layerNames[static_cast<std::size_t>(slot)];
+    const Family* f = findFamily(s.family);
+    if (!f) return {};
+    const int el = static_cast<int>(s.values[static_cast<std::size_t>(layerBase(*f) + slot * kLayerStride)][0] + 0.5f);
+    const auto& list = layerElements();
+    return el >= 0 && static_cast<std::size_t>(el) < list.size() ? list[static_cast<std::size_t>(el)].name : std::string();
+}
+
+bool layerAdd(Settings& s, int element) {
+    const Family* f = findFamily(s.family);
+    if (!f || f->id != "layers" || element < 1 || static_cast<std::size_t>(element) >= layerElements().size()) return false;
+    const int slot = layerTop(s);
+    if (slot >= kLayerCount) return false;
+    resetLayer(s, *f, slot);
+    const auto set = [&](const char* key, float v) {
+        const int at = layerParamIndex(*f, slot, key);
+        if (at >= 0) s.values[static_cast<std::size_t>(at)][0] = v;
+    };
+    set("el", static_cast<float>(element));
+    for (const auto& [key, value] : layerElements()[static_cast<std::size_t>(element)].defaults) set(key.c_str(), value);
+    return true;
+}
+
+bool layerRemove(Settings& s, int slot) {
+    const Family* f = findFamily(s.family);
+    const int top = layerTop(s);
+    if (!f || slot < 0 || slot >= top) return false;
+    for (int i = slot; i + 1 < kLayerCount; ++i) copyLayer(s, *f, i + 1, i);
+    resetLayer(s, *f, kLayerCount - 1);
+    remapTracks(s, [&](int l) { return l == slot ? -1 : (l > slot ? l - 1 : l); });
+    return true;
+}
+
+bool layerDuplicate(Settings& s, int slot) {
+    const Family* f = findFamily(s.family);
+    const int top = layerTop(s);
+    if (!f || slot < 0 || slot >= top || top >= kLayerCount) return false;
+    // Tracks of the copied layer are copied too, before anything moves.
+    std::vector<Track> copies;
+    for (const Track& t : s.animation.tracks) {
+        if (trackLayerOf(t.param) == slot) {
+            Track c = t;
+            c.param = withLayer(t.param, slot + 1);
+            copies.push_back(std::move(c));
+        }
+    }
+    for (int i = top - 1; i > slot; --i) copyLayer(s, *f, i, i + 1);
+    copyLayer(s, *f, slot, slot + 1);
+    remapTracks(s, [&](int l) { return l > slot ? l + 1 : l; });
+    for (Track& c : copies) s.animation.tracks.push_back(std::move(c));
+    if (static_cast<std::size_t>(slot + 1) < s.layerNames.size() && !s.layerNames[static_cast<std::size_t>(slot + 1)].empty()) s.layerNames[static_cast<std::size_t>(slot + 1)] += " copy";
+    return true;
+}
+
+bool layerMove(Settings& s, int slot, int delta) {
+    const Family* f = findFamily(s.family);
+    const int top = layerTop(s);
+    const int other = slot + delta;
+    if (!f || slot < 0 || slot >= top || other < 0 || other >= top || delta == 0) return false;
+    const int scratch = kLayerCount - 1;
+    if (top >= kLayerCount) {
+        // No spare slot: swap through a copy of one layer's values.
+        std::vector<std::array<float, 4>> hold;
+        const int a = layerBase(*f) + slot * kLayerStride;
+        for (int k = 0; k < kLayerStride; ++k) hold.push_back(s.values[static_cast<std::size_t>(a + k)]);
+        const std::string name = static_cast<std::size_t>(slot) < s.layerNames.size() ? s.layerNames[static_cast<std::size_t>(slot)] : std::string();
+        copyLayer(s, *f, other, slot);
+        const int b = layerBase(*f) + other * kLayerStride;
+        for (int k = 0; k < kLayerStride; ++k) s.values[static_cast<std::size_t>(b + k)] = hold[static_cast<std::size_t>(k)];
+        s.layerNames[static_cast<std::size_t>(other)] = name;
+    } else {
+        copyLayer(s, *f, slot, scratch);
+        copyLayer(s, *f, other, slot);
+        copyLayer(s, *f, scratch, other);
+        resetLayer(s, *f, scratch);
+    }
+    remapTracks(s, [&](int l) { return l == slot ? other : (l == other ? slot : l); });
+    return true;
+}
+
 const std::vector<ElementInfo>& layerElements() { return buildElements(); }
 
 const std::vector<std::string>& layerBlendNames() {
@@ -623,6 +767,7 @@ std::string writeSettings(const Settings& s) {
         }
     }
     j["values"] = values;
+    if (!s.layerNames.empty()) j["layerNames"] = s.layerNames;
     J anim;
     anim["duration"] = s.animation.duration;
     anim["loop"] = loopName(s.animation.loop);
@@ -669,6 +814,11 @@ Result<ReadSettings> readSettings(const std::string& text) {
                 out.notes.push_back(p->label + " could not be read; its default was kept.");
             }
             s.values[static_cast<std::size_t>(p->index)] = v;
+        }
+    }
+    if (j.contains("layerNames") && j["layerNames"].is_array()) {
+        for (const J& n : j["layerNames"]) {
+            if (n.is_string() && s.layerNames.size() < static_cast<std::size_t>(kLayerCount)) s.layerNames.push_back(n.get<std::string>().substr(0, 40));
         }
     }
     if (j.contains("animation") && j["animation"].is_object()) {
