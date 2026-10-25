@@ -496,6 +496,12 @@ void ShaderStudio::saveUserPreset(const QString& name) {
         say(text(saved.error().message), true);
         return;
     }
+    // The shader carries the name it was saved under, so a Unity export is named the same.
+    if (s_.name != copy.name) {
+        s_.name = copy.name;
+        ++revision_;
+        emit changed();
+    }
     ++libraryRevision_;
     emit libraryChanged();
     say(QStringLiteral("Saved \"%1\" to My presets.").arg(clean));
