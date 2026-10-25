@@ -33,8 +33,18 @@ float UnityGet2DClipping(float2 position, float4 clipRect) { return position.x *
 """
 
 
-def body(text):
-    m = re.search(r"CGPROGRAM(.*?)ENDCG", text, re.S)
+URP_PRELUDE = """
+#define CBUFFER_START(name)
+#define CBUFFER_END
+float4 _Time;
+float4 TransformObjectToHClip(float3 p) { return float4(p, 1.0); }
+float3 TransformWorldToObject(float3 p) { return p; }
+float3 GetCameraPositionWS() { return float3(0.0, 0.0, 0.0); }
+"""
+
+
+def body(text, urp=False):
+    m = re.search(r"HLSLPROGRAM(.*?)ENDHLSL", text, re.S) if urp else re.search(r"CGPROGRAM(.*?)ENDCG", text, re.S)
     if not m:
         return None
     lines = []
@@ -56,14 +66,24 @@ def main():
         return 1
     bad = 0
     for f in files:
-        code = body(f.read_text())
+        text = f.read_text()
+        # (code, prelude, name): the Built-in block always, the URP block when the shader has one
+        # (the UI family has none).
+        blocks = []
+        code = body(text)
         if code is None:
             print("FAIL", f, "no CGPROGRAM")
             bad += 1
             continue
-        for entry, stage in (("frag", "frag"), ("vert", "vert")):
+        blocks.append((code, PRELUDE, "built-in"))
+        urp = body(text, True)
+        if urp is not None:
+            blocks.append((urp, URP_PRELUDE, "urp"))
+        failed = False
+        for code, prelude, which in blocks:
+          for entry, stage in (("frag", "frag"), ("vert", "vert")):
             with tempfile.NamedTemporaryFile("w", suffix=".hlsl", delete=False) as t:
-                t.write(PRELUDE + code)
+                t.write(prelude + code)
                 path = t.name
             r = subprocess.run(["glslangValidator", "-D", "-S", stage, "-e", entry, "-V", "--keep-uncalled", path],
                                capture_output=True, text=True)
@@ -71,11 +91,14 @@ def main():
             errs = [l for l in out.splitlines() if "ERROR" in l]
             if r.returncode != 0 or errs:
                 bad += 1
-                print("FAIL", f.name, entry)
+                failed = True
+                print("FAIL", f.name, which, entry)
                 print("\n".join(errs[:12]))
                 break
+          if failed:
+            break
         else:
-            print("ok  ", f.name)
+            print("ok  ", f.name, "(built-in + urp)" if len(blocks) > 1 else "(built-in)")
     print("%d of %d failed" % (bad, len(files)))
     return 1 if bad else 0
 

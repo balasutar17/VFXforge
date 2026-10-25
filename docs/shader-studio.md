@@ -37,8 +37,8 @@ material (7), 16 UI / Sprite (7), 18 Ice / Snow (6).
 * **Unity itself.** Nothing here can run Unity. The generated HLSL is parsed by `glslangValidator`
   (`tools/scripts/check_shaders.py`, run in CI on Linux) and the C# is compiled against Unity's libraries
   in CI, but no shader or material has been imported into a Unity editor by VFX Forge.
-* Built-in pipeline shader (URP draws it through its unlit pass). No HDRP, no Shader Graph version, no
-  separate URP adapter yet.
+* One file with a URP pass and a Built-in pass (UI shaders: Built-in only). The URP pass is checked only
+  as HLSL here, not compiled by Unity. No HDRP, no Shader Graph version.
 * The particle family is a material only: it does not spawn, move or time particles. Soft particles and
   flipbook sheets are not implemented.
 * Ice has no true refraction and no crack propagation (the cracks are a procedural pattern; "melt" is the

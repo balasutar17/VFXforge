@@ -37,8 +37,8 @@ bool contains(const std::string& text, const std::string& part) { return text.fi
 
 }  // namespace
 
-TEST_CASE("the library has the six families with their presets", "[shader]") {
-    REQUIRE(families().size() == 6);
+TEST_CASE("the library has the seven families with their presets", "[shader]") {
+    REQUIRE(families().size() == 7);
     std::set<int> numbers;
     std::size_t presets = 0;
     for (const Family& f : families()) {
@@ -47,8 +47,8 @@ TEST_CASE("the library has the six families with their presets", "[shader]") {
         CHECK(!f.presets.empty());
         CHECK(!f.limits.empty());
     }
-    CHECK(numbers == std::set<int>{11, 12, 14, 15, 16, 18});
-    CHECK(presets == 39);
+    CHECK(numbers == std::set<int>{11, 12, 14, 15, 16, 18, 20});
+    CHECK(presets == 48);
     CHECK(findFamily("shield")->presets.size() == 6);
     CHECK(findFamily("ui")->presets.size() == 7);
 }
@@ -119,7 +119,7 @@ TEST_CASE("the preview is deterministic and answers to time and parameters", "[s
         // a different moment: something moves
         CHECK(meanDifference(a, draw(s, 2.1)) > 0.05);
         // the glow intensity (every family has one under its own name) changes the picture
-        const std::string key = f.id == "ui" ? "glowIntensity" : f.id == "ice" ? "edgeHighlight" : "intensity";
+        const std::string key = f.id == "ui" ? "glowIntensity" : f.id == "ice" ? "edgeHighlight" : f.id == "layers" ? "brightness" : "intensity";
         const ParamDef* p = findParam(f, key);
         REQUIRE(p);
         Settings dim = s, bright = s;
@@ -406,4 +406,208 @@ TEST_CASE("safe names and stable GUIDs", "[shader][export]") {
     CHECK(shaderGuid("A") == shaderGuid("A"));
     CHECK(shaderGuid("A") != shaderGuid("B"));
     CHECK(shaderGuid("A").size() == 32);
+}
+
+// ---------------------------------------------------------------- the layer shader
+namespace {
+
+const Family& layersFamily() {
+    const Family* f = findFamily("layers");
+    REQUIRE(f != nullptr);
+    return *f;
+}
+
+void setLayer(Settings& s, int layer, const std::string& key, float value) {
+    const int at = layerParamIndex(layersFamily(), layer, key);
+    REQUIRE(at >= 0);
+    s.values[static_cast<std::size_t>(at)][0] = value;
+}
+
+// A layer set to an element with that element's own starting values.
+void useElement(Settings& s, int layer, int element, int blend = 0) {
+    setLayer(s, layer, "el", static_cast<float>(element));
+    setLayer(s, layer, "blend", static_cast<float>(blend));
+    for (const auto& [key, value] : layerElements()[static_cast<std::size_t>(element)].defaults) setLayer(s, layer, key, value);
+}
+
+Settings emptyLayers() {
+    Settings s = defaultSettings(layersFamily());
+    s.shape = "sphere";
+    return s;
+}
+
+double brightness(const Picture& p) {
+    double sum = 0;
+    for (std::size_t i = 0; i < p.rgba.size(); ++i) {
+        if (i % 4 != 3) sum += p.rgba[i];
+    }
+    return sum / static_cast<double>(p.rgba.size() / 4 * 3);
+}
+
+}  // namespace
+
+TEST_CASE("the layer shader's tables agree with each other", "[shader][layers]") {
+    const Family& f = layersFamily();
+    const ParamDef* el = findParam(f, "L0_el");
+    REQUIRE(el != nullptr);
+    // One name per element, in the same order as the Element choice.
+    REQUIRE(el->choices.size() == layerElements().size());
+    for (std::size_t i = 0; i < layerElements().size(); ++i) {
+        CHECK(el->choices[i] == layerElements()[i].name);
+        for (const auto& [key, value] : layerElements()[i].defaults) {
+            INFO(layerElements()[i].name << " " << key);
+            const ParamDef* p = findParam(f, "L0_" + key);
+            REQUIRE(p != nullptr);
+            CHECK(value >= p->min);
+            CHECK(value <= p->max);
+        }
+        for (const auto& hidden : layerElements()[i].hide) CHECK(findParam(f, "L0_" + hidden) != nullptr);
+    }
+    // The shader reads layer i at L0_el + i * stride, in the order of LayerSlot.
+    const char* keys[kLayerStride] = {"el", "on", "blend", "opacity", "colA", "colB", "intensity", "size", "aspect", "thick", "soft",
+                                      "count", "rot", "spin", "speed", "warp", "twist", "ox", "oy", "space", "invert"};
+    for (int layer = 0; layer < kLayerCount; ++layer) {
+        for (int k = 0; k < kLayerStride; ++k) {
+            INFO("layer " << layer << " " << keys[k]);
+            CHECK(layerParamIndex(f, layer, keys[k]) == el->index + layer * kLayerStride + k);
+        }
+    }
+    CHECK(layerParamIndex(f, kLayerCount, "el") == -1);
+    CHECK(layerBlendNames().size() == 6);
+}
+
+TEST_CASE("every element of a layer draws something of its own", "[shader][layers]") {
+    const Picture empty = draw(emptyLayers(), 1.0, 64);
+    std::vector<Picture> pics;
+    for (std::size_t e = 1; e < layerElements().size(); ++e) {
+        Settings s = emptyLayers();
+        useElement(s, 0, static_cast<int>(e));
+        const Picture p = draw(s, 1.0, 64);
+        INFO(layerElements()[e].name);
+        CHECK(meanDifference(p, empty) > 0.4);
+        pics.push_back(p);
+    }
+    // No two elements look alike.
+    for (std::size_t a = 0; a < pics.size(); ++a) {
+        for (std::size_t b = a + 1; b < pics.size(); ++b) {
+            INFO(layerElements()[a + 1].name << " vs " << layerElements()[b + 1].name);
+            CHECK(meanDifference(pics[a], pics[b]) > 0.3);
+        }
+    }
+}
+
+TEST_CASE("layers hide, erase, mask and stack in order", "[shader][layers]") {
+    Settings base = emptyLayers();
+    useElement(base, 0, 18, 0);  // a radial gradient
+    const Picture alone = draw(base);
+
+    SECTION("a hidden layer is gone") {
+        Settings s = base;
+        setLayer(s, 0, "on", 0);
+        CHECK(meanDifference(draw(s), draw(emptyLayers())) < 0.01);
+    }
+    SECTION("erasing with a larger solid shape leaves nothing") {
+        Settings s = base;
+        useElement(s, 1, 1, 5);
+        setLayer(s, 1, "size", 3.0f);
+        setLayer(s, 1, "thick", 1.0f);
+        CHECK(brightness(draw(s)) < brightness(draw(emptyLayers())) + 1.0);
+        CHECK(brightness(alone) > brightness(draw(emptyLayers())) + 3.0);
+    }
+    SECTION("a mask takes light away") {
+        Settings s = emptyLayers();
+        useElement(s, 0, 27, 0);  // solid colour
+        const double solid = brightness(draw(s));
+        useElement(s, 1, 1, 4);   // masked by a small circle
+        setLayer(s, 1, "size", 0.3f);
+        const double masked = brightness(draw(s));
+        CHECK(masked < solid * 0.8);
+        CHECK(masked > 1.0);
+    }
+    SECTION("the order of alpha layers matters") {
+        Settings a = emptyLayers();
+        useElement(a, 0, 27, 1);
+        setLayer(a, 0, "intensity", 1.0f);
+        useElement(a, 1, 1, 1);
+        setLayer(a, 1, "size", 0.9f);
+        Settings b = a;
+        const std::size_t n = static_cast<std::size_t>(kLayerStride);
+        for (std::size_t k = 0; k < n; ++k) {
+            std::swap(b.values[static_cast<std::size_t>(layerParamIndex(layersFamily(), 0, "el")) + k],
+                      b.values[static_cast<std::size_t>(layerParamIndex(layersFamily(), 1, "el")) + k]);
+        }
+        CHECK(meanDifference(draw(a), draw(b)) > 0.5);
+    }
+    SECTION("more light adds up") {
+        Settings s = base;
+        useElement(s, 1, 18, 0);
+        CHECK(brightness(draw(s)) > brightness(alone));
+    }
+}
+
+TEST_CASE("a layer's settings change its picture, and keyframes move it", "[shader][layers]") {
+    Settings s = emptyLayers();
+    useElement(s, 0, 2);  // ring
+    const Picture ring = draw(s);
+    Settings bigger = s;
+    setLayer(bigger, 0, "size", 1.4f);
+    CHECK(meanDifference(ring, draw(bigger)) > 0.3);
+    Settings turned = s;
+    useElement(turned, 0, 3);  // segmented ring: spin shows
+    const Picture a = draw(turned, 0.0), b = draw(turned, 1.0);
+    CHECK(meanDifference(a, b) > 0.05);
+
+    // A track on one layer's size.
+    const int at = layerParamIndex(layersFamily(), 0, "size");
+    Track track;
+    track.param = layersFamily().params[static_cast<std::size_t>(at)].key;
+    track.keys.push_back({0.0, 0.3f, Easing::Linear});
+    track.keys.push_back({2.0, 1.4f, Easing::Linear});
+    s.animation.duration = 2.0;
+    s.animation.tracks.push_back(track);
+    const auto early = valuesAt(s, 0.0), late = valuesAt(s, 2.0);
+    CHECK(early[static_cast<std::size_t>(at)][0] == Catch::Approx(0.3f));
+    CHECK(late[static_cast<std::size_t>(at)][0] == Catch::Approx(1.4f));
+    CHECK(meanDifference(draw(s, 0.0), draw(s, 1.99)) > 0.3);
+}
+
+TEST_CASE("layer shaders save, load and export for both pipelines", "[shader][layers][export]") {
+    const Family& f = layersFamily();
+    for (const Preset& pr : f.presets) {
+        Settings s = presetSettings(f, pr);
+        INFO(pr.id);
+        auto back = readSettings(writeSettings(s));
+        REQUIRE(back.ok());
+        CHECK(back.value().notes.empty());
+        CHECK(back.value().settings.values == s.values);
+    }
+    Settings s = presetSettings(f, f.presets[1]);
+    auto made = exportShader(s);
+    REQUIRE(made.ok());
+    std::string shader;
+    for (const auto& file : made.value().files) {
+        if (file.path == made.value().folder + made.value().name + ".shader") shader = file.text;
+    }
+    CHECK(contains(shader, "\"RenderPipeline\" = \"UniversalPipeline\""));
+    CHECK(contains(shader, "\"LightMode\" = \"UniversalForward\""));
+    CHECK(contains(shader, "HLSLPROGRAM"));
+    CHECK(contains(shader, "ENDHLSL"));
+    CHECK(contains(shader, "CGPROGRAM"));
+    CHECK(contains(shader, "CBUFFER_START(UnityPerMaterial)"));
+    CHECK(contains(shader, "TransformObjectToHClip"));
+    CHECK(contains(shader, "UnityObjectToClipPos"));
+    // Both programs carry the same shading maths.
+    std::size_t first = shader.find("shade_LY(ShadeIn I, Params P)");
+    CHECK(first != std::string::npos);
+    CHECK(shader.find("shade_LY(ShadeIn I, Params P)", first + 1) != std::string::npos);
+    // The UI family has no URP pass.
+    Settings ui = presetSettings(*findFamily("ui"), findFamily("ui")->presets[0]);
+    auto uiMade = exportShader(ui);
+    REQUIRE(uiMade.ok());
+    for (const auto& file : uiMade.value().files) {
+        if (file.path == uiMade.value().folder + uiMade.value().name + ".shader") {
+            CHECK(!contains(file.text, "UniversalPipeline"));
+            CHECK(contains(file.text, "CGPROGRAM"));
+        }
+    }
 }

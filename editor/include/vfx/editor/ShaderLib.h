@@ -18,7 +18,7 @@
 
 namespace vfx::editor::shader {
 
-inline constexpr int kMaxParams = 48;
+inline constexpr int kMaxParams = 192;
 
 enum class ParamKind { Number, Color, Choice };
 
@@ -106,6 +106,27 @@ struct Settings {
     int quality = 1;
     Animation animation;
 };
+
+// ---- layer shaders (the "layers" family): eight layers of 21 values each
+inline constexpr int kLayerCount = 8;
+inline constexpr int kLayerStride = 21;
+// The offset of each value inside a layer.
+enum LayerSlot {
+    kLEl = 0, kLOn, kLBlend, kLOpacity, kLColA, kLColB, kLIntensity, kLSize, kLAspect, kLThick, kLSoft,
+    kLCount, kLRot, kLSpin, kLSpeed, kLWarp, kLTwist, kLOx, kLOy, kLSpace, kLInvert
+};
+// What an element of a layer is: its place in the Element list, the settings it does not use
+// (hidden in the editor), what its settings are called for it, and the values it starts with.
+struct ElementInfo {
+    std::string name, group, tip;
+    std::vector<std::string> hide;                               // keys: "count", "speed" ...
+    std::vector<std::pair<std::string, std::string>> labels;      // key -> label for this element
+    std::vector<std::pair<std::string, float>> defaults;          // key -> starting value
+};
+const std::vector<ElementInfo>& layerElements();
+// The index in a shader's values of one setting of one layer ("thick" of layer 2), or -1.
+int layerParamIndex(const Family& family, int layer, const std::string& key);
+const std::vector<std::string>& layerBlendNames();
 
 // A family's own defaults, or one of its presets.
 Settings defaultSettings(const Family& family);

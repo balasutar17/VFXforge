@@ -376,7 +376,7 @@ Picture renderPreview(const Settings& settings, const PreviewOptions& opt) {
     // The values at this moment of the timeline, as the keyframes make them.
     const std::vector<std::array<float, 4>> values = valuesAt(settings, animationTime(settings.animation, opt.time));
     g::Params P;
-    for (std::size_t i = 0; i < values.size() && i < 48; ++i) {
+    for (std::size_t i = 0; i < values.size() && i < static_cast<std::size_t>(kMaxParams); ++i) {
         P.v[i] = hlsl::float4(values[i][0], values[i][1], values[i][2], values[i][3]);
     }
     const float speed = P.v[g::CM_speed].x;
@@ -527,6 +527,7 @@ Picture renderPreview(const Settings& settings, const PreviewOptions& opt) {
             case 14: o = g::shade_FF(in, P); break;
             case 15: o = g::shade_PV(in, P); break;
             case 16: o = g::shade_UI(in, P); break;
+            case 20: o = g::shade_LY(in, P); break;
             default: o = g::shade_IC(in, P); break;
         }
         rgb[0] = o.rgb.x;

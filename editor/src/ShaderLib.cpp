@@ -93,6 +93,45 @@ struct PresetBuilder {
         v.push_back({key, {r, g, b, 1}});
         return *this;
     }
+    PresetBuilder& ca(const std::string& key, float r, float g, float b, float a) {
+        v.push_back({key, {r, g, b, a}});
+        return *this;
+    }
+    PresetBuilder& nn(const std::string& key, float a) {
+        v.push_back({key, {a, 0, 0, 0}});
+        return *this;
+    }
+};
+
+// Layer shaders: one layer is set with layer(), then tuned with the small setters.
+struct LayerBuilder : PresetBuilder {
+    LayerBuilder& layer(int i, int element, float ar, float ag, float ab, float br, float bg, float bb, int blend, float intensity,
+                        float size, float thick, float soft, float count, float speed) {
+        const std::string k = "L" + std::to_string(i) + "_";
+        nn(k + "el", static_cast<float>(element));
+        ca(k + "colA", ar, ag, ab, 1);
+        ca(k + "colB", br, bg, bb, 1);
+        nn(k + "blend", static_cast<float>(blend));
+        nn(k + "intensity", intensity);
+        nn(k + "size", size);
+        nn(k + "thick", thick);
+        nn(k + "soft", soft);
+        nn(k + "count", count);
+        nn(k + "speed", speed);
+        return *this;
+    }
+    LayerBuilder& set(int i, const char* key, float value) {
+        nn("L" + std::to_string(i) + "_" + key, value);
+        return *this;
+    }
+    LayerBuilder& alphas(int i, float a, float b) {  // the opacity of colour A and colour B
+        const std::string k = "L" + std::to_string(i) + "_";
+        for (auto& kv : v) {
+            if (kv.first == k + "colA") kv.second[3] = a;
+            if (kv.first == k + "colB") kv.second[3] = b;
+        }
+        return *this;
+    }
 };
 
 Preset preset(const char* id, const char* name, const char* description, const char* shape, BlendMode blend, const PresetBuilder& b) {
@@ -237,6 +276,104 @@ std::vector<Preset> icePresets() {
     };
 }
 
+// Blend: 0 add, 1 alpha, 2 multiply, 3 screen, 4 mask, 5 erase.
+// Elements: 1 circle 2 ring 3 segmented ring 4 spiral 5 star 6 polygon 7 hex grid 8 grid 9 stripes 10 speed lines
+// 11 wave 12 beam 13 radar sweep 14 lightning 15 orbiting dots 16 shockwave 17 linear gradient 18 radial gradient
+// 19 angular gradient 20 fresnel glow 21 height gradient 22 noise 23 cells 24 plasma 25 halftone 26 checker 27 solid
+std::vector<Preset> layerPresets() {
+    return {
+        preset("blank", "Start from a circle", "One circle to build on: add layers, change them, animate them", "plane", kAdd,
+               LayerBuilder{}.layer(0, 1, 0.25f, 0.65f, 1.0f, 0.9f, 1.0f, 1.0f, 0, 1.6f, 0.7f, 1.0f, 0.5f, 6, 0.5f)),
+        preset("energy-field", "Energy Field", "A glowing field: gradient, moving noise, a sweep, streaks, orbiting orbs and a halo", "sphere", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 0.0f, 0.25f, 0.9f, 0.4f, 0.95f, 1.0f, 0, 0.8f, 1.0f, 0.3f, 0.3f, 6, 0.5f).set(0, "space", 1)
+                   .layer(1, 22, 0.1f, 0.5f, 1.0f, 0.7f, 1.0f, 1.0f, 3, 0.9f, 1.0f, 0.55f, 0.5f, 5, 0.5f).set(1, "space", 1).set(1, "warp", 0.4f)
+                   .layer(2, 13, 0.3f, 0.9f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 1.6f, 0.95f, 0.45f, 0.15f, 6, 0.8f).set(2, "space", 1)
+                   .layer(3, 10, 0.4f, 0.9f, 1.0f, 0.9f, 1.0f, 1.0f, 0, 1.2f, 1.0f, 0.2f, 0.4f, 18, 1.2f).set(3, "space", 1)
+                   .layer(4, 15, 0.7f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 2.5f, 0.85f, 0.12f, 0.6f, 5, 0.9f).set(4, "space", 1)
+                   .layer(5, 20, 0.1f, 0.4f, 1.0f, 0.5f, 0.9f, 1.0f, 0, 1.4f, 1.0f, 0.3f, 0.3f, 5, 0.5f)
+                   .n("brightness", 1.0f)),
+        preset("magic-circle", "Magic Circle", "Rings, runes and a turning star: a spell on the ground", "plane", kAdd,
+               LayerBuilder{}
+                   .layer(0, 2, 0.5f, 0.2f, 1.0f, 0.9f, 0.6f, 1.0f, 0, 2.0f, 0.92f, 0.04f, 0.3f, 6, 0.5f)
+                   .layer(1, 3, 0.6f, 0.3f, 1.0f, 1.0f, 0.8f, 1.0f, 0, 2.2f, 0.78f, 0.09f, 0.2f, 12, 0.35f).set(1, "spin", -25)
+                   .layer(2, 5, 0.4f, 0.2f, 1.0f, 0.9f, 0.7f, 1.0f, 0, 1.6f, 0.62f, 0.12f, 0.15f, 6, 0.5f).set(2, "spin", 30)
+                   .layer(3, 6, 0.7f, 0.4f, 1.0f, 1.0f, 0.9f, 1.0f, 0, 1.8f, 0.45f, 0.08f, 0.2f, 3, 0.5f).set(3, "spin", -40)
+                   .layer(4, 15, 0.9f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.92f, 0.1f, 0.5f, 8, 0.7f)
+                   .layer(5, 18, 0.3f, 0.1f, 0.8f, 0.6f, 0.3f, 1.0f, 0, 1.0f, 1.0f, 0.4f, 0.3f, 6, 0.5f).alphas(5, 0.35f, 0.0f)),
+        preset("radar-scanner", "Radar Scanner", "A grid with rings and a sweeping beam", "plane", kAdd,
+               LayerBuilder{}
+                   .layer(0, 8, 0.0f, 0.5f, 0.35f, 0.2f, 1.0f, 0.6f, 0, 1.0f, 1.0f, 0.12f, 0.2f, 8, 0.5f)
+                   .layer(1, 2, 0.1f, 0.9f, 0.5f, 0.5f, 1.0f, 0.8f, 0, 1.4f, 0.95f, 0.025f, 0.3f, 6, 0.5f)
+                   .layer(2, 2, 0.1f, 0.9f, 0.5f, 0.5f, 1.0f, 0.8f, 0, 1.2f, 0.55f, 0.025f, 0.3f, 6, 0.5f)
+                   .layer(3, 13, 0.1f, 1.0f, 0.5f, 0.7f, 1.0f, 0.9f, 0, 2.4f, 0.95f, 0.55f, 0.15f, 6, 0.9f)
+                   .layer(4, 15, 0.6f, 1.0f, 0.8f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.7f, 0.08f, 0.5f, 3, 0.4f)),
+        preset("neon-outline", "Neon Outline", "A bright glowing edge round an object", "sphere", kAdd,
+               LayerBuilder{}
+                   .layer(0, 20, 1.0f, 0.1f, 0.7f, 1.0f, 0.5f, 0.9f, 0, 2.8f, 1.0f, 0.3f, 0.3f, 5, 0.5f)
+                   .layer(1, 20, 0.3f, 0.1f, 1.0f, 0.9f, 0.3f, 1.0f, 0, 1.4f, 1.0f, 0.3f, 0.3f, 2, 0.5f)
+                   .n("rimIntensity", 0.6f)),
+        preset("shockwave-blast", "Shockwave Blast", "Rings that burst outward from a bright flash", "plane", kAdd,
+               LayerBuilder{}
+                   .layer(0, 16, 1.0f, 0.55f, 0.15f, 1.0f, 0.95f, 0.7f, 0, 2.8f, 1.0f, 0.16f, 0.5f, 6, 0.9f)
+                   .layer(1, 16, 1.0f, 0.4f, 0.1f, 1.0f, 0.85f, 0.5f, 0, 2.0f, 1.0f, 0.1f, 0.5f, 6, 0.9f).set(1, "ox", 0.0f)
+                   .layer(2, 18, 1.0f, 0.5f, 0.1f, 1.0f, 1.0f, 0.9f, 0, 2.6f, 0.45f, 0.5f, 0.3f, 6, 0.5f)
+                   .layer(3, 10, 1.0f, 0.7f, 0.3f, 1.0f, 1.0f, 0.8f, 0, 2.0f, 1.0f, 0.2f, 0.4f, 20, 1.6f)),
+        preset("electric-arc", "Electric Arc", "Jagged lightning with a hot glow", "plane", kAdd,
+               LayerBuilder{}
+                   .layer(0, 12, 0.2f, 0.4f, 1.0f, 0.5f, 0.8f, 1.0f, 0, 1.4f, 1.0f, 0.5f, 0.6f, 6, 0.5f)
+                   .layer(1, 14, 0.4f, 0.7f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.2f, 1.0f, 0.2f, 0.3f, 3, 1.4f)
+                   .layer(2, 14, 0.5f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 2.2f, 1.0f, 0.15f, 0.3f, 4, 2.0f).set(2, "ox", 0.12f)),
+        preset("slot-win-burst", "Slot Win Burst", "A jackpot burst: rays, a star and sparkles", "plane", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 1.0f, 0.55f, 0.05f, 1.0f, 0.95f, 0.5f, 0, 2.0f, 0.9f, 0.35f, 0.3f, 6, 0.5f)
+                   .layer(1, 10, 1.0f, 0.8f, 0.2f, 1.0f, 1.0f, 0.8f, 0, 2.4f, 1.0f, 0.3f, 0.4f, 28, 1.4f)
+                   .layer(2, 5, 1.0f, 0.7f, 0.1f, 1.0f, 1.0f, 0.7f, 0, 2.6f, 0.6f, 0.6f, 0.2f, 8, 0.5f).set(2, "spin", 25)
+                   .layer(3, 15, 1.0f, 0.95f, 0.6f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.9f, 0.1f, 0.6f, 10, 0.6f)
+                   .layer(4, 25, 1.0f, 0.9f, 0.5f, 1.0f, 1.0f, 1.0f, 3, 1.5f, 1.0f, 0.25f, 0.4f, 14, 0.5f)),
+        preset("hologram-grid", "Hologram Grid", "A hex grid with scan stripes and a glowing rim", "sphere", kAdd,
+               LayerBuilder{}
+                   .layer(0, 7, 0.1f, 0.7f, 1.0f, 0.5f, 1.0f, 1.0f, 0, 1.5f, 1.0f, 0.3f, 0.3f, 8, 0.5f).set(0, "space", 1)
+                   .layer(1, 9, 0.2f, 0.8f, 1.0f, 0.6f, 1.0f, 1.0f, 3, 1.2f, 1.0f, 0.3f, 0.4f, 30, 1.0f).set(1, "rot", 90).set(1, "space", 1)
+                   .layer(2, 20, 0.2f, 0.9f, 1.0f, 0.8f, 1.0f, 1.0f, 0, 2.0f, 1.0f, 0.3f, 0.3f, 3, 0.5f)),
+    };
+}
+
+// What each element of a layer is called, which settings it uses and what they mean for it.
+const std::vector<ElementInfo>& buildElements() {
+    static const std::vector<ElementInfo> all = {
+        {"None", "", "An empty layer", {}, {}, {}},
+        {"Circle", "Shape", "A disc, or an outline of one", {"count", "speed"}, {{"thick", "Fill / outline (1 is filled)"}}, {{"size", 0.7f}, {"thick", 1.0f}, {"soft", 0.25f}}},
+        {"Ring", "Shape", "A thin ring", {"count", "speed"}, {{"thick", "Ring width"}}, {{"size", 0.8f}, {"thick", 0.12f}, {"soft", 0.3f}}},
+        {"Segmented ring", "Shape", "A ring broken into segments", {}, {{"thick", "Ring width"}, {"count", "Segments"}, {"speed", "Segment turning"}}, {{"size", 0.85f}, {"thick", 0.15f}, {"soft", 0.2f}, {"count", 8}, {"speed", 0.5f}}},
+        {"Spiral", "Shape", "A spiral with several arms", {}, {{"thick", "Line width"}, {"count", "Arms"}, {"speed", "Travel speed"}}, {{"size", 0.9f}, {"thick", 0.35f}, {"count", 3}, {"speed", 0.6f}}},
+        {"Star", "Shape", "A star with points", {"speed"}, {{"thick", "Sharpness"}, {"count", "Points"}}, {{"size", 0.8f}, {"thick", 0.6f}, {"count", 5}}},
+        {"Polygon", "Shape", "A triangle, square, hexagon ...", {"speed"}, {{"thick", "Fill / outline (1 is filled)"}, {"count", "Sides"}}, {{"size", 0.8f}, {"thick", 0.12f}, {"count", 6}}},
+        {"Hex grid", "Shape", "A honeycomb of lines", {"speed"}, {{"thick", "Line width"}, {"count", "Cells"}}, {{"size", 1.0f}, {"thick", 0.3f}, {"soft", 0.3f}, {"count", 10}}},
+        {"Grid", "Shape", "Square grid lines", {"speed"}, {{"thick", "Line width"}, {"count", "Lines"}}, {{"size", 1.0f}, {"thick", 0.15f}, {"count", 10}}},
+        {"Stripes", "Shape", "Bars that can scroll", {}, {{"thick", "Stripe width"}, {"count", "Stripes"}, {"speed", "Scroll speed"}}, {{"size", 1.0f}, {"thick", 0.4f}, {"count", 12}, {"speed", 0.5f}}},
+        {"Speed lines", "Shape", "Streaks flying outward", {}, {{"thick", "Line width"}, {"count", "Lines"}, {"speed", "Speed"}}, {{"size", 1.0f}, {"thick", 0.25f}, {"soft", 0.4f}, {"count", 24}, {"speed", 1.5f}}},
+        {"Wave", "Shape", "A rippling ribbon", {}, {{"thick", "Line width"}, {"count", "Waves"}, {"speed", "Wave speed"}}, {{"size", 1.0f}, {"thick", 0.08f}, {"soft", 0.3f}, {"count", 3}, {"speed", 1.0f}}},
+        {"Beam", "Shape", "A vertical beam of light", {"count", "speed"}, {{"thick", "Beam width"}, {"soft", "Fade at the ends"}}, {{"size", 1.0f}, {"thick", 0.2f}, {"soft", 0.5f}}},
+        {"Radar sweep", "Shape", "A turning wedge with a trail", {"count"}, {{"thick", "Trail length"}, {"speed", "Sweep speed"}}, {{"size", 0.95f}, {"thick", 0.5f}, {"soft", 0.15f}, {"speed", 0.8f}}},
+        {"Lightning", "Shape", "A jagged bolt", {}, {{"thick", "Bolt width"}, {"count", "Jaggedness"}, {"speed", "Flicker speed"}}, {{"size", 1.0f}, {"thick", 0.2f}, {"count", 3}, {"speed", 1.4f}}},
+        {"Orbiting dots", "Shape", "Dots circling the middle", {}, {{"thick", "Dot size"}, {"soft", "Trail glow"}, {"count", "Dots"}, {"speed", "Orbit speed"}}, {{"size", 0.85f}, {"thick", 0.15f}, {"soft", 0.5f}, {"count", 6}, {"speed", 0.9f}}},
+        {"Shockwave", "Shape", "A ring that expands and fades, again and again", {"count"}, {{"thick", "Ring width"}, {"speed", "Expand speed"}}, {{"size", 1.0f}, {"thick", 0.15f}, {"soft", 0.5f}, {"speed", 0.9f}}},
+        {"Linear gradient", "Gradient", "Colour A to colour B across the layer", {"thick", "soft", "count"}, {{"speed", "Scroll speed"}}, {{"size", 1.0f}, {"speed", 0.0f}}},
+        {"Radial gradient", "Gradient", "Colour B in the middle fading to colour A", {"soft", "count", "speed"}, {{"thick", "Falloff"}}, {{"size", 1.0f}, {"thick", 0.3f}}},
+        {"Angular gradient", "Gradient", "Colour going round the middle", {"thick", "soft", "count"}, {{"speed", "Scroll speed"}}, {{"size", 1.0f}, {"speed", 0.5f}}},
+        {"Fresnel glow", "Gradient", "Glow that gathers at the edge of the object", {"thick", "soft", "size", "aspect", "rot", "spin", "speed", "warp", "twist", "ox", "oy", "space"}, {{"count", "Edge sharpness"}}, {{"count", 4}}},
+        {"Height gradient", "Gradient", "Colour changes from the bottom of the object to the top", {"thick", "soft", "count", "aspect", "rot", "spin", "warp", "twist", "ox", "space"}, {{"size", "Height range"}, {"oy", "Height offset"}, {"speed", "Scroll speed"}}, {{"size", 1.0f}, {"speed", 0.0f}}},
+        {"Noise", "Pattern", "Moving cloudy noise", {}, {{"thick", "Amount shown"}, {"soft", "Edge softness"}, {"count", "Scale"}, {"speed", "Flow speed"}}, {{"size", 1.0f}, {"thick", 0.6f}, {"soft", 0.4f}, {"count", 6}, {"speed", 0.5f}}},
+        {"Cells", "Pattern", "Cell lines, like cracked ground", {}, {{"thick", "Line width"}, {"count", "Cells"}, {"speed", "Drift speed"}}, {{"size", 1.0f}, {"thick", 0.4f}, {"count", 6}, {"speed", 0.3f}}},
+        {"Plasma", "Pattern", "Slow rolling colour", {"thick", "soft"}, {{"count", "Scale"}, {"speed", "Flow speed"}}, {{"size", 1.0f}, {"count", 6}, {"speed", 1.0f}}},
+        {"Halftone dots", "Pattern", "A grid of dots", {"speed"}, {{"thick", "Dot size"}, {"count", "Dots across"}}, {{"size", 1.0f}, {"thick", 0.6f}, {"count", 12}}},
+        {"Checker", "Pattern", "A chequerboard", {"thick", "soft", "speed"}, {{"count", "Squares"}}, {{"size", 1.0f}, {"count", 8}}},
+        {"Solid colour", "Pattern", "A flat colour over the whole object", {"thick", "soft", "count", "speed", "size", "aspect", "rot", "spin", "warp", "twist", "ox", "oy", "space"}, {}, {}},
+    };
+    return all;
+}
+
 std::vector<Family> buildFamilies() {
     const Tables t = buildTables();
     struct Info {
@@ -294,6 +431,14 @@ std::vector<Family> buildFamilies() {
           "Melting fades the object from the top down; it does not deform the mesh.",
           "Light is a fixed direction, not Unity's lights."},
          "crystal", false, false, false, false, icePresets()},
+        {"layers", "LY", 20, "Layer Shader", "Build your own: stack shapes, gradients and patterns, then animate and export",
+         {"Casual", "Stylized", "VFX", "Mobile", "AAA"},
+         {"Pulse", "Flow", "Rotate", "Dissolve", "Expand", "Keyframes"},
+         {"Up to eight layers; no imported textures, masks or flipbooks yet: every element is drawn by the shader.",
+          "Layers cannot be grouped or nested, and there is no node graph yet.",
+          "Each layer draws in one 2D space laid on the object (mesh UV, front, top or wrap); it is not a per-vertex deformation.",
+          "Bloom comes from your camera's post-processing; the shader only makes the colours bright (HDR)."},
+         "sphere", true, false, false, false, layerPresets()},
     };
     std::vector<Family> out;
     for (const Info& i : infos) {
@@ -335,6 +480,19 @@ const char* easeName(Easing e) {
 }
 
 }  // namespace
+
+const std::vector<ElementInfo>& layerElements() { return buildElements(); }
+
+const std::vector<std::string>& layerBlendNames() {
+    static const std::vector<std::string> names = {"Add", "Alpha", "Multiply", "Screen", "Mask", "Erase"};
+    return names;
+}
+
+int layerParamIndex(const Family& family, int layer, const std::string& key) {
+    if (layer < 0 || layer >= kLayerCount) return -1;
+    const ParamDef* p = findParam(family, "L" + std::to_string(layer) + "_" + key);
+    return p ? p->index : -1;
+}
 
 const std::vector<Family>& families() {
     static const std::vector<Family> all = buildFamilies();

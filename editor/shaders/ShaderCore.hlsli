@@ -31,7 +31,7 @@ struct ShadeIn
 
 struct Params
 {
-    float4 v[48];
+    float4 v[192];
 };
 
 struct ShadeOut
@@ -466,4 +466,333 @@ ShadeOut shade_IC(ShadeIn I, Params P)
     a = a * rv.x * meltMask;
     rgb = (rgb + float3(0.7, 0.95, 1.0) * (rv.y * 2.0)) * rv.x;
     return makeOut(rgb, saturate(a));
+}
+
+// ---------------------------------------------------------------- 20 Layer shader
+// Up to eight layers, drawn from the bottom up. Each layer is 21 values (see ShaderParams.def):
+// the first of layer i is LY_L0_el + i * 21. A layer makes a coverage m (how much of it is
+// there) and a ramp v (0 gives colour A, 1 gives colour B), and is then blended onto what the
+// layers below have made.
+
+float lyMod(float x, float y) { return x - y * floor(x / y); }
+
+// A filled or outlined shape from its signed distance (negative inside).
+float lyShape(float sd, float thick, float soft)
+{
+    float hs = max(soft * 0.3, 0.006);
+    if (thick >= 0.99) return 1.0 - smoothstep(-hs, hs, sd);
+    float w = max(thick, 0.01);
+    float band = abs(sd + w * 0.5) - w * 0.5;
+    return 1.0 - smoothstep(-hs, hs, band);
+}
+
+float2 lyBase(ShadeIn I, int space)
+{
+    if (space == 1) return float2(I.pos.x, I.pos.y);
+    if (space == 2) return float2(I.pos.x, I.pos.z);
+    if (space == 3)
+    {
+        float lon = atan2(I.pos.z, I.pos.x) / 3.1415927;
+        float lat = atan2(I.pos.y, sqrt(I.pos.x * I.pos.x + I.pos.z * I.pos.z) + 0.0001) / 1.5707963;
+        return float2(lon, lat);
+    }
+    return float2((I.uv.x - 0.5) * 2.0, (I.uv.y - 0.5) * 2.0);
+}
+
+// x: coverage, y: the ramp.
+float2 lyElement(int el, float2 q, ShadeIn I, float t, float thick, float soft, float count, float speed, float seed, float sizeV, float offY)
+{
+    float r = length(q);
+    float a = atan2(q.y, q.x);
+    float hs = max(soft * 0.3, 0.006);
+    float m = 0.0;
+    float v = 0.0;
+    if (el == 1 || el == 2)
+    {
+        float th = thick;
+        if (el == 2) th = min(thick, 0.95);
+        m = lyShape(r - 1.0, th, soft);
+        v = saturate(1.0 - r);
+        if (el == 2) v = m;
+    }
+    else if (el == 3)
+    {
+        float ring = lyShape(r - 1.0, min(thick, 0.95), soft);
+        float s = frac(a / 6.2831853 * count + t * speed * 0.25);
+        float dc = abs(s - 0.5);
+        float seg = 1.0 - smoothstep(0.34 - hs, 0.34 + hs, dc);
+        m = ring * seg;
+        v = s;
+    }
+    else if (el == 4)
+    {
+        float f = frac(count * (a / 6.2831853) + r * 3.0 - t * speed * 0.5);
+        float band = 1.0 - smoothstep(thick * 0.5 - hs, thick * 0.5 + hs, abs(f - 0.5));
+        m = band * (1.0 - smoothstep(1.0 - hs, 1.0 + hs, r));
+        v = saturate(1.0 - r);
+    }
+    else if (el == 5)
+    {
+        float pts = max(count, 3.0);
+        float s = abs(cos(a * pts * 0.5));
+        float rad = lerp(0.4, 1.0, pow(s, 1.0 + (1.0 - thick) * 4.0));
+        m = 1.0 - smoothstep(-hs, hs, r - rad);
+        v = saturate(1.0 - r / rad);
+    }
+    else if (el == 6)
+    {
+        float n = max(floor(count + 0.5), 3.0);
+        float sector = 6.2831853 / n;
+        float k = floor(0.5 + a / sector) * sector;
+        float d = cos(k - a) * r;
+        float edge = cos(3.1415927 / n);
+        m = lyShape(d - edge, thick, soft);
+        v = saturate(1.0 - d / edge);
+    }
+    else if (el == 7)
+    {
+        float e = hexEdge(q * (count * 0.5));
+        float lo = 0.5 - thick * 0.4;
+        m = smoothstep(lo - hs, lo + hs, e);
+        v = saturate(e * 2.0);
+    }
+    else if (el == 8)
+    {
+        float2 g = abs(frac(q * (count * 0.5)) - float2(0.5, 0.5)) * 2.0;
+        float ln = max(g.x, g.y);
+        float lo = 1.0 - thick * 0.5;
+        m = smoothstep(lo - hs, lo + hs, ln);
+        v = ln;
+    }
+    else if (el == 9)
+    {
+        float f = frac(q.x * count * 0.5 + t * speed * 0.5);
+        m = 1.0 - smoothstep(thick - hs, thick + hs, abs(f - 0.5) * 2.0);
+        v = f;
+    }
+    else if (el == 10)
+    {
+        float u = (a / 6.2831853 + 0.5) * count;
+        float cell = floor(u);
+        float h = hash11(cell + seed * 7.0);
+        float dc = abs(frac(u) - 0.5);
+        float wid = thick * 0.5 * (0.4 + 0.6 * h);
+        float lateral = 1.0 - smoothstep(wid - hs * 0.5, wid + hs * 0.5, dc);
+        float p = frac(r * 0.7 - t * speed * 0.5 + h);
+        float along = smoothstep(0.0, 0.15, p) * (1.0 - smoothstep(0.35, 0.7, p));
+        m = lateral * along * (0.4 + 0.6 * h);
+        v = p;
+    }
+    else if (el == 11)
+    {
+        float k = count * 0.6;
+        float w = 0.3 * sin(q.x * k * 1.5707963 + t * speed * 3.0);
+        m = 1.0 - smoothstep(-hs, hs, abs(q.y - w) - thick * 0.5);
+        v = saturate(0.5 + 0.5 * sin(q.x * k + t * speed));
+    }
+    else if (el == 12)
+    {
+        float across = abs(q.x);
+        float wv = max(thick * thick * 0.25, 0.0004);
+        float core = exp(-(across * across) / wv);
+        float ends = 1.0 - smoothstep(1.0 - soft, 1.0, abs(q.y));
+        m = core * ends;
+        v = m;
+    }
+    else if (el == 13)
+    {
+        float f = frac(a / 6.2831853 + 0.5 - t * speed * 0.2);
+        m = pow(f, 1.0 + (1.0 - thick) * 6.0) * (1.0 - smoothstep(1.0 - hs, 1.0 + hs, r));
+        v = f;
+    }
+    else if (el == 14)
+    {
+        float path = (vnoise3(float3(q.y * count * 0.8, t * speed * 2.0, 3.0)) - 0.5) * 1.6
+                   + (vnoise3(float3(q.y * count * 2.3, t * speed * 3.1, 9.0)) - 0.5) * 0.5;
+        float d = abs(q.x - path);
+        float w = max(thick * 0.12, 0.004);
+        float core = exp(-(d * d) / (w * w));
+        float halo = exp(-(d * d) / (w * w * 12.0));
+        m = saturate(core + 0.35 * halo) * (1.0 - smoothstep(0.8, 1.0, abs(q.y)));
+        v = core;
+    }
+    else if (el == 15)
+    {
+        float n = max(floor(count + 0.5), 1.0);
+        float sector = 6.2831853 / n;
+        float aa = a + t * speed * 0.8;
+        float k = floor(aa / sector + 0.5) * sector;
+        float phi = aa - k;
+        float2 p = float2(r * cos(phi), r * sin(phi));
+        float d = length(p - float2(1.0, 0.0));
+        float rad = 0.04 + thick * 0.3;
+        m = 1.0 - smoothstep(rad - hs, rad + hs, d);
+        m = max(m, soft * 0.6 * exp(-(d * d) / (rad * rad * 6.0)));
+        v = m;
+    }
+    else if (el == 16)
+    {
+        float ph = frac(t * speed * 0.4 + seed * 0.37);
+        float w = max(thick * 0.5, 0.01) * (0.4 + ph * 0.6);
+        float ring = 1.0 - smoothstep(w * (1.0 - soft), w, abs(r - ph));
+        m = ring * (1.0 - ph) * (1.0 - ph);
+        v = 1.0 - ph;
+    }
+    else if (el == 17)
+    {
+        v = saturate(q.x * 0.5 + 0.5 - t * speed * 0.2);
+        m = 1.0;
+    }
+    else if (el == 18)
+    {
+        v = pow(saturate(1.0 - r), 0.25 + thick * 3.5);
+        m = v;
+    }
+    else if (el == 19)
+    {
+        v = frac(a / 6.2831853 + 0.5 - t * speed * 0.2);
+        m = 1.0;
+    }
+    else if (el == 20)
+    {
+        float facing = saturate(abs(dot(normalize(I.nrm), normalize(I.view))));
+        float f = pow(1.0 - facing, max(count * 0.5, 0.3));
+        v = f;
+        m = f;
+    }
+    else if (el == 21)
+    {
+        v = saturate((I.pos.y - offY) / max(sizeV, 0.05) * 0.5 + 0.5 - t * speed * 0.2);
+        m = 1.0;
+    }
+    else if (el == 22)
+    {
+        float n = fbm3(float3(q.x * count * 0.5, q.y * count * 0.5, t * speed * 0.4));
+        float thr = 1.0 - thick;
+        float h2 = soft * 0.5 + 0.02;
+        m = smoothstep(thr - h2, thr + h2, n);
+        v = n;
+    }
+    else if (el == 23)
+    {
+        float2 d = voro3(float3(q.x * count * 0.5, q.y * count * 0.5, t * speed * 0.2));
+        float ln = d.y - d.x;
+        m = 1.0 - smoothstep(thick * 0.3, thick * 0.3 + hs + 0.01, ln);
+        v = saturate(1.0 - d.x);
+    }
+    else if (el == 24)
+    {
+        float s1 = sin(q.x * count * 0.5 + t * speed);
+        float s2 = sin(q.y * count * 0.6 - t * speed * 1.3);
+        float s3 = sin((q.x + q.y) * count * 0.4 + t * speed * 0.7);
+        v = saturate(0.5 + 0.1667 * (s1 + s2 + s3));
+        m = 1.0;
+    }
+    else if (el == 25)
+    {
+        float2 c = frac(q * (count * 0.5)) - float2(0.5, 0.5);
+        float d = length(c);
+        float rad = thick * 0.5 + 0.02;
+        m = 1.0 - smoothstep(rad - hs, rad + hs, d);
+        v = saturate(1.0 - d * 2.0);
+    }
+    else if (el == 26)
+    {
+        float cx = floor(q.x * count * 0.5) + floor(q.y * count * 0.5);
+        m = abs(cx - 2.0 * floor(cx * 0.5));
+        v = m;
+    }
+    else
+    {
+        m = 1.0;
+        v = 0.0;
+    }
+    return float2(m, v);
+}
+
+ShadeOut shade_LY(ShadeIn I, Params P)
+{
+    float3 N = normalize(I.nrm);
+    float3 V = normalize(I.view);
+    float t = I.t;
+    float3 acc = float3(0.0, 0.0, 0.0);
+    float aacc = 0.0;
+    for (int i = 0; i < 8; i++)
+    {
+        int b = LY_L0_el + i * 21;
+        int el = int(P.v[b].x + 0.5);
+        if (el <= 0) continue;
+        if (P.v[b + 1].x < 0.5) continue;
+        int bm = int(P.v[b + 2].x + 0.5);
+        float seed = float(i) * 13.7;
+        float sizeV = P.v[b + 7].x;
+        float2 p = lyBase(I, int(P.v[b + 19].x + 0.5));
+        p = p - float2(P.v[b + 17].x, P.v[b + 18].x);
+        float ang = (P.v[b + 12].x + P.v[b + 13].x * t) * 0.0174533 + P.v[b + 16].x * length(p);
+        float cs = cos(ang);
+        float sn = sin(ang);
+        p = float2(cs * p.x - sn * p.y, sn * p.x + cs * p.y);
+        p = p / max(sizeV, 0.05);
+        p = float2(p.x / max(P.v[b + 8].x, 0.05), p.y);
+        float warp = P.v[b + 15].x;
+        if (warp > 0.001)
+        {
+            float n1 = vnoise3(float3(p.x * 2.0, p.y * 2.0, t * 0.3 + seed));
+            float n2 = vnoise3(float3(p.x * 2.0 + 7.3, p.y * 2.0 + 1.9, t * 0.3 + seed + 4.0));
+            p = p + float2(n1 - 0.5, n2 - 0.5) * (warp * 1.2);
+        }
+        float2 e = lyElement(el, p, I, t, P.v[b + 9].x, P.v[b + 10].x, P.v[b + 11].x, P.v[b + 14].x, seed, sizeV, P.v[b + 18].x);
+        float m = e.x;
+        if (P.v[b + 20].x > 0.5) m = 1.0 - m;
+        float v = e.y;
+        float4 cA = P.v[b + 4];
+        float4 cB = P.v[b + 5];
+        float opa = P.v[b + 3].x;
+        float3 col = lerp(float3(cA.x, cA.y, cA.z), float3(cB.x, cB.y, cB.z), v) * P.v[b + 6].x;
+        float alpha = saturate(m * lerp(cA.w, cB.w, v) * opa);
+        if (bm == 0)
+        {
+            acc = acc + col * alpha;
+            aacc = saturate(aacc + alpha);
+        }
+        else if (bm == 1)
+        {
+            acc = col * alpha + acc * (1.0 - alpha);
+            aacc = alpha + aacc * (1.0 - alpha);
+        }
+        else if (bm == 2)
+        {
+            acc = acc * lerp(float3(1.0, 1.0, 1.0), col, alpha);
+        }
+        else if (bm == 3)
+        {
+            float l = saturate(dot(acc, float3(0.3333, 0.3333, 0.3333)));
+            acc = acc + col * (alpha * (1.0 - l));
+            aacc = max(aacc, alpha);
+        }
+        else if (bm == 4)
+        {
+            float k = lerp(1.0, saturate(m), opa);
+            acc = acc * k;
+            aacc = aacc * k;
+        }
+        else
+        {
+            float k = 1.0 - alpha;
+            acc = acc * k;
+            aacc = aacc * k;
+        }
+    }
+    float live = pulseOf(I, P) * flickerOf(I, P);
+    float facing = saturate(abs(dot(N, V)));
+    float rim = pow(1.0 - facing, PF(LY_rimPower)) * PF(LY_rimIntensity);
+    float core = facing * facing * PF(LY_coreGlow) * 0.6;
+    float3 glow = PC(LY_glow);
+    float3 light = acc * (PF(LY_brightness) * live) + glow * ((rim + core) * live);
+    float cover = saturate(aacc + saturate(rim + core) * (1.0 - aacc));
+    float2 rv = revealOf(I, P);
+    light = (light + glow * (rv.y * 3.0)) * rv.x;
+    cover = saturate(cover * rv.x + rv.y * 0.5);
+    float3 straight = light / max(cover, 0.0001);
+    return makeOut(straight, cover * PF(LY_opacity));
 }
