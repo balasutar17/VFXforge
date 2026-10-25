@@ -223,6 +223,8 @@ public:
     Q_INVOKABLE void pinForCompare();
     Q_INVOKABLE bool loadPreviewModel(const QUrl& file);
     Q_INVOKABLE void clearPreviewModel();
+    // Stands up a model that came in upside down or lying down: as it came, upside down, Z up, Z down.
+    Q_INVOKABLE void turnPreviewModel();
 
     // ---- the file and Unity
     Q_INVOKABLE void newShader();
@@ -269,7 +271,9 @@ private:
     std::vector<vfx::editor::shader::Settings> undo_, redo_;
     bool checkpointed_ = false;
     std::unique_ptr<vfx::editor::shader::Settings> pinned_;
-    std::shared_ptr<const vfx::editor::Model> model_;
+    std::shared_ptr<const vfx::editor::Model> model_;  // modelBase_ turned by modelOrient_
+    std::shared_ptr<const vfx::editor::Model> modelBase_;
+    int modelOrient_ = 0;
     int revision_ = 0, structureRevision_ = 0, animationRevision_ = 0, libraryRevision_ = 0, previewRevision_ = 0;
     int background_ = 0;
     bool bloom_ = true, compareOn_ = false;

@@ -61,6 +61,13 @@ Result<Model> readGltf(std::string_view bytes, const std::filesystem::path& fold
 // By the file's extension: .obj (its .mtl beside it is read too), .glb, .gltf.
 Result<Model> loadModel(const std::filesystem::path& file);
 
+// Some programs write a model lying down (Z up) or upside down. This turns a
+// model about its own middle so it stands: 0 as it came, 1 turned head over
+// heels (upside down), 2 Z was up, 3 Z was down. All are plain turns, so
+// faces, normals and colours keep their meaning.
+inline constexpr int kModelOrientations = 4;
+Model reorientModel(const Model& model, int how);
+
 // A drawn model: its colours with coverage in alpha (straight, not
 // premultiplied), and for each pixel how far from the viewer the nearest
 // surface is (infinity where there is none), as the mesh builder measures

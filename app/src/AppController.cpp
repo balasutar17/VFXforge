@@ -2634,9 +2634,27 @@ bool AppController::showModelFile(const QString& path, bool quiet) {
         }
         return false;
     }
-    model_ = std::make_shared<const vfx::editor::Model>(std::move(loaded.value()));
+    setModelBase(std::move(loaded.value()));
     modelPath_ = path;
     return true;
+}
+
+void AppController::setModelBase(vfx::editor::Model model) {
+    modelBase_ = std::make_shared<const vfx::editor::Model>(std::move(model));
+    model_ = modelOrient_ == 0 ? modelBase_
+                               : std::make_shared<const vfx::editor::Model>(vfx::editor::reorientModel(*modelBase_, modelOrient_));
+}
+
+void AppController::setModelOrientation(int how) {
+    how = std::clamp(how, 0, vfx::editor::kModelOrientations - 1);
+    if (!modelBase_ || how == modelOrient_) {
+        return;
+    }
+    modelOrient_ = how;
+    setModelBase(vfx::editor::Model(*modelBase_));
+    storeStage();
+    static const char* names[] = {"as it came", "upside down", "turned from Z-up", "turned from Z-down"};
+    say(QStringLiteral("Model turned: %1.").arg(QString::fromLatin1(names[how])));
 }
 
 void AppController::loadStage() {
@@ -2644,14 +2662,22 @@ void AppController::loadStage() {
     const QString key = QStringLiteral("models/") + text(vfx::formatId('e', session_.effect().id));
     const QString kind = settings.value(key + QStringLiteral("/kind")).toString();
     bool shown = false;
+    const int savedOrient = std::clamp(settings.value(key + QStringLiteral("/orient"), 0).toInt(), 0, vfx::editor::kModelOrientations - 1);
     if (kind == QStringLiteral("dummy")) {
-        if (!model_ || !modelPath_.isEmpty()) {
-            model_ = std::make_shared<const vfx::editor::Model>(vfx::editor::practiceDummy());
+        if (!model_ || !modelPath_.isEmpty() || savedOrient != modelOrient_) {
+            modelOrient_ = savedOrient;
+            setModelBase(vfx::editor::practiceDummy());
         }
         modelPath_.clear();
         shown = true;
     } else if (kind == QStringLiteral("file")) {
         const QString path = settings.value(key + QStringLiteral("/path")).toString();
+        if (path != modelPath_ || !model_) {
+            modelOrient_ = savedOrient;
+        } else if (savedOrient != modelOrient_) {
+            modelOrient_ = savedOrient;
+            setModelBase(vfx::editor::Model(*modelBase_));
+        }
         shown = QFileInfo::exists(path) && showModelFile(path, true);
     }
     if (!shown) {
@@ -2683,6 +2709,7 @@ void AppController::storeStage() {
         settings.setValue(key + QStringLiteral("/turn"), static_cast<double>(modelPlace_.turn));
         settings.setValue(key + QStringLiteral("/height"), static_cast<double>(modelPlace_.height));
         settings.setValue(key + QStringLiteral("/look"), modelPlace_.look);
+        settings.setValue(key + QStringLiteral("/orient"), modelOrient_);
         settings.setValue(key + QStringLiteral("/hide"), hideBehindModel_);
     }
     emit modelChanged();
@@ -2695,7 +2722,10 @@ bool AppController::useModel(const QUrl& file) {
         return false;
     }
     const bool had = model_ != nullptr;
+    const int keptOrient = modelOrient_;
+    modelOrient_ = 0;  // a new model starts as it came
     if (!showModelFile(path, false)) {
+        modelOrient_ = keptOrient;
         return false;
     }
     if (!had) {
@@ -2714,7 +2744,8 @@ bool AppController::useModel(const QUrl& file) {
 
 void AppController::useSampleModel() {
     const bool had = model_ != nullptr;
-    model_ = std::make_shared<const vfx::editor::Model>(vfx::editor::practiceDummy());
+    modelOrient_ = 0;
+    setModelBase(vfx::editor::practiceDummy());
     modelPath_.clear();
     if (!had) {
         modelPlace_ = vfx::editor::ModelPlace{};
@@ -2728,7 +2759,8 @@ static vfx::editor::View viewFromMap(const QVariantMap& view);
 
 void AppController::useHardSurfaceModel() {
     const bool had = model_ != nullptr;
-    model_ = std::make_shared<const vfx::editor::Model>(vfx::editor::hardSurfaceSample());
+    modelOrient_ = 0;
+    setModelBase(vfx::editor::hardSurfaceSample());
     modelPath_.clear();
     if (!had) {
         modelPlace_ = vfx::editor::ModelPlace{};
@@ -2815,6 +2847,8 @@ bool AppController::fitToModel(const QVariantMap& view) {
 
 void AppController::clearModel() {
     model_.reset();
+    modelBase_.reset();
+    modelOrient_ = 0;
     modelPath_.clear();
     storeStage();
 }

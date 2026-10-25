@@ -395,3 +395,39 @@ TEST_CASE("an effect is drawn over its model", "[model][picture]") {
     CHECK(particle[0] > 200);
     CHECK(particle[2] < 60);
 }
+
+TEST_CASE("a model that came in upside down or lying down can be stood up", "[model]") {
+    // The practice dummy stands on y = 0 and is tall in y.
+    const Model dummy = practiceDummy();
+    const float tall = dummy.maxY - dummy.minY;
+    REQUIRE(tall > 1.0f);
+
+    const Model flipped = reorientModel(dummy, 1);
+    CHECK(flipped.maxY == Catch::Approx(-dummy.minY));
+    CHECK(flipped.minY == Catch::Approx(-dummy.maxY));
+    CHECK(flipped.triangles == dummy.triangles);
+    // A normal that pointed up now points down.
+    std::size_t up = 0;
+    for (std::size_t i = 0; i < dummy.normals.size(); i += 3) {
+        if (dummy.normals[i + 1] > 0.9f) {
+            CHECK(flipped.normals[i + 1] < -0.9f);
+            ++up;
+        }
+    }
+    CHECK(up > 0);
+
+    // Lying down (Z was up) comes upright: its length now runs along y.
+    Model lying = dummy;
+    for (std::size_t i = 0; i + 2 < lying.positions.size(); i += 3) {
+        const float y = dummy.positions[i + 1], z = dummy.positions[i + 2];
+        lying.positions[i + 1] = -z;
+        lying.positions[i + 2] = y;  // Y up -> Z up
+    }
+    const Model back = reorientModel(lying, 2);
+    for (std::size_t i = 0; i < dummy.positions.size(); ++i) {
+        CHECK(back.positions[i] == Catch::Approx(dummy.positions[i]).margin(1e-5));
+    }
+    CHECK(reorientModel(dummy, 0).positions == dummy.positions);
+    // Four turns of the other kind get nowhere new.
+    CHECK(reorientModel(dummy, 99).positions == dummy.positions);
+}

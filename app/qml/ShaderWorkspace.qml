@@ -664,6 +664,13 @@ Rectangle {
                         tip: "Preview on your own .obj / .glb / .gltf"
                         onClicked: { if (shaderStudio.hasModel) shaderStudio.clearPreviewModel(); else modelDialog.open() }
                     }
+                    VButton {
+                        visible: shaderStudio.hasModel
+                        text: "Turn model"
+                        implicitHeight: 24
+                        tip: "Upside down or lying on its side? Each press tries the next way up: flipped, Z up, Z down, as it came"
+                        onClicked: shaderStudio.turnPreviewModel()
+                    }
                 }
 
                 Text {

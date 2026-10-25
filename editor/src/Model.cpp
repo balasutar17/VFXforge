@@ -775,6 +775,39 @@ Result<Model> loadModel(const std::filesystem::path& file) {
     return model;
 }
 
+Model reorientModel(const Model& model, int how) {
+    if (how <= 0 || how >= kModelOrientations || model.positions.empty()) {
+        return model;
+    }
+    Model out = model;
+    const auto turn = [how](float* v) {
+        const float x = v[0], y = v[1], z = v[2];
+        switch (how) {
+            case 1: v[1] = -y; v[2] = -z; break;              // half a turn about X
+            case 2: v[1] = z;  v[2] = -y; break;              // Z up -> Y up
+            default: v[1] = -z; v[2] = y; break;              // Z down -> Y up
+        }
+        v[0] = x;
+    };
+    for (std::size_t i = 0; i + 2 < out.positions.size(); i += 3) {
+        turn(&out.positions[i]);
+    }
+    for (std::size_t i = 0; i + 2 < out.normals.size(); i += 3) {
+        turn(&out.normals[i]);
+    }
+    out.minX = out.minY = out.minZ = std::numeric_limits<float>::max();
+    out.maxX = out.maxY = out.maxZ = std::numeric_limits<float>::lowest();
+    for (std::size_t i = 0; i + 2 < out.positions.size(); i += 3) {
+        out.minX = std::min(out.minX, out.positions[i]);
+        out.maxX = std::max(out.maxX, out.positions[i]);
+        out.minY = std::min(out.minY, out.positions[i + 1]);
+        out.maxY = std::max(out.maxY, out.positions[i + 1]);
+        out.minZ = std::min(out.minZ, out.positions[i + 2]);
+        out.maxZ = std::max(out.maxZ, out.positions[i + 2]);
+    }
+    return out;
+}
+
 // ------------------------------------------------------------ drawing
 
 float ModelPicture::seen(float viewX, float viewY, float particleDepth, float viewWidth, float viewHeight) const {

@@ -128,6 +128,8 @@ class AppController : public QObject {
     Q_PROPERTY(QString modelName READ modelName NOTIFY modelChanged)
     Q_PROPERTY(int modelTriangles READ modelTriangles NOTIFY modelChanged)
     Q_PROPERTY(QVariantMap modelPlace READ modelPlaceMap NOTIFY modelChanged)
+    // 0 as it came, 1 upside down, 2 Z was up, 3 Z was down (see reorientModel).
+    Q_PROPERTY(int modelOrientation READ modelOrientation WRITE setModelOrientation NOTIFY modelChanged)
     Q_PROPERTY(bool hideBehindModel READ hideBehindModel WRITE setHideBehindModel NOTIFY modelChanged)
     // Whether an export to Unity takes the model along (see vfx/editor/UnityExport.h).
     Q_PROPERTY(bool exportModel READ exportModel WRITE setExportModel NOTIFY modelChanged)
@@ -206,6 +208,8 @@ public:
     double backdropOpacity() const { return backdrop_.opacity; }
 
     bool hasModel() const { return model_ != nullptr; }
+    int modelOrientation() const { return modelOrient_; }
+    void setModelOrientation(int how);
     bool hasMeshVfx() const;
     int meshQuality() const { return meshQuality_; }
     void setMeshQuality(int quality);
@@ -549,7 +553,10 @@ private:
     void loadStage();
     void storeStage();
     bool showModelFile(const QString& path, bool quiet);
-    std::shared_ptr<const vfx::editor::Model> model_;
+    std::shared_ptr<const vfx::editor::Model> model_;  // modelBase_ turned by modelOrient_
+    std::shared_ptr<const vfx::editor::Model> modelBase_;
+    int modelOrient_ = 0;
+    void setModelBase(vfx::editor::Model model);
     QString modelPath_;  // empty for the practice dummy
     vfx::editor::ModelPlace modelPlace_;
     int meshQuality_ = 1;

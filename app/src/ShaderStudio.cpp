@@ -345,7 +345,9 @@ bool ShaderStudio::loadPreviewModel(const QUrl& file) {
         say(text(loaded.error().message), true);
         return false;
     }
-    model_ = std::make_shared<const vfx::editor::Model>(std::move(loaded.value()));
+    modelBase_ = std::make_shared<const vfx::editor::Model>(std::move(loaded.value()));
+    modelOrient_ = 0;
+    model_ = modelBase_;
     s_.shape = "model";
     ++previewRevision_;
     emit previewChanged();
@@ -353,8 +355,21 @@ bool ShaderStudio::loadPreviewModel(const QUrl& file) {
     return true;
 }
 
+void ShaderStudio::turnPreviewModel() {
+    if (!modelBase_) return;
+    modelOrient_ = (modelOrient_ + 1) % vfx::editor::kModelOrientations;
+    model_ = modelOrient_ == 0 ? modelBase_
+                               : std::make_shared<const vfx::editor::Model>(vfx::editor::reorientModel(*modelBase_, modelOrient_));
+    ++previewRevision_;
+    emit previewChanged();
+    static const char* names[] = {"as it came", "upside down", "turned from Z-up", "turned from Z-down"};
+    say(QStringLiteral("Model %1. Press again to try the next way up.").arg(QString::fromLatin1(names[modelOrient_])));
+}
+
 void ShaderStudio::clearPreviewModel() {
     model_.reset();
+    modelBase_.reset();
+    modelOrient_ = 0;
     if (s_.shape == "model") s_.shape = "sphere";
     ++previewRevision_;
     emit previewChanged();

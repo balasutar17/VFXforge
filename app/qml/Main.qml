@@ -569,6 +569,28 @@ ApplicationWindow {
                             VButton { Layout.fillWidth: true; text: "Remove"; onClicked: app.clearModel() }
                         }
 
+                        // For a model that came in upside down or lying on its side.
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: app.hasModel
+                            spacing: 6
+                            Text { text: "Stands"; color: theme.dim; font.pixelSize: theme.fontSize }
+                            Repeater {
+                                model: ["As is", "Flip", "Z up", "Z down"]
+                                VButton {
+                                    objectName: "orient" + index
+                                    Layout.fillWidth: true
+                                    text: modelData
+                                    quiet: app.modelOrientation !== index
+                                    tip: ["The model as the file has it",
+                                          "Turn it upside down: use this when it came in head over heels",
+                                          "The file has Z as up (some CAD and 3D programs): stand it up",
+                                          "The file has Z pointing down: stand it up"][index]
+                                    onClicked: app.modelOrientation = index
+                                }
+                            }
+                        }
+
                         RowLayout {
                             Layout.fillWidth: true
                             visible: app.hasModel
