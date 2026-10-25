@@ -662,7 +662,7 @@ Rectangle {
                             text: shaderAssistant.configured
                                   ? "Connected: " + shaderAssistant.model
                                   : "Not connected. Nothing is sent until you add a key below."
-                            color: shaderAssistant.configured ? theme.dim : theme.warn
+                            color: shaderAssistant.configured ? theme.dim : theme.error
                             font.pixelSize: theme.smallFontSize
                             wrapMode: Text.WordWrap
                         }
@@ -743,7 +743,7 @@ Rectangle {
                             Layout.fillWidth: true
                             visible: !shaderAssistant.busy && shaderAssistant.message.length > 0
                             text: shaderAssistant.message
-                            color: shaderAssistant.messageIsError ? theme.warn : theme.dim
+                            color: shaderAssistant.messageIsError ? theme.error : theme.dim
                             font.pixelSize: theme.smallFontSize
                             wrapMode: Text.WordWrap
                         }
@@ -795,7 +795,7 @@ Rectangle {
                             Text {
                                 visible: shaderAssistant.proposalRefused.length > 0
                                 text: "Not applied:"
-                                color: theme.warn
+                                color: theme.error
                                 font.pixelSize: theme.smallFontSize
                             }
                             Repeater {
@@ -804,7 +804,7 @@ Rectangle {
                                     required property string modelData
                                     Layout.fillWidth: true
                                     text: "• " + modelData
-                                    color: theme.warn
+                                    color: theme.error
                                     font.pixelSize: theme.smallFontSize
                                     wrapMode: Text.WordWrap
                                 }
