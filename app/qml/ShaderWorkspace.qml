@@ -414,13 +414,13 @@ Rectangle {
                         Heading { text: "LAYERS" }
                         Item { Layout.fillWidth: true }
                         Text {
-                            text: shaderStudio.layers().length + " of 8"
+                            text: layerList.count + " of 8"
                             color: theme.faint
                             font.pixelSize: theme.smallFontSize
                         }
                     }
                     Text {
-                        visible: shaderStudio.layers().length === 0
+                        visible: layerList.count === 0
                         Layout.fillWidth: true
                         text: "No layers yet. Add an element below."
                         color: theme.dim
@@ -532,7 +532,7 @@ Rectangle {
                                 anchors.rightMargin: 2
                                 anchors.verticalCenter: parent.verticalCenter
                                 spacing: 0
-                                VButton { text: "▲"; quiet: true; implicitWidth: 24; implicitHeight: 24; tip: "Move up (drawn later, on top)"; enabled: row.modelData.slot < shaderStudio.layers().length - 1; onClicked: shaderStudio.moveLayer(row.modelData.slot, 1) }
+                                VButton { text: "▲"; quiet: true; implicitWidth: 24; implicitHeight: 24; tip: "Move up (drawn later, on top)"; enabled: row.modelData.slot < layerList.count - 1; onClicked: shaderStudio.moveLayer(row.modelData.slot, 1) }
                                 VButton { text: "▼"; quiet: true; implicitWidth: 24; implicitHeight: 24; tip: "Move down"; enabled: row.modelData.slot > 0; onClicked: shaderStudio.moveLayer(row.modelData.slot, -1) }
                                 VButton { text: "⧉"; quiet: true; implicitWidth: 24; implicitHeight: 24; tip: "Duplicate this layer"; onClicked: shaderStudio.duplicateLayer(row.modelData.slot) }
                                 VButton { text: "×"; quiet: true; implicitWidth: 24; implicitHeight: 24; tip: "Delete this layer"; onClicked: shaderStudio.removeLayer(row.modelData.slot) }
