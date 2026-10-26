@@ -914,6 +914,168 @@ Rectangle {
                     }
                 }
 
+                // ---- handles for the selected layer: move, turn, size
+                Item {
+                    id: gz
+                    anchors.fill: parent
+                    property var pose: ({ ok: false })
+                    property string mode: "move"
+                    property string dragging: ""
+                    property real startX: 0
+                    property real startY: 0
+                    property real start1: 0
+                    property real start2: 0
+                    property real lastAngle: 0
+                    property real turned: 0
+                    readonly property real unit: Math.min(width, height) * 0.4
+                    readonly property real ringR: 64
+                    readonly property real armLen: 72
+                    readonly property bool active: shaderStudio.isLayers && pose.ok === true
+                    readonly property real cx: width / 2 + (pose.has_ox ? pose.ox : 0) * unit
+                    readonly property real cy: height / 2 - (pose.has_oy ? pose.oy : 0) * unit
+
+                    function refresh() {
+                        pose = shaderStudio.layerPose()
+                        canvas2.requestPaint()
+                    }
+                    Component.onCompleted: refresh()
+                    onModeChanged: canvas2.requestPaint()
+                    onWidthChanged: canvas2.requestPaint()
+                    onHeightChanged: canvas2.requestPaint()
+                    Connections {
+                        target: shaderStudio
+                        function onChanged() { gz.refresh() }
+                        function onStructureChanged() { gz.refresh() }
+                        function onPlayheadChanged() { gz.refresh() }
+                    }
+
+                    function near(x, y, ax, ay, bx, by) {
+                        var dx = bx - ax, dy = by - ay
+                        var len = dx * dx + dy * dy
+                        var t = len > 0 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len)) : 0
+                        var qx = ax + t * dx - x, qy = ay + t * dy - y
+                        return Math.sqrt(qx * qx + qy * qy)
+                    }
+                    function partAt(x, y) {
+                        if (!active) return ""
+                        if (Math.abs(x - cx) <= 9 && Math.abs(y - cy) <= 9)
+                            return "center"
+                        if (mode === "move") {
+                            if (pose.has_ox && near(x, y, cx, cy, cx + armLen, cy) <= 7) return "x"
+                            if (pose.has_oy && near(x, y, cx, cy, cx, cy - armLen) <= 7) return "y"
+                        } else if (mode === "turn" && pose.has_rot) {
+                            if (Math.abs(Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) - ringR) <= 8) return "ring"
+                        }
+                        return ""
+                    }
+
+                    Canvas {
+                        id: canvas2
+                        anchors.fill: parent
+                        visible: gz.active
+                        onPaint: {
+                            var ctx = getContext("2d")
+                            ctx.clearRect(0, 0, width, height)
+                            if (!gz.active) return
+                            var x = gz.cx, y = gz.cy
+                            ctx.lineWidth = 2
+                            if (gz.mode === "move") {
+                                if (gz.pose.has_ox) {
+                                    ctx.strokeStyle = "#ef5350"; ctx.fillStyle = "#ef5350"
+                                    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + gz.armLen, y); ctx.stroke()
+                                    ctx.beginPath(); ctx.moveTo(x + gz.armLen + 10, y); ctx.lineTo(x + gz.armLen - 2, y - 6); ctx.lineTo(x + gz.armLen - 2, y + 6); ctx.closePath(); ctx.fill()
+                                }
+                                if (gz.pose.has_oy) {
+                                    ctx.strokeStyle = "#66bb6a"; ctx.fillStyle = "#66bb6a"
+                                    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - gz.armLen); ctx.stroke()
+                                    ctx.beginPath(); ctx.moveTo(x, y - gz.armLen - 10); ctx.lineTo(x - 6, y - gz.armLen + 2); ctx.lineTo(x + 6, y - gz.armLen + 2); ctx.closePath(); ctx.fill()
+                                }
+                            } else if (gz.mode === "turn" && gz.pose.has_rot) {
+                                ctx.strokeStyle = "#42a5f5"
+                                ctx.beginPath(); ctx.arc(x, y, gz.ringR, 0, 2 * Math.PI); ctx.stroke()
+                                var a = gz.pose.rot * Math.PI / 180
+                                ctx.fillStyle = "#42a5f5"
+                                ctx.beginPath(); ctx.arc(x + gz.ringR * Math.cos(a), y + gz.ringR * Math.sin(a), 5, 0, 2 * Math.PI); ctx.fill()
+                            }
+                            ctx.fillStyle = "#ffe0b2"
+                            ctx.strokeStyle = "#1b1b1b"
+                            ctx.lineWidth = 1
+                            ctx.fillRect(x - 6, y - 6, 12, 12)
+                            ctx.strokeRect(x - 6, y - 6, 12, 12)
+                        }
+                    }
+
+                    // The three modes.
+                    Row {
+                        visible: gz.active
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: 10
+                        spacing: 4
+                        VButton { text: "Move"; checked: gz.mode === "move"; tip: "Drag the square to move the selected layer; the arrows move it along one axis"; onClicked: gz.mode = "move" }
+                        VButton { text: "Turn"; enabled: gz.pose.has_rot === true; checked: gz.mode === "turn"; tip: "Drag the ring to turn the selected layer. Shift snaps to 15 degrees"; onClicked: gz.mode = "turn" }
+                        VButton { text: "Size"; enabled: gz.pose.has_size === true; checked: gz.mode === "size"; tip: "Drag the square up or down to make the selected layer larger or smaller. Shift snaps to 10%"; onClicked: gz.mode = "size" }
+                    }
+                    Text {
+                        visible: shaderStudio.isLayers && !gz.active
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: 12
+                        text: shaderStudio.selectedLayer < 0 ? "Select a layer to move, turn or size it" : "This layer has no place, turn or size to change"
+                        color: theme.faint
+                        font.pixelSize: theme.smallFontSize
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: gz.active
+                        hoverEnabled: true
+                        cursorShape: gz.partAt(mouseX, mouseY) !== "" || gz.dragging !== "" ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        onPressed: function(mouse) {
+                            var part = gz.partAt(mouse.x, mouse.y)
+                            if (part === "") { mouse.accepted = false; return }
+                            gz.dragging = part
+                            gz.startX = mouse.x
+                            gz.startY = mouse.y
+                            gz.start1 = gz.pose.ox
+                            gz.start2 = gz.pose.oy
+                            gz.turned = gz.pose.rot
+                            gz.lastAngle = Math.atan2(mouse.y - gz.cy, mouse.x - gz.cx)
+                            gz.startSize = gz.pose.size
+                            shaderStudio.checkpoint()
+                        }
+                        onPositionChanged: function(mouse) {
+                            if (gz.dragging === "") return
+                            var snap = (mouse.modifiers & Qt.ShiftModifier) !== 0
+                            var p = gz.pose
+                            if (gz.mode === "move") {
+                                var nx = gz.start1 + (mouse.x - gz.startX) / gz.unit
+                                var ny = gz.start2 - (mouse.y - gz.startY) / gz.unit
+                                if (snap) { nx = Math.round(nx * 20) / 20; ny = Math.round(ny * 20) / 20 }
+                                if (p.has_ox && gz.dragging !== "y") shaderStudio.setNumber(p.oxIndex, nx)
+                                if (p.has_oy && gz.dragging !== "x") shaderStudio.setNumber(p.oyIndex, ny)
+                            } else if (gz.mode === "turn") {
+                                if (gz.dragging !== "ring") return
+                                var a = Math.atan2(mouse.y - gz.cy, mouse.x - gz.cx)
+                                var d = a - gz.lastAngle
+                                while (d > Math.PI) d -= 2 * Math.PI
+                                while (d < -Math.PI) d += 2 * Math.PI
+                                gz.lastAngle = a
+                                gz.turned += d * 180 / Math.PI
+                                var r = snap ? Math.round(gz.turned / 15) * 15 : gz.turned
+                                shaderStudio.setNumber(p.rotIndex, r)
+                            } else if (p.has_size) {
+                                var s = gz.startSize * Math.exp(-(mouse.y - gz.startY) / 150)
+                                if (snap) s = Math.round(s * 10) / 10
+                                shaderStudio.setNumber(p.sizeIndex, s)
+                            }
+                        }
+                        onReleased: gz.dragging = ""
+                        onCanceled: gz.dragging = ""
+                    }
+                    property real startSize: 1
+                }
+
                 // Shape buttons, top left.
                 Flow {
                     anchors.left: parent.left

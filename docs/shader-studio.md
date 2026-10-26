@@ -60,3 +60,7 @@ The **AI** tab (beside Library and Layers) lets you describe a layer shader in w
 - Providers: Claude (Anthropic API) or any OpenAI-compatible server. The key is stored on this computer only, in the app settings (not encrypted), or read from `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`. Without a key nothing is sent.
 - Not built yet: variations, reference image/video analysis, optimize, diagnose and fix.
 - Tests: `[shader][ai]` covers command validation, layer/animation edits, save and export, and both providers' request and reply formats. A live model call has not been tested in CI.
+
+## Handles over the preview (0.39.0)
+
+With a layer selected in a layer shader, handles appear over the preview. **Move**: the square moves the layer freely; the red and green arrows move it along one axis. **Turn**: drag the ring. **Size**: drag the square up or down. Shift snaps (0.05, 15 degrees, 10%). The handles change the layer's own Offset, Rotation and Size settings, so they are keyed on the timeline if that setting is animated, and one drag is one Undo step. A layer whose element does not use a setting (for example Fresnel glow has no offset) simply does not offer that handle.

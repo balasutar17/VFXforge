@@ -193,6 +193,8 @@ public:
     // ---- the controls
     Q_INVOKABLE QVariantList controls(const QString& search, bool advanced) const;
     Q_INVOKABLE double number(int index) const;
+    // The selected layer's place, turn and size, for the handles over the preview.
+    Q_INVOKABLE QVariantMap layerPose() const;
     Q_INVOKABLE QVariantMap colorInfo(int index) const;
     Q_INVOKABLE QColor colorShown(int index) const;
     Q_INVOKABLE bool isDefault(int index) const;

@@ -733,6 +733,41 @@ double ShaderStudio::number(int index) const {
     return at[static_cast<std::size_t>(index)][0];
 }
 
+QVariantMap ShaderStudio::layerPose() const {
+    QVariantMap m;
+    m[QStringLiteral("ok")] = false;
+    const sh::Family* f = family();
+    if (!f || !isLayers() || selectedLayer_ < 0 || selectedLayer_ >= sh::layerTop(s_)) return m;
+    const int first = sh::layerParamIndex(*f, 0, "el");
+    const int el = static_cast<int>(s_.values[static_cast<std::size_t>(first + selectedLayer_ * sh::kLayerStride)][0] + 0.5f);
+    if (el <= 0 || static_cast<std::size_t>(el) >= sh::layerElements().size()) return m;
+    const sh::ElementInfo& info = sh::layerElements()[static_cast<std::size_t>(el)];
+    const auto usable = [&](const char* key) {
+        for (const std::string& h : info.hide) {
+            if (h == key) return false;
+        }
+        return true;
+    };
+    const auto put = [&](const char* name, const char* key) {
+        const int at = sh::layerParamIndex(*f, selectedLayer_, key);
+        const bool use = at >= 0 && usable(key);
+        m[QStringLiteral("has_") + QString::fromLatin1(name)] = use;
+        m[QString::fromLatin1(name) + QStringLiteral("Index")] = use ? at : -1;
+        m[QString::fromLatin1(name)] = use ? number(at) : 0.0;
+        if (use) {
+            m[QString::fromLatin1(name) + QStringLiteral("Min")] = f->params[static_cast<std::size_t>(at)].min;
+            m[QString::fromLatin1(name) + QStringLiteral("Max")] = f->params[static_cast<std::size_t>(at)].max;
+        }
+    };
+    put("ox", "ox");
+    put("oy", "oy");
+    put("rot", "rot");
+    put("size", "size");
+    m[QStringLiteral("ok")] = m[QStringLiteral("has_ox")].toBool() || m[QStringLiteral("has_rot")].toBool() || m[QStringLiteral("has_size")].toBool();
+    m[QStringLiteral("name")] = text(sh::layerName(s_, selectedLayer_));
+    return m;
+}
+
 QVariantMap ShaderStudio::colorInfo(int index) const {
     QVariantMap m;
     if (index < 0 || index >= static_cast<int>(s_.values.size())) return m;
