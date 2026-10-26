@@ -931,8 +931,8 @@ Rectangle {
                     readonly property real ringR: 64
                     readonly property real armLen: 72
                     readonly property bool active: shaderStudio.isLayers && pose.ok === true
-                    readonly property real cx: width / 2 + (pose.has_ox ? pose.ox : 0) * unit
-                    readonly property real cy: height / 2 - (pose.has_oy ? pose.oy : 0) * unit
+                    readonly property real cx: width / 2 - (pose.has_ox ? pose.ox : 0) * unit
+                    readonly property real cy: height / 2 + (pose.has_oy ? pose.oy : 0) * unit
 
                     function refresh() {
                         pose = shaderStudio.layerPose()
@@ -1006,10 +1006,10 @@ Rectangle {
                     }
 
                     // The three modes.
-                    Row {
+                    Column {
                         visible: gz.active
                         anchors.right: parent.right
-                        anchors.top: parent.top
+                        anchors.verticalCenter: parent.verticalCenter
                         anchors.margins: 10
                         spacing: 4
                         VButton { text: "Move"; checked: gz.mode === "move"; tip: "Drag the square to move the selected layer; the arrows move it along one axis"; onClicked: gz.mode = "move" }
@@ -1049,8 +1049,8 @@ Rectangle {
                             var snap = (mouse.modifiers & Qt.ShiftModifier) !== 0
                             var p = gz.pose
                             if (gz.mode === "move") {
-                                var nx = gz.start1 + (mouse.x - gz.startX) / gz.unit
-                                var ny = gz.start2 - (mouse.y - gz.startY) / gz.unit
+                                var nx = gz.start1 - (mouse.x - gz.startX) / gz.unit
+                                var ny = gz.start2 + (mouse.y - gz.startY) / gz.unit
                                 if (snap) { nx = Math.round(nx * 20) / 20; ny = Math.round(ny * 20) / 20 }
                                 if (p.has_ox && gz.dragging !== "y") shaderStudio.setNumber(p.oxIndex, nx)
                                 if (p.has_oy && gz.dragging !== "x") shaderStudio.setNumber(p.oyIndex, ny)
