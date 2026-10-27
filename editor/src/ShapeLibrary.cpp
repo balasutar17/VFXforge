@@ -1509,6 +1509,27 @@ ShapeSample lock(float x, float y, float px) {
     return s;
 }
 
+ShapeSample fish(float xIn, float y, float px) {
+    const float x = -xIn;  // head to the right, so a fish aligned to its movement swims head first
+    // A side-on fish, head to the right: a plump body, a forked tail, a back fin and a belly fin.
+    static const P tail[3] = {{0.38f, 0.0f}, {0.94f, 0.42f}, {0.94f, -0.42f}};
+    static const P back[3] = {{-0.18f, 0.26f}, {0.2f, 0.26f}, {-0.02f, 0.56f}};
+    static const P belly[3] = {{-0.05f, -0.26f}, {0.17f, -0.26f}, {0.03f, -0.46f}};
+    const auto whole = [](float u, float v) {
+        const float body = sdEllipse(u + 0.1f, v, 0.62f, 0.33f);
+        const float fins = std::min(sdPoly(u, v, back), sdPoly(u, v, belly));
+        const float notch = len(u - 0.97f, v) - 0.12f;
+        return std::max(std::min({body, sdPoly(u, v, tail), fins}), -notch);
+    };
+    ShapeSample s = flat(whole, x, y, px, 0.4f, 0.4f, 0.07f);
+    // The eye, and a lighter belly.
+    const float eye = edge(len(x + 0.42f, y - 0.08f) - 0.06f, px);
+    const float belly2 = edge(sdEllipse(x + 0.1f, y + 0.2f, 0.48f, 0.12f), px) * s.cover;
+    s.tone = mix(s.tone, -0.8f, eye * s.cover);
+    s.tone += 0.35f * belly2 * (1.0f - eye);
+    return s;
+}
+
 // ------------------------------------------------- shapes that can be changed
 //
 // Some shapes have settings of their own (see ShapeEdit in Program.h): how
@@ -2391,6 +2412,7 @@ const std::vector<Entry>& entries() {
         {{"zed", "Sleep", "Symbols"}, zed},
         {{"infinity", "Infinity", "Symbols"}, infinity},
         {{"lock", "Lock", "Symbols"}, lock},
+        {{"fish", "Fish", "Water and nature"}, fish},
     };
     return list;
 }

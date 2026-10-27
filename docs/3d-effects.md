@@ -121,3 +121,23 @@ Not done: projectiles cannot follow a path other than a straight line, and
 the trail behind a fireball or meteor is made of particles thrown with it
 at a little less speed, so it lengthens as it flies rather than staying
 the same length.
+
+## Eight new 3D families (0.40, stage 1)
+
+Twenty-four new presets, three in each of: **Sci-Fi Motion**, **Fish Swim**,
+**3D Trails**, **3D Clouds**, **Rays and Light Beams**, **3D Frames**,
+**Boosters** and **3D Water**. Each is built from the same layers and modules as
+every other preset, so everything in it can be edited, duplicated, saved to
+your own library and exported the usual way. There is a new **Fish** shape in
+the shape library, drawn head to the right so a layer that aims along its
+movement swims head first.
+
+What this stage is, and is not:
+
+- Fish are sprites travelling along a path. They do not bend their bodies, and
+  a school is several layers on one path, not a flocking simulation.
+- Trails are particle trails along an arc. Start, middle and end widths and the
+  XS to XL sizes come in a later stage, as do true ribbons and tubes.
+- Frames are turning flat shapes, not extruded meshes with a bevel.
+- Nothing here has been opened in Unity yet. They export like any other preset;
+  whether Unity shows them the same has not been checked.

@@ -2496,6 +2496,411 @@ PresetInfo describe(const char* id, const char* name, const char* category, cons
     return info;
 }
 
+// ---- Stage 1 of the expanded 3D library: eight new families (0.40). Each is built
+// from the same layers and modules as every other preset, so everything in it
+// can be changed after it is opened.
+
+PointList closedCurve(int points, double (*x)(double), double (*y)(double)) {
+    PointList out;
+    for (int i = 0; i < points; ++i) {
+        const double t = static_cast<double>(i) / points * 6.283185307179586;
+        out.points.push_back(Point2{x(t), y(t)});
+    }
+    return out;
+}
+double circleX(double t) { return 1.5 * std::cos(t); }
+double circleY(double t) { return 1.5 + 0.9 * std::sin(t); }
+double eightX(double t) { return 1.9 * std::sin(t); }
+double eightY(double t) { return 1.5 + 0.7 * std::sin(2 * t); }
+double waveX(double t) { return -2.0 + 4.0 * t / 6.283185307179586; }
+double waveY(double t) { return 1.5 + 0.55 * std::sin(2 * t); }
+
+// ---- Sci-Fi Motion
+
+Effect holoRings3d(const IdSource& id) {
+    Effect e = begin3d(id, "Holo Rings 3D", 4.0);
+    add(e, Make(id, "Floor disc").burst(1).life(4, 4).speed(0, 0).size(3.4, 3.4).color(0x2fd0ff, 0.35).gravity(0, 0)
+               .spin(20, 20).solid().look("disc").additive().ground().flatOnPlane());
+    add(e, Make(id, "Outer ring").burst(1).life(4, 4).at3(0, 0.05, 0).speed(0, 0).size(3.2, 3.2).color(0x7fe6ff)
+               .gravity(0, 0).spin(45, 45).solid().look("dashring").additive().glow(1.4).ground().flatOnPlane());
+    add(e, Make(id, "Middle ring").burst(1).life(4, 4).at3(0, 0.9, 0).speed(0, 0).size(2.4, 2.4).color(0x9ff0ff)
+               .gravity(0, 0).spin(-70, -70).solid().look("doublering").additive().glow(1.3).ground().flatOnPlane());
+    add(e, Make(id, "Upper ring").burst(1).life(4, 4).at3(0, 1.8, 0).speed(0, 0).size(1.6, 1.6).color(0xd8f8ff)
+               .gravity(0, 0).spin(110, 110).solid().look("portalring").additive().glow(1.3).ground().flatOnPlane());
+    add(e, Make(id, "Scan beam").burst(1).life(4, 4).at3(0, 0.9, 0).speed(0, 0).size(3.4, 3.4).color(0x6fe6ff, 0.6)
+               .gravity(0, 0).spin(120, 120).solid().look("wedge").additive().glow(1.2).ground().flatOnPlane());
+    add(e, Make(id, "Data motes").rate(26).circle(1.7, true).at3(0, 0.2, 0).life(1.2, 1.8).speed(0.2, 0.5)
+               .toward(0, 1, 0, 10).size(0.05, 0.1).color(0xd8f8ff).gravity(0, 0).orbit(70).ground()
+               .fade({{0, 0}, {0.2, 1}, {1, 0}}).look("glint").additive().glow(2.0));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect energyVortex3d(const IdSource& id) {
+    Effect e = begin3d(id, "Energy Vortex 3D", 3.0);
+    add(e, Make(id, "Floor swirl").burst(1).life(3, 3).speed(0, 0).size(3.6, 3.6).color(0x6a5cff).gravity(0, 0)
+               .spin(-160, -160).solid().look("vortex").additive().glow(1.3).ground().flatOnPlane());
+    add(e, Make(id, "Spiral arms").rate(60).circle(1.4, true).life(1.2, 1.6).speed(0.6, 1.2).toward(0, 1, 0, 8)
+               .size(0.08, 0.14).color(0xb9a8ff).gravity(0, 0.6).orbit(-220).ground()
+               .sizeOver({{0, 1}, {1, 0.2}}).fade({{0, 0}, {0.15, 1}, {1, 0}}).look("orb").additive().glow(1.8)
+               .trail(0.3, 0.1));
+    add(e, Make(id, "Inward pull").rate(30).circle(2.2, true).life(0.7, 1.0).speed(1.4, 2.4).toward(0, 0.2, 0, 4)
+               .size(0.05, 0.1).color(0xe0d8ff).gravity(0, 0).orbit(-120).ground()
+               .fade({{0, 0}, {0.2, 1}, {1, 0}}).look("glint").additive().glow(2.0));
+    add(e, Make(id, "Core").burst(1).life(3, 3).at3(0, 0.3, 0).speed(0, 0).size(0.9, 0.9).color(0xffffff, 0.9)
+               .gravity(0, 0).sizeOver({{0, 1}, {0.5, 1.25}, {1, 1}}).solid().look("soft").additive().glow(1.6));
+    add(e, Make(id, "Arcs").rate(10).circle(0.9).life(0.08, 0.14).speed(0, 0).size(0.6, 1.1).turn(0, 360)
+               .color(0xd8d0ff).gravity(0, 0).look("zigzag").additive().glow(2.0).ground());
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect warpStreaks3d(const IdSource& id) {
+    Effect e = begin3d(id, "Warp Streaks 3D", 2.0);
+    add(e, Make(id, "Streaks").rate(90).circle(2.6, true).at3(0, 1.5, -3).life(0.35, 0.6).speed(14, 22)
+               .toward(0, 0, 1, 2).size(0.05, 0.1).color(0xa8e0ff).gravity(0, 0)
+               .fade({{0, 0}, {0.2, 1}, {1, 0}}).look("streak").additive().glow(2.0).streak(0.06));
+    add(e, Make(id, "Hot streaks").rate(30).circle(1.6, true).at3(0, 1.5, -3).life(0.3, 0.5).speed(18, 26)
+               .toward(0, 0, 1, 1).size(0.04, 0.08).color(0xffffff).gravity(0, 0)
+               .fade({{0, 0}, {0.2, 1}, {1, 0}}).look("streak").additive().glow(2.4).streak(0.08));
+    add(e, Make(id, "Tunnel rings").rate(3).life(0.9, 0.9).at3(0, 1.5, -3).speed(7, 7).toward(0, 0, 1, 0)
+               .size(3.2, 3.2).color(0x6fc0ff, 0.6).gravity(0, 0).sizeOver({{0, 0.3}, {1, 1.2}})
+               .fade({{0, 0}, {0.2, 1}, {1, 0}}).look("ring").additive());
+    add(e, Make(id, "Centre glow").burst(1).life(2, 2).at3(0, 1.5, 0).speed(0, 0).size(2.4, 2.4).color(0x9fe0ff, 0.5)
+               .gravity(0, 0).solid().look("soft").additive().glow(1.4));
+    tools::smoothLoop(e);
+    return e;
+}
+
+// ---- Fish Swim
+
+Effect fishAround(const IdSource& id, const char* name, PointList path, double rounds, std::int64_t heads, unsigned colour,
+                  unsigned colour2, double size, const char* first, const char* second) {
+    Effect e = begin3d(id, name, 4.0);
+    add(e, Make(id, "Water light").burst(1).life(4, 4).at3(0, 1.5, -0.5).speed(0, 0).size(7.0, 5.0).color(0x2f9ccf, 0.28)
+               .gravity(0, 0).solid().look("soft").additive());
+    add(e, Make(id, first).path(path, true).travel(rounds, 0.002, heads).alongPath().rate(260).life(0.05, 0.06)
+               .speed(0, 0).size(size, size).color(colour).gravity(0, 0).solid().look("fish").at3(0, 0, 0));
+    add(e, Make(id, second).path(path, true).travel(rounds * 0.97, 0.002, heads).alongPath().rate(260).life(0.05, 0.06)
+               .speed(0, 0).size(size * 0.8, size * 0.8).color(colour2).gravity(0, 0).solid().look("fish"));
+    add(e, Make(id, "Bubbles").rate(8).circle(2.0).at3(0, 0.4, 0).life(1.6, 2.4).speed(0.4, 0.8).toward(0, 1, 0, 12)
+               .size(0.08, 0.2).color(0xd6f4ff, 0.7).gravity(0, 0.2).fade({{0, 0}, {0.15, 1}, {0.85, 1}, {1, 0}})
+               .look("bubble").turbulence(0.2, 0.8, 0.5));
+    add(e, Make(id, "Swim wake").path(path, true).travel(rounds, 0.01, heads).rate(80).life(0.3, 0.5).speed(0, 0.1)
+               .size(0.08, 0.16).color(0xd6f4ff, 0.5).gravity(0, 0.1).fade({{0, 0.7}, {1, 0}}).look("bubble"));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect fishCircle3d(const IdSource& id) {
+    return fishAround(id, "Fish Circle 3D", closedCurve(48, circleX, circleY), 0.25, 2, 0xff9a3c, 0xffd36a, 0.7, "Orange fish", "Gold fish");
+}
+
+Effect fishFigureEight3d(const IdSource& id) {
+    return fishAround(id, "Fish Figure Eight 3D", closedCurve(64, eightX, eightY), 0.22, 1, 0x4fd0ff, 0x8fe8c8, 0.6, "Blue fish", "Green fish");
+}
+
+Effect fishSchool3d(const IdSource& id) {
+    Effect e = begin3d(id, "Fish School 3D", 4.0);
+    PointList path = closedCurve(64, waveX, waveY);
+    // A school: many small fish sharing one wavy path, each a little off the others.
+    add(e, Make(id, "Water light").burst(1).life(4, 4).at3(0, 1.5, -0.5).speed(0, 0).size(8.0, 5.0).color(0x2f9ccf, 0.28)
+               .gravity(0, 0).solid().look("soft").additive());
+    add(e, Make(id, "School").path(path, false).travel(0.25, 0.28, 1).alongPath().rate(14).life(0.9, 1.1).speed(0, 0.1)
+               .toward(0, 1, 0, 40).size(0.32, 0.44).color(0xffc94a).gravity(0, 0).solid().look("fish"));
+    add(e, Make(id, "Silver fish").path(path, false).travel(0.25, 0.22, 1).alongPath().rate(10).life(0.9, 1.1)
+               .speed(0, 0.15).toward(0, 1, 0, 60).size(0.26, 0.36).color(0xcfe8ff).gravity(0, 0).solid().look("fish"));
+    add(e, Make(id, "Bubbles").rate(10).circle(2.4).at3(0, 0.3, 0).life(1.6, 2.4).speed(0.4, 0.8).toward(0, 1, 0, 12)
+               .size(0.08, 0.2).color(0xd6f4ff, 0.7).gravity(0, 0.2).fade({{0, 0}, {0.15, 1}, {0.85, 1}, {1, 0}})
+               .look("bubble").turbulence(0.2, 0.8, 0.5));
+    return e;
+}
+
+// ---- 3D Trails
+
+Effect trailBase(const IdSource& id, const char* name, unsigned head, unsigned tail, double width, double life,
+                 const char* look, double stretch) {
+    Effect e = begin3d(id, name, 2.0);
+    PointList arc;
+    for (int i = 0; i <= 28; ++i) {
+        const double t = i / 28.0;
+        arc.points.push_back(Point2{-2.6 + 5.2 * t, 1.1 + 0.9 * std::sin(t * 3.14159)});
+    }
+    add(e, Make(id, "Head").path(arc, false).travel(0.5, 0.004).rate(140).life(0.05, 0.07).speed(0, 0).size(width * 2.2, width * 2.2)
+               .color(head).gravity(0, 0).look("orb").additive().glow(2.0));
+    add(e, Make(id, "Trail").path(arc, false).travel(0.5, 0.004).rate(260).life(life * 0.8, life).speed(0, 0)
+               .size(width, width * 1.1).color(tail, 0.85).gravity(0, 0).sizeOver({{0, 1}, {1, 0.1}})
+               .fade({{0, 0.9}, {1, 0}}).look(look).additive().glow(1.3).streak(stretch));
+    add(e, Make(id, "Sparkle").path(arc, false).travel(0.5, 0.01).rate(70).life(0.3, 0.6).speed(0, 0.3).toward(0, 1, 0, 180)
+               .size(0.04, 0.09).color(head).gravity(0, -0.4).fade({{0, 1}, {1, 0}}).look("glint").additive().glow(2.0));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect energyTrail3d(const IdSource& id) {
+    Effect e = trailBase(id, "Energy Trail 3D", 0xffffff, 0x4fd0ff, 0.22, 0.5, "soft", 0.0);
+    e.layers[0].name = "Energy head";
+    e.layers[1].name = "Energy ribbon";
+    e.layers[2].name = "Energy sparkle";
+    return e;
+}
+Effect swordTrail3d(const IdSource& id) {
+    Effect e = trailBase(id, "Sword Slash Trail 3D", 0xffffff, 0xcfe8ff, 0.3, 0.3, "sliver", 0.04);
+    e.layers[0].name = "Blade tip";
+    e.layers[1].name = "Slash";
+    e.layers[2].name = "Edge sparks";
+    PointList arc;
+    for (int i = 0; i <= 28; ++i) {
+        const double t = i / 28.0;
+        arc.points.push_back(Point2{-2.6 + 5.2 * t, 1.1 + 0.9 * std::sin(t * 3.14159)});
+    }
+    add(e, Make(id, "Afterglow").path(arc, false).travel(0.5, 0.004).rate(120).life(0.4, 0.5).speed(0, 0)
+               .size(0.5, 0.6).color(0x9fc8ff, 0.4).gravity(0, 0).sizeOver({{0, 1}, {1, 0.1}})
+               .fade({{0, 0.5}, {1, 0}}).look("soft").additive().glow(1.1));
+    return e;
+}
+Effect fireTrail3d(const IdSource& id) {
+    Effect e = trailBase(id, "Fire Trail 3D", 0xffe08a, 0xff7a22, 0.34, 0.6, "flame", 0.0);
+    e.layers[0].name = "Fireball head";
+    e.layers[1].name = "Flame ribbon";
+    e.layers[2].name = "Embers";
+    PointList arc;
+    for (int i = 0; i <= 28; ++i) {
+        const double t = i / 28.0;
+        arc.points.push_back(Point2{-2.6 + 5.2 * t, 1.1 + 0.9 * std::sin(t * 3.14159)});
+    }
+    add(e, Make(id, "Smoke").path(arc, false).travel(0.5, 0.01).rate(50).life(0.8, 1.2).speed(0, 0.3).toward(0, 1, 0, 40)
+               .size(0.3, 0.5).turn(0, 360).color(0x403838, 0.5).gravity(0, 0.5).sizeOver({{0, 0.6}, {1, 1.6}})
+               .fade({{0, 0.5}, {1, 0}}).look("smoke"));
+    return e;
+}
+
+// ---- 3D Clouds
+
+Effect softClouds3d(const IdSource& id) {
+    Effect e = begin3d(id, "Soft Clouds 3D", 6.0);
+    add(e, Make(id, "Cloud puffs").rate(3).rect(6.0, 0.6).at3(0, 2.4, -1).life(5.0, 6.0).speed(0.1, 0.25)
+               .toward(1, 0, 0, 10).size(1.4, 2.2).color(0xffffff, 0.95).gravity(0, 0).sizeOver({{0, 0.7}, {1, 1.2}})
+               .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).solid().look("cloud"));
+    add(e, Make(id, "Shadow puffs").rate(3).rect(6.0, 0.6).at3(0, 2.2, -1.1).life(5.0, 6.0).speed(0.1, 0.25)
+               .toward(1, 0, 0, 10).size(1.6, 2.4).color(0xb8c8e8, 0.7).gravity(0, 0).sizeOver({{0, 0.7}, {1, 1.2}})
+               .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).solid().look("puffball"));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect lowFog3d(const IdSource& id) {
+    Effect e = begin3d(id, "Low Fog 3D", 6.0);
+    add(e, Make(id, "Fog banks").rate(6).circle(2.6).life(4.0, 5.5).speed(0.1, 0.3).toward(1, 0, 0, 40).size(2.2, 3.4)
+               .turn(0, 360).color(0xdfe8f4, 0.5).gravity(0, 0).spin(-8, 8).sizeOver({{0, 0.6}, {1, 1.3}})
+               .fade({{0, 0}, {0.25, 1}, {0.75, 1}, {1, 0}}).look("smoke").ground().turbulence(0.15, 1.5, 0.4));
+    add(e, Make(id, "Wisps").rate(5).circle(2.4).life(2.5, 3.5).speed(0.15, 0.35).toward(1, 0.1, 0, 60).size(0.9, 1.6)
+               .color(0xffffff, 0.35).gravity(0, 0.05).fade({{0, 0}, {0.3, 1}, {1, 0}}).look("wisp").ground()
+               .turbulence(0.2, 1.2, 0.5));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect cloudBurst3d(const IdSource& id) {
+    Effect e = begin3d(id, "Cloud Burst 3D", 2.5);
+    add(e, Make(id, "Puffs").burst(18).sphere(0.3).at3(0, 0.8, 0).life(1.2, 1.8).speed(1.6, 2.8).toward(0, 1, 0, 90)
+               .size(0.9, 1.4).turn(0, 360).color(0xffffff, 0.9).gravity(0, 0.3).drag(2.0).spin(-30, 30)
+               .sizeOver({{0, 0.4}, {0.4, 1.1, true}, {1, 1.5}}).fade({{0, 0}, {0.1, 1}, {1, 0}}).look("puffball"));
+    add(e, Make(id, "Ring cloud").burst(1).life(1.4, 1.4).speed(0, 0).size(5.5, 5.5).color(0xf4f8ff, 0.7).gravity(0, 0)
+               .sizeOver({{0, 0.1}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("smokering").ground().flatOnPlane());
+    add(e, Make(id, "Dust").burst(20).circle(0.4).life(0.8, 1.4).speed(1.0, 2.4).toward(0, 1, 0, 100).size(0.4, 0.8)
+               .turn(0, 360).color(0xd8c8a8, 0.6).gravity(0, 0.2).drag(2).sizeOver({{0, 0.5}, {1, 1.6}})
+               .fade({{0, 0.8}, {1, 0}}).look("dustcloud").ground());
+    return e;
+}
+
+// ---- Rays and Beams
+
+Effect lightPillar3d(const IdSource& id) {
+    Effect e = begin3d(id, "Light Pillar 3D", 3.0);
+    add(e, Make(id, "Pillar").burst(1).life(3, 3).at3(0, 2.4, 0).speed(0, 0).size(1.2, 4.8).color(0xfff0b0, 0.7)
+               .gravity(0, 0).sizeOver({{0, 1}, {0.5, 1.1}, {1, 1}}).solid().look("glowbar").additive().glow(1.4));
+    add(e, Make(id, "Core beam").burst(1).life(3, 3).at3(0, 2.4, 0).speed(0, 0).size(0.45, 4.8).color(0xffffff)
+               .gravity(0, 0).solid().look("glowbar").additive().glow(1.8));
+    add(e, Make(id, "Floor ring").burst(1).life(3, 3).speed(0, 0).size(2.4, 2.4).color(0xffd878).gravity(0, 0)
+               .spin(40, 40).solid().look("portalring").additive().glow(1.3).ground().flatOnPlane());
+    add(e, Make(id, "Rising motes").rate(24).circle(0.6, true).life(1.2, 1.8).speed(1.6, 2.6).toward(0, 1, 0, 8)
+               .size(0.05, 0.1).color(0xfff6d6).gravity(0, 0).fade({{0, 0}, {0.2, 1}, {1, 0}}).look("glint").additive()
+               .glow(2.0).ground());
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect radialRays3d(const IdSource& id) {
+    Effect e = begin3d(id, "Radial Rays 3D", 4.0);
+    add(e, Make(id, "Rays").burst(1).life(4, 4).at3(0, 1.6, 0).speed(0, 0).size(5.6, 5.6).color(0xffe08a, 0.6)
+               .spin(14, 14).gravity(0, 0).solid().look("rays").additive().glow(1.1));
+    add(e, Make(id, "Counter rays").burst(1).life(4, 4).at3(0, 1.6, 0).speed(0, 0).size(4.4, 4.4).turn(15, 15)
+               .color(0xffffff, 0.4).spin(-9, -9).gravity(0, 0).solid().look("sunburst").additive());
+    add(e, Make(id, "Core").burst(1).life(4, 4).at3(0, 1.6, 0).speed(0, 0).size(1.5, 1.5).color(0xffffff, 0.9)
+               .gravity(0, 0).sizeOver({{0, 1}, {0.5, 1.2}, {1, 1}}).solid().look("soft").additive().glow(1.6));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect energyBeam3d(const IdSource& id) {
+    Effect e = begin3d(id, "Energy Beam 3D", 2.0);
+    add(e, Make(id, "Beam glow").burst(1).life(2, 2).at3(0, 1.4, 0).speed(0, 0).size(5.6, 1.0).color(0x3fa8ff, 0.6)
+               .gravity(0, 0).solid().look("glowbar").additive().glow(1.2));
+    add(e, Make(id, "Beam core").burst(1).life(2, 2).at3(0, 1.4, 0).speed(0, 0).size(5.4, 0.35).color(0xffffff)
+               .gravity(0, 0).solid().look("glowbar").additive().glow(1.8));
+    add(e, Make(id, "Pulses").rate(5).life(0.6, 0.6).at3(-2.6, 1.4, 0).speed(8, 8).toward(1, 0, 0, 0).size(0.5, 0.5)
+               .color(0xcfeaff).gravity(0, 0).fade({{0, 0}, {0.1, 1}, {0.9, 1}, {1, 0}}).look("orb").additive().glow(2.0));
+    add(e, Make(id, "Spark spray").rate(24).sphere(0.1).at3(2.8, 1.4, 0).life(0.2, 0.4).speed(2, 5).toward(-1, 0, 0, 90)
+               .size(0.03, 0.06).color(0xbfe0ff).gravity(0, -4).additive().glow(2.0).streak(0.03));
+    tools::smoothLoop(e);
+    return e;
+}
+
+// ---- 3D Frames and Shapes
+
+Effect frameBase(const IdSource& id, const char* name, const char* rim, const char* inner, unsigned colour, double size) {
+    Effect e = begin3d(id, name, 4.0);
+    add(e, Make(id, "Back glow").burst(1).life(4, 4).at3(0, 1.6, 0).speed(0, 0).size(size * 1.3, size * 1.3)
+               .color(colour, 0.3).gravity(0, 0).solid().look("soft").additive().flatOnPlane());
+    add(e, Make(id, "Frame").burst(1).life(4, 4).at3(0, 1.6, 0).speed(0, 0).size(size, size).color(colour)
+               .gravity(0, 0).spin(30, 30).solid().look(rim).additive().glow(1.3).flatOnPlane());
+    add(e, Make(id, "Inner frame").burst(1).life(4, 4).at3(0, 1.6, 0).speed(0, 0).size(size * 0.72, size * 0.72)
+               .color(0xffffff, 0.8).gravity(0, 0).spin(-45, -45).solid().look(inner).additive().glow(1.2).flatOnPlane());
+    add(e, Make(id, "Edge sparks").rate(18).circle(size * 0.5, true).at3(0, 1.6, 0).life(0.4, 0.7).speed(0.2, 0.6)
+               .toward(0, 1, 0, 180).size(0.04, 0.08).color(colour).gravity(0, -0.8).additive().glow(2.0).streak(0.03));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect hexFrame3d(const IdSource& id) {
+    Effect e = frameBase(id, "Hex Frame 3D", "hexframe", "hexagon", 0x4fd0ff, 3.0);
+    e.layers[0].name = "Hex glow";
+    e.layers[1].name = "Hex frame";
+    e.layers[2].name = "Inner hexagon";
+    return e;
+}
+Effect diamondFrame3d(const IdSource& id) {
+    Effect e = frameBase(id, "Diamond Frame 3D", "frame", "diamond", 0xff7ad8, 3.0);
+    e.layers[0].name = "Diamond glow";
+    e.layers[1].name = "Square frame";
+    e.layers[2].name = "Diamond";
+    return e;
+}
+Effect magicRing3d(const IdSource& id) {
+    Effect e = frameBase(id, "Magic Ring 3D", "dashring", "pentacle", 0xb08aff, 3.2);
+    e.layers[0].name = "Magic glow";
+    e.layers[1].name = "Ring of dashes";
+    e.layers[2].name = "Pentacle";
+    return e;
+}
+
+// ---- Boosters
+
+Effect speedBooster3d(const IdSource& id) {
+    Effect e = begin3d(id, "Speed Booster 3D", 1.6);
+    add(e, Make(id, "Launch flash").burst(1).life(0.2, 0.2).at3(0, 0.6, 0).speed(0, 0).size(3.0, 3.0).color(0xfff0b0)
+               .gravity(0, 0).fade({{0, 1}, {1, 0}}).look("pow").additive().glow(1.6));
+    add(e, Make(id, "Ground ring").burst(2, 0).burst(1, 0.15).life(0.6, 0.6).speed(0, 0).size(4.2, 4.2).color(0xffc94a)
+               .gravity(0, 0).sizeOver({{0, 0.1}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("doublering").additive()
+               .ground().flatOnPlane());
+    add(e, Make(id, "Speed lines").burst(24).circle(0.5, true).at3(0, 0.6, 0).life(0.3, 0.5).speed(8, 14)
+               .toward(-1, 0.1, 0, 25).size(0.05, 0.09).color(0xffffff).gravity(0, 0).fade({{0, 1}, {1, 0}})
+               .look("streak").additive().glow(2.0).streak(0.07));
+    add(e, Make(id, "Thrust flame").burst(40).sphere(0.15).at3(0, 0.6, 0).life(0.3, 0.6).speed(3, 6)
+               .toward(-1, 0, 0, 14).size(0.3, 0.5).turn(0, 360).color(0xffffff).gravity(0, 0.4).spin(-90, 90)
+               .tint({hexTint(0, 0xfff1b0), hexTint(0.5, 0xff8a2a), hexTint(1, 0x7a2a10)}).sizeOver({{0, 1}, {1, 0.3}})
+               .fade({{0, 0.9}, {1, 0}}).look("flame").additive().glow(1.3));
+    add(e, Make(id, "Dust").burst(14).circle(0.4).life(0.6, 1.0).speed(0.5, 1.4).toward(-1, 0.2, 0, 60).size(0.4, 0.7)
+               .turn(0, 360).color(0xd8c8a8, 0.6).gravity(0, 0.2).drag(2).sizeOver({{0, 0.5}, {1, 1.5}})
+               .fade({{0, 0.8}, {1, 0}}).look("dustcloud").ground());
+    return e;
+}
+
+Effect launchBooster3d(const IdSource& id) {
+    Effect e = begin3d(id, "Launch Booster 3D", 2.0);
+    add(e, Make(id, "Charge ring").burst(1, 0).life(0.4, 0.4).speed(0, 0).size(3.0, 3.0).color(0x6fd6ff).gravity(0, 0)
+               .sizeOver({{0, 1.2}, {1, 0.2}}).fade({{0, 0}, {0.3, 1}, {1, 0.4}}).look("ring").additive().glow(1.4)
+               .ground().flatOnPlane());
+    add(e, Make(id, "Launch burst").burst(1, 0.4).life(0.5, 0.5).speed(0, 0).size(5.0, 5.0).color(0xffffff).gravity(0, 0)
+               .sizeOver({{0, 0.1}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("shockwave").additive().ground().flatOnPlane());
+    add(e, Make(id, "Up flame").burst(60, 0.4).sphere(0.2).life(0.4, 0.8).speed(3, 7).toward(0, -1, 0, 20)
+               .size(0.3, 0.55).turn(0, 360).color(0xffffff).gravity(0, 0.3).spin(-90, 90)
+               .tint({hexTint(0, 0xfff1b0), hexTint(0.5, 0x4fc8ff), hexTint(1, 0x20308a)}).sizeOver({{0, 1}, {1, 0.3}})
+               .fade({{0, 0.9}, {1, 0}}).look("flame").additive().glow(1.3));
+    add(e, Make(id, "Rising rings").burst(1, 0.45).burst(1, 0.6).burst(1, 0.75).life(0.5, 0.5).speed(2.5, 2.5)
+               .toward(0, 1, 0, 0).size(2.0, 2.0).color(0xbfe8ff).gravity(0, 0).sizeOver({{0, 0.6}, {1, 1.2}})
+               .fade({{0, 1}, {1, 0}}).look("ring").additive().glow(1.3).ground().flatOnPlane());
+    add(e, Make(id, "Vertical lines").burst(20, 0.4).circle(0.7, true).life(0.3, 0.5).speed(8, 13).toward(0, 1, 0, 6)
+               .size(0.04, 0.08).color(0xffffff).gravity(0, 0).fade({{0, 1}, {1, 0}}).look("streak").additive().glow(2.0)
+               .streak(0.08));
+    return e;
+}
+
+Effect powerUpBurst3d(const IdSource& id) {
+    Effect e = begin3d(id, "Power-up Burst 3D", 1.8);
+    add(e, Make(id, "Energy gather").burst(30, 0).sphere(1.6, true).at3(0, 1.2, 0).life(0.5, 0.5).speed(2.6, 3.4)
+               .toward(0, 0, 0, 0).size(0.06, 0.1).color(0xffe08a).gravity(0, 0).fade({{0, 0}, {0.3, 1}, {1, 0}})
+               .look("glint").additive().glow(2.0));
+    add(e, Make(id, "Burst glow").burst(1, 0.5).life(0.45, 0.45).at3(0, 1.2, 0).speed(0, 0).size(3.4, 3.4).color(0xfff6d6)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {1, 1.2}}).fade({{0, 1}, {1, 0}}).look("starflash").additive().glow(1.6));
+    add(e, Make(id, "Rings").burst(1, 0.5).burst(1, 0.62).life(0.7, 0.7).at3(0, 1.2, 0).speed(0, 0).size(4.0, 4.0)
+               .color(0xffd04a).gravity(0, 0).sizeOver({{0, 0.1}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}})
+               .look("ring").additive().glow(1.4).ground().flatOnPlane());
+    add(e, Make(id, "Stars").burst(24, 0.5).sphere(0.2).at3(0, 1.2, 0).life(0.6, 1.0).speed(2.5, 5.5).toward(0, 1, 0, 120)
+               .size(0.15, 0.28).turn(0, 360).color(0xffe08a).gravity(0, -3).spin(-200, 200)
+               .fade({{0, 1}, {0.7, 1}, {1, 0}}).look("star").additive().glow(1.6));
+    return e;
+}
+
+// ---- 3D Water
+
+Effect waterRipples3d(const IdSource& id) {
+    Effect e = begin3d(id, "Water Ripples 3D", 3.0);
+    add(e, Make(id, "Ripples").rate(1.4).life(2.2, 2.2).speed(0, 0).size(4.4, 4.4).color(0xa8e2ff, 0.8).gravity(0, 0)
+               .sizeOver({{0, 0.05}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("ripple").additive().ground().flatOnPlane());
+    add(e, Make(id, "Inner rings").rate(1.4).life(1.4, 1.4).speed(0, 0).size(2.6, 2.6).color(0xe0f6ff, 0.7).gravity(0, 0)
+               .sizeOver({{0, 0.05}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("ring").additive().ground().flatOnPlane());
+    add(e, Make(id, "Pool glow").burst(1).life(3, 3).speed(0, 0).size(4.0, 4.0).color(0x2f9ccf, 0.4).gravity(0, 0)
+               .solid().look("soft").additive().ground().flatOnPlane());
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect waterJet3d(const IdSource& id) {
+    Effect e = begin3d(id, "Water Jet 3D", 2.0);
+    add(e, Make(id, "Jet drops").rate(90).circle(0.08).life(0.8, 1.1).speed(6, 8).toward(0, 1, 0, 6).size(0.08, 0.14)
+               .color(0x7fd2ff).gravity(0, -12).ground().solid().look("droplet").streak(0.02));
+    add(e, Make(id, "Column").burst(1).life(2, 2).at3(0, 1.0, 0).speed(0, 0).size(0.5, 2.2).color(0xbfeaff, 0.6)
+               .gravity(0, 0).solid().look("glowbar").additive());
+    add(e, Make(id, "Mist").rate(14).circle(0.5).at3(0, 2.2, 0).life(0.8, 1.4).speed(0.3, 0.8).toward(0, 1, 0, 80)
+               .size(0.4, 0.8).turn(0, 360).color(0xffffff, 0.45).gravity(0, -0.5).sizeOver({{0, 0.5}, {1, 1.5}})
+               .fade({{0, 0.7}, {1, 0}}).look("puff").ground());
+    add(e, Make(id, "Base splash").rate(10).circle(0.6, true).life(0.3, 0.5).speed(1.5, 2.5).toward(0, 1, 0, 70)
+               .size(0.06, 0.1).color(0xd6f2ff).gravity(0, -10).ground().solid().look("droplet"));
+    add(e, Make(id, "Ripples").rate(1.5).life(1.3, 1.3).speed(0, 0).size(3.0, 3.0).color(0xa8e2ff, 0.8).gravity(0, 0)
+               .sizeOver({{0, 0.1}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("ripple").additive().ground().flatOnPlane());
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect waterVortex3d(const IdSource& id) {
+    Effect e = begin3d(id, "Water Vortex 3D", 3.0);
+    add(e, Make(id, "Whirlpool").burst(1).life(3, 3).speed(0, 0).size(4.0, 4.0).color(0x3fb6ff, 0.9).gravity(0, 0)
+               .spin(-140, -140).solid().look("vortex").additive().glow(1.1).ground().flatOnPlane());
+    add(e, Make(id, "Spiral spray").rate(50).circle(1.5, true).life(1.0, 1.4).speed(0.8, 1.6).toward(0, 1, 0, 10)
+               .size(0.08, 0.14).color(0xbfeaff).gravity(0, -0.5).orbit(-200).ground()
+               .fade({{0, 0}, {0.15, 1}, {1, 0}}).look("droplet").trail(0.25, 0.08));
+    add(e, Make(id, "Foam ring").burst(1).life(3, 3).speed(0, 0).size(3.4, 3.4).color(0xffffff, 0.6).gravity(0, 0)
+               .spin(60, 60).solid().look("dashring").ground().flatOnPlane());
+    add(e, Make(id, "Bubbles").rate(12).circle(1.6).life(1.2, 1.8).speed(0.3, 0.8).toward(0, 1, 0, 20).size(0.08, 0.18)
+               .color(0xd6f4ff, 0.7).gravity(0, 0.4).fade({{0, 0}, {0.15, 1}, {0.85, 1}, {1, 0}}).look("bubble").ground()
+               .turbulence(0.2, 0.8, 0.5));
+    tools::smoothLoop(e);
+    return e;
+}
+
+
 const std::vector<Entry>& table() {
     static const std::vector<Entry> entries = {
         {describe("toon-puff", "Toon Puff", "Toon", "A hand-drawn style burst of puffy clouds.", 0, 0, 5.6f, 0.2), toonPuff},
@@ -2656,6 +3061,38 @@ const std::vector<Entry>& table() {
         {describe("rose-flash", "Rose Flash", "Flashes", "A pink burst with a ring breaking apart.", 0, 0, 5.6f, 0.12), roseFlash},
         {describe("violet-flash", "Violet Flash", "Flashes", "A burst of white spikes in a violet glow.", 0, 0, 5.6f, 0.08), violetFlash},
         {describe("ember-flash", "Ember Flash", "Flashes", "A hot orange burst with a breaking ring.", 0, 0, 5.6f, 0.12), emberFlash},
+
+        {describe("holo-rings-3d", "Holo Rings 3D", "Sci-Fi Motion", "Turning holographic rings and a scanning beam over a glowing disc, with data motes.", 0, 1.0f, 5.5f, 1.5), holoRings3d},
+        {describe("energy-vortex-3d", "Energy Vortex 3D", "Sci-Fi Motion", "A violet vortex pulling in sparks, with a bright core and crackling arcs.", 0, 0.8f, 5.0f, 1.0), energyVortex3d},
+        {describe("warp-streaks-3d", "Warp Streaks 3D", "Sci-Fi Motion", "Streaks of light rushing past and tunnel rings, as at warp speed.", 0, 1.5f, 6.0f, 0.8), warpStreaks3d},
+
+        {describe("fish-circle-3d", "Fish Circle 3D", "Fish Swim", "Two fish swimming round in a circle with bubbles and a wake.", 0, 1.5f, 5.0f, 1.0), fishCircle3d},
+        {describe("fish-figure-eight-3d", "Fish Figure Eight 3D", "Fish Swim", "A pair of fish swimming a figure eight.", 0, 1.5f, 5.0f, 1.0), fishFigureEight3d},
+        {describe("fish-school-3d", "Fish School 3D", "Fish Swim", "A school of gold and silver fish following a wavy path.", 0, 1.5f, 5.5f, 1.5), fishSchool3d},
+
+        {describe("energy-trail-3d", "Energy Trail 3D", "3D Trails", "A bright head leaving a long blue energy trail and sparkles.", 0, 1.4f, 6.0f, 0.9), energyTrail3d},
+        {describe("sword-slash-trail-3d", "Sword Slash Trail 3D", "3D Trails", "A thin white slash trail with a sharp tail.", 0, 1.4f, 6.0f, 0.9), swordTrail3d},
+        {describe("fire-trail-3d", "Fire Trail 3D", "3D Trails", "A hot head trailing flames.", 0, 1.4f, 6.0f, 0.9), fireTrail3d},
+
+        {describe("soft-clouds-3d", "Soft Clouds 3D", "3D Clouds", "Soft cartoon clouds drifting across, white with a blue shadow.", 0, 2.4f, 8.0f, 3.0), softClouds3d},
+        {describe("low-fog-3d", "Low Fog 3D", "3D Clouds", "Banks of fog and wisps drifting low across the ground.", 0, 0.8f, 7.0f, 3.0), lowFog3d},
+        {describe("cloud-burst-3d", "Cloud Burst 3D", "3D Clouds", "Cloud puffs thrown out, a ring of cloud and dust, as at a landing.", 0, 0.9f, 5.5f, 0.8), cloudBurst3d},
+
+        {describe("light-pillar-3d", "Light Pillar 3D", "Rays and Light Beams", "A tall pillar of light from the ground, with a ring and rising motes.", 0, 2.4f, 6.5f, 1.5), lightPillar3d},
+        {describe("radial-rays-3d", "Radial Rays 3D", "Rays and Light Beams", "Two sets of rays turning against each other round a bright core.", 0, 1.6f, 7.0f, 2.0), radialRays3d},
+        {describe("energy-beam-3d", "Energy Beam 3D", "Rays and Light Beams", "A horizontal beam with a white core, pulses running along it and sparks at the end.", 0, 1.4f, 7.0f, 1.0), energyBeam3d},
+
+        {describe("hex-frame-3d", "Hex Frame 3D", "3D Frames", "A turning hexagon frame with a counter-turning one inside it.", 0, 1.6f, 4.5f, 1.0), hexFrame3d},
+        {describe("diamond-frame-3d", "Diamond Frame 3D", "3D Frames", "A pink frame turning round a diamond.", 0, 1.6f, 4.5f, 1.0), diamondFrame3d},
+        {describe("magic-ring-3d", "Magic Ring 3D", "3D Frames", "A violet ring of dashes turning round a pentacle.", 0, 1.6f, 4.8f, 1.0), magicRing3d},
+
+        {describe("speed-booster-3d", "Speed Booster 3D", "Boosters", "A double ring on the ground, speed lines and a thrust flame, then dust.", 0, 0.8f, 5.5f, 0.3), speedBooster3d},
+        {describe("launch-booster-3d", "Launch Booster 3D", "Boosters", "A charge, a blast on the ground and a blue flame under a straight-up launch.", 0, 1.0f, 5.5f, 0.6), launchBooster3d},
+        {describe("power-up-burst-3d", "Power-up Burst 3D", "Boosters", "Sparks drawn in, a burst with rings, then stars thrown out.", 0, 1.2f, 5.0f, 0.7), powerUpBurst3d},
+
+        {describe("water-ripples-3d", "Water Ripples 3D", "3D Water", "Rings spreading across a pool, with a soft glow.", 0, 0.3f, 6.0f, 1.0), waterRipples3d},
+        {describe("water-jet-3d", "Water Jet 3D", "3D Water", "A jet thrown up, falling as drops, with mist, a splash at the base and ripples.", 0, 1.5f, 5.5f, 1.0), waterJet3d},
+        {describe("water-vortex-3d", "Water Vortex 3D", "3D Water", "A whirlpool with spray winding up, a foam ring and bubbles.", 0, 0.8f, 5.5f, 1.0), waterVortex3d},
 
     };
     return entries;

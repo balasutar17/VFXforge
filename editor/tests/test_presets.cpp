@@ -66,7 +66,9 @@ TEST_CASE("the library has presets in every promised category", "[presets]") {
 
     const auto categories = presetCategories();
     for (const char* wanted : {"Toon", "Blasts", "Fire", "Water", "Glow and magic", "Frames", "Shooting",
-                               "Rewards", "Weather", "3D", "3D Combat", "Symbol Outlines", "Energy Frames", "Sabers and Beams"}) {
+                               "Rewards", "Weather", "3D", "3D Combat", "Symbol Outlines", "Energy Frames", "Sabers and Beams",
+                               "Sci-Fi Motion", "Fish Swim", "3D Trails", "3D Clouds", "Rays and Light Beams",
+                               "3D Frames", "Boosters", "3D Water"}) {
         INFO(wanted);
         CHECK(std::find(categories.begin(), categories.end(), wanted) != categories.end());
     }
@@ -87,12 +89,22 @@ TEST_CASE("the library has presets in every promised category", "[presets]") {
     CHECK_FALSE(missing.error().message.empty());
 }
 
+// The families made for the 3D view: those named "3D ..." and the newer ones that are not.
+static bool inThreeD(const std::string& category) {
+    for (const char* name : {"Sci-Fi Motion", "Fish Swim", "Rays and Light Beams", "Boosters"}) {
+        if (category == name) {
+            return true;
+        }
+    }
+    return category.rfind("3D", 0) == 0;
+}
+
 TEST_CASE("every preset is a valid effect that saves and loads unchanged", "[presets]") {
     for (const PresetInfo& info : presets()) {
         INFO(info.id);
         const Effect effect = build(info.id);
         CHECK(effect.name == info.name);
-        CHECK(effect.space == (info.category.rfind("3D", 0) == 0 ? "3d" : "2d"));
+        CHECK(effect.space == (inThreeD(info.category) ? "3d" : "2d"));
         CHECK(effect.loop == "loop");
         REQUIRE_FALSE(effect.layers.empty());
 
@@ -410,4 +422,28 @@ TEST_CASE("an effect added from the library is a group, moved, delayed, sized an
         grouped += l.group == g ? 1 : 0;
     }
     CHECK(grouped == 2);
+}
+
+TEST_CASE("the eight 3D families added in 0.40 each hold three distinct presets", "[presets]") {
+    for (const char* family : {"Sci-Fi Motion", "Fish Swim", "3D Trails", "3D Clouds", "Rays and Light Beams",
+                               "3D Frames", "Boosters", "3D Water"}) {
+        INFO(family);
+        int count = 0;
+        std::set<std::string> layerNames;
+        for (const PresetInfo& info : presets()) {
+            if (info.category != family) {
+                continue;
+            }
+            ++count;
+            const Effect effect = build(info.id);
+            CHECK(effect.space == "3d");
+            CHECK(effect.layers.size() >= 2);
+            std::string signature;
+            for (const Layer& layer : effect.layers) {
+                signature += layer.name + "|";
+            }
+            CHECK(layerNames.insert(signature).second);  // no two are the same recipe
+        }
+        CHECK(count == 3);
+    }
 }
