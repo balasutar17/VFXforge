@@ -2593,8 +2593,11 @@ Effect energyRing3d(const IdSource& id) {
     constexpr double D = 6.0;
     Effect e = begin3d(id, "Energy Ring 3D", D);
     add(e, flatPiece(id, "Floor glow", "softring", D, 0.0, 5.0, 0x9a4dff, 0.5, 0, 0.12, 0.92, 1.2, 0.4));
-    add(e, flatPiece(id, "Wide ring", "doublering", D, 0.1, 4.4, 0xc58bff, 1.0, -22, 0.16, 0.9, 1.7));
-    add(e, flatPiece(id, "Heavy arcs", "holosegs", D, 0.5, 3.6, 0xff4fd8, 1.0, 55, 0.22, 0.88, 2.0));
+    add(e, upright(id, "Oval halo", "ovalhalo", D, 1.9, 4.6, 0xa66bff, 1.0, 0, 0.14, 0.9, 1.9, 0.3));
+    add(e, upright(id, "Oval halo inner", "ovalhalo", D, 1.9, 3.1, 0x6f8cff, 0.8, 0, 0.2, 0.88, 1.7, 0.3));
+    add(e, flatPiece(id, "Equator ring", "doublering", D, 1.9, 5.6, 0xb98aff, 0.8, -22, 0.16, 0.9, 1.0));
+    add(e, flatPiece(id, "Equator thin", "energyring", D, 1.9, 4.2, 0x7f9cff, 0.7, 35, 0.2, 0.88, 1.0));
+        add(e, flatPiece(id, "Heavy arcs", "holosegs", D, 0.5, 3.6, 0xff4fd8, 1.0, 55, 0.22, 0.88, 2.0));
     add(e, flatPiece(id, "Inner arcs", "holosegs", D, 0.9, 2.5, 0xffa6f0, 1.0, -110, 0.28, 0.86, 1.9));
     add(e, flatPiece(id, "Rim", "dashring", D, 1.3, 1.6, 0xffffff, 0.9, 150, 0.34, 0.84, 1.7));
     add(e, Make(id, "Pulse rings").from(0.8, 4.6).rate(1.1).life(1.6, 1.6).at3(0, 0.2, 0).speed(0, 0).size(5.2, 5.2)
@@ -2603,8 +2606,10 @@ Effect energyRing3d(const IdSource& id) {
     add(e, Make(id, "Spiral energy").from(0.8, 4.4).rate(90).circle(1.7, true).at3(0, 0.05, 0).life(0.9, 1.3).speed(0.8, 1.6)
                .toward(0, 1, 0, 8).size(0.07, 0.13).color(0xff9aee).gravity(0, 0.2).orbit(-210).ground()
                .sizeOver({{0, 1}, {1, 0.2}}).fade({{0, 0}, {0.15, 1}, {1, 0}}).look("orb").additive().glow(2.2).trail(0.25, 0.08));
-    add(e, Make(id, "Core").burst(1).life(D, D).at3(0, 0.7, 0).speed(0, 0).size(1.5, 1.5).color(0xffffff, 0.8).gravity(0, 0)
-               .fade(beatCurve(0.28, 0.84, 5, 0.5)).look("soft").additive().glow(1.8));
+    add(e, Make(id, "Core").burst(1).life(D, D).at3(0, 1.9, 0).speed(0, 0).size(1.4, 1.4).color(0x9fc4ff, 0.9).gravity(0, 0)
+               .fade(beatCurve(0.28, 0.84, 5, 0.5)).look("soft").additive().glow(2.2));
+    add(e, Make(id, "Core point").burst(1).life(D, D).at3(0, 1.9, 0).speed(0, 0).size(0.45, 0.45).color(0xffffff, 1.0).gravity(0, 0)
+               .fade(beatCurve(0.28, 0.84, 5, 0.6)).look("orb").additive().glow(2.4));
     tools::smoothLoop(e);
     return e;
 }
@@ -2635,6 +2640,9 @@ void beamBody(Effect& e, const IdSource& id, double D, unsigned colour, unsigned
     add(e, flatPiece(id, "Base emitter", "holoticks", D, 0.0, 2.6, bright, 1.0, 20, 0.1, 0.92, 1.6));
     add(e, flatPiece(id, "Base glow", "scandisc", D, 0.02, 2.2, colour, 0.5, 0, 0.1, 0.92, 1.4));
     add(e, flatPiece(id, "Top emitter", "holoticks", D, height, 2.6, bright, 1.0, -20, 0.14, 0.9, 1.6));
+    add(e, Make(id, "Light shaft").burst(1).life(D, D).at3(0, height * 0.5, 0).speed(0, 0).size(height * 1.02, height * 1.02).color(bright, 1.0)
+               .gravity(0, 0).sizeOver({{0, 0.5}, {0.14, 1.0, true}, {0.88, 1.0, true}, {1, 0.7, true}})
+               .fade(beatCurve(0.12, 0.88, 3, 0.7)).look("vstreaks").additive().glow(2.2));
     add(e, Make(id, "Beam").burst(1).life(D, D).at3(0, height * 0.5, 0).speed(0, 0).size(widthSize, widthSize).color(colour, 0.85)
                .gravity(0, 0).sizeOver({{0, 0.5}, {0.14, 1.0, true}, {0.88, 1.0, true}, {1, 0.7, true}})
                .fade(appearCurve(0.12, 0.88)).look("holocylinder").additive().glow(1.5));
@@ -2783,8 +2791,18 @@ void portalBody(Effect& e, const IdSource& id, double D, unsigned arm1, unsigned
 Effect magicPortal3d(const IdSource& id) {
     constexpr double D = 6.0;
     Effect e = begin3d(id, "Magic Portal 3D", D);
-    portalBody(e, id, D, 0xb04dff, 0xff6ae8, 0xe0a8ff, 3.6);
-    add(e, upright(id, "Rune ring", "sigil", D, 1.7, 3.9, 0xd8b0ff, 0.8, -18, 0.2, 0.86, 1.6, 0.2));
+    for (int i = 0; i < 7; ++i) {
+        const double t = i / 6.0;  // 0 at the narrow foot, 1 at the wide mouth
+        const double sz = 0.7 + 3.4 * t * t, h = 0.2 + 2.6 * t;
+        const std::string nm = "Funnel " + std::to_string(i + 1);
+        add(e, flatPiece(id, nm.c_str(), "swirlarms", D, h, sz, i % 2 ? 0x8f6bff : 0xb04dff, 0.9, (i % 2 ? -1 : 1) * (90 + 40 * i),
+                         0.14 + 0.02 * i, 0.9, 1.8, 0.3));
+    }
+    add(e, flatPiece(id, "Mouth ring", "doublering", D, 2.8, 4.3, 0xb98aff, 0.8, 20, 0.16, 0.9, 1.1));
+    add(e, flatPiece(id, "Mouth glow", "softring", D, 2.8, 4.8, 0x8f6bff, 0.6, 0, 0.16, 0.9, 1.4));
+    add(e, Make(id, "Foot glow").burst(1).life(D, D).at3(0, 0.2, 0).speed(0, 0).size(1.2, 1.2).color(0xe8c8ff, 0.9).gravity(0, 0)
+               .fade(beatCurve(0.2, 0.84, 4, 0.5)).look("soft").additive().glow(2.4));
+    add(e, upright(id, "Rune ring", "sigil", D, 1.7, 3.9, 0xd8b0ff, 0.0, -18, 0.2, 0.86, 1.6, 0.2));
     add(e, Make(id, "Gather sparks").from(0.0, 1.0).burst(30, 0.0).sphere(1.6, true).at3(0, 1.7, 0).life(0.6, 0.9).speed(2.2, 3.0)
                .toward(0, 1.7, 0, 0).size(0.05, 0.09).color(0xf0d0ff).gravity(0, 0).fade({{0, 0}, {0.3, 1}, {1, 0}}).look("glint")
                .additive().glow(2.4));

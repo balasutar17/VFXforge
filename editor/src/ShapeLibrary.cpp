@@ -1737,6 +1737,84 @@ ShapeSample lockRing(float x, float y, float px) {
 }
 
 
+// ---- 0.42: the shapes the reference sheet is made of
+
+// A shaft of light: many thin vertical streaks of different strength, brightest
+// down the middle, fading at the ends and thinning toward the sides.
+ShapeSample vStreaks(float x, float y, float px) {
+    static const float xs[] = {-0.43f, -0.36f, -0.29f, -0.23f, -0.17f, -0.12f, -0.07f, -0.03f, 0.0f, 0.035f, 0.075f, 0.12f, 0.175f, 0.23f, 0.29f, 0.36f, 0.43f};
+    static const float ws[] = {0.010f, 0.014f, 0.009f, 0.016f, 0.011f, 0.018f, 0.009f, 0.012f, 0.026f, 0.012f, 0.010f, 0.018f, 0.011f, 0.016f, 0.009f, 0.014f, 0.010f};
+    static const float is[] = {0.45f, 0.62f, 0.4f, 0.72f, 0.55f, 0.85f, 0.6f, 0.8f, 1.0f, 0.8f, 0.6f, 0.9f, 0.55f, 0.7f, 0.42f, 0.6f, 0.45f};
+    const float ay = std::fabs(y);
+    float sum = 0.0f;
+    for (int i = 0; i < 17; ++i) {
+        const float t = (x - xs[i]) / ws[i];
+        const float wobble = 0.72f + 0.28f * std::sin(y * (5.0f + static_cast<float>(i) * 1.7f) + static_cast<float>(i));
+        sum += is[i] * std::exp(-t * t) * wobble;
+    }
+    const float fadeY = smooth(1.0f, 0.78f, ay);
+    const float haze = 0.3f * sq(clamp01(1.0f - std::fabs(x) / 0.47f));
+    const float core = std::exp(-sq(x / 0.02f));
+    ShapeSample s;
+    s.cover = clamp01(std::max(sum, haze) * fadeY);
+    s.shine = 0.85f * core * fadeY;
+    (void)px;
+    return s;
+}
+
+// An upright oval of fine rings: a bright double edge, ticks, a broken ring,
+// thin inner rings and a few lit nodes.
+ShapeSample ovalHalo(float x, float y, float px) {
+    const float a = 0.72f, b = 0.96f;
+    const float u = x / a, v = y / b;
+    const float r = len(u, v);
+    const float k = 0.84f;  // normalised distance to a real one
+    const auto line = [&](float radius, float half) { return edge(ringLine(r, radius, half) * k, px); };
+    float lines = std::max({line(0.975f, 0.03f), 0.9f * line(0.9f, 0.01f), 0.7f * line(0.62f, 0.014f), 0.5f * line(0.5f, 0.008f)});
+    const float ticks = edge(tickMarks(u, v, 96, 0.8f, 0.87f, 0.008f) * k, px);
+    const float arcs = std::min({sdArc(u, v, 0.72f, 10.0f, 80.0f, 0.03f, 0.03f), sdArc(u, v, 0.72f, 110.0f, 200.0f, 0.03f, 0.03f),
+                                 sdArc(u, v, 0.72f, 225.0f, 330.0f, 0.03f, 0.03f)});
+    const P q = fold(u, v, 12, 0.0f, false);
+    const float nodes = len(q.x - 0.975f, q.y) - 0.035f;
+    lines = std::max({lines, 0.65f * ticks, edge(arcs * k, px), edge(nodes * k, px)});
+    ShapeSample s;
+    s.cover = std::max(lines, 0.1f * smooth(1.0f, 0.2f, r) * edge(r - 1.0f, 0.02f));
+    s.shine = 0.75f * line(0.975f, 0.012f);
+    return s;
+}
+
+// A sphere seen through a net: a triangular lattice that bends with the curve,
+// brighter toward the rim, with lit crossings.
+ShapeSample hexNet(float x, float y, float px) {
+    const float R = 0.9f;
+    const float r = len(x, y);
+    ShapeSample s;
+    const float rim = edge(std::fabs(r - R) - 0.012f, px);
+    if (r >= R) {
+        s.cover = rim;
+        s.shine = 0.8f * rim;
+        return s;
+    }
+    const float nx = x / R, ny = y / R;
+    const float z = std::sqrt(std::max(0.0f, 1.0f - nx * nx - ny * ny));
+    const float lon = std::atan2(nx, z), lat = std::asin(std::min(1.0f, std::max(-1.0f, ny)));
+    const float k = 8.0f / kPi;
+    const float cl = std::cos(lat);
+    const auto nearInt = [](float t) { const float f = fract01(t); return std::min(f, 1.0f - f); };
+    const float d1 = nearInt(lat * k), d2 = nearInt(lon * cl * k * 1.15f + lat * k * 0.5f), d3 = nearInt(lon * cl * k * 1.15f - lat * k * 0.5f);
+    const float scale = 1.0f / (k * 1.1f) * R;
+    const float edgeBright = 0.35f + 0.65f * sq(1.0f - z);
+    const float w = 0.012f * (0.4f + z);
+    const float l1 = edge(d1 * scale - w, px), l2 = edge(d2 * scale - w, px), l3 = edge(d3 * scale - w, px);
+    const float lattice = std::max({l1, l2, l3}) * edgeBright;
+    const float node = std::min(l1, std::min(l2, l3)) * 0.0f + edge(std::max(std::max(d1, d2), d3) * scale - 0.02f, px) * 0.0f;
+    (void)node;
+    const float crossing = std::max(l1 * l2, std::max(l2 * l3, l1 * l3));
+    s.cover = std::max({lattice, rim, 0.14f * sq(1.0f - z)});
+    s.shine = std::max(0.9f * rim, 0.9f * crossing * edgeBright);
+    return s;
+}
+
 // ------------------------------------------------- shapes that can be changed
 //
 // Some shapes have settings of their own (see ShapeEdit in Program.h): how
@@ -2635,6 +2713,9 @@ const std::vector<Entry>& entries() {
         {{"arcfork", "Arc fork", "Sci-fi"}, arcFork},
         {{"reticle", "Reticle", "Sci-fi"}, reticle},
         {{"lockring", "Lock ring", "Sci-fi"}, lockRing},
+        {{"vstreaks", "Light shaft", "Sci-fi"}, vStreaks},
+        {{"ovalhalo", "Oval halo", "Sci-fi"}, ovalHalo},
+        {{"hexnet", "Net sphere", "Sci-fi"}, hexNet},
     };
     return list;
 }
