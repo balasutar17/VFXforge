@@ -75,6 +75,7 @@ std::optional<Model> gModel;
 ModelPlace gPlace;
 // Where a 3D effect is seen from (--orbit yaw,pitch).
 float gYaw = 30.0f, gPitch = 15.0f;
+bool gPitchGiven = false;  // --orbit was on the command line
 
 Picture draw(const Effect& effect, double time, const View& view) {
     Simulation simulation(compileEffect(effect));
@@ -105,7 +106,7 @@ View viewFor(const PresetInfo& info, int width, int height) {
     view.targetY = info.viewY;
     view.distance = info.viewHeight * 1.45f;
     view.yaw = gYaw;
-    view.pitch = gPitch;
+    view.pitch = (gPitchGiven || !(info.viewPitch > 0.0f)) ? gPitch : info.viewPitch;
     return view;
 }
 
@@ -137,6 +138,7 @@ int main(int argc, char** argv) {
     args.erase(args.begin());
 
     const std::string orbit = option(args, "--orbit", "30,15");
+    gPitchGiven = orbit != "30,15";
     if (std::sscanf(orbit.c_str(), "%f,%f", &gYaw, &gPitch) != 2) {
         std::fputs(kUsage, stderr);
         return 2;

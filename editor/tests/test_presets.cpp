@@ -67,7 +67,8 @@ TEST_CASE("the library has presets in every promised category", "[presets]") {
     const auto categories = presetCategories();
     for (const char* wanted : {"Toon", "Blasts", "Fire", "Water", "Glow and magic", "Frames", "Shooting",
                                "Rewards", "Weather", "3D", "3D Combat", "Symbol Outlines", "Energy Frames", "Sabers and Beams",
-                               "Sci-Fi Motion", "Fish Swim", "3D Trails", "3D Clouds", "Rays and Light Beams",
+                               "Holographic Ring", "Scanning Beam", "Energy Wave", "Vortex Portal", "Electric Arc",
+                               "Targeting Indicator", "Fish Swim", "3D Trails", "3D Clouds", "Rays and Light Beams",
                                "3D Frames", "Boosters", "3D Water"}) {
         INFO(wanted);
         CHECK(std::find(categories.begin(), categories.end(), wanted) != categories.end());
@@ -91,7 +92,7 @@ TEST_CASE("the library has presets in every promised category", "[presets]") {
 
 // The families made for the 3D view: those named "3D ..." and the newer ones that are not.
 static bool inThreeD(const std::string& category) {
-    for (const char* name : {"Sci-Fi Motion", "Fish Swim", "Rays and Light Beams", "Boosters"}) {
+    for (const char* name : {"Holographic Ring", "Scanning Beam", "Energy Wave", "Vortex Portal", "Electric Arc", "Targeting Indicator", "Fish Swim", "Rays and Light Beams", "Boosters"}) {
         if (category == name) {
             return true;
         }
@@ -425,7 +426,8 @@ TEST_CASE("an effect added from the library is a group, moved, delayed, sized an
 }
 
 TEST_CASE("the eight 3D families added in 0.40 each hold three distinct presets", "[presets]") {
-    for (const char* family : {"Sci-Fi Motion", "Fish Swim", "3D Trails", "3D Clouds", "Rays and Light Beams",
+    for (const char* family : {"Holographic Ring", "Scanning Beam", "Energy Wave", "Vortex Portal", "Electric Arc",
+                               "Targeting Indicator", "Fish Swim", "3D Trails", "3D Clouds", "Rays and Light Beams",
                                "3D Frames", "Boosters", "3D Water"}) {
         INFO(family);
         int count = 0;
@@ -445,5 +447,55 @@ TEST_CASE("the eight 3D families added in 0.40 each hold three distinct presets"
             CHECK(layerNames.insert(signature).second);  // no two are the same recipe
         }
         CHECK(count == 3);
+    }
+}
+
+TEST_CASE("the six sci-fi families each hold three built-up, distinct presets", "[presets]") {
+    for (const char* family : {"Holographic Ring", "Scanning Beam", "Energy Wave", "Vortex Portal", "Electric Arc", "Targeting Indicator"}) {
+        INFO(family);
+        int count = 0;
+        std::set<std::string> recipes;
+        for (const PresetInfo& info : presets()) {
+            if (info.category != family) {
+                continue;
+            }
+            ++count;
+            CHECK(info.viewPitch > 0.0f);  // seen from above, so flat rings read as rings
+            const Effect effect = build(info.id);
+            CHECK(effect.space == "3d");
+            CHECK(effect.duration >= 3.0);
+            CHECK(effect.layers.size() >= 4);
+            std::string signature;
+            for (const Layer& layer : effect.layers) {
+                signature += layer.name + "|";
+            }
+            CHECK(recipes.insert(signature).second);
+        }
+        CHECK(count == 3);
+    }
+}
+
+TEST_CASE("the sci-fi presets build up from nothing and fade back to nothing", "[presets]") {
+    for (const PresetInfo& info : presets()) {
+        if (info.viewPitch <= 0.0f) {
+            continue;
+        }
+        INFO(info.id);
+        const Effect effect = build(info.id);
+        Simulation sim(compileEffect(effect));
+        const auto visible = [&](double t) {
+            sim.seek(static_cast<std::int64_t>(t / kSimulationStep));
+            RenderFrame frame;
+            sim.extract(frame);
+            float total = 0.0f;
+            for (const SpriteInstance& s : frame.instances) {
+                total += s.a * s.size * s.size;
+            }
+            return total;
+        };
+        const float middle = visible(effect.duration * 0.5);
+        CHECK(middle > 0.0f);
+        // The first and last instants hold far less than the middle of the loop.
+        CHECK(visible(effect.duration - kSimulationStep * 2) < middle * 0.35f);
     }
 }

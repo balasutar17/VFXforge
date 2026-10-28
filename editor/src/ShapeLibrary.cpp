@@ -1530,6 +1530,213 @@ ShapeSample fish(float xIn, float y, float px) {
     return s;
 }
 
+// ============================================================ sci-fi (0.41)
+// Line work for holograms, scanners, portals, arcs and targeting: crisp bright
+// lines in the particle's colour turning white along their middle, over a faint
+// wash. Each is one layer, so a machine is built from several that turn at
+// different speeds.
+
+// How far a point is from a ring of `count` marks between two radii.
+float tickMarks(float x, float y, int count, float r0, float r1, float half) {
+    const float r = len(x, y);
+    const float sector = kTau / static_cast<float>(count);
+    float a = std::atan2(y, x);
+    a -= sector * std::floor(a / sector + 0.5f);
+    return std::max(std::fabs(r * std::sin(a)) - half, std::max(r0 - r, r - r1));
+}
+float ringLine(float r, float radius, float half) { return std::fabs(r - radius) - half; }
+float fract01(float v) { return v - std::floor(v); }
+
+ShapeSample holoTicks(float x, float y, float px) {
+    const float r = len(x, y);
+    float strong = ringLine(r, 0.94f, 0.012f);
+    strong = std::min(strong, tickMarks(x, y, 12, 0.74f, 0.9f, 0.016f));
+    float fine = std::min(ringLine(r, 0.7f, 0.008f), tickMarks(x, y, 72, 0.79f, 0.87f, 0.006f));
+    fine = std::min(fine, ringLine(r, 0.62f, 0.005f));
+    const float lines = std::max(edge(strong, px), 0.7f * edge(fine, px));
+    return inked(lines, 0.07f * smooth(0.7f, 0.5f, r));
+}
+
+ShapeSample holoSegs(float x, float y, float px) {
+    const float r = len(x, y);
+    const float thick = std::min({sdArc(x, y, 0.78f, 8.0f, 100.0f, 0.058f, 0.058f), sdArc(x, y, 0.78f, 126.0f, 206.0f, 0.058f, 0.058f),
+                                  sdArc(x, y, 0.78f, 228.0f, 348.0f, 0.058f, 0.058f)});
+    const float thin = std::min({sdArc(x, y, 0.64f, 30.0f, 160.0f, 0.011f, 0.011f), sdArc(x, y, 0.64f, 200.0f, 330.0f, 0.011f, 0.011f),
+                                 sdArc(x, y, 0.92f, 50.0f, 130.0f, 0.01f, 0.01f), sdArc(x, y, 0.92f, 230.0f, 310.0f, 0.01f, 0.01f)});
+    const float body = edge(thick, px);
+    ShapeSample s = inked(std::max(0.85f * edge(thin, px), body), 0.0f);
+    // A bright thread down the middle of each heavy piece, like a lit edge.
+    s.shine = std::max(s.shine, 0.9f * body * edge(ringLine(r, 0.78f, 0.016f), px));
+    s.tone = -0.25f * body * (1.0f - edge(ringLine(r, 0.78f, 0.03f), px));
+    return s;
+}
+
+ShapeSample holoNodes(float x, float y, float px) {
+    const float r = len(x, y);
+    const P q = fold(x, y, 8, 0.0f, false);
+    const P w = fold(x, y, 8, 22.5f, false);
+    const float ring = ringLine(r, 0.82f, 0.007f);
+    const float dots = len(q.x - 0.82f, q.y) - 0.05f;
+    const float diamonds = (std::fabs(w.x - 0.82f) + std::fabs(w.y)) * 0.7071f - 0.03f;
+    float inner = std::min(ringLine(r, 0.5f, 0.006f), tickMarks(x, y, 4, 0.42f, 0.58f, 0.008f));
+    inner = std::min(inner, ringLine(r, 0.2f, 0.01f));
+    const float lines = std::max({0.8f * edge(ring, px), edge(dots, px), edge(diamonds, px), 0.7f * edge(inner, px),
+                                  edge(r - 0.035f, px)});
+    return inked(lines, 0.05f * smooth(0.5f, 0.2f, r));
+}
+
+ShapeSample holoDisc(float x, float y, float px) {
+    const float r = len(x, y);
+    const float rings = std::min({ringLine(r, 0.7f, 0.004f), ringLine(r, 0.45f, 0.004f), ringLine(r, 0.22f, 0.004f)});
+    const float spokes = tickMarks(x, y, 24, 0.22f, 0.94f, 0.003f);
+    const float lines = std::max({edge(ringLine(r, 0.94f, 0.016f), px), 0.55f * edge(rings, px), 0.3f * edge(spokes, px)});
+    return inked(lines, (0.05f + 0.2f * (1.0f - smooth(0.0f, 0.95f, r))) * edge(r - 0.95f, px));
+}
+
+ShapeSample scanDisc(float x, float y, float px) {
+    const float r = len(x, y);
+    const float rim = edge(ringLine(r, 0.9f, 0.028f), px);
+    const float inner = 0.5f * edge(ringLine(r, 0.78f, 0.006f), px);
+    ShapeSample s = inked(std::max(rim, inner), 0.3f * sq(smooth(0.2f, 0.9f, r)) * edge(r - 0.9f, px));
+    s.shine = std::max(s.shine, 0.9f * rim);
+    return s;
+}
+
+// A hologram's upright cylinder: lit rims, bright edges, a grid and scan lines.
+ShapeSample holoCylinder(float x, float y, float px) {
+    const float w = 0.34f, ry = 0.085f, top = 0.8f, bot = -0.8f;
+    const float ax = std::fabs(x);
+    const float rect = std::max({ax - w, y - top, bot - y});
+    const float body = std::max({edge(rect, px), edge(sdEllipse(x, y - top, w, ry), px), edge(sdEllipse(x, y - bot, w, ry), px)});
+    const auto rim = [&](float cy) {
+        const float d = std::fabs(sdEllipse(x, y - cy, w, ry)) - 0.009f;
+        return edge(d, px) * (y < cy ? 1.0f : 0.35f);
+    };
+    const float rims = std::max(rim(top), rim(bot));
+    const float within = edge(std::max(y - top, bot - y), px);
+    const float edges = edge(std::fabs(ax - w) - 0.008f, px) * within;
+    const float grid = 0.22f * edge(std::fabs(ax - w * 0.5f) - 0.003f, px) * within;
+    const float scan = 0.16f * edge(std::fabs(fract01(y * 9.0f) - 0.5f) - 0.44f, px * 9.0f) * body;
+    const float fill = (0.07f + 0.16f * sq(ax / w)) * body;
+    return inked(std::max({rims, edges, grid, scan}), fill);
+}
+
+// Two strands winding round an upright axis, with rungs between them.
+ShapeSample helix(float x, float y, float px) {
+    const float amp = 0.34f, k = 14.0f;
+    const auto strand = [&](float phase) {
+        const float s = amp * std::sin(k * y + phase);
+        const float slope = amp * k * std::cos(k * y + phase);
+        return std::fabs(x - s) / std::sqrt(1.0f + slope * slope);
+    };
+    const float da = std::cos(k * y), db = -std::cos(k * y);  // toward the viewer is brighter
+    const float ea = edge(strand(0.0f) - 0.026f, px) * (0.55f + 0.45f * da);
+    const float eb = edge(strand(kPi) - 0.026f, px) * (0.55f + 0.45f * db);
+    const float rung = 0.4f * edge(std::fabs(fract01(y * 4.4f) - 0.5f) - 0.47f, px * 4.4f) *
+                       edge(std::fabs(x) - std::fabs(amp * std::sin(k * y)), px);
+    return inked(std::max({ea, eb, rung}) * smooth(1.0f, 0.82f, std::fabs(y)), 0.0f);
+}
+
+// A spreading pulse: a hard bright rim over a soft glow that thickens inward.
+ShapeSample energyRing(float x, float y, float px) {
+    const float r = len(x, y);
+    const float rim = edge(ringLine(r, 0.84f, 0.03f), px);
+    const float inner = 0.55f * edge(ringLine(r, 0.7f, 0.012f), px);
+    const float glow = sq(clamp01(1.0f - (0.86f - r) / 0.34f)) * edge(r - 0.86f, px) * 0.6f;
+    ShapeSample s;
+    s.cover = std::max({rim, inner, glow});
+    s.shine = 0.85f * rim;
+    return s;
+}
+
+// A crescent slice of energy, its points trailing behind: +x is the way it travels.
+ShapeSample sliceArc(float x, float y, float px) {
+    const float r = len(x + 0.3f, y);
+    const float a = std::atan2(y, x + 0.3f) * 180.0f / kPi;
+    const float t = clamp01((a + 62.0f) / 124.0f);
+    const float width = 0.15f * std::sin(kPi * t) + 0.004f;
+    const float inside = edge(std::fabs(a) - 62.0f, px * 60.0f);
+    ShapeSample s;
+    s.cover = std::max(edge(std::fabs(r - 0.9f) - width, px) * inside,
+                       0.35f * sq(clamp01(1.0f - std::fabs(r - 0.9f) / (width + 0.2f))) * inside);
+    s.shine = 0.9f * edge(std::fabs(r - 0.9f) - width * 0.4f, px) * inside;
+    return s;
+}
+
+// Swirling arms round a dark centre, for a portal's inside. Turn it to make it flow.
+ShapeSample swirlArms(float x, float y, float px) {
+    const float r = len(x, y);
+    const float theta = std::atan2(y, x);
+    const int arms = 5;
+    const float u = theta * static_cast<float>(arms) / kTau - 3.0f * std::log(r + 0.12f);
+    const float lateral = std::fabs(fract01(u) - 0.5f) * kTau * r / static_cast<float>(arms);
+    const float half = 0.03f + 0.09f * (1.0f - r);
+    const float fadeIn = smooth(0.07f, 0.28f, r) * smooth(1.0f, 0.82f, r);
+    const float arm = edge(lateral - half, px) * fadeIn;
+    ShapeSample s;
+    s.cover = std::max(arm, 0.45f * sq(clamp01(1.0f - lateral / (half + 0.1f))) * fadeIn);
+    s.shine = 0.8f * edge(lateral - half * 0.4f, px) * smooth(0.5f, 0.12f, r) * arm;
+    return s;
+}
+
+float boltDistance(float x, float y, const P* pts, int n) {
+    float d = 1e9f;
+    for (int i = 0; i + 1 < n; ++i) {
+        d = std::min(d, sdSeg(x, y, pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y));
+    }
+    return d;
+}
+
+// Jagged bolts from the left of the shape to the right, each with its own side branches.
+ShapeSample arcBolt(float x, float y, float px) {
+    static const P v[] = {{-0.82f, 0.00f}, {-0.75f, 0.00f}, {-0.67f, -0.04f}, {-0.58f, -0.04f}, {-0.54f, -0.03f}, {-0.46f, -0.07f}, {-0.38f, -0.01f}, {-0.33f, -0.01f}, {-0.25f, 0.06f}, {-0.17f, 0.00f}, {-0.09f, 0.02f}, {-0.06f, -0.00f}, {0.03f, 0.03f}, {0.09f, -0.01f}, {0.20f, -0.04f}, {0.26f, 0.08f}, {0.30f, 0.08f}, {0.42f, 0.05f}, {0.48f, 0.03f}, {0.54f, -0.02f}, {0.61f, -0.03f}, {0.65f, -0.02f}, {0.72f, -0.04f}, {0.82f, 0.00f}};
+    static const P b1[] = {{-0.38f, -0.01f}, {-0.31f, 0.12f}, {-0.26f, 0.15f}, {-0.17f, 0.24f}};
+    static const P b2[] = {{0.26f, 0.08f}, {0.30f, 0.01f}, {0.35f, -0.04f}, {0.43f, -0.10f}};
+    const float branches = std::min(boltDistance(x, y, b1, 4), boltDistance(x, y, b2, 4)) * 1.5f;
+    return glowing(std::min(boltDistance(x, y, v, 24), branches), 0.013f, px, 0.14f, 0.5f);
+}
+
+ShapeSample arcJag(float x, float y, float px) {
+    static const P v[] = {{-0.82f, 0.00f}, {-0.71f, 0.06f}, {-0.63f, 0.02f}, {-0.56f, 0.04f}, {-0.53f, 0.04f}, {-0.42f, 0.15f}, {-0.36f, -0.05f}, {-0.27f, 0.10f}, {-0.22f, -0.05f}, {-0.14f, 0.03f}, {-0.04f, 0.06f}, {0.03f, -0.07f}, {0.11f, -0.16f}, {0.16f, -0.01f}, {0.25f, 0.08f}, {0.37f, 0.03f}, {0.42f, -0.02f}, {0.51f, 0.04f}, {0.59f, -0.08f}, {0.65f, -0.07f}, {0.71f, -0.03f}, {0.82f, 0.00f}};
+    static const P b1[] = {{-0.42f, 0.15f}, {-0.33f, 0.05f}, {-0.22f, -0.03f}, {-0.13f, -0.20f}};
+    static const P b2[] = {{0.03f, -0.07f}, {0.10f, 0.14f}, {0.20f, 0.19f}, {0.26f, 0.38f}};
+    static const P b3[] = {{0.42f, -0.02f}, {0.46f, -0.14f}, {0.52f, -0.24f}, {0.58f, -0.39f}, {0.64f, -0.48f}, {0.68f, -0.56f}};
+    const float branches = std::min({boltDistance(x, y, b1, 4), boltDistance(x, y, b2, 4), boltDistance(x, y, b3, 6)}) * 1.4f;
+    return glowing(std::min(boltDistance(x, y, v, 22), branches), 0.018f, px, 0.16f, 0.5f);
+}
+
+ShapeSample arcFork(float x, float y, float px) {
+    static const P v[] = {{-0.82f, 0.00f}, {-0.73f, 0.02f}, {-0.65f, -0.03f}, {-0.57f, 0.03f}, {-0.48f, -0.04f}, {-0.42f, 0.02f}, {-0.32f, -0.05f}, {-0.30f, -0.07f}, {-0.20f, 0.06f}, {-0.09f, -0.05f}, {-0.03f, -0.05f}, {0.06f, 0.08f}, {0.09f, 0.06f}, {0.20f, -0.03f}, {0.26f, 0.07f}, {0.35f, 0.01f}, {0.43f, 0.02f}, {0.48f, -0.03f}, {0.57f, 0.05f}, {0.65f, 0.02f}, {0.77f, 0.04f}, {0.82f, 0.00f}};
+    static const P b1[] = {{-0.42f, 0.02f}, {-0.31f, 0.22f}, {-0.26f, 0.27f}, {-0.16f, 0.47f}, {-0.07f, 0.56f}, {0.03f, 0.73f}};
+    static const P b2[] = {{-0.09f, -0.05f}, {0.03f, -0.26f}, {0.12f, -0.32f}, {0.21f, -0.64f}};
+    static const P b3[] = {{0.26f, 0.07f}, {0.35f, 0.24f}, {0.42f, 0.37f}, {0.48f, 0.59f}, {0.58f, 0.68f}};
+    static const P b4[] = {{0.48f, -0.03f}, {0.52f, -0.22f}, {0.56f, -0.32f}, {0.62f, -0.47f}, {0.70f, -0.52f}, {0.77f, -0.63f}};
+    const float branches = std::min({boltDistance(x, y, b1, 6), boltDistance(x, y, b2, 4), boltDistance(x, y, b3, 5), boltDistance(x, y, b4, 6)}) * 1.3f;
+    return glowing(std::min(boltDistance(x, y, v, 22), branches), 0.012f, px, 0.13f, 0.5f);
+}
+
+// Targeting: brackets at the corners, ticks round the middle and a bright centre.
+ShapeSample reticle(float x, float y, float px) {
+    const float ax = std::fabs(x), ay = std::fabs(y);
+    const float c = 0.78f, arm = 0.34f, t = 0.022f;
+    const float brackets = std::min(sdSeg(ax, ay, c, c, c, c - arm), sdSeg(ax, ay, c, c, c - arm, c)) - t;
+    const float r = len(x, y);
+    float fine = std::min(ringLine(r, 0.5f, 0.005f), tickMarks(x, y, 36, 0.43f, 0.5f, 0.006f));
+    fine = std::min(fine, tickMarks(x, y, 4, 0.5f, 0.62f, 0.012f));
+    return inked(std::max({edge(brackets, px), 0.75f * edge(fine, px), edge(r - 0.04f, px)}), 0.0f);
+}
+
+// A lock-on ring with four triangles closing in on it from the compass points.
+ShapeSample lockRing(float x, float y, float px) {
+    const float r = len(x, y);
+    const P q = fold(x, y, 4, 0.0f, false);
+    const float tri = std::max({0.72f - q.x, q.x - 0.95f, (std::fabs(q.y) - (q.x - 0.72f) * 0.45f) * 0.9f});
+    const float bands = std::max(edge(ringLine(r, 0.6f, 0.016f), px), 0.6f * edge(ringLine(r, 0.48f, 0.006f), px));
+    const float ticks = 0.7f * edge(tickMarks(x, y, 24, 0.52f, 0.58f, 0.01f), px);
+    return inked(std::max({edge(tri, px), bands, ticks}), 0.04f * smooth(0.6f, 0.0f, r));
+}
+
+
 // ------------------------------------------------- shapes that can be changed
 //
 // Some shapes have settings of their own (see ShapeEdit in Program.h): how
@@ -2413,6 +2620,21 @@ const std::vector<Entry>& entries() {
         {{"infinity", "Infinity", "Symbols"}, infinity},
         {{"lock", "Lock", "Symbols"}, lock},
         {{"fish", "Fish", "Water and nature"}, fish},
+        {{"holoticks", "Holo ticks", "Sci-fi"}, holoTicks},
+        {{"holosegs", "Holo segments", "Sci-fi"}, holoSegs},
+        {{"holonodes", "Holo nodes", "Sci-fi"}, holoNodes},
+        {{"holodisc", "Holo platform", "Sci-fi"}, holoDisc},
+        {{"scandisc", "Scan disc", "Sci-fi"}, scanDisc},
+        {{"holocylinder", "Holo cylinder", "Sci-fi"}, holoCylinder},
+        {{"helix", "Helix", "Sci-fi"}, helix},
+        {{"energyring", "Energy ring", "Sci-fi"}, energyRing},
+        {{"slicearc", "Slice arc", "Sci-fi"}, sliceArc},
+        {{"swirlarms", "Swirl arms", "Sci-fi"}, swirlArms},
+        {{"arcbolt", "Arc bolt", "Sci-fi"}, arcBolt},
+        {{"arcjag", "Arc jagged", "Sci-fi"}, arcJag},
+        {{"arcfork", "Arc fork", "Sci-fi"}, arcFork},
+        {{"reticle", "Reticle", "Sci-fi"}, reticle},
+        {{"lockring", "Lock ring", "Sci-fi"}, lockRing},
     };
     return list;
 }
@@ -2442,7 +2664,7 @@ int shapeNumber(std::string_view name) {
 const std::vector<std::string>& shapeCategories() {
     static const std::vector<std::string> categories = {
         "Basic",          "Stars and sparkles", "Smoke and clouds", "Fire and light", "Water and nature",
-        "Candy and rewards", "Magic",            "Hits and debris",  "Symbols"};
+        "Candy and rewards", "Magic",            "Hits and debris",  "Symbols", "Sci-fi"};
     return categories;
 }
 

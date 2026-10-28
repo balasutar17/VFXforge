@@ -365,4 +365,9 @@ inline void add(Effect& effect, Make& layer) {
     effect.layers.push_back(layer.done(effect.duration));
 }
 
+// For a layer a helper function built and returned.
+inline void add(Effect& effect, Make&& layer) {
+    add(effect, layer);
+}
+
 }  // namespace vfx::editor::make

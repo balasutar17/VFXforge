@@ -124,7 +124,7 @@ the same length.
 
 ## Eight new 3D families (0.40, stage 1)
 
-Twenty-four new presets, three in each of: **Sci-Fi Motion**, **Fish Swim**,
+Twenty-one new presets, three in each of (Sci-Fi Motion became six families of its own in 0.41, below): **Fish Swim**,
 **3D Trails**, **3D Clouds**, **Rays and Light Beams**, **3D Frames**,
 **Boosters** and **3D Water**. Each is built from the same layers and modules as
 every other preset, so everything in it can be edited, duplicated, saved to
@@ -141,3 +141,30 @@ What this stage is, and is not:
 - Frames are turning flat shapes, not extruded meshes with a bevel.
 - Nothing here has been opened in Unity yet. They export like any other preset;
   whether Unity shows them the same has not been checked.
+
+## Sci-fi motion (0.41)
+
+Six families, three presets each, drawn to a reference sheet: **Holographic Ring**,
+**Scanning Beam**, **Energy Wave**, **Vortex Portal**, **Electric Arc** and
+**Targeting Indicator**. Each preset is one pass of its own sequence: it builds
+up, goes active, runs, and fades back to nothing, so the loop is the whole story.
+Every part is its own layer (turning, recolourable, hideable, timed on its own).
+
+What changed underneath:
+
+- **A "Sci-fi" group of 15 shapes** in the shape library: holo ticks, holo
+  segments, holo nodes, holo platform, scan disc, holo cylinder, helix, energy
+  ring, slice arc, swirl arms, three arcs (each with its own side branches),
+  reticle and lock ring. They are drawn by formula, so they stay sharp at any size.
+- **Flat particles are drawn correctly in perspective.** A flat ring seen at an
+  angle was one big quad whose shape the graphics card spreads evenly, so large
+  rings came out lumpy. Large flat particles are now cut into small cells.
+  This also fixes every existing flat effect.
+- **A preset can choose the angle its library card looks from** (`viewPitch`), so
+  flat rings are seen from above like the reference, not edge-on.
+- A test checks that each sci-fi preset has almost nothing showing at the start
+  and end of its loop and plenty in the middle.
+
+Not done yet: Unity has not been checked; the arcs' two ends are set by the
+layer's position and size (no draggable end handles); the targeting
+indicators are placed by their position, not yet bound to a moving object.

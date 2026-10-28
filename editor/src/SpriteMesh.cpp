@@ -367,11 +367,13 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
                 planeAlong = along;
                 planeAcross = across;
             }
-            for (int k = 0; k < 4; ++k) {
+            // One corner of the particle: (cx, cy) on its own -1..1 square and
+            // (fu, fv) across the picture, 0 to 1, v running down.
+            const auto put = [&](float cx, float cy, float fu, float fv) -> bool {
                 if (onPlane) {
                     // Lying flat on the effect's own plane: each corner is a
                     // real point in the world and is projected by itself.
-                    const float ownX = cornerX[k] * planeAcross, ownY = cornerY[k] * planeAlong;
+                    const float ownX = cx * planeAcross, ownY = cy * planeAlong;
                     const float ox = (ownX * cs - ownY * sn) * half;
                     const float oy = (ownX * sn + ownY * cs) * half;
                     float s = 1;
@@ -380,36 +382,58 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
                     const bool down = batch.ground;
                     const float wx = p.x + ox, wy = down ? p.y : p.y + oy, wz = down ? p.z - oy : p.z;
                     if (!project(camera, wx, wy, wz, v.x, v.y, s)) {
-                        visible = false;
-                        break;
+                        return false;
                     }
                     v.depth = 1.0f / camera::depthOf(camera, wx, wy, wz);
                 } else {
-                    v.x = px + cornerX[k] * axX + cornerY[k] * ayX;
-                    v.y = py + cornerX[k] * axY + cornerY[k] * ayY;
+                    v.x = px + cx * axX + cy * ayX;
+                    v.y = py + cx * axY + cy * ayY;
                     v.depth = centreKey;
                 }
                 if (picture) {
-                    v.u = (static_cast<float>(cellX) + (cornerU[k] > 0.5f ? 1.0f : 0.0f)) /
-                              static_cast<float>(columns) +
-                          (cornerU[k] > 0.5f ? -insetU : insetU);
-                    v.v = (static_cast<float>(cellY) + (cornerV[k] > 0.5f ? 1.0f : 0.0f)) /
-                              static_cast<float>(rows) +
-                          (cornerV[k] > 0.5f ? -insetV : insetV);
+                    v.u = (static_cast<float>(cellX) + fu) / static_cast<float>(columns) + insetU * (1.0f - 2.0f * fu);
+                    v.v = (static_cast<float>(cellY) + fv) / static_cast<float>(rows) + insetV * (1.0f - 2.0f * fv);
                 } else {
-                    v.u = cornerU[k];
-                    v.v = cornerV[k];
+                    v.u = fu;
+                    v.v = fv;
                 }
-                v.ownX = cornerX[k];
-                v.ownY = cornerY[k];
+                v.ownX = cx;
+                v.ownY = cy;
                 mesh.vertices.push_back(v);
+                return true;
+            };
+            // A flat particle seen at a steep angle is cut into cells: the
+            // graphics card spreads a shape evenly across each triangle, not
+            // in perspective, so one big quad would bend a ring.
+            const int grid = onPlane ? std::clamp(static_cast<int>(reach / 48.0f), 1, 10) : 1;
+            if (grid == 1) {
+                for (int k = 0; k < 4 && visible; ++k) {
+                    visible = put(cornerX[k], cornerY[k], cornerU[k], cornerV[k]);
+                }
+            } else {
+                for (int j = 0; j <= grid && visible; ++j) {
+                    for (int i = 0; i <= grid && visible; ++i) {
+                        const float fx = static_cast<float>(i) / static_cast<float>(grid);
+                        const float fy = static_cast<float>(j) / static_cast<float>(grid);
+                        visible = put(-1.0f + 2.0f * fx, -1.0f + 2.0f * fy, fx, 1.0f - fy);
+                    }
+                }
             }
             if (!visible) {
                 mesh.vertices.resize(base);
                 continue;
             }
-            mesh.indices.insert(mesh.indices.end(),
-                                {base, base + 1, base + 2, base, base + 2, base + 3});
+            if (grid == 1) {
+                mesh.indices.insert(mesh.indices.end(), {base, base + 1, base + 2, base, base + 2, base + 3});
+            } else {
+                const auto stride = static_cast<std::uint32_t>(grid + 1);
+                for (int j = 0; j < grid; ++j) {
+                    for (int i = 0; i < grid; ++i) {
+                        const std::uint32_t a0 = base + static_cast<std::uint32_t>(j) * stride + static_cast<std::uint32_t>(i);
+                        mesh.indices.insert(mesh.indices.end(), {a0, a0 + 1, a0 + stride + 1, a0, a0 + stride + 1, a0 + stride});
+                    }
+                }
+            }
             ++mesh.drawn;
         }
 

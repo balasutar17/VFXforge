@@ -24,6 +24,8 @@ struct PresetInfo {
     // The flat camera that frames the effect well: the world point in the
     // middle of the picture, and how many units fit top to bottom.
     float viewX = 0, viewY = 0, viewHeight = 6;
+    // How far above the horizon the library card looks at a 3D preset; 0 keeps the camera's own.
+    float viewPitch = 0;
 
     // A moment, in seconds, at which the effect looks like itself.
     double previewTime = 0.5;

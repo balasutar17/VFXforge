@@ -522,5 +522,5 @@ TEST_CASE("the presets made with the library use it", "[shapes][library][presets
         status += info.category == "Status" ? 1 : 0;
     }
     CHECK(status == 5);
-    CHECK(presets().size() == 165);
+    CHECK(presets().size() == 180);
 }

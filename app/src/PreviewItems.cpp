@@ -136,6 +136,9 @@ QSGNode* PresetPreview::updatePaintNode(QSGNode* old, UpdatePaintNodeData*) {
         view.targetX = info_.viewX;
         view.targetY = info_.viewY;
         view.distance = info_.viewHeight * 1.45f;
+        if (info_.viewPitch > 0.0f) {
+            view.pitch = info_.viewPitch;
+        }
         vfx::editor::buildSpriteMesh(frame_, view, mesh_);
     }
     // A card is small: shapes from the library are drawn from small pictures.

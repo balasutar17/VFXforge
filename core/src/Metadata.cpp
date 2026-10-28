@@ -284,7 +284,10 @@ Registry::Registry() {
                       "wing", "skull", "octagram", "portalring", "crosshair", "yinyang", "runea",
                       "runeb", "runec", "slash", "claw", "crack", "impact", "rock", "splinter",
                       "glass", "gear", "bone", "brick", "arrow", "chevron", "check", "exclaim",
-                      "question", "lightning", "shield", "sword", "paw", "zed", "infinity", "lock", "fish"})
+                      "question", "lightning", "shield", "sword", "paw", "zed", "infinity", "lock", "fish",
+                      "holoticks", "holosegs", "holonodes", "holodisc", "scandisc", "holocylinder", "helix",
+                      "energyring", "slicearc", "swirlarms", "arcbolt", "arcjag", "arcfork", "reticle",
+                      "lockring"})
             .help("What each particle looks like when it has no texture."),
         P("align", "Align", ValueKind::Enum, text("none"))
             .options({"none", "movement"})

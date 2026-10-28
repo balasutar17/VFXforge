@@ -2496,6 +2496,11 @@ PresetInfo describe(const char* id, const char* name, const char* category, cons
     return info;
 }
 
+PresetInfo lookDown(PresetInfo info, float pitch) {
+    info.viewPitch = pitch;
+    return info;
+}
+
 // ---- Stage 1 of the expanded 3D library: eight new families (0.40). Each is built
 // from the same layers and modules as every other preset, so everything in it
 // can be changed after it is opened.
@@ -2515,59 +2520,420 @@ double eightY(double t) { return 1.5 + 0.7 * std::sin(2 * t); }
 double waveX(double t) { return -2.0 + 4.0 * t / 6.283185307179586; }
 double waveY(double t) { return 1.5 + 0.55 * std::sin(2 * t); }
 
-// ---- Sci-Fi Motion
+// ---- Sci-fi motion (0.41). Six families, three presets each. Every one is built
+// in phases over its length: it builds up, goes active, runs and fades out, so one
+// pass of the loop is the whole sequence. Each part is its own layer, so it can be
+// turned, recoloured, hidden or timed on its own.
 
-Effect holoRings3d(const IdSource& id) {
-    Effect e = begin3d(id, "Holo Rings 3D", 4.0);
-    add(e, Make(id, "Floor disc").burst(1).life(4, 4).speed(0, 0).size(3.4, 3.4).color(0x2fd0ff, 0.35).gravity(0, 0)
-               .spin(20, 20).solid().look("disc").additive().ground().flatOnPlane());
-    add(e, Make(id, "Outer ring").burst(1).life(4, 4).at3(0, 0.05, 0).speed(0, 0).size(3.2, 3.2).color(0x7fe6ff)
-               .gravity(0, 0).spin(45, 45).solid().look("dashring").additive().glow(1.4).ground().flatOnPlane());
-    add(e, Make(id, "Middle ring").burst(1).life(4, 4).at3(0, 0.9, 0).speed(0, 0).size(2.4, 2.4).color(0x9ff0ff)
-               .gravity(0, 0).spin(-70, -70).solid().look("doublering").additive().glow(1.3).ground().flatOnPlane());
-    add(e, Make(id, "Upper ring").burst(1).life(4, 4).at3(0, 1.8, 0).speed(0, 0).size(1.6, 1.6).color(0xd8f8ff)
-               .gravity(0, 0).spin(110, 110).solid().look("portalring").additive().glow(1.3).ground().flatOnPlane());
-    add(e, Make(id, "Scan beam").burst(1).life(4, 4).at3(0, 0.9, 0).speed(0, 0).size(3.4, 3.4).color(0x6fe6ff, 0.6)
-               .gravity(0, 0).spin(120, 120).solid().look("wedge").additive().glow(1.2).ground().flatOnPlane());
-    add(e, Make(id, "Data motes").rate(26).circle(1.7, true).at3(0, 0.2, 0).life(1.2, 1.8).speed(0.2, 0.5)
-               .toward(0, 1, 0, 10).size(0.05, 0.1).color(0xd8f8ff).gravity(0, 0).orbit(70).ground()
-               .fade({{0, 0}, {0.2, 1}, {1, 0}}).look("glint").additive().glow(2.0));
+using Curve = std::vector<CurveKey>;
+// Fades in by `in` (0 to 1 of the length), holds, and is gone by the end from `out`.
+Curve appearCurve(double in, double out) { return {{0, 0, true}, {in, 1, true}, {out, 1, true}, {1, 0, true}}; }
+// Grows from `from` to full size by `in`, holds, and shrinks to `end` at the close.
+Curve growCurve(double in, double from, double end) { return {{0, from, true}, {in, 1, true}, {0.88, 1, true}, {1, end, true}}; }
+// A glow that beats `beats` times between `lo` and 1 while it is held.
+Curve beatCurve(double in, double out, int beats, double lo) {
+    Curve c{{0, 0, true}, {in, 1, true}};
+    const double span = out - in;
+    for (int i = 0; i < beats; ++i) {
+        c.push_back({in + span * (i + 0.5) / beats, lo, true});
+        c.push_back({in + span * (i + 1.0) / beats, 1.0, true});
+    }
+    c.push_back({1, 0, true});
+    return c;
+}
+
+// One flat, turning part of a hologram lying on the floor at a height.
+Make flatPiece(const IdSource& id, const char* name, const char* shape, double length, double height, double size,
+               unsigned colour, double alpha, double spin, double in, double out, double glow, double from = 0.3) {
+    return Make(id, name).burst(1).life(length, length).at3(0, height, 0).speed(0, 0).size(size, size).color(colour, alpha)
+        .gravity(0, 0).spin(spin, spin).sizeOver(growCurve(in, from, 0.5)).fade(appearCurve(in * 0.85, out)).look(shape)
+        .additive().glow(glow).ground().flatOnPlane();
+}
+
+// The same, standing upright to face the viewer.
+Make upright(const IdSource& id, const char* name, const char* shape, double length, double height, double size,
+             unsigned colour, double alpha, double spin, double in, double out, double glow, double from = 0.3) {
+    return Make(id, name).burst(1).life(length, length).at3(0, height, 0).speed(0, 0).size(size, size).color(colour, alpha)
+        .gravity(0, 0).spin(spin, spin).sizeOver(growCurve(in, from, 0.4)).fade(appearCurve(in * 0.85, out)).look(shape)
+        .additive().glow(glow);
+}
+
+Make motes(const IdSource& id, const char* name, unsigned colour, double rate, double radius, double height, double from,
+           double length, double rise) {
+    return Make(id, name).from(from, length).rate(rate).circle(radius, true).at3(0, height, 0).life(1.0, 1.8).speed(rise * 0.5, rise)
+        .toward(0, 1, 0, 6).size(0.04, 0.09).color(colour).gravity(0, 0).ground().fade({{0, 0}, {0.2, 1}, {1, 0}})
+        .look("glint").additive().glow(2.2);
+}
+
+// ---- Holographic Ring
+
+Effect techRing3d(const IdSource& id) {
+    constexpr double D = 6.0;
+    Effect e = begin3d(id, "Tech Ring 3D", D);
+    add(e, flatPiece(id, "Platform", "holodisc", D, 0.0, 4.8, 0x2fd0ff, 0.55, 6, 0.10, 0.92, 1.2, 0.5));
+    add(e, flatPiece(id, "Outer ticks", "holoticks", D, 0.04, 4.3, 0x7fe6ff, 1.0, 18, 0.14, 0.9, 1.6));
+    add(e, flatPiece(id, "Heavy segments", "holosegs", D, 0.42, 3.7, 0x4fd8ff, 1.0, -45, 0.2, 0.88, 1.8));
+    add(e, flatPiece(id, "Nodes", "holonodes", D, 0.8, 3.0, 0xbff4ff, 1.0, 72, 0.26, 0.86, 1.7));
+    add(e, flatPiece(id, "Inner segments", "holosegs", D, 1.2, 2.0, 0xffffff, 0.9, 135, 0.32, 0.84, 1.6));
+    add(e, Make(id, "Scan lines").from(0.9, 4.4).rate(2.6).life(1.4, 1.4).at3(0, 0.05, 0).speed(1.1, 1.1).toward(0, 1, 0, 0)
+               .size(3.2, 3.2).color(0x8fecff, 0.8).gravity(0, 0).fade({{0, 0}, {0.2, 1}, {1, 0}}).look("ring").additive()
+               .glow(1.4).ground().flatOnPlane());
+    add(e, upright(id, "Projection", "hexshield", D, 1.9, 1.5, 0x9fe8ff, 0.85, 55, 0.3, 0.84, 1.6));
+    add(e, Make(id, "Core glow").burst(1).life(D, D).at3(0, 1.9, 0).speed(0, 0).size(2.2, 2.2).color(0x5fd8ff, 0.5).gravity(0, 0)
+               .fade(beatCurve(0.3, 0.84, 4, 0.55)).look("soft").additive().glow(1.4));
+    add(e, motes(id, "Data motes", 0xd8f8ff, 30, 1.9, 0.1, 0.9, 4.4, 1.4));
+    add(e, Make(id, "Sparks").from(0.5, 1.0).burst(36, 0.0).circle(1.8, true).at3(0, 0.1, 0).life(0.5, 1.0).speed(1.2, 3.2)
+               .toward(0, 1, 0, 60).size(0.03, 0.07).color(0xffffff).gravity(0, -2.0).ground().fade({{0, 1}, {1, 0}})
+               .look("spark").additive().glow(2.4).streak(0.03));
     tools::smoothLoop(e);
     return e;
 }
 
-Effect energyVortex3d(const IdSource& id) {
-    Effect e = begin3d(id, "Energy Vortex 3D", 3.0);
-    add(e, Make(id, "Floor swirl").burst(1).life(3, 3).speed(0, 0).size(3.6, 3.6).color(0x6a5cff).gravity(0, 0)
-               .spin(-160, -160).solid().look("vortex").additive().glow(1.3).ground().flatOnPlane());
-    add(e, Make(id, "Spiral arms").rate(60).circle(1.4, true).life(1.2, 1.6).speed(0.6, 1.2).toward(0, 1, 0, 8)
-               .size(0.08, 0.14).color(0xb9a8ff).gravity(0, 0.6).orbit(-220).ground()
-               .sizeOver({{0, 1}, {1, 0.2}}).fade({{0, 0}, {0.15, 1}, {1, 0}}).look("orb").additive().glow(1.8)
-               .trail(0.3, 0.1));
-    add(e, Make(id, "Inward pull").rate(30).circle(2.2, true).life(0.7, 1.0).speed(1.4, 2.4).toward(0, 0.2, 0, 4)
-               .size(0.05, 0.1).color(0xe0d8ff).gravity(0, 0).orbit(-120).ground()
-               .fade({{0, 0}, {0.2, 1}, {1, 0}}).look("glint").additive().glow(2.0));
-    add(e, Make(id, "Core").burst(1).life(3, 3).at3(0, 0.3, 0).speed(0, 0).size(0.9, 0.9).color(0xffffff, 0.9)
-               .gravity(0, 0).sizeOver({{0, 1}, {0.5, 1.25}, {1, 1}}).solid().look("soft").additive().glow(1.6));
-    add(e, Make(id, "Arcs").rate(10).circle(0.9).life(0.08, 0.14).speed(0, 0).size(0.6, 1.1).turn(0, 360)
-               .color(0xd8d0ff).gravity(0, 0).look("zigzag").additive().glow(2.0).ground());
+Effect energyRing3d(const IdSource& id) {
+    constexpr double D = 6.0;
+    Effect e = begin3d(id, "Energy Ring 3D", D);
+    add(e, flatPiece(id, "Floor glow", "softring", D, 0.0, 5.0, 0x9a4dff, 0.5, 0, 0.12, 0.92, 1.2, 0.4));
+    add(e, flatPiece(id, "Wide ring", "doublering", D, 0.1, 4.4, 0xc58bff, 1.0, -22, 0.16, 0.9, 1.7));
+    add(e, flatPiece(id, "Heavy arcs", "holosegs", D, 0.5, 3.6, 0xff4fd8, 1.0, 55, 0.22, 0.88, 2.0));
+    add(e, flatPiece(id, "Inner arcs", "holosegs", D, 0.9, 2.5, 0xffa6f0, 1.0, -110, 0.28, 0.86, 1.9));
+    add(e, flatPiece(id, "Rim", "dashring", D, 1.3, 1.6, 0xffffff, 0.9, 150, 0.34, 0.84, 1.7));
+    add(e, Make(id, "Pulse rings").from(0.8, 4.6).rate(1.1).life(1.6, 1.6).at3(0, 0.2, 0).speed(0, 0).size(5.2, 5.2)
+               .color(0xd49bff, 0.9).gravity(0, 0).sizeOver({{0, 0.15}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("energyring")
+               .additive().glow(1.8).ground().flatOnPlane());
+    add(e, Make(id, "Spiral energy").from(0.8, 4.4).rate(90).circle(1.7, true).at3(0, 0.05, 0).life(0.9, 1.3).speed(0.8, 1.6)
+               .toward(0, 1, 0, 8).size(0.07, 0.13).color(0xff9aee).gravity(0, 0.2).orbit(-210).ground()
+               .sizeOver({{0, 1}, {1, 0.2}}).fade({{0, 0}, {0.15, 1}, {1, 0}}).look("orb").additive().glow(2.2).trail(0.25, 0.08));
+    add(e, Make(id, "Core").burst(1).life(D, D).at3(0, 0.7, 0).speed(0, 0).size(1.5, 1.5).color(0xffffff, 0.8).gravity(0, 0)
+               .fade(beatCurve(0.28, 0.84, 5, 0.5)).look("soft").additive().glow(1.8));
     tools::smoothLoop(e);
     return e;
 }
 
-Effect warpStreaks3d(const IdSource& id) {
-    Effect e = begin3d(id, "Warp Streaks 3D", 2.0);
-    add(e, Make(id, "Streaks").rate(90).circle(2.6, true).at3(0, 1.5, -3).life(0.35, 0.6).speed(14, 22)
-               .toward(0, 0, 1, 2).size(0.05, 0.1).color(0xa8e0ff).gravity(0, 0)
-               .fade({{0, 0}, {0.2, 1}, {1, 0}}).look("streak").additive().glow(2.0).streak(0.06));
-    add(e, Make(id, "Hot streaks").rate(30).circle(1.6, true).at3(0, 1.5, -3).life(0.3, 0.5).speed(18, 26)
-               .toward(0, 0, 1, 1).size(0.04, 0.08).color(0xffffff).gravity(0, 0)
-               .fade({{0, 0}, {0.2, 1}, {1, 0}}).look("streak").additive().glow(2.4).streak(0.08));
-    add(e, Make(id, "Tunnel rings").rate(3).life(0.9, 0.9).at3(0, 1.5, -3).speed(7, 7).toward(0, 0, 1, 0)
-               .size(3.2, 3.2).color(0x6fc0ff, 0.6).gravity(0, 0).sizeOver({{0, 0.3}, {1, 1.2}})
-               .fade({{0, 0}, {0.2, 1}, {1, 0}}).look("ring").additive());
-    add(e, Make(id, "Centre glow").burst(1).life(2, 2).at3(0, 1.5, 0).speed(0, 0).size(2.4, 2.4).color(0x9fe0ff, 0.5)
-               .gravity(0, 0).solid().look("soft").additive().glow(1.4));
+Effect goldRing3d(const IdSource& id) {
+    constexpr double D = 6.0;
+    Effect e = begin3d(id, "Gold Ring 3D", D);
+    add(e, flatPiece(id, "Floor disc", "holodisc", D, 0.0, 4.6, 0xffb53a, 0.5, -5, 0.1, 0.92, 1.1, 0.5));
+    add(e, flatPiece(id, "Outer ring", "holoticks", D, 0.05, 4.2, 0xffd36a, 1.0, -16, 0.14, 0.9, 1.7));
+    add(e, flatPiece(id, "Gold arcs", "holosegs", D, 0.4, 3.5, 0xffc23d, 1.0, 40, 0.2, 0.88, 1.9));
+    add(e, flatPiece(id, "Sigils", "sigil", D, 0.75, 2.9, 0xffe49a, 0.9, 85, 0.26, 0.86, 1.6));
+    add(e, flatPiece(id, "Nodes", "holonodes", D, 1.1, 2.1, 0xfff0c2, 1.0, -120, 0.32, 0.84, 1.7));
+    add(e, Make(id, "Light column").burst(1).life(D, D).at3(0, 1.1, 0).speed(0, 0).size(3.2, 3.2).color(0xffd36a, 0.45).gravity(0, 0)
+               .fade(beatCurve(0.3, 0.84, 3, 0.6)).look("glowbar").additive().glow(1.4));
+    add(e, upright(id, "Crest", "glowdiamond", D, 1.6, 1.0, 0xfff0c2, 0.9, 0, 0.3, 0.84, 1.8));
+    add(e, motes(id, "Embers", 0xffcf6a, 26, 1.8, 0.1, 0.9, 4.4, 1.6));
+    add(e, Make(id, "Flash").from(0.3, 0.7).burst(1, 0.0).life(0.5, 0.5).at3(0, 0.1, 0).speed(0, 0).size(4.6, 4.6).color(0xfff0c2, 0.8)
+               .gravity(0, 0).sizeOver({{0, 0.2}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("energyring").additive().glow(1.8)
+               .ground().flatOnPlane());
+    tools::smoothLoop(e);
+    return e;
+}
+
+// ---- Scanning Beam
+
+// The upright hologram column with its top and bottom emitter rings.
+void beamBody(Effect& e, const IdSource& id, double D, unsigned colour, unsigned bright, double height, double widthSize) {
+    add(e, flatPiece(id, "Base emitter", "holoticks", D, 0.0, 2.6, bright, 1.0, 20, 0.1, 0.92, 1.6));
+    add(e, flatPiece(id, "Base glow", "scandisc", D, 0.02, 2.2, colour, 0.5, 0, 0.1, 0.92, 1.4));
+    add(e, flatPiece(id, "Top emitter", "holoticks", D, height, 2.6, bright, 1.0, -20, 0.14, 0.9, 1.6));
+    add(e, Make(id, "Beam").burst(1).life(D, D).at3(0, height * 0.5, 0).speed(0, 0).size(widthSize, widthSize).color(colour, 0.85)
+               .gravity(0, 0).sizeOver({{0, 0.5}, {0.14, 1.0, true}, {0.88, 1.0, true}, {1, 0.7, true}})
+               .fade(appearCurve(0.12, 0.88)).look("holocylinder").additive().glow(1.5));
+}
+
+Effect simpleBeam3d(const IdSource& id) {
+    constexpr double D = 5.0;
+    Effect e = begin3d(id, "Simple Beam 3D", D);
+    beamBody(e, id, D, 0x3fb8ff, 0xaee8ff, 3.2, 4.0);
+    add(e, Make(id, "Start flash").from(0, 0.5).burst(1).life(0.4, 0.4).at3(0, 0.1, 0).speed(0, 0).size(3.0, 3.0).color(0xffffff, 0.8)
+               .gravity(0, 0).sizeOver({{0, 0.2}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("energyring").additive().glow(1.8)
+               .ground().flatOnPlane());
+    add(e, Make(id, "Scan plane").from(0.6, 3.6).rate(0.9).life(1.1, 1.1).at3(0, 0.1, 0).speed(2.8, 2.8).toward(0, 1, 0, 0)
+               .size(2.5, 2.5).color(0xdff8ff, 1.0).gravity(0, 0).fade({{0, 0}, {0.12, 1}, {0.88, 1}, {1, 0}}).look("scandisc")
+               .additive().glow(2.4).ground().flatOnPlane());
+    add(e, Make(id, "Scan haze").from(0.6, 3.6).rate(0.9).life(1.1, 1.1).at3(0, 0.1, 0).speed(2.8, 2.8).toward(0, 1, 0, 0)
+               .size(3.4, 3.4).color(0x7fd6ff, 0.5).gravity(0, 0).fade({{0, 0}, {0.12, 1}, {0.88, 1}, {1, 0}}).look("softring")
+               .additive().glow(1.3).ground().flatOnPlane());
+    add(e, Make(id, "Complete pulse").from(4.0, 0.9).burst(1, 0.0).life(0.8, 0.8).at3(0, 0.1, 0).speed(0, 0).size(4.6, 4.6)
+               .color(0xaee8ff, 0.9).gravity(0, 0).sizeOver({{0, 0.2}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("energyring")
+               .additive().glow(1.8).ground().flatOnPlane());
+    add(e, motes(id, "Scan particles", 0xd8f4ff, 28, 0.6, 0.1, 0.7, 3.6, 1.8));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect spiralBeam3d(const IdSource& id) {
+    constexpr double D = 5.0;
+    Effect e = begin3d(id, "Spiral Beam 3D", D);
+    beamBody(e, id, D, 0xc24dff, 0xf0b8ff, 3.2, 3.4);
+    add(e, Make(id, "Helix glow").burst(1).life(D, D).at3(0, 1.6, 0).speed(0, 0).size(3.6, 3.6).color(0xff7ae8, 0.9).gravity(0, 0)
+               .sizeOver({{0, 0.4}, {0.15, 1.0, true}, {0.86, 1.0, true}, {1, 0.7, true}}).fade(appearCurve(0.14, 0.86))
+               .look("helix").additive().glow(2.0));
+    add(e, Make(id, "Spiral up").from(0.5, 3.8).rate(110).circle(0.62, true).at3(0, 0.05, 0).life(1.5, 1.5).speed(2.0, 2.2)
+               .toward(0, 1, 0, 0).size(0.08, 0.13).color(0xff9af0).gravity(0, 0).orbit(300).ground()
+               .fade({{0, 0}, {0.1, 1}, {0.85, 1}, {1, 0}}).look("orb").additive().glow(2.4).trail(0.3, 0.07));
+    add(e, Make(id, "Spiral down").from(0.5, 3.8).rate(70).circle(0.62, true).at3(0, 3.2, 0).life(1.5, 1.5).speed(2.0, 2.2)
+               .toward(0, -1, 0, 0).size(0.06, 0.1).color(0xffffff).gravity(0, 0).orbit(-300).ground()
+               .fade({{0, 0}, {0.1, 1}, {0.85, 1}, {1, 0}}).look("glint").additive().glow(2.4));
+    add(e, Make(id, "Scan plane").from(0.6, 3.6).rate(0.8).life(1.25, 1.25).at3(0, 3.2, 0).speed(2.5, 2.5).toward(0, -1, 0, 0)
+               .size(2.2, 2.2).color(0xffe0fa, 1.0).gravity(0, 0).fade({{0, 0}, {0.12, 1}, {0.88, 1}, {1, 0}}).look("scandisc")
+               .additive().glow(2.4).ground().flatOnPlane());
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect techBeam3d(const IdSource& id) {
+    constexpr double D = 5.5;
+    Effect e = begin3d(id, "Tech Beam 3D", D);
+    add(e, flatPiece(id, "Grid floor", "holodisc", D, 0.0, 5.0, 0x3dff9a, 0.5, 0, 0.1, 0.92, 1.1, 0.5));
+    beamBody(e, id, D, 0x2fffa0, 0xc8ffe4, 3.4, 4.2);
+    add(e, flatPiece(id, "Ring segments", "holosegs", D, 0.05, 3.4, 0xffb13d, 1.0, -55, 0.16, 0.9, 1.8));
+    add(e, Make(id, "Scan plane A").from(0.6, 4.0).rate(0.75).life(1.3, 1.3).at3(0, 0.1, 0).speed(2.6, 2.6).toward(0, 1, 0, 0)
+               .size(2.5, 2.5).color(0xd8ffe8, 1.0).gravity(0, 0).fade({{0, 0}, {0.12, 1}, {0.88, 1}, {1, 0}}).look("scandisc")
+               .additive().glow(2.4).ground().flatOnPlane());
+    add(e, Make(id, "Scan plane B").from(1.3, 3.5).rate(0.75).life(1.3, 1.3).at3(0, 3.4, 0).speed(2.6, 2.6).toward(0, -1, 0, 0)
+               .size(2.1, 2.1).color(0xffd08a, 0.9).gravity(0, 0).fade({{0, 0}, {0.12, 1}, {0.88, 1}, {1, 0}}).look("scandisc")
+               .additive().glow(2.2).ground().flatOnPlane());
+    add(e, Make(id, "Radial pulse").from(1.0, 4.0).rate(0.6).life(1.5, 1.5).at3(0, 0.15, 0).speed(0, 0).size(5.4, 5.4)
+               .color(0x6fffc0, 0.9).gravity(0, 0).sizeOver({{0, 0.1}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("energyring")
+               .additive().glow(1.8).ground().flatOnPlane());
+    add(e, motes(id, "Data bits", 0xd8ffe8, 34, 0.6, 0.1, 0.7, 4.0, 1.8));
+    tools::smoothLoop(e);
+    return e;
+}
+
+// ---- Energy Wave
+
+Effect spiralWave3d(const IdSource& id) {
+    constexpr double D = 5.0;
+    Effect e = begin3d(id, "Spiral Wave 3D", D);
+    add(e, Make(id, "Helix").burst(1).life(D, D).at3(0, 1.7, 0).speed(0, 0).size(3.9, 3.9).color(0x3fc8ff, 0.95).gravity(0, 0)
+               .sizeOver({{0, 0.15}, {0.18, 1.0, true}, {0.84, 1.0, true}, {1, 0.4, true}}).fade(appearCurve(0.16, 0.82))
+               .look("helix").additive().glow(2.0));
+    add(e, Make(id, "Counter helix").burst(1).life(D, D).at3(0, 1.7, 0).speed(0, 0).size(3.1, 3.1).color(0xff5fe8, 0.85).gravity(0, 0)
+               .sizeOver({{0, 0.15}, {0.24, 1.0, true}, {0.84, 1.0, true}, {1, 0.4, true}}).fade(appearCurve(0.22, 0.82))
+               .look("helix").additive().glow(1.8));
+    add(e, Make(id, "Wave ribbons").from(0.5, 4.0).rate(120).circle(0.7, true).at3(0, 0.05, 0).life(1.4, 1.6).speed(2.2, 2.6)
+               .toward(0, 1, 0, 0).size(0.07, 0.12).color(0x9fe8ff).gravity(0, 0).orbit(260).ground()
+               .sizeOver({{0, 0.5}, {0.5, 1.2}, {1, 0.4}}).fade({{0, 0}, {0.1, 1}, {0.8, 1}, {1, 0}}).look("orb").additive()
+               .glow(2.4).trail(0.4, 0.07));
+    add(e, Make(id, "Base wave").from(0.3, 4.4).rate(1.2).life(1.7, 1.7).at3(0, 0.1, 0).speed(0, 0).size(5.0, 5.0).color(0x6fd8ff, 0.9)
+               .gravity(0, 0).sizeOver({{0, 0.15}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("energyring").additive().glow(1.8)
+               .ground().flatOnPlane());
+    add(e, Make(id, "Core").burst(1).life(D, D).at3(0, 0.45, 0).speed(0, 0).size(1.3, 1.3).color(0xffffff, 0.9).gravity(0, 0)
+               .fade(beatCurve(0.12, 0.84, 5, 0.55)).look("soft").additive().glow(2.0));
+    add(e, motes(id, "Sparks", 0xffffff, 30, 1.0, 0.1, 0.7, 4.0, 1.6));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect pulseWave3d(const IdSource& id) {
+    constexpr double D = 6.0;
+    Effect e = begin3d(id, "Pulse Wave 3D", D);
+    add(e, Make(id, "Core flash").burst(1, 0.0).life(0.5, 0.5).at3(0, 0.9, 0).speed(0, 0).size(2.4, 2.4).color(0xffffff, 1.0).gravity(0, 0)
+               .sizeOver({{0, 0.3}, {0.4, 1.2, true}, {1, 0.8}}).fade({{0, 1}, {1, 0}}).look("starflash").additive().glow(2.4));
+    add(e, Make(id, "Core").burst(1).life(D, D).at3(0, 0.9, 0).speed(0, 0).size(1.0, 1.0).color(0x9fd8ff, 0.9).gravity(0, 0)
+               .fade(beatCurve(0.06, 0.86, 4, 0.5)).look("soft").additive().glow(2.0));
+    add(e, Make(id, "Floor waves").from(0.2, 4.0).rate(1.6).life(1.5, 1.5).at3(0, 0.05, 0).speed(0, 0).size(6.0, 6.0).color(0x4fa8ff, 1.0)
+               .gravity(0, 0).sizeOver({{0, 0.08}, {1, 1.0, true}}).fade({{0, 1}, {0.7, 0.8}, {1, 0}}).look("energyring").additive()
+               .glow(2.0).ground().flatOnPlane());
+    add(e, Make(id, "Upright waves").from(0.2, 4.0).rate(1.6).life(1.5, 1.5).at3(0, 0.9, 0).speed(0, 0).size(5.0, 5.0).color(0xcfe8ff, 0.9)
+               .gravity(0, 0).sizeOver({{0, 0.08}, {1, 1.0, true}}).fade({{0, 1}, {0.7, 0.8}, {1, 0}}).look("energyring").additive()
+               .glow(1.8));
+    add(e, Make(id, "Inner waves").from(0.5, 3.6).rate(1.6).life(1.2, 1.2).at3(0, 0.05, 0).speed(0, 0).size(3.4, 3.4).color(0xffffff, 0.8)
+               .gravity(0, 0).sizeOver({{0, 0.08}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("ring").additive().glow(1.6)
+               .ground().flatOnPlane());
+    add(e, Make(id, "Sparks out").from(0.2, 4.0).rate(70).sphere(0.15).at3(0, 0.9, 0).life(0.5, 0.9).speed(2.0, 4.5).toward(0, 0, 0, 180)
+               .size(0.04, 0.08).color(0xbfe0ff).gravity(0, -1.0).fade({{0, 1}, {1, 0}}).look("spark").additive().glow(2.4).streak(0.04));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect sliceWave3d(const IdSource& id) {
+    constexpr double D = 4.5;
+    Effect e = begin3d(id, "Slice Wave 3D", D);
+    add(e, Make(id, "Slices").from(0.1, 3.0).rate(2.4).at3(-3.4, 1.3, 0).life(1.1, 1.1).speed(5.4, 5.4).toward(1, 0, 0, 0).size(3.4, 3.4)
+               .color(0xffa23a, 1.0).gravity(0, 0).sizeOver({{0, 0.5}, {0.4, 1.0, true}, {1, 1.2}}).fade({{0, 0}, {0.1, 1}, {0.75, 1}, {1, 0}})
+               .look("slicearc").additive().glow(2.4).streak(0.0));
+    add(e, Make(id, "White edge").from(0.1, 3.0).rate(2.4).at3(-3.4, 1.3, 0).life(1.1, 1.1).speed(5.4, 5.4).toward(1, 0, 0, 0).size(2.8, 2.8)
+               .color(0xffffff, 0.9).gravity(0, 0).sizeOver({{0, 0.5}, {0.4, 1.0, true}, {1, 1.2}}).fade({{0, 0}, {0.1, 1}, {0.75, 1}, {1, 0}})
+               .look("slicearc").additive().glow(2.0).streak(0.0));
+    add(e, Make(id, "Big slice").from(0.4, 2.8).rate(1.0).at3(-3.6, 1.3, 0).life(1.2, 1.2).speed(4.6, 4.6).toward(1, 0, 0, 0).size(5.0, 5.0)
+               .color(0xff6a1a, 0.7).gravity(0, 0).sizeOver({{0, 0.5}, {0.4, 1.0, true}, {1, 1.2}}).fade({{0, 0}, {0.1, 1}, {0.75, 1}, {1, 0}})
+               .look("slicearc").additive().glow(1.8).streak(0.0));
+    add(e, Make(id, "Trail sparks").from(0.1, 3.0).rate(70).rect(0.1, 1.6).at3(-2.6, 1.1, 0).life(0.4, 0.8).speed(3.5, 5.0).toward(1, 0, 0, 12)
+               .size(0.04, 0.08).color(0xffd08a).gravity(0, -1.0).fade({{0, 1}, {1, 0}}).look("spark").additive().glow(2.4).streak(0.04));
+    add(e, Make(id, "Ground scorch").from(0.2, 3.0).rate(3).rect(5.0, 0.2).at3(0, 0.02, 0).life(0.5, 0.8).speed(0, 0).size(0.9, 1.4)
+               .color(0xff8a2a, 0.7).gravity(0, 0).fade({{0, 0}, {0.2, 1}, {1, 0}}).look("soft").additive().ground().flatOnPlane());
+    tools::smoothLoop(e);
+    return e;
+}
+
+// ---- Vortex Portal
+
+// The standing portal: a dark swirling disc inside turning rings.
+void portalBody(Effect& e, const IdSource& id, double D, unsigned arm1, unsigned arm2, unsigned rim, double size) {
+    add(e, upright(id, "Back glow", "soft", D, 1.7, size * 1.25, arm1, 0.5, 0, 0.16, 0.84, 1.3, 0.2));
+    add(e, upright(id, "Swirl", "swirlarms", D, 1.7, size, arm1, 1.0, -70, 0.22, 0.84, 1.9, 0.1));
+    add(e, upright(id, "Inner swirl", "swirlarms", D, 1.7, size * 0.62, arm2, 0.95, 120, 0.28, 0.82, 1.9, 0.1));
+    add(e, upright(id, "Rim", "portalring", D, 1.7, size * 1.02, rim, 0.8, 24, 0.18, 0.86, 1.3, 0.2));
+    add(e, Make(id, "Core").burst(1).life(D, D).at3(0, 1.7, 0).speed(0, 0).size(size * 0.22, size * 0.22).color(0xffffff, 0.9).gravity(0, 0)
+               .fade(beatCurve(0.26, 0.82, 4, 0.5)).look("soft").additive().glow(2.2));
+}
+
+Effect magicPortal3d(const IdSource& id) {
+    constexpr double D = 6.0;
+    Effect e = begin3d(id, "Magic Portal 3D", D);
+    portalBody(e, id, D, 0xb04dff, 0xff6ae8, 0xe0a8ff, 3.6);
+    add(e, upright(id, "Rune ring", "sigil", D, 1.7, 3.9, 0xd8b0ff, 0.8, -18, 0.2, 0.86, 1.6, 0.2));
+    add(e, Make(id, "Gather sparks").from(0.0, 1.0).burst(30, 0.0).sphere(1.6, true).at3(0, 1.7, 0).life(0.6, 0.9).speed(2.2, 3.0)
+               .toward(0, 1.7, 0, 0).size(0.05, 0.09).color(0xf0d0ff).gravity(0, 0).fade({{0, 0}, {0.3, 1}, {1, 0}}).look("glint")
+               .additive().glow(2.4));
+    add(e, Make(id, "Pulled in").from(1.0, 4.0).rate(46).circle(2.0, true).at3(0, 1.7, 0).life(0.8, 1.2).speed(1.2, 2.2)
+               .toward(0, 0, 0, 0).size(0.05, 0.1).color(0xe8c0ff).gravity(0, 0).orbit(-140).fade({{0, 0}, {0.2, 1}, {1, 0}})
+               .look("orb").additive().glow(2.2).trail(0.25, 0.06));
+    add(e, Make(id, "Rocks").from(1.0, 4.0).rate(3).circle(2.0, true).at3(0, 1.7, 0).life(2.0, 2.6).speed(0.2, 0.4).toward(0, 0, 0, 0)
+               .size(0.14, 0.26).turn(0, 360).color(0x6a4a8a).gravity(0, 0).orbit(40).spin(-60, 60).fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}})
+               .look("rock"));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect techPortal3d(const IdSource& id) {
+    constexpr double D = 6.0;
+    Effect e = begin3d(id, "Tech Portal 3D", D);
+    portalBody(e, id, D, 0x2fb8ff, 0x6fffe0, 0x9fe8ff, 3.4);
+    add(e, upright(id, "Outer ticks", "holoticks", D, 1.7, 4.2, 0x7fe6ff, 1.0, 14, 0.18, 0.88, 1.7, 0.2));
+    add(e, upright(id, "Heavy segments", "holosegs", D, 1.7, 3.9, 0x4fd8ff, 1.0, -38, 0.22, 0.86, 1.8, 0.2));
+    add(e, upright(id, "Nodes", "holonodes", D, 1.7, 2.1, 0xd8f8ff, 0.9, 90, 0.3, 0.84, 1.6, 0.2));
+    add(e, Make(id, "Data motes").from(0.9, 4.2).rate(40).circle(2.0, true).at3(0, 1.7, 0).life(0.8, 1.2).speed(1.0, 2.0).toward(0, 0, 0, 0)
+               .size(0.04, 0.08).color(0xcfffff).gravity(0, 0).orbit(110).fade({{0, 0}, {0.2, 1}, {1, 0}}).look("square").additive().glow(2.2));
+    add(e, Make(id, "Floor spill").burst(1).life(D, D).at3(0, 0.02, 0).speed(0, 0).size(3.6, 3.6).color(0x2fb8ff, 0.5).gravity(0, 0)
+               .fade(appearCurve(0.2, 0.84)).look("softring").additive().glow(1.3).ground().flatOnPlane());
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect chaosPortal3d(const IdSource& id) {
+    constexpr double D = 6.0;
+    Effect e = begin3d(id, "Chaos Portal 3D", D);
+    portalBody(e, id, D, 0xff4a2a, 0x66ff3d, 0xffb02a, 3.7);
+    add(e, upright(id, "Cracked ring", "shardring", D, 1.7, 4.3, 0xff8a3a, 1.0, -30, 0.2, 0.86, 1.8, 0.2));
+    add(e, Make(id, "Lightning").from(0.8, 4.4).rate(7).circle(1.9, true).at3(0, 1.7, 0).life(0.08, 0.16).speed(0, 0).size(1.6, 2.6)
+               .turn(0, 360).color(0xffe0a0).gravity(0, 0).look("arcjag").additive().glow(2.6));
+    add(e, Make(id, "Debris").from(0.8, 4.4).rate(9).circle(2.0, true).at3(0, 1.7, 0).life(1.8, 2.8).speed(0.2, 0.6).toward(0, 0, 0, 0)
+               .size(0.16, 0.34).turn(0, 360).color(0x5a3030).gravity(0, 0).orbit(-70).spin(-180, 180)
+               .fade({{0, 0}, {0.2, 1}, {0.8, 1}, {1, 0}}).look("rock"));
+    add(e, Make(id, "Embers").from(0.8, 4.4).rate(60).circle(1.8, true).at3(0, 1.7, 0).life(0.7, 1.3).speed(1.0, 2.6).toward(0, 1, 0, 120)
+               .size(0.04, 0.1).color(0xffb04a).gravity(0, -0.8).orbit(160).fade({{0, 1}, {1, 0}}).look("ember").additive().glow(2.4));
+    tools::smoothLoop(e);
+    return e;
+}
+
+// ---- Electric Arc
+
+// A flickering arc between two ends: several bolts redrawn many times a second,
+// each a little different, and a node of light at each end.
+void arcBody(Effect& e, const IdSource& id, double D, const char* look, unsigned colour, unsigned core, double length,
+             double thick, double rate, double jitter) {
+    add(e, Make(id, "Arc glow").from(0.12, D - 0.4).rate(rate).rect(0.05, jitter).at3(0, 1.4, 0).life(0.06, 0.1).speed(0, 0)
+               .size(length * 1.15, length * 1.22).turn(-2.0, 2.0).color(colour, 0.75).gravity(0, 0).look(look).additive().glow(2.0 * thick));
+    add(e, Make(id, "Arc core").from(0.12, D - 0.4).rate(rate).rect(0.05, jitter * 0.6).at3(0, 1.4, 0).life(0.05, 0.09).speed(0, 0)
+               .size(length * 1.13, length * 1.17).turn(-1.5, 1.5).color(core, 1.0).gravity(0, 0).look(look).additive().glow(2.6 * thick));
+    add(e, Make(id, "Start node").burst(1).life(D, D).at3(-length * 0.47, 1.4, 0).speed(0, 0).size(0.9, 0.9).color(colour, 0.9).gravity(0, 0)
+               .fade(appearCurve(0.04, 0.9)).look("soft").additive().glow(2.0));
+    add(e, Make(id, "End node").burst(1).life(D, D).at3(length * 0.47, 1.4, 0).speed(0, 0).size(0.9, 0.9).color(colour, 0.9).gravity(0, 0)
+               .fade(appearCurve(0.12, 0.9)).look("soft").additive().glow(2.0));
+    add(e, Make(id, "Spark spray").from(0.2, D - 0.5).rate(60).rect(length * 0.9, 0.15).at3(0, 1.4, 0).life(0.2, 0.5).speed(0.5, 1.8)
+               .toward(0, 1, 0, 180).size(0.025, 0.06).color(core).gravity(0, -3).fade({{0, 1}, {1, 0}}).look("spark").additive().glow(2.6).streak(0.03));
+}
+
+Effect thinArc3d(const IdSource& id) {
+    constexpr double D = 3.0;
+    Effect e = begin3d(id, "Thin Arc 3D", D);
+    arcBody(e, id, D, "arcbolt", 0x4fd8ff, 0xffffff, 4.4, 0.8, 26, 0.35);
+    add(e, Make(id, "Spawn flash").from(0, 0.4).burst(1).life(0.25, 0.25).at3(-2.0, 1.4, 0).speed(0, 0).size(1.8, 1.8).color(0xffffff, 0.9)
+               .gravity(0, 0).fade({{0, 1}, {1, 0}}).look("starflash").additive().glow(2.4));
+    add(e, Make(id, "Impact pulse").from(1.2, 1.6).burst(1, 0.0).burst(1, 0.9).life(0.35, 0.35).at3(2.0, 1.4, 0).speed(0, 0).size(1.8, 1.8)
+               .color(0xaee8ff, 0.9).gravity(0, 0).sizeOver({{0, 0.3}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("starflash").additive().glow(2.4));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect thickArc3d(const IdSource& id) {
+    constexpr double D = 3.0;
+    Effect e = begin3d(id, "Thick Arc 3D", D);
+    arcBody(e, id, D, "arcjag", 0xb04dff, 0xf4e0ff, 4.6, 1.4, 22, 0.5);
+    add(e, Make(id, "Ground flash").from(0.2, 2.6).rate(6).life(0.2, 0.3).at3(2.1, 0.03, 0).speed(0, 0).size(1.8, 2.6).color(0xd8a0ff, 0.9)
+               .gravity(0, 0).fade({{0, 1}, {1, 0}}).look("energyring").additive().glow(2.0).ground().flatOnPlane());
+    add(e, Make(id, "Haze").burst(1).life(D, D).at3(0, 1.4, 0).speed(0, 0).size(4.8, 4.8).color(0x8a3dff, 0.25).gravity(0, 0)
+               .fade(appearCurve(0.06, 0.9)).look("soft").additive().glow(1.2));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect splitArc3d(const IdSource& id) {
+    constexpr double D = 3.0;
+    Effect e = begin3d(id, "Split Arc 3D", D);
+    arcBody(e, id, D, "arcfork", 0x3dff9a, 0xe0fff0, 4.4, 1.0, 24, 0.4);
+    add(e, Make(id, "Second fork").from(0.2, D - 0.5).rate(18).rect(0.05, 0.3).at3(0, 1.4, 0).life(0.06, 0.1).speed(0, 0).size(4.1, 4.3)
+               .turn(180.0, 182.0).color(0x7dffc0, 0.8).gravity(0, 0).look("arcfork").additive().glow(2.0));
+    add(e, Make(id, "Branch sparks").from(0.2, D - 0.5).rate(40).circle(1.6).at3(0, 1.4, 0).life(0.15, 0.4).speed(1.5, 3.5).toward(0, 1, 0, 180)
+               .size(0.03, 0.06).color(0xe0fff0).gravity(0, -3).fade({{0, 1}, {1, 0}}).look("spark").additive().glow(2.6).streak(0.03));
+    tools::smoothLoop(e);
+    return e;
+}
+
+// ---- Targeting Indicator
+
+// A target on the floor: appears, closes in, locks on, tracks and lets go.
+void targetBody(Effect& e, const IdSource& id, double D, unsigned colour, unsigned bright, double size) {
+    add(e, Make(id, "Reticle").burst(1).life(D, D).at3(0, 0.03, 0).speed(0, 0).size(size, size).color(colour, 1.0).gravity(0, 0).spin(10, 10)
+               .sizeOver({{0, 0.2}, {0.1, 1.5, true}, {0.22, 1.0, true}, {0.84, 1.0, true}, {1, 1.6, true}})
+               .fade(appearCurve(0.08, 0.84)).look("reticle").additive().glow(1.9).ground().flatOnPlane());
+    add(e, Make(id, "Centre point").burst(1).life(D, D).at3(0, 0.04, 0).speed(0, 0).size(0.5, 0.5).color(bright, 1.0).gravity(0, 0)
+               .sizeOver({{0, 0.2}, {0.22, 1.0, true}, {0.3, 1.5, true}, {0.36, 1.0, true}, {1, 1.0}}).fade(beatCurve(0.12, 0.84, 6, 0.5))
+               .look("soft").additive().glow(2.4).ground().flatOnPlane());
+    add(e, Make(id, "Lock flash").from(1.2, 0.6).burst(1, 0.0).life(0.4, 0.4).at3(0, 0.05, 0).speed(0, 0).size(2.6, 2.6).color(bright, 0.9)
+               .gravity(0, 0).sizeOver({{0, 0.4}, {1, 1.0, true}}).fade({{0, 1}, {1, 0}}).look("energyring").additive().glow(2.0).ground().flatOnPlane());
+}
+
+Effect simpleTarget3d(const IdSource& id) {
+    constexpr double D = 5.0;
+    Effect e = begin3d(id, "Simple Target 3D", D);
+    targetBody(e, id, D, 0xff4a3a, 0xffd0c0, 2.8);
+    add(e, flatPiece(id, "Ground ring", "doublering", D, 0.02, 3.6, 0xff4a3a, 0.8, 0, 0.1, 0.86, 1.5, 0.3));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect multiRingTarget3d(const IdSource& id) {
+    constexpr double D = 5.0;
+    Effect e = begin3d(id, "Multi Ring Target 3D", D);
+    targetBody(e, id, D, 0xffb02a, 0xfff0c0, 2.4);
+    add(e, flatPiece(id, "Lock ring", "lockring", D, 0.05, 3.6, 0xffc94a, 1.0, 40, 0.16, 0.86, 1.8, 1.35));
+    add(e, flatPiece(id, "Outer ticks", "holoticks", D, 0.06, 4.0, 0xffd98a, 0.9, -24, 0.2, 0.86, 1.6, 1.4));
+    add(e, flatPiece(id, "Dashed ring", "dashring", D, 0.07, 3.0, 0xfff0c0, 0.9, 80, 0.24, 0.84, 1.6, 1.4));
+    add(e, flatPiece(id, "Nodes", "holonodes", D, 0.08, 2.0, 0xffe49a, 0.9, -120, 0.28, 0.84, 1.5, 1.3));
+    tools::smoothLoop(e);
+    return e;
+}
+
+Effect depthTarget3d(const IdSource& id) {
+    constexpr double D = 5.0;
+    Effect e = begin3d(id, "3D Target 3D", D);
+    targetBody(e, id, D, 0x3dff7a, 0xd8ffe4, 2.6);
+    add(e, flatPiece(id, "Lock ring", "lockring", D, 0.05, 3.4, 0x6fffa8, 1.0, -35, 0.16, 0.86, 1.8, 1.6));
+    add(e, Make(id, "Scan column").burst(1).life(D, D).at3(0, 1.1, 0).speed(0, 0).size(2.8, 2.8).color(0x3dff7a, 0.7).gravity(0, 0)
+               .sizeOver({{0, 0.4}, {0.2, 1.0, true}, {0.84, 1.0, true}, {1, 0.6}}).fade(appearCurve(0.2, 0.84)).look("holocylinder")
+               .additive().glow(1.4));
+    add(e, Make(id, "Marker").burst(1).life(D, D).at3(0, 2.7, 0).speed(0, 0).size(0.9, 0.9).color(0xd8ffe4, 1.0).gravity(0, 0)
+               .sizeOver({{0, 0.2}, {0.2, 1.0, true}, {0.84, 1.0, true}, {1, 0.4}}).fade(appearCurve(0.2, 0.84)).look("glowdiamond")
+               .additive().glow(2.2));
+    add(e, Make(id, "Marker arrow").burst(1).life(D, D).at3(0, 2.0, 0).speed(0, 0).size(0.8, 0.8).color(0x6fffa8, 1.0).gravity(0, 0)
+               .turn(180, 180).sizeOver({{0, 0.2}, {0.2, 1.0, true}, {0.84, 1.0, true}, {1, 0.4}}).fade(appearCurve(0.2, 0.84))
+               .look("chevron").additive().glow(2.0));
+    add(e, Make(id, "Depth markers").from(0.6, 4.0).rate(4).circle(1.5, true).at3(0, 0.1, 0).life(1.2, 1.4).speed(0.6, 1.0).toward(0, 1, 0, 0)
+               .size(0.14, 0.2).color(0xa8ffc8).gravity(0, 0).ground().fade({{0, 0}, {0.2, 1}, {1, 0}}).look("chevron").additive().glow(2.0));
     tools::smoothLoop(e);
     return e;
 }
@@ -3062,9 +3428,25 @@ const std::vector<Entry>& table() {
         {describe("violet-flash", "Violet Flash", "Flashes", "A burst of white spikes in a violet glow.", 0, 0, 5.6f, 0.08), violetFlash},
         {describe("ember-flash", "Ember Flash", "Flashes", "A hot orange burst with a breaking ring.", 0, 0, 5.6f, 0.12), emberFlash},
 
-        {describe("holo-rings-3d", "Holo Rings 3D", "Sci-Fi Motion", "Turning holographic rings and a scanning beam over a glowing disc, with data motes.", 0, 1.0f, 5.5f, 1.5), holoRings3d},
-        {describe("energy-vortex-3d", "Energy Vortex 3D", "Sci-Fi Motion", "A violet vortex pulling in sparks, with a bright core and crackling arcs.", 0, 0.8f, 5.0f, 1.0), energyVortex3d},
-        {describe("warp-streaks-3d", "Warp Streaks 3D", "Sci-Fi Motion", "Streaks of light rushing past and tunnel rings, as at warp speed.", 0, 1.5f, 6.0f, 0.8), warpStreaks3d},
+
+        {lookDown(describe("tech-ring-3d", "Tech Ring 3D", "Holographic Ring", "Layered cyan rings, ticks and nodes turning at different speeds over a scanning platform.", 0, 1.1f, 6.0f, 3.2), 34), techRing3d},
+        {lookDown(describe("energy-ring-3d", "Energy Ring 3D", "Holographic Ring", "Violet and magenta arcs turning round a pulsing core, with waves spreading out.", 0, 0.9f, 6.2f, 3.2), 34), energyRing3d},
+        {lookDown(describe("gold-ring-3d", "Gold Ring 3D", "Holographic Ring", "A golden ring of sigils and ticks round a column of light, with rising embers.", 0, 1.2f, 6.0f, 3.2), 34), goldRing3d},
+        {lookDown(describe("simple-beam-3d", "Simple Beam 3D", "Scanning Beam", "A hologram cylinder with emitter rings and a bright plane scanning up through it.", 0, 1.7f, 5.4f, 1.5), 24), simpleBeam3d},
+        {lookDown(describe("spiral-beam-3d", "Spiral Beam 3D", "Scanning Beam", "A violet beam wound with a spiral of light that runs up and down it.", 0, 1.7f, 5.4f, 1.8), 24), spiralBeam3d},
+        {lookDown(describe("tech-beam-3d", "Tech Beam 3D", "Scanning Beam", "A green scanner over a grid floor with two planes, amber rings and data bits.", 0, 1.7f, 5.8f, 1.8), 24), techBeam3d},
+        {lookDown(describe("spiral-wave-3d", "Spiral Wave 3D", "Energy Wave", "Two counter-turning helixes of blue and pink, spiralling ribbons and a pulsing core.", 0, 1.6f, 5.6f, 2.0), 24), spiralWave3d},
+        {lookDown(describe("pulse-wave-3d", "Pulse Wave 3D", "Energy Wave", "A bright core throwing out rings of energy along the floor and upright.", 0, 0.9f, 6.2f, 1.0), 24), pulseWave3d},
+        {lookDown(describe("slice-wave-3d", "Slice Wave 3D", "Energy Wave", "Crescent slices of fire-orange energy cutting across with a white edge and sparks.", 0, 1.2f, 8.5f, 1.2), 24), sliceWave3d},
+        {lookDown(describe("magic-portal-3d", "Magic Portal 3D", "Vortex Portal", "A violet portal of swirling arms and runes, pulling sparks in with rocks drifting round it.", 0, 1.7f, 5.8f, 2.8), 18), magicPortal3d},
+        {lookDown(describe("tech-portal-3d", "Tech Portal 3D", "Vortex Portal", "A cyan portal ringed by ticks, segments and nodes, with data motes.", 0, 1.7f, 5.8f, 2.8), 18), techPortal3d},
+        {lookDown(describe("chaos-portal-3d", "Chaos Portal 3D", "Vortex Portal", "A red and green portal that crackles with lightning, debris and embers.", 0, 1.7f, 5.8f, 2.8), 18), chaosPortal3d},
+        {lookDown(describe("thin-arc-3d", "Thin Arc 3D", "Electric Arc", "A fine cyan arc that flickers between two nodes, with sparks.", 0, 1.4f, 6.0f, 0.4), 14), thinArc3d},
+        {lookDown(describe("thick-arc-3d", "Thick Arc 3D", "Electric Arc", "A heavy violet arc with a haze round it and a flash on the ground at the end.", 0, 1.4f, 6.0f, 0.4), 14), thickArc3d},
+        {lookDown(describe("split-arc-3d", "Split Arc 3D", "Electric Arc", "A green arc that forks into branches, with a second fork the other way.", 0, 1.4f, 6.0f, 0.4), 14), splitArc3d},
+        {lookDown(describe("simple-target-3d", "Simple Target 3D", "Targeting Indicator", "A red reticle closes in on the floor, locks on and pulses.", 0, 0.3f, 5.0f, 1.5), 38), simpleTarget3d},
+        {lookDown(describe("multi-ring-target-3d", "Multi Ring Target 3D", "Targeting Indicator", "Gold rings, ticks and nodes closing in one after another to lock on.", 0, 0.3f, 5.5f, 1.5), 38), multiRingTarget3d},
+        {lookDown(describe("depth-target-3d", "3D Target 3D", "Targeting Indicator", "A green ground target with a scan column, a floating marker and depth chevrons.", 0, 1.1f, 5.5f, 1.5), 38), depthTarget3d},
 
         {describe("fish-circle-3d", "Fish Circle 3D", "Fish Swim", "Two fish swimming round in a circle with bubbles and a wake.", 0, 1.5f, 5.0f, 1.0), fishCircle3d},
         {describe("fish-figure-eight-3d", "Fish Figure Eight 3D", "Fish Swim", "A pair of fish swimming a figure eight.", 0, 1.5f, 5.0f, 1.0), fishFigureEight3d},
