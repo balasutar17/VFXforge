@@ -7,9 +7,9 @@ import QtQuick.Effects
 // Loaded on its own, so if the effects module is missing the app still runs.
 Item {
     id: root
-    property Item source
+    property Item source: null
     property real amount: 0.8
-    anchors.fill: source
+    anchors.fill: parent
 
     MultiEffect {
         anchors.fill: parent
