@@ -137,6 +137,11 @@ int main(int argc, char** argv) {
     const std::string command = args[0];
     args.erase(args.begin());
 
+    {
+        const std::string b = option(args, "--bloom", "0");
+        postFx().bloom = static_cast<float>(std::atof(b.c_str()));
+        postFx().shoulder = postFx().bloom > 0 ? 1.0f : 0.0f;
+    }
     const std::string orbit = option(args, "--orbit", "30,15");
     gPitchGiven = orbit != "30,15";
     if (std::sscanf(orbit.c_str(), "%f,%f", &gYaw, &gPitch) != 2) {

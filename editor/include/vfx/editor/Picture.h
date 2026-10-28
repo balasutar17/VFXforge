@@ -33,6 +33,17 @@ struct ScreenColor {
     float r = 0.043f, g = 0.047f, b = 0.059f;  // the app's viewport background
 };
 
+// Finishing applied to the float picture before it is rounded to bytes: bloom
+// (bright light bleeding softly into its surroundings, over several widths)
+// and a filmic shoulder, so hot cores roll off to white instead of clipping.
+// All zero by default, so existing pictures stay as they were.
+struct PostFx {
+    float bloom = 0.0f;      // 0 off; about 0.6 to 1.2 is a strong, premium glow
+    float threshold = 0.45f; // brightness above which light starts to bleed
+    float shoulder = 0.0f;   // 0 off; 1 full filmic roll-off of highlights
+};
+PostFx& postFx();  // the finishing every drawPicture* call applies
+
 // Draws a mesh over a plain background. The mesh's coordinates are pixels.
 // Pictures for layers that draw the artist's own image come from images.
 Picture drawPicture(const SpriteMesh& mesh, int width, int height, ScreenColor background = {},

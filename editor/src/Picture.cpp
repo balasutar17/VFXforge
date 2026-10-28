@@ -164,6 +164,96 @@ std::uint8_t toByte(float v, float nudge) {
 
 namespace {
 
+// Soft multi-scale bloom on a float rgba canvas (rgb read and written; alpha untouched).
+void bloomCanvas(std::vector<float>& canvas, int W, int H, const PostFx& fx) {
+    struct Level { int w, h; std::vector<float> px; };
+    std::vector<Level> lv;
+    {
+        Level base{W, H, std::vector<float>(static_cast<std::size_t>(W) * static_cast<std::size_t>(H) * 3u)};
+        for (std::size_t i = 0; i < static_cast<std::size_t>(W) * static_cast<std::size_t>(H); ++i) {
+            for (std::size_t k = 0; k < 3; ++k) {
+                const float v = canvas[i * 4u + k];
+                // Soft knee: nothing below the threshold, a smooth rise above it.
+                const float x = std::max(v - fx.threshold, 0.0f);
+                base.px[i * 3u + k] = x * x / (x + 0.35f);
+            }
+        }
+        lv.push_back(std::move(base));
+    }
+    for (int i = 1; i < 7; ++i) {
+        const Level& s = lv.back();
+        if (s.w < 4 || s.h < 4) break;
+        Level n{(s.w + 1) / 2, (s.h + 1) / 2, {}};
+        n.px.assign(static_cast<std::size_t>(n.w) * static_cast<std::size_t>(n.h) * 3u, 0.0f);
+        for (int y = 0; y < n.h; ++y)
+            for (int x = 0; x < n.w; ++x)
+                for (int k = 0; k < 3; ++k) {
+                    float sum = 0;
+                    for (int j = 0; j < 2; ++j)
+                        for (int d = 0; d < 2; ++d)
+                            sum += s.px[(static_cast<std::size_t>(std::min(y * 2 + j, s.h - 1)) * static_cast<std::size_t>(s.w) +
+                                         static_cast<std::size_t>(std::min(x * 2 + d, s.w - 1))) * 3u + static_cast<std::size_t>(k)];
+                    n.px[(static_cast<std::size_t>(y) * static_cast<std::size_t>(n.w) + static_cast<std::size_t>(x)) * 3u + static_cast<std::size_t>(k)] = sum * 0.25f;
+                }
+        lv.push_back(std::move(n));
+    }
+    // Blur every level a little (5 taps, both ways).
+    static const float tap[5] = {0.0625f, 0.25f, 0.375f, 0.25f, 0.0625f};
+    for (std::size_t li = 1; li < lv.size(); ++li) {
+        Level& l = lv[li];
+        std::vector<float> tmp(l.px.size());
+        for (int pass = 0; pass < 2; ++pass) {
+            for (int y = 0; y < l.h; ++y)
+                for (int x = 0; x < l.w; ++x)
+                    for (int k = 0; k < 3; ++k) {
+                        float s = 0;
+                        for (int d = -2; d <= 2; ++d) {
+                            const int xx = std::clamp(x + d, 0, l.w - 1), yy = std::clamp(y + d, 0, l.h - 1);
+                            s += tap[d + 2] * l.px[(static_cast<std::size_t>(pass == 0 ? y : yy) * static_cast<std::size_t>(l.w) + static_cast<std::size_t>(pass == 0 ? xx : x)) * 3u + static_cast<std::size_t>(k)];
+                        }
+                        tmp[(static_cast<std::size_t>(y) * static_cast<std::size_t>(l.w) + static_cast<std::size_t>(x)) * 3u + static_cast<std::size_t>(k)] = s;
+                    }
+            l.px.swap(tmp);
+        }
+    }
+    static const float weight[7] = {0.0f, 0.5f, 0.7f, 0.85f, 0.85f, 0.7f, 0.5f};
+    float wsum = 0;
+    for (std::size_t li = 1; li < lv.size(); ++li) wsum += weight[li];
+    for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+            for (int k = 0; k < 3; ++k) {
+                float add = 0;
+                for (std::size_t li = 1; li < lv.size(); ++li) {
+                    const Level& l = lv[li];
+                    const float sc = static_cast<float>(1 << li);
+                    const float gx = (static_cast<float>(x) + 0.5f) / sc - 0.5f, gy = (static_cast<float>(y) + 0.5f) / sc - 0.5f;
+                    const int x0 = std::clamp(static_cast<int>(std::floor(gx)), 0, l.w - 1), y0 = std::clamp(static_cast<int>(std::floor(gy)), 0, l.h - 1);
+                    const int x1 = std::min(x0 + 1, l.w - 1), y1 = std::min(y0 + 1, l.h - 1);
+                    const float fx2 = std::clamp(gx - static_cast<float>(x0), 0.0f, 1.0f), fy2 = std::clamp(gy - static_cast<float>(y0), 0.0f, 1.0f);
+                    auto s = [&](int xx, int yy) { return l.px[(static_cast<std::size_t>(yy) * static_cast<std::size_t>(l.w) + static_cast<std::size_t>(xx)) * 3u + static_cast<std::size_t>(k)]; };
+                    const float v = (s(x0, y0) * (1 - fx2) + s(x1, y0) * fx2) * (1 - fy2) + (s(x0, y1) * (1 - fx2) + s(x1, y1) * fx2) * fy2;
+                    add += v * weight[li];
+                }
+                canvas[(static_cast<std::size_t>(y) * static_cast<std::size_t>(W) + static_cast<std::size_t>(x)) * 4u + static_cast<std::size_t>(k)] += fx.bloom * add / wsum * 3.0f;
+            }
+}
+
+// A filmic shoulder: linear to 0.7, then a smooth roll-off toward 1.
+float shoulder(float v, float amount) {
+    if (amount <= 0.0f || v <= 0.7f) return v;
+    const float rolled = 0.7f + 0.3f * (1.0f - std::exp(-(v - 0.7f) / 0.3f));
+    return v + (rolled - v) * amount;
+}
+
+}  // namespace
+
+PostFx& postFx() {
+    static PostFx fx;
+    return fx;
+}
+
+namespace {
+
 Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor background, bool transparent,
                const ImageSet* images, const Picture* under = nullptr, const ModelPicture* hideBehind = nullptr) {
     Picture out;
@@ -226,6 +316,16 @@ Picture render(const SpriteMesh& mesh, int width, int height, ScreenColor backgr
         }
     }
 
+    {
+        const PostFx& fx = postFx();
+        if (fx.bloom > 0.0f && out.width > 8 && out.height > 8) {
+            bloomCanvas(canvas, out.width, out.height, fx);
+        }
+        if (fx.shoulder > 0.0f) {
+            for (std::size_t i = 0; i < pixels; ++i)
+                for (std::size_t k = 0; k < 3; ++k) canvas[i * 4u + k] = shoulder(canvas[i * 4u + k], fx.shoulder);
+        }
+    }
     for (std::size_t i = 0; i < pixels; ++i) {
         const float nudge = ditherAt(static_cast<int>(i % static_cast<std::size_t>(out.width)),
                                      static_cast<int>(i / static_cast<std::size_t>(out.width)));

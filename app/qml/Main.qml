@@ -1045,6 +1045,14 @@ ApplicationWindow {
                         visible: app.previewMode !== "target"
                     }
 
+                    Loader {
+                        id: bloomLoader
+                        anchors.fill: parent
+                        active: bloomButton.checked && app.previewMode !== "target"
+                        source: "BloomLayer.qml"
+                        onLoaded: item.source = viewport
+                    }
+
                     MouseArea {
                         anchors.fill: parent
                         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
@@ -1212,6 +1220,19 @@ ApplicationWindow {
                             tip: "The background behind the effect: dark, black, white or a checkerboard for see-through parts. Click to change."
                             onClicked: app.previewBackground = order[(order.indexOf(app.previewBackground) + 1) % order.length]
                         }
+                    }
+                    VButton {
+                        id: bloomButton
+                        objectName: "bloomButton"
+                        anchors.right: handlesButton.left
+                        anchors.top: parent.top
+                        anchors.topMargin: 8
+                        anchors.rightMargin: 4
+                        quiet: true
+                        checked: true
+                        text: "Glow"
+                        tip: "Bloom: bright light bleeds softly into its surroundings, as it will with Bloom in the game engine"
+                        onClicked: checked = !checked
                     }
                     VButton {
                         id: handlesButton
