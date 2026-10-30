@@ -734,19 +734,21 @@ namespace VFXForge.EditorTools
             if (trails.enabled)
             {
                 trails.mode = ParticleSystemTrailMode.PerParticle;
-                trails.ratio = 1f;
+                trails.ratio = (float)Num(trailInfo, "share", 1);
                 trails.lifetime = (float)Num(trailInfo, "ratio", 0.3);
-                trails.minVertexDistance = 0.05f;
-                trails.worldSpace = false;
+                trails.minVertexDistance = (float)Num(trailInfo, "minDistance", 0.05);
+                trails.worldSpace = Bool(trailInfo, "worldSpace", false);
                 trails.dieWithParticles = true;
                 trails.sizeAffectsWidth = true;
                 trails.inheritParticleColor = true;
-                trails.textureMode = ParticleSystemTrailTextureMode.Stretch;
+                trails.textureMode = Bool(trailInfo, "tile", false)
+                    ? ParticleSystemTrailTextureMode.Tile
+                    : ParticleSystemTrailTextureMode.Stretch;
                 trails.widthOverTrail = new ParticleSystem.MinMaxCurve((float)Num(trailInfo, "width", 0.6),
-                                                                       AnimationCurve.Linear(0f, 1f, 1f, 0f));
+                                                                       AnimationCurve.Linear(0f, 1f, 1f, (float)Num(trailInfo, "taper", 0)));
                 var fade = new Gradient();
                 fade.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-                             new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
+                             new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(Bool(trailInfo, "fade", true) ? 0f : 1f, 1f) });
                 trails.colorOverTrail = new ParticleSystem.MinMaxGradient(fade);
                 trailMaterial = new Material(shader);
                 trailMaterial.name = system.gameObject.name + " trail";
@@ -754,6 +756,30 @@ namespace VFXForge.EditorTools
                 trailMaterial.SetFloat("_Glow", (float)Num(renderInfo, "glow", 1));
                 trailMaterial.SetFloat("_Additive", Bool(renderInfo, "additive", false) ? 1f : 0f);
                 renderer.trailMaterial = trailMaterial;
+            }
+
+            // ---- real lights on a share of the particles
+            var lightInfo = Obj(renderInfo, "light");
+            var lights = system.lights;
+            lights.enabled = lightInfo != null;
+            if (lights.enabled)
+            {
+                var holder = new GameObject(system.gameObject.name + " light");
+                holder.transform.SetParent(system.transform, false);
+                var template = holder.AddComponent<Light>();
+                template.type = LightType.Point;
+                template.shadows = LightShadows.None;
+                template.color = Color.white;
+                template.enabled = false;
+                lights.light = template;
+                lights.ratio = (float)Num(lightInfo, "share", 0.1);
+                lights.useRandomDistribution = true;
+                lights.useParticleColor = true;
+                lights.sizeAffectsRange = Bool(lightInfo, "sizeAffectsRange", true);
+                lights.alphaAffectsIntensity = Bool(lightInfo, "alphaAffectsIntensity", true);
+                lights.range = new ParticleSystem.MinMaxCurve((float)Num(lightInfo, "range", 3));
+                lights.intensity = new ParticleSystem.MinMaxCurve((float)Num(lightInfo, "intensity", 1));
+                lights.maxLights = Mathf.Max(1, (int)Num(lightInfo, "max", 8));
             }
 
             if (shader == null)

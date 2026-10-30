@@ -36,6 +36,7 @@ struct SpriteInstance {
     float squashStretch = 0;  // squash and stretch now (see stretchFactors); 0 is neither
     float ease = 1;     // how fast it is travelling its own path now, as a multiplier
     float life = 0;     // seconds it lives in all (a trail needs it to retrace an eased path)
+    float trailPick = 0;  // a number of its own, 0 to 1, deciding whether it has a trail
 };
 
 // A run of instances drawn with the same settings: one per drawn layer.
@@ -61,6 +62,9 @@ struct RenderBatch {
     // it is, by undoing the simulation's own steps, so it needs no memory.
     float trail = 0;           // seconds of path drawn as a ribbon; 0 for none
     float trailWidth = 0;      // a share of the particle's size
+    float trailRatio = 1;      // the share of particles that have one
+    float trailTaper = 0;      // width at the far end, a share of the start
+    bool trailFade = true;
     float gravityX = 0, gravityY = 0, gravityZ = 0;
     float drag = 0;
     float step = 0;            // the simulation step, seconds

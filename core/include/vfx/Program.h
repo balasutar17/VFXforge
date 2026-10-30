@@ -311,6 +311,17 @@ struct EmitterProgram {
     // A ribbon behind each particle along the path it took. 0 means none.
     float trail = 0;       // seconds
     float trailWidth = 0;  // a share of the particle's size
+    float trailRatio = 1;  // the share of particles that have one
+    float trailTaper = 0;  // width at the far end, a share of the start
+    bool trailFade = true;
+    float trailMinDistance = 0.05f;
+    bool trailTile = false;
+    bool trailWorld = false;
+
+    // Real lights carried by a share of the particles (Unity only).
+    float lightShare = 0, lightIntensity = 1, lightRange = 3;
+    bool lightSize = true, lightFade = true;
+    int lightMax = 8;
 
     // Held frames: the layer is shown this many times a second, each
     // drawing held until the next, as hand-drawn animation is ("on twos" is

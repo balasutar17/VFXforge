@@ -955,3 +955,36 @@ TEST_CASE("A sub emitter releases its particles where its parent's particles are
     CHECK(sub["parent"].get<std::string>() == "Rocket");
     CHECK(sub["count"].get<int>() == 5);
 }
+
+TEST_CASE("Trail shape and lights are exported to Unity, and a trail share thins the ribbons", "[motion][unity][trail]") {
+    IdGenerator ids(33);
+    const IdSource newId = [&ids]() { return ids.next(); };
+    Effect effect = makeEmptyEffect(newId, "Test", false);
+    effect.duration = 2.0;
+    Layer layer = makeBasicEmitter(newId, "Comets");
+    layer.duration = 2.0;
+    put(layer, "initial", "lifetime", Scalar::constant(1.0));
+    put(layer, "sprite", "trail", 0.5);
+    put(layer, "sprite", "trailRatio", 0.25);
+    put(layer, "sprite", "trailTaper", 0.3);
+    put(layer, "sprite", "trailFade", false);
+    put(layer, "sprite", "trailTexture", std::string("tile"));
+    put(layer, "sprite", "trailWorldSpace", true);
+    put(layer, "sprite", "lightShare", 0.5);
+    put(layer, "sprite", "lightIntensity", 2.5);
+    put(layer, "sprite", "lightRange", 6.0);
+    effect.layers.push_back(std::move(layer));
+    const J out = describe(effect);
+    const J trail = out["layers"][0]["render"]["trail"];
+    REQUIRE(trail.is_object());
+    CHECK(trail["share"].get<double>() == Catch::Approx(0.25));
+    CHECK(trail["taper"].get<double>() == Catch::Approx(0.3));
+    CHECK(trail["fade"].get<bool>() == false);
+    CHECK(trail["tile"].get<bool>() == true);
+    CHECK(trail["worldSpace"].get<bool>() == true);
+    const J light = out["layers"][0]["render"]["light"];
+    REQUIRE(light.is_object());
+    CHECK(light["share"].get<double>() == Catch::Approx(0.5));
+    CHECK(light["intensity"].get<double>() == Catch::Approx(2.5));
+    CHECK(light["range"].get<double>() == Catch::Approx(6.0));
+}

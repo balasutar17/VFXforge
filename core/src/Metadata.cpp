@@ -404,6 +404,43 @@ Registry::Registry() {
             .range(0, 4).ui(0, 2)
             .help("How wide the trail starts, as a share of the particle's size. It narrows "
                   "to nothing at its end."),
+        P("lightShare", "Light Share", ValueKind::Float, num(0.0))
+            .range(0, 1).ui(0, 1)
+            .help("Unity only: the share of particles that carry a real light, lighting the "
+                  "scene around them. 0 adds none. Lights cost a lot: a few are enough."),
+        P("lightIntensity", "Light Intensity", ValueKind::Float, num(1.0))
+            .range(0, 20).ui(0, 5)
+            .help("Unity only: how bright each light is."),
+        P("lightRange", "Light Range", ValueKind::Float, num(3.0))
+            .unit("distance").range(0.1, 100).ui(0.5, 20)
+            .help("Unity only: how far each light reaches."),
+        P("lightFollowsSize", "Light Follows Size", ValueKind::Bool, Value(true))
+            .help("Unity only: the light's range grows and shrinks with the particle."),
+        P("lightFollowsFade", "Light Follows Fade", ValueKind::Bool, Value(true))
+            .help("Unity only: the light dims as the particle fades out."),
+        P("lightMax", "Light Limit", ValueKind::Int, Value(std::int64_t{8}))
+            .range(1, 64).ui(1, 32)
+            .help("Unity only: the most lights alive at one time; the rest go without."),
+        P("trailRatio", "Trail Share", ValueKind::Float, num(1.0))
+            .range(0, 1).ui(0, 1)
+            .help("The share of particles that get a trail: 1 all of them, 0.25 one in four."),
+        P("trailTaper", "Trail Tail Width", ValueKind::Float, num(0.0))
+            .range(0, 1).ui(0, 1)
+            .help("How wide the trail still is at its far end, as a share of its start: 0 "
+                  "narrows to a point, 1 keeps the same width all the way."),
+        P("trailFade", "Trail Fades", ValueKind::Bool, Value(true))
+            .help("Fade the trail out toward its end. Off keeps it as bright as the particle "
+                  "until it stops."),
+        P("trailMinDistance", "Trail Detail", ValueKind::Float, num(0.05))
+            .unit("distance").range(0.005, 2).ui(0.01, 0.5)
+            .help("Unity only: how far a particle moves before its trail gets another corner. "
+                  "Smaller is smoother and costs more."),
+        P("trailTexture", "Trail Picture", ValueKind::Enum, text("stretch"))
+            .options({"stretch", "tile"})
+            .help("Unity only: stretch the picture once along the whole trail, or repeat it."),
+        P("trailWorldSpace", "Trail In World", ValueKind::Bool, Value(false))
+            .help("Unity only: leave the trail behind in the world when the object moves, "
+                  "instead of carrying it along."),
         P("tilt", "Lie Flat", ValueKind::Float, num(0.0))
             .simple().unit("degrees").range(0, 89).ui(0, 85)
             .help("Leans the particle back as if it lay on the ground and you saw it from an "

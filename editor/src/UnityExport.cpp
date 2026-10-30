@@ -1006,7 +1006,23 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
         const double life = std::max(meanOf(e.lifetime), 1e-3);
         trail["ratio"] = round6(std::clamp(e.trail / life, 0.02, 1.0));
         trail["width"] = round6(e.trailWidth);
+        trail["share"] = round6(e.trailRatio);
+        trail["taper"] = round6(e.trailTaper);
+        trail["fade"] = e.trailFade;
+        trail["minDistance"] = round6(e.trailMinDistance);
+        trail["tile"] = e.trailTile;
+        trail["worldSpace"] = e.trailWorld;
         render["trail"] = std::move(trail);
+    }
+    if (e.lightShare > 0.0f && e.lightIntensity > 0.0f) {
+        J light = J::object();
+        light["share"] = round6(e.lightShare);
+        light["intensity"] = round6(e.lightIntensity);
+        light["range"] = round6(e.lightRange);
+        light["sizeAffectsRange"] = e.lightSize;
+        light["alphaAffectsIntensity"] = e.lightFade;
+        light["max"] = e.lightMax;
+        render["light"] = std::move(light);
     }
     if (e.hasOverLife && e.dissolve > 0.0f) {
         // Drawn by the VFX Forge shader in Unity with the same pattern, from

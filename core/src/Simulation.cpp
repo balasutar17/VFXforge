@@ -65,6 +65,7 @@ inline float secondRandom(float pick, std::uint64_t salt) {
     return det::unitFloat(det::mix64(static_cast<std::uint64_t>(bits(pick)) ^ salt));
 }
 constexpr std::uint64_t kSaltEase = 0x45415345ull;
+constexpr std::uint64_t kSaltTrail = 0x5452414cull;
 constexpr std::uint64_t kSaltStretch = 0x5351554153ull;
 
 struct Rgba {
@@ -1117,6 +1118,9 @@ void Simulation::extract(RenderFrame& frame) const {
         batch.dissolveSoft = batch.dissolves ? e.dissolveSoft : 0.0f;
         batch.trail = e.trail;
         batch.trailWidth = e.trailWidth;
+        batch.trailRatio = e.trailRatio;
+        batch.trailTaper = e.trailTaper;
+        batch.trailFade = e.trailFade;
         batch.gravityX = e.gravityX + e.forceX * (e.forceRamp.isCurve() ? 1.0f : e.forceRamp.a);
         batch.gravityY = e.gravityY + e.forceY * (e.forceRamp.isCurve() ? 1.0f : e.forceRamp.a);
         batch.gravityZ = e.flat ? 0.0f : e.gravityZ + e.forceZ * (e.forceRamp.isCurve() ? 1.0f : e.forceRamp.a);
@@ -1237,6 +1241,7 @@ void Simulation::extract(RenderFrame& frame) const {
                 out.dissolve = 0.0f;
                 out.seed = 0.0f;
             }
+            out.trailPick = e.trailRatio < 1.0f && e.trail > 0.0f ? secondRandom(pick[i], kSaltTrail) : 0.0f;
             out.squashStretch =
                 !stretches ? 0.0f
                 : e.squashStretch.isCurve() ? evalCurve(e.squashStretch.keys, lived)
@@ -1293,6 +1298,12 @@ std::uint64_t hashFrame(const RenderFrame& frame) {
             // the fingerprints they always had.
             h = det::mix64(h ^ bits(b.trail));
             h = det::mix64(h ^ bits(b.trailWidth));
+            if (b.trailRatio < 1.0f || b.trailTaper > 0.0f || !b.trailFade) {
+                // Only a layer that sets these changes its fingerprint.
+                h = det::mix64(h ^ bits(b.trailRatio));
+                h = det::mix64(h ^ bits(b.trailTaper));
+                h = det::mix64(h ^ (b.trailFade ? 1u : 0u));
+            }
         }
         if (b.tilt > 0.0f) {
             // Likewise: only a tilted layer changes its fingerprint.

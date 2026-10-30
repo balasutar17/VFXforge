@@ -151,9 +151,9 @@ void addTrail(SpriteMesh& mesh, const Camera& camera, bool flat, const RenderBat
         const float t = static_cast<float>(i) / last;  // 0 at the particle, 1 at the end
         // Swells out of the particle, then narrows to nothing at the end.
         const float swell = std::sqrt(std::min(1.0f, t / 0.12f + 0.15f));
-        const float width = 0.5f * batch.trailWidth * p.size * points[i].scale * swell *
-                            std::pow(1.0f - t, 0.8f);
-        const float fade = 1.0f - t;
+        const float narrowing = batch.trailTaper + (1.0f - batch.trailTaper) * std::pow(1.0f - t, 0.8f);
+        const float width = 0.5f * batch.trailWidth * p.size * points[i].scale * swell * narrowing;
+        const float fade = batch.trailFade ? 1.0f - t : 1.0f;
         SpriteVertex v;
         v.x = points[i].x + nx[i] * width * side;
         v.y = points[i].y + ny[i] * width * side;
@@ -255,7 +255,8 @@ void buildSpriteMesh(const RenderFrame& frame, const View& view, SpriteMesh& mes
             const float half = p.size * 0.5f;
             const float halfPx = half * scale;
 
-            if (batch.trail > 0.0f && batch.trailWidth > 0.0f && batch.step > 0.0f) {
+            if (batch.trail > 0.0f && batch.trailWidth > 0.0f && batch.step > 0.0f &&
+                p.trailPick < batch.trailRatio) {
                 addTrail(mesh, camera, frame.flat, batch, p, glow, additive, frame.step);
             }
 

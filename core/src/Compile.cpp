@@ -697,6 +697,26 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         e->trail = std::isfinite(trail) ? std::clamp(f(trail), 0.0f, 5.0f) : 0.0f;
         const double trailWidth = sprite.get<double>("trailWidth");
         e->trailWidth = std::isfinite(trailWidth) ? std::clamp(f(trailWidth), 0.0f, 4.0f) : 0.0f;
+        auto share = [&](const char* key, float fallback) {
+            const double v = sprite.get<double>(key);
+            return std::isfinite(v) ? std::clamp(f(v), 0.0f, 1.0f) : fallback;
+        };
+        e->lightShare = share("lightShare", 0.0f);
+        {
+            const double li = sprite.get<double>("lightIntensity"), lr = sprite.get<double>("lightRange");
+            e->lightIntensity = std::isfinite(li) ? std::clamp(f(li), 0.0f, 20.0f) : 1.0f;
+            e->lightRange = std::isfinite(lr) ? std::clamp(f(lr), 0.1f, 100.0f) : 3.0f;
+            e->lightSize = sprite.get<bool>("lightFollowsSize");
+            e->lightFade = sprite.get<bool>("lightFollowsFade");
+            e->lightMax = static_cast<int>(std::clamp<std::int64_t>(sprite.get<std::int64_t>("lightMax"), 1, 64));
+        }
+        e->trailRatio = share("trailRatio", 1.0f);
+        e->trailTaper = share("trailTaper", 0.0f);
+        e->trailFade = sprite.get<bool>("trailFade");
+        const double trailMin = sprite.get<double>("trailMinDistance");
+        e->trailMinDistance = std::isfinite(trailMin) ? std::clamp(f(trailMin), 0.005f, 2.0f) : 0.05f;
+        e->trailTile = sprite.get<std::string>("trailTexture") == "tile";
+        e->trailWorld = sprite.get<bool>("trailWorldSpace");
         e->alongMotion = sprite.get<std::string>("align") == "movement";
         e->stretch = e->alongMotion ? f(sprite.get<double>("stretch")) : 0.0f;
         const double tilt = sprite.get<double>("tilt");
