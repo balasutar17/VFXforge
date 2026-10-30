@@ -1,0 +1,1495 @@
+MSBuild version 18.11.1-1.26513.3+940033be3 for .NET Framework
+
+  1>Checking Build System
+  Running qmlimportscanner for vfxforge
+  Building Custom Rule D:/a/VFXforge/VFXforge/app/CMakeLists.txt
+  Building Custom Rule D:/a/VFXforge/VFXforge/core/CMakeLists.txt
+  Blend.cpp
+  Clock.cpp
+  CommandStack.cpp
+  Commands.cpp
+  Compile.cpp
+  DetMath.cpp
+  Document.cpp
+  Effect.cpp
+  FileIO.cpp
+  Id.cpp
+  JsonWriter.cpp
+  MeshData.cpp
+  Metadata.cpp
+  Path.cpp
+  Serialize.cpp
+  Simulation.cpp
+  Templates.cpp
+  Value.cpp
+  Generating Code...
+  vfx_core.vcxproj -> D:\a\VFXforge\VFXforge\build\core\Release\vfx_core.lib
+  Building Custom Rule D:/a/VFXforge/VFXforge/editor/CMakeLists.txt
+  Archive.cpp
+  Audio.cpp
+  Blend.cpp
+  Frames.cpp
+  Image.cpp
+  MeshAnalysis.cpp
+  MeshVfx.cpp
+  Model.cpp
+  Picture.cpp
+  Compare.cpp
+  CurveTools.cpp
+  EffectTools.cpp
+  Presets.cpp
+  Reconstruct.cpp
+  Refine.cpp
+  Reference.cpp
+  ReferenceGround.cpp
+  ReferenceStill.cpp
+  ReferenceLines.cpp
+  ReferenceSheet.cpp
+  Generating Code...
+  Compiling...
+  ReferenceTime.cpp
+  Session.cpp
+  Transform.cpp
+  Selection.cpp
+  Silhouette.cpp
+  ShapeLibrary.cpp
+  Shapes.cpp
+  SoundLibrary.cpp
+  SpriteMesh.cpp
+  UnityExport.cpp
+  ShaderLib.cpp
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(24,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(25,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(26,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(38,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(39,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(56,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(57,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(58,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(75,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(76,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(77,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(89,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(90,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(91,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(92,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(109,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(110,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(111,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(129,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(139,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(160,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(181,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(202,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(223,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(244,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(265,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderParams.def(286,1): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+  
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\utility(277,54): warning C4244: 'initializing': conversion from '_Ty' to '_Ty2', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\utility(277,54): warning C4244:         with [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\utility(277,54): warning C4244:         [ [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\utility(277,54): warning C4244:             _Ty=int [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\utility(277,54): warning C4244:         ] [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\utility(277,54): warning C4244:         and [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\utility(277,54): warning C4244:         [ [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\utility(277,54): warning C4244:             _Ty2=float [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\utility(277,54): warning C4244:         ] [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderLib.cpp')
+      C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\utility(277,54):
+      the template instantiation context (the oldest one first) is
+          D:\a\VFXforge\VFXforge\editor\src\ShaderLib.cpp(492,204):
+          see reference to function template instantiation 'std::pair<std::string,float>::pair<const char(&)[6],int,0>(_Other1,_Other2 &&) noexcept(false)' being compiled
+          with
+          [
+              _Other1=const char (&)[6],
+              _Other2=int
+          ]
+  
+  ShaderPreview.cpp
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(52,43): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(52,54): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(53,63): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(53,56): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(53,72): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(54,70): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(54,63): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(54,56): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(54,78): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(57,59): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(57,54): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(57,48): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(57,95): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(57,89): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(57,84): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(86,17): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(86,41): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(86,36): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(86,31): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(128,28): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(135,35): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(139,89): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(139,49): warning C4244: 'return': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(143,32): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(143,40): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(144,34): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(145,16): warning C4244: 'return': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(152,54): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(152,49): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(152,44): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(153,15): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(154,37): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(155,52): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(155,40): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(155,16): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(170,54): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(176,35): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(176,47): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(176,21): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(181,40): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(181,17): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(182,22): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(186,61): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(186,49): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(186,36): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(187,34): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(187,46): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(189,48): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(189,19): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(191,25): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(199,25): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(200,22): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(201,22): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(203,23): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(216,32): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(217,47): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(218,26): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(219,39): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(219,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(221,35): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(222,41): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(222,13): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(223,33): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(225,29): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(226,41): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(226,29): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(226,23): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(227,36): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(228,65): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(228,15): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(229,13): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(230,32): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(232,15): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(235,38): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(236,83): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(238,25): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(247,15): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(263,23): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(273,51): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(273,15): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(274,21): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(276,35): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(277,93): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(278,55): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(278,15): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(281,37): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(283,44): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(284,71): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(285,15): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(290,24): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(292,36): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(292,76): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(293,88): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(295,25): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(306,29): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(306,23): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(307,40): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(307,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(309,14): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(310,76): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(312,35): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(312,77): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(313,57): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(313,43): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(313,32): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(319,38): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(320,64): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(324,48): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(328,33): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(329,44): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(329,85): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(330,33): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(330,55): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(334,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(335,47): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(335,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(336,28): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(340,64): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(340,42): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(341,53): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(341,65): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(343,11): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(349,52): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(350,61): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(350,39): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(350,16): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(362,72): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(362,57): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(366,14): warning C4305: 'initializing': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(367,43): warning C4244: 'return': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(375,58): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(383,15): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(385,48): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(385,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(388,29): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(388,22): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(389,14): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(390,40): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(397,26): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(398,26): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(403,44): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(403,18): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(404,43): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(404,84): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(405,19): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(407,34): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(408,54): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(411,29): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(412,36): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(414,23): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(424,46): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(424,40): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(424,33): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(431,36): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(432,16): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(433,21): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(434,48): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(434,16): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(436,25): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(438,57): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(438,68): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(438,110): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(439,62): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(439,52): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(439,73): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(441,13): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(442,20): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(443,58): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(443,20): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(444,15): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(447,20): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(448,83): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(448,72): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(448,49): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(449,41): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(449,32): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(449,27): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(450,49): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(450,20): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(455,55): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(456,40): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(456,60): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(459,64): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(459,59): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(459,76): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(459,93): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(460,56): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(460,90): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(461,32): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(461,78): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(462,29): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(462,24): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(462,50): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(462,56): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(463,96): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(464,11): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(467,43): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(467,30): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(467,25): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(482,32): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(482,25): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(484,26): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(485,25): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(485,16): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(483,35): warning C4244: 'return': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(486,16): warning C4244: 'return': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(495,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(496,80): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(496,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(499,56): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(499,34): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(507,32): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(507,25): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(513,38): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(514,23): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(515,26): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(520,50): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(520,32): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(521,46): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(522,26): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(523,54): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(523,43): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(523,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(529,58): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(530,81): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(530,69): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(530,51): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(530,20): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(531,52): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(531,42): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(531,18): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(532,26): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(537,35): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(538,47): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(538,26): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(539,17): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(540,26): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(544,35): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(545,22): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(546,29): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(548,36): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(550,26): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(554,31): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(555,18): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(557,24): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(561,33): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(563,18): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(569,42): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(570,60): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(570,67): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(570,17): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(575,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(577,31): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(578,32): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(579,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(580,62): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(580,46): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(580,23): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(581,50): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(582,39): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(582,74): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(582,68): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(582,21): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(583,29): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(588,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(589,49): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(589,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(590,52): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(590,17): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(591,26): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(596,46): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(596,38): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(598,43): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(598,20): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(604,44): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(605,24): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(605,81): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(605,71): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(605,47): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(610,67): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(610,50): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(611,67): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(611,50): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(610,20): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(613,37): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(613,29): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(615,35): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(616,27): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(616,62): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(616,42): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(621,35): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(622,22): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(623,18): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(624,37): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(628,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(629,17): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(630,46): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(630,31): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(635,41): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(636,36): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(636,29): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(636,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(637,41): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(637,20): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(638,31): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(639,17): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(643,38): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(648,30): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(648,41): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(653,38): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(659,54): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(659,47): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(659,27): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(665,52): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(665,70): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(670,79): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(670,62): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(670,43): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(671,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(672,18): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(678,81): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(678,64): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(678,45): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(680,60): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(680,36): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(680,17): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(681,26): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(685,42): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(686,42): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(687,50): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(688,26): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(693,29): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(695,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(696,17): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(697,26): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(701,38): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(701,65): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(702,37): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(702,20): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(708,50): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(708,32): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(709,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(711,31): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(713,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(714,20): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(715,18): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(716,58): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(716,23): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(717,35): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(723,43): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(723,18): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(724,22): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(725,74): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(725,45): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(725,20): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(726,21): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(727,96): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(727,86): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(727,22): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(728,65): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(728,78): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(729,27): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(730,47): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(735,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(737,31): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(738,31): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(738,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(739,52): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(739,31): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(740,22): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(741,65): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(742,21): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(743,48): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(743,92): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(743,24): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(744,39): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(744,20): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(745,68): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(746,26): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(751,35): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(757,50): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(758,46): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(758,33): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(759,48): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(759,34): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(759,29): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(760,57): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(760,37): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(762,21): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(763,144): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(763,82): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(763,24): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(764,23): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(765,56): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(765,26): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(766,24): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(780,36): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(780,29): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(781,66): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(781,22): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(782,38): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(782,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(809,20): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(813,19): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(817,28): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(818,44): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(822,69): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(822,54): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(822,43): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(823,88): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(823,66): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(823,49): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(824,50): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(824,41): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(824,31): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(828,42): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(842,39): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(843,26): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(851,64): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(851,56): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(851,48): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(852,31): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(863,21): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(870,25): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(871,16): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(874,33): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(876,29): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(877,35): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+D:\a\VFXforge\VFXforge\editor\shaders\ShaderCore.hlsli(878,42): warning C4305: 'argument': truncation from 'double' to 'float' [D:\a\VFXforge\VFXforge\build\editor\vfx_editor.vcxproj]
+  (compiling source file '../../editor/src/ShaderPreview.cpp')
+  
+  ShaderExport.cpp
+  ShaderAi.cpp
+  ShaderCoreText.cpp
+  UserLibrary.cpp
+  UnrealExport.cpp
+  UnityFiles.cpp
+  UnrealFiles.cpp
+  Generating Code...
+  vfx_editor.vcxproj -> D:\a\VFXforge\VFXforge\build\editor\Release\vfx_editor.lib
+  1>Automatic MOC for target vfxforge
+  Running rcc for resource vfxforge_qml
+  Generating .qsb/shaders/image.frag.qsb
+  Generating .qsb/shaders/sprite.frag.qsb
+  Generating .qsb/shaders/sprite.vert.qsb
+  Building Custom Rule D:/a/VFXforge/VFXforge/app/CMakeLists.txt
+  Running rcc for resource vfxforge_shaders
+  main.cpp
+  AppController.cpp
+D:\a\VFXforge\VFXforge\app\src\AppController.cpp(689,39): warning C4456: declaration of 'number' hides previous local declaration [D:\a\VFXforge\VFXforge\build\app\vfxforge.vcxproj]
+      D:\a\VFXforge\VFXforge\app\src\AppController.cpp(577,33):
+      see declaration of 'number'
+  
+  AudioPlayer.cpp
+  PreviewItems.cpp
+  ReferenceController.cpp
+  ShaderAssistant.cpp
+  ShaderStudio.cpp
+D:\a\VFXforge\VFXforge\app\src\ShaderStudio.cpp(1339,20): warning C4456: declaration of 'at' hides previous local declaration [D:\a\VFXforge\VFXforge\build\app\vfxforge.vcxproj]
+      D:\a\VFXforge\VFXforge\app\src\ShaderStudio.cpp(1320,27):
+      see declaration of 'at'
+  
+  SpriteNode.cpp
+  ViewportItem.cpp
+D:\a\VFXforge\VFXforge\app\src\ViewportItem.cpp(289,30): warning C4458: declaration of 'd' hides class member [D:\a\VFXforge\VFXforge\build\app\vfxforge.vcxproj]
+      D:\a\VFXforge\Qt\6.10.1\msvc2022_64\include\QtQml\qqmlparserstatus.h(23,14):
+      see declaration of 'QQmlParserStatus::d'
+  
+D:\a\VFXforge\VFXforge\app\src\ViewportItem.cpp(302,37): warning C4458: declaration of 'd' hides class member [D:\a\VFXforge\VFXforge\build\app\vfxforge.vcxproj]
+      D:\a\VFXforge\Qt\6.10.1\msvc2022_64\include\QtQml\qqmlparserstatus.h(23,14):
+      see declaration of 'QQmlParserStatus::d'
+  
+  qrc_vfxforge_qml.cpp
+  qrc_vfxforge_shaders.cpp
+  mocs_compilation_Release.cpp
+  Generating Code...
+  vfxforge.vcxproj -> D:\a\VFXforge\VFXforge\build\app\Release\VFX Forge.exe

@@ -1,0 +1,63 @@
+image: unityci/editor:ubuntu-6000.0.85f1-base-3.2.2
+Unable to find image 'unityci/editor:ubuntu-6000.0.85f1-base-3.2.2' locally
+ubuntu-6000.0.85f1-base-3.2.2: Pulling from unityci/editor
+96c832531c38: Pulling fs layer
+9a4d47d5aa13: Pulling fs layer
+46805e80f2d7: Pulling fs layer
+dc7a969c82d9: Pulling fs layer
+a1ff4bc3f481: Pulling fs layer
+a636358af2c8: Pulling fs layer
+bef3b93c3984: Pulling fs layer
+d3a5feebe29b: Pulling fs layer
+739b69068380: Pulling fs layer
+f894b1d503ff: Pulling fs layer
+35884fe560a6: Pulling fs layer
+4f4fb700ef54: Pulling fs layer
+bef3b93c3984: Waiting
+d3a5feebe29b: Waiting
+739b69068380: Waiting
+dc7a969c82d9: Waiting
+f894b1d503ff: Waiting
+35884fe560a6: Waiting
+4f4fb700ef54: Waiting
+a1ff4bc3f481: Waiting
+a636358af2c8: Waiting
+9a4d47d5aa13: Verifying Checksum
+9a4d47d5aa13: Download complete
+96c832531c38: Verifying Checksum
+96c832531c38: Download complete
+dc7a969c82d9: Download complete
+46805e80f2d7: Verifying Checksum
+46805e80f2d7: Download complete
+a1ff4bc3f481: Verifying Checksum
+a1ff4bc3f481: Download complete
+bef3b93c3984: Verifying Checksum
+bef3b93c3984: Download complete
+a636358af2c8: Verifying Checksum
+a636358af2c8: Download complete
+d3a5feebe29b: Verifying Checksum
+d3a5feebe29b: Download complete
+f894b1d503ff: Download complete
+35884fe560a6: Verifying Checksum
+35884fe560a6: Download complete
+4f4fb700ef54: Verifying Checksum
+4f4fb700ef54: Download complete
+96c832531c38: Pull complete
+9a4d47d5aa13: Pull complete
+739b69068380: Verifying Checksum
+739b69068380: Download complete
+46805e80f2d7: Pull complete
+dc7a969c82d9: Pull complete
+a1ff4bc3f481: Pull complete
+a636358af2c8: Pull complete
+bef3b93c3984: Pull complete
+d3a5feebe29b: Pull complete
+739b69068380: Pull complete
+f894b1d503ff: Pull complete
+35884fe560a6: Pull complete
+4f4fb700ef54: Pull complete
+Digest: sha256:693964db6866f68611f862054046de7409c9f52e146339613d85524a48ff1886
+Status: Downloaded newer image for unityci/editor:ubuntu-6000.0.85f1-base-3.2.2
+compiler: /opt/unity/Editor/Data/MonoBleedingEdge/lib/mono/4.5/mcs.exe
+netstandard: /opt/unity/Editor/Data/MonoBleedingEdge/lib/mono/4.7.1-api/Facades/netstandard.dll
+COMPILED OK

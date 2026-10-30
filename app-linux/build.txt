@@ -1,0 +1,233 @@
+[  1%] Running qmlimportscanner for vfxforge
+[  2%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Blend.cpp.o
+[  3%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Clock.cpp.o
+[  5%] Building CXX object core/CMakeFiles/vfx_core.dir/src/CommandStack.cpp.o
+[  5%] Built target vfxforge_qmlimportscan
+[  6%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Commands.cpp.o
+[  7%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Compile.cpp.o
+[  8%] Building CXX object core/CMakeFiles/vfx_core.dir/src/DetMath.cpp.o
+[ 10%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Document.cpp.o
+[ 11%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Effect.cpp.o
+[ 12%] Building CXX object core/CMakeFiles/vfx_core.dir/src/FileIO.cpp.o
+[ 13%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Id.cpp.o
+[ 15%] Building CXX object core/CMakeFiles/vfx_core.dir/src/JsonWriter.cpp.o
+[ 16%] Building CXX object core/CMakeFiles/vfx_core.dir/src/MeshData.cpp.o
+[ 17%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Metadata.cpp.o
+[ 18%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Path.cpp.o
+[ 20%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Serialize.cpp.o
+[ 21%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Simulation.cpp.o
+[ 22%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Templates.cpp.o
+[ 24%] Building CXX object core/CMakeFiles/vfx_core.dir/src/Value.cpp.o
+[ 25%] Linking CXX static library libvfx_core.a
+[ 25%] Built target vfx_core
+[ 26%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Archive.cpp.o
+[ 27%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Audio.cpp.o
+[ 29%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Blend.cpp.o
+[ 30%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Frames.cpp.o
+[ 31%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Image.cpp.o
+[ 32%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/MeshAnalysis.cpp.o
+[ 34%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/MeshVfx.cpp.o
+/home/runner/work/VFXforge/VFXforge/editor/src/MeshVfx.cpp:46:7: warning: ‘float vfx::editor::{anonymous}::totalLength(const std::vector<vfx::MeshSegment>&)’ defined but not used [-Wunused-function]
+   46 | float totalLength(const std::vector<MeshSegment>& s) {
+      |       ^~~~~~~~~~~
+[ 35%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Model.cpp.o
+[ 36%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Picture.cpp.o
+[ 37%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Compare.cpp.o
+[ 39%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/CurveTools.cpp.o
+[ 40%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/EffectTools.cpp.o
+[ 41%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Presets.cpp.o
+[ 43%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Reconstruct.cpp.o
+[ 44%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Refine.cpp.o
+[ 45%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Reference.cpp.o
+[ 46%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ReferenceGround.cpp.o
+[ 48%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ReferenceStill.cpp.o
+[ 49%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ReferenceLines.cpp.o
+[ 50%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ReferenceSheet.cpp.o
+[ 51%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ReferenceTime.cpp.o
+[ 53%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Session.cpp.o
+[ 54%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Transform.cpp.o
+[ 55%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Selection.cpp.o
+[ 56%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Silhouette.cpp.o
+[ 58%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ShapeLibrary.cpp.o
+[ 59%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/Shapes.cpp.o
+[ 60%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/SoundLibrary.cpp.o
+[ 62%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/SpriteMesh.cpp.o
+[ 63%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/UnityExport.cpp.o
+[ 64%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ShaderLib.cpp.o
+[ 65%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ShaderPreview.cpp.o
+[ 67%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ShaderExport.cpp.o
+[ 68%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/ShaderAi.cpp.o
+[ 69%] Building CXX object editor/CMakeFiles/vfx_editor.dir/ShaderCoreText.cpp.o
+[ 70%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/UserLibrary.cpp.o
+[ 72%] Building CXX object editor/CMakeFiles/vfx_editor.dir/src/UnrealExport.cpp.o
+[ 73%] Building CXX object editor/CMakeFiles/vfx_editor.dir/UnityFiles.cpp.o
+[ 74%] Building CXX object editor/CMakeFiles/vfx_editor.dir/UnrealFiles.cpp.o
+[ 75%] Linking CXX static library libvfx_editor.a
+[ 75%] Built target vfx_editor
+[ 75%] Built target vfxforge_autogen_timestamp_deps
+[ 77%] Automatic MOC for target vfxforge
+[ 77%] Built target vfxforge_autogen
+[ 78%] Generating .qsb/shaders/sprite.vert.qsb
+[ 79%] Generating .qsb/shaders/sprite.frag.qsb
+[ 81%] Generating .qsb/shaders/image.frag.qsb
+[ 82%] Running rcc for resource vfxforge_qml
+[ 83%] Running rcc for resource vfxforge_shaders
+[ 84%] Building CXX object app/CMakeFiles/vfxforge.dir/vfxforge_autogen/mocs_compilation.cpp.o
+[ 86%] Building CXX object app/CMakeFiles/vfxforge.dir/src/main.cpp.o
+[ 87%] Building CXX object app/CMakeFiles/vfxforge.dir/src/AppController.cpp.o
+[ 88%] Building CXX object app/CMakeFiles/vfxforge.dir/src/AudioPlayer.cpp.o
+[ 89%] Building CXX object app/CMakeFiles/vfxforge.dir/src/PreviewItems.cpp.o
+/home/runner/work/VFXforge/VFXforge/app/src/AppController.cpp: In member function ‘void AppController::rebuildControls()’:
+/home/runner/work/VFXforge/VFXforge/app/src/AppController.cpp:689:39: warning: declaration of ‘number’ shadows a previous local [-Wshadow]
+  689 |                             const int number = vfx::editor::shapeNumber(option);
+      |                                       ^~~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/AppController.cpp:577:33: note: shadowed declaration is here
+  577 |                 if (const auto* number = std::get_if<double>(&c.value)) {
+      |                                 ^~~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp: In lambda function:
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:439:35: warning: declaration of ‘lit’ shadows a previous local [-Wshadow]
+  439 |                         const int lit = capture(window, selfTest, QStringLiteral("-target"),
+      |                                   ^~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:251:23: note: shadowed declaration is here
+  251 |             const int lit = capture(window, selfTest, QStringLiteral("-library"), QStringLiteral("the library"));
+      |                       ^~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp: In lambda function:
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:453:39: warning: declaration of ‘lit’ shadows a previous local [-Wshadow]
+  453 |                             const int lit = capture(window, selfTest, QStringLiteral("-shader"), QStringLiteral("the Shader tab"));
+      |                                       ^~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:439:35: note: shadowed declaration is here
+  439 |                         const int lit = capture(window, selfTest, QStringLiteral("-target"),
+      |                                   ^~~
+[ 91%] Building CXX object app/CMakeFiles/vfxforge.dir/src/ReferenceController.cpp.o
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp: In lambda function:
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:845:38: warning: declaration of ‘shown’ shadows a previous local [-Wshadow]
+  845 |                             QVariant shown;
+      |                                      ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:687:27: note: shadowed declaration is here
+  687 |                 const int shown = capture(window, selfTest, QStringLiteral("-ground"), QStringLiteral("a ground preset"));
+      |                           ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp: In lambda function:
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:889:47: warning: declaration of ‘shown’ shadows a previous local [-Wshadow]
+  889 |                                     const int shown = capture(window, selfTest, QStringLiteral("-motion"),
+      |                                               ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:845:38: note: shadowed declaration is here
+  845 |                             QVariant shown;
+      |                                      ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:901:50: warning: declaration of ‘smooth’ shadows a previous local [-Wshadow]
+  901 |                                     const double smooth = row(QStringLiteral("Hold Frames")).value(QStringLiteral("value")).toDouble();
+      |                                                  ^~~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:808:34: note: shadowed declaration is here
+  808 |                             bool smooth = false;
+      |                                  ^~~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:915:46: warning: declaration of ‘panel’ shadows a previous local [-Wshadow]
+  915 |                                     QObject* panel = window->findChild<QObject*>(QStringLiteral("controlsPanel"));
+      |                                              ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:844:38: note: shadowed declaration is here
+  844 |                             QObject* panel = window->findChild<QObject*>(QStringLiteral("controlsPanel"));
+      |                                      ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp: In lambda function:
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:949:71: warning: declaration of ‘found’ shadows a previous local [-Wshadow]
+  949 |                                                     const QVariantMap found = item.toMap();
+      |                                                                       ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:919:50: note: shadowed declaration is here
+  919 |                                         QVariant found;
+      |                                                  ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:954:68: warning: declaration of ‘offered’ shadows a previous local [-Wshadow]
+  954 |                                                 const QVariantList offered = shapeRow.value(QStringLiteral("options")).toList();
+      |                                                                    ^~~~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:899:47: note: shadowed declaration is here
+  899 |                                     const int offered = static_cast<int>(controller.motionChanges().size());
+      |                                               ^~~~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:956:63: warning: declaration of ‘drawn’ shadows a previous local [-Wshadow]
+  956 |                                                 const QString drawn = shapeRow.value(QStringLiteral("value")).toString();
+      |                                                               ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:812:39: note: shadowed declaration is here
+  812 |                             const int drawn = static_cast<int>(controller.curveLine(sizeCurve, popped).size());
+      |                                       ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:968:58: warning: declaration of ‘found’ shadows a previous local [-Wshadow]
+  968 |                                                 QVariant found;
+      |                                                          ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:919:50: note: shadowed declaration is here
+  919 |                                         QVariant found;
+      |                                                  ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:976:59: warning: declaration of ‘lit’ shadows a previous local [-Wshadow]
+  976 |                                                 const int lit = capture(window, selfTest, QStringLiteral("-shapes"),
+      |                                                           ^~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:671:23: note: shadowed declaration is here
+  671 |             const int lit = capture(window, selfTest, QStringLiteral("-picture"), QStringLiteral("a painted sprite sheet"));
+      |                       ^~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp: In lambda function:
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:991:64: warning: declaration of ‘shapeRow’ shadows a previous local [-Wshadow]
+  991 |                                                     const auto shapeRow = [&]() {
+      |                                                                ^~~~~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:947:61: note: shadowed declaration is here
+  947 |                                                 QVariantMap shapeRow;
+      |                                                             ^~~~~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp: In lambda function:
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:996:69: warning: declaration of ‘row’ shadows a previous local [-Wshadow]
+  996 |                                                         QVariantMap row;
+      |                                                                     ^~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:868:48: note: shadowed declaration is here
+  868 |                                     const auto row = [&](const QString& label) {
+      |                                                ^~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:998:79: warning: declaration of ‘found’ shadows a previous local [-Wshadow]
+  998 |                                                             const QVariantMap found = item.toMap();
+      |                                                                               ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:968:58: note: shadowed declaration is here
+  968 |                                                 QVariant found;
+      |                                                          ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp: In lambda function:
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:1039:66: warning: declaration of ‘found’ shadows a previous local [-Wshadow]
+ 1039 |                                                         QVariant found;
+      |                                                                  ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:968:58: note: shadowed declaration is here
+  968 |                                                 QVariant found;
+      |                                                          ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp: In lambda function:
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:1048:71: warning: declaration of ‘lit’ shadows a previous local [-Wshadow]
+ 1048 |                                                             const int lit = capture(window, selfTest, QStringLiteral("-shape-edit"),
+      |                                                                       ^~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:976:59: note: shadowed declaration is here
+  976 |                                                 const int lit = capture(window, selfTest, QStringLiteral("-shapes"),
+      |                                                           ^~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp: In lambda function:
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:1071:75: warning: declaration of ‘shown’ shadows a previous local [-Wshadow]
+ 1071 |                                                                 const int shown = capture(window, selfTest, QStringLiteral("-model"),
+      |                                                                           ^~~~~
+/home/runner/work/VFXforge/VFXforge/app/src/main.cpp:889:47: note: shadowed declaration is here
+  889 |                                     const int shown = capture(window, selfTest, QStringLiteral("-motion"),
+      |                                               ^~~~~
+[ 92%] Building CXX object app/CMakeFiles/vfxforge.dir/src/ShaderAssistant.cpp.o
+[ 93%] Building CXX object app/CMakeFiles/vfxforge.dir/src/ShaderStudio.cpp.o
+[ 94%] Building CXX object app/CMakeFiles/vfxforge.dir/src/SpriteNode.cpp.o
+[ 96%] Building CXX object app/CMakeFiles/vfxforge.dir/src/ViewportItem.cpp.o
+/home/runner/work/VFXforge/VFXforge/app/src/ShaderStudio.cpp: In member function ‘bool ShaderStudio::exportToUnity(const QUrl&)’:
+/home/runner/work/VFXforge/VFXforge/app/src/ShaderStudio.cpp:1339:20: warning: declaration of ‘at’ shadows a previous local [-Wshadow]
+ 1339 |         const auto at = t.find("guid: ");
+      |                    ^~
+/home/runner/work/VFXforge/VFXforge/app/src/ShaderStudio.cpp:1320:27: note: shadowed declaration is here
+ 1320 |     std::filesystem::path at = toPath(QFileInfo(path).absoluteFilePath());
+      |                           ^~
+/home/runner/work/VFXforge/VFXforge/app/src/ViewportItem.cpp: In member function ‘virtual QSGNode* ViewportItem::updatePaintNode(QSGNode*, QQuickItem::UpdatePaintNodeData*)’:
+/home/runner/work/VFXforge/VFXforge/app/src/ViewportItem.cpp:289:30: warning: declaration of ‘d’ shadows a member of ‘ViewportItem’ [-Wshadow]
+  289 |             for (const float d : modelPicture_.depth) {
+      |                              ^
+In file included from /home/runner/work/VFXforge/Qt/6.10.1/gcc_64/include/QtQml/qqmlprivate.h:21,
+                 from /home/runner/work/VFXforge/Qt/6.10.1/gcc_64/include/QtQml/qqml.h:7,
+                 from /home/runner/work/VFXforge/Qt/6.10.1/gcc_64/include/QtQuick/qquickitem.h:9,
+                 from /home/runner/work/VFXforge/Qt/6.10.1/gcc_64/include/QtQuick/QQuickItem:1,
+                 from /home/runner/work/VFXforge/VFXforge/app/src/ViewportItem.h:5,
+                 from /home/runner/work/VFXforge/VFXforge/app/src/ViewportItem.cpp:1:
+/home/runner/work/VFXforge/Qt/6.10.1/gcc_64/include/QtQml/qqmlparserstatus.h:23:14: note: shadowed declaration is here
+   23 |     quintptr d;
+      |              ^
+/home/runner/work/VFXforge/VFXforge/app/src/ViewportItem.cpp:302:37: warning: declaration of ‘d’ shadows a member of ‘ViewportItem’ [-Wshadow]
+  302 |                         const float d = modelPicture_.depth[static_cast<std::size_t>(y) * static_cast<std::size_t>(p.width) +
+      |                                     ^
+/home/runner/work/VFXforge/Qt/6.10.1/gcc_64/include/QtQml/qqmlparserstatus.h:23:14: note: shadowed declaration is here
+   23 |     quintptr d;
+      |              ^
+[ 97%] Building CXX object app/CMakeFiles/vfxforge.dir/.qt/rcc/qrc_vfxforge_qml.cpp.o
+[ 98%] Building CXX object app/CMakeFiles/vfxforge.dir/.qt/rcc/qrc_vfxforge_shaders.cpp.o
+[100%] Linking CXX executable "VFX Forge"
+[100%] Built target vfxforge
