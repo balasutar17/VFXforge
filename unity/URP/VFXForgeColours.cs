@@ -188,9 +188,66 @@ public static class VFXForgeColoursSetup
         };
     }
 
+    // A renderer whose feature list holds an entry with no script (VFX Forge's
+    // files were deleted and brought back, so the script has a new identity)
+    // shows "is missing RendererFeatures". Say how to fix it, once per load.
+    [UnityEditor.InitializeOnLoadMethod]
+    static void WarnAboutBrokenFeatures()
+    {
+        UnityEditor.EditorApplication.delayCall += () =>
+        {
+            int broken = 0;
+            foreach (string guid in UnityEditor.AssetDatabase.FindAssets("t:UniversalRendererData"))
+            {
+                string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                var data = path.StartsWith("Assets/") ? UnityEditor.AssetDatabase.LoadAssetAtPath<UniversalRendererData>(path) : null;
+                if (data != null)
+                    broken += data.rendererFeatures.FindAll(f => f == null).Count;
+            }
+            if (broken > 0)
+                Debug.LogWarning("VFX Forge: " + broken + " renderer feature(s) have lost their script. If one was VFX Forge Colours, " +
+                                 "choose VFX Forge > Use Exact VFX Forge Colours (URP): it removes the empty entries and adds the feature again.");
+        };
+    }
+
+    // Takes out feature entries that have no script, and their ids in the
+    // renderer's map, so that the feature can be added afresh.
+    static int RemoveEmptyFeatures(UniversalRendererData data)
+    {
+        var so = new UnityEditor.SerializedObject(data);
+        var list = so.FindProperty("m_RendererFeatures");
+        var map = so.FindProperty("m_RendererFeatureMap");
+        int removed = 0;
+        for (int i = list.arraySize - 1; i >= 0; i--)
+        {
+            if (list.GetArrayElementAtIndex(i).objectReferenceValue != null)
+                continue;
+            list.DeleteArrayElementAtIndex(i);
+            if (map != null && i < map.arraySize)
+                map.DeleteArrayElementAtIndex(i);
+            removed++;
+        }
+        if (removed > 0)
+        {
+            so.ApplyModifiedProperties();
+            UnityEditor.EditorUtility.SetDirty(data);
+        }
+        return removed;
+    }
+
     [UnityEditor.MenuItem(Menu)]
     static void AddFromMenu()
     {
+        int repaired = 0;
+        foreach (string guid in UnityEditor.AssetDatabase.FindAssets("t:UniversalRendererData"))
+        {
+            string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+            var data = path.StartsWith("Assets/") ? UnityEditor.AssetDatabase.LoadAssetAtPath<UniversalRendererData>(path) : null;
+            if (data != null)
+                repaired += RemoveEmptyFeatures(data);
+        }
+        if (repaired > 0)
+            Debug.Log("VFX Forge: removed " + repaired + " renderer feature entr" + (repaired == 1 ? "y" : "ies") + " whose script was missing.");
         int added = AddEverywhere();
         Debug.Log(added > 0
             ? "VFX Forge: added VFX Forge Colours to " + added + " URP renderer(s)."
