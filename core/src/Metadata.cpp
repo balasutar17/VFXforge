@@ -68,6 +68,34 @@ Registry::Registry() {
             .help("How many particles appear each second."),
         P("bursts", "Bursts", ValueKind::Bursts, BurstList{})
             .help("Groups of particles released at set moments."),
+        P("maxParticles", "Max Particles", ValueKind::Int, Value(std::int64_t{0}))
+            .range(0, 200000).ui(0, 5000)
+            .help("The most particles this layer may have alive at once; the rest are not "
+                  "released. 0 works it out from the rate and lifetime. Unity: Max Particles."),
+        P("prewarm", "Prewarm", ValueKind::Bool, Value(false))
+            .help("Unity only: a looping layer starts as if it had been running already, so "
+                  "it is full from the first frame."),
+        P("simulationSpeed", "Simulation Speed", ValueKind::Float, num(1.0))
+            .range(0.01, 100).ui(0.1, 4)
+            .help("Unity only: plays this layer faster or slower than the rest."),
+        P("simulationSpace", "Simulation Space", ValueKind::Enum, text("local"))
+            .options({"local", "world"})
+            .help("Unity only: local carries the particles with the object; world leaves them "
+                  "behind where they were released when it moves."),
+        P("scalingMode", "Scaling Mode", ValueKind::Enum, text("hierarchy"))
+            .options({"hierarchy", "local", "shape"})
+            .help("Unity only: what resizing the object does: scale everything with it "
+                  "(hierarchy), only this layer (local), or only where particles start (shape)."),
+        P("stopAction", "Stop Action", ValueKind::Enum, text("none"))
+            .options({"none", "disable", "destroy", "callback"})
+            .help("Unity only: what happens to the object when the effect has played out. "
+                  "The first layer's setting is used for the whole effect."),
+        P("cullingMode", "Culling Mode", ValueKind::Enum, text("automatic"))
+            .options({"automatic", "pause and catch up", "pause", "always simulate"})
+            .help("Unity only: what the layer does while it is off screen."),
+        P("ringBuffer", "Ring Buffer", ValueKind::Bool, Value(false))
+            .help("Unity only: when the limit is reached, the oldest particle is recycled "
+                  "instead of releasing nothing."),
         P("trigger", "Emit When", ValueKind::Enum, text("time"))
             .options({"time", "parent born", "parent dies", "parent bounces"})
             .help("Sub emitter. Time: the usual Amount and Bursts. The others make this layer a "

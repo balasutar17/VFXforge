@@ -431,6 +431,18 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
     const Reader emission(firstOfType(layer, "emission"), "emission");
     if (emission.present()) {
         e->rate = toScalar(emission.get<Scalar>("rate"));
+        e->maxParticles = static_cast<std::uint32_t>(
+            std::clamp<std::int64_t>(emission.get<std::int64_t>("maxParticles"), 0, kMaxParticlesPerEmitter));
+        e->prewarm = emission.get<bool>("prewarm");
+        e->ringBuffer = emission.get<bool>("ringBuffer");
+        {
+            const double speed = emission.get<double>("simulationSpeed");
+            e->simulationSpeed = std::isfinite(speed) ? std::clamp(f(speed), 0.01f, 100.0f) : 1.0f;
+        }
+        e->simulationSpace = emission.get<std::string>("simulationSpace");
+        e->scalingMode = emission.get<std::string>("scalingMode");
+        e->stopAction = emission.get<std::string>("stopAction");
+        e->cullingMode = emission.get<std::string>("cullingMode");
         for (const auto& b : emission.get<BurstList>("bursts").items) {
             if (b.count > 0 && b.time >= 0.0 && b.time < e->duration) {
                 const auto count = static_cast<std::uint32_t>(
@@ -768,6 +780,9 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         e->wanted = toCount(std::min(byPass, byRate) + 16.0);
         e->capacity = static_cast<std::uint32_t>(
             std::min<std::uint64_t>(e->wanted, kMaxParticlesPerEmitter));
+    }
+    if (e->maxParticles > 0) {
+        e->capacity = std::min<std::uint32_t>(e->capacity, e->maxParticles);
     }
     return e;
 }

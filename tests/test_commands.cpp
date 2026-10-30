@@ -94,7 +94,7 @@ TEST_CASE("Set property: every property of every module applies and reverts") {
             }
         }
     }
-    CHECK(checked == 220);
+    CHECK(checked == 236);
 }
 
 TEST_CASE("Set property: effect and layer fields") {

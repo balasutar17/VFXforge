@@ -988,3 +988,38 @@ TEST_CASE("Trail shape and lights are exported to Unity, and a trail share thins
     CHECK(light["intensity"].get<double>() == Catch::Approx(2.5));
     CHECK(light["range"].get<double>() == Catch::Approx(6.0));
 }
+
+TEST_CASE("The particle limit caps a layer, and the Unity main-module settings are exported", "[motion][unity][main]") {
+    IdGenerator ids(35);
+    const IdSource newId = [&ids]() { return ids.next(); };
+    Effect effect = makeEmptyEffect(newId, "Test", false);
+    effect.duration = 2.0;
+    effect.loop = "loop";
+    Layer layer = makeBasicEmitter(newId, "Rain");
+    layer.duration = 2.0;
+    put(layer, "emission", "rate", Scalar::constant(500.0));
+    put(layer, "initial", "lifetime", Scalar::constant(1.0));
+    put(layer, "emission", "maxParticles", std::int64_t{40});
+    put(layer, "emission", "prewarm", true);
+    put(layer, "emission", "simulationSpeed", 2.0);
+    put(layer, "emission", "simulationSpace", std::string("world"));
+    put(layer, "emission", "stopAction", std::string("destroy"));
+    put(layer, "emission", "cullingMode", std::string("pause"));
+    put(layer, "emission", "ringBuffer", true);
+    effect.layers.push_back(std::move(layer));
+    const J out = describe(effect);
+    const J l = out["layers"][0];
+    CHECK(l["maxParticles"].get<int>() == 40);
+    CHECK(l["prewarm"].get<bool>() == true);
+    CHECK(l["simulationSpeed"].get<double>() == Catch::Approx(2.0));
+    CHECK(l["simulationSpace"].get<std::string>() == "world");
+    CHECK(l["stopAction"].get<std::string>() == "destroy");
+    CHECK(l["cullingMode"].get<std::string>() == "pause");
+    CHECK(l["ringBuffer"].get<bool>() == true);
+    // Never more than the limit alive at once.
+    Simulation sim(compileEffect(effect));
+    for (int i = 0; i < 90; ++i) {
+        sim.advance();
+        CHECK(sim.aliveCount() <= 40);
+    }
+}

@@ -629,7 +629,14 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
     out["enabled"] = layer.enabled;
     out["drawn"] = e.drawn;
     out["seed"] = static_cast<std::uint32_t>(e.key & 0xffffffffu);
-    out["maxParticles"] = std::max<std::uint32_t>(e.capacity + 16u, 16u);
+    out["maxParticles"] = e.maxParticles > 0 ? e.maxParticles : std::max<std::uint32_t>(e.capacity + 16u, 16u);
+    out["prewarm"] = e.prewarm;
+    out["ringBuffer"] = e.ringBuffer;
+    out["simulationSpeed"] = round6(e.simulationSpeed);
+    out["simulationSpace"] = e.simulationSpace;
+    out["scalingMode"] = e.scalingMode;
+    out["stopAction"] = e.stopAction;
+    out["cullingMode"] = e.cullingMode;
 
     // ---- start values
     out["startLifetime"] = minMax(e.lifetime, 1.0, e.start, e.duration, total);

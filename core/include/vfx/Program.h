@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -317,6 +318,13 @@ struct EmitterProgram {
     float trailMinDistance = 0.05f;
     bool trailTile = false;
     bool trailWorld = false;
+
+    // Unity main-module settings (the preview uses only the particle limit).
+    std::uint32_t maxParticles = 0;
+    bool prewarm = false, ringBuffer = false;
+    float simulationSpeed = 1;
+    std::string simulationSpace = "local", scalingMode = "hierarchy", stopAction = "none",
+                cullingMode = "automatic";
 
     // Real lights carried by a share of the particles (Unity only).
     float lightShare = 0, lightIntensity = 1, lightRange = 3;

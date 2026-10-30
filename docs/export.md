@@ -57,6 +57,16 @@ the Unity script only reads the numbers and sets fields.
 | Hold Frames | The VFXForgeHold script, which moves the layer on one drawing at a time |
 | Shape, blend, glow | The VFX Forge particle shader: shape picture, shape number, Glow, Additive |
 | Layer order | Sorting Order |
+| Force, Force Ramp, Velocity Drift | Force over Lifetime (plus gravity), Velocity over Lifetime: Linear |
+| Speed Limit, Inherit Velocity | Limit Velocity over Lifetime: Speed and Dampen; Inherit Velocity (also used for a sub emitter's Inherit Motion) |
+| Rotation / Size / Colour by Speed | Rotation, Size and Color by Speed |
+| Collide (floor) | Collision: a plane at the floor height, with Bounce, Dampen, Lifetime Loss, Min Kill Speed |
+| Kill Zone | Triggers: a box collider, Inside or Outside set to Kill |
+| Emit When (parent born / dies / bounces) | Sub Emitters: Birth, Death or Collision, with Emit Probability and Inherit |
+| Trail Share, Tail Width, Fades, Detail, Picture, In World | Trails: Ratio, Width over Trail, Color over Trail, Minimum Vertex Distance, Texture Mode, World Space |
+| Light Share, Intensity, Range, Follows Size/Fade, Limit | Lights: Ratio, Intensity, Range, Size Affects Range, Alpha Affects Intensity, Max Lights (a point light template is made under the layer) |
+| Max Particles, Prewarm, Simulation Speed/Space, Scaling Mode, Culling Mode, Ring Buffer, Stop Action | The same settings in the Particle System main module. Only Max Particles shows in the preview; the others are Unity-only |
+
 
 Where a shape is approximated, the description says `"exact": false`.
 

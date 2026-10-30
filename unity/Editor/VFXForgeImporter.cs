@@ -90,6 +90,17 @@ namespace VFXForge.EditorTools
             top.GetComponent<ParticleSystemRenderer>().enabled = false;
 
             var layers = List(root, "layers");
+            // The first layer's stop action is the whole effect's.
+            if (layers.Count > 0 && layers[0] is Dictionary<string, object> firstLayer)
+            {
+                switch (Str(firstLayer, "stopAction", "none"))
+                {
+                    case "disable": topMain.stopAction = ParticleSystemStopAction.Disable; break;
+                    case "destroy": topMain.stopAction = ParticleSystemStopAction.Destroy; break;
+                    case "callback": topMain.stopAction = ParticleSystemStopAction.Callback; break;
+                    default: topMain.stopAction = ParticleSystemStopAction.None; break;
+                }
+            }
             for (int i = 0; i < layers.Count; i++)
             {
                 var layer = layers[i] as Dictionary<string, object>;
@@ -321,8 +332,25 @@ namespace VFXForge.EditorTools
             main.startRotation = Curve(layer, "startRotation", 0);
             main.startColor = StartColor(layer);
             main.gravityModifier = 0f;
-            main.simulationSpace = ParticleSystemSimulationSpace.Local;
-            main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+            main.simulationSpace = Str(layer, "simulationSpace", "local") == "world"
+                ? ParticleSystemSimulationSpace.World : ParticleSystemSimulationSpace.Local;
+            switch (Str(layer, "scalingMode", "hierarchy"))
+            {
+                case "local": main.scalingMode = ParticleSystemScalingMode.Local; break;
+                case "shape": main.scalingMode = ParticleSystemScalingMode.Shape; break;
+                default: main.scalingMode = ParticleSystemScalingMode.Hierarchy; break;
+            }
+            main.prewarm = loop && Bool(layer, "prewarm", false);
+            main.simulationSpeed = (float)Num(layer, "simulationSpeed", 1);
+            main.ringBufferMode = Bool(layer, "ringBuffer", false)
+                ? ParticleSystemRingBufferMode.LoopUntilReplaced : ParticleSystemRingBufferMode.Disabled;
+            switch (Str(layer, "cullingMode", "automatic"))
+            {
+                case "pause": main.cullingMode = ParticleSystemCullingMode.Pause; break;
+                case "pause and catch up": main.cullingMode = ParticleSystemCullingMode.PauseAndCatchup; break;
+                case "always simulate": main.cullingMode = ParticleSystemCullingMode.AlwaysSimulate; break;
+                default: main.cullingMode = ParticleSystemCullingMode.Automatic; break;
+            }
             main.maxParticles = (int)Num(layer, "maxParticles", 1000);
             system.useAutoRandomSeed = false;
             system.randomSeed = (uint)Num(layer, "seed", 1);
