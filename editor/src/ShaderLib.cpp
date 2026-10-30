@@ -280,7 +280,151 @@ std::vector<Preset> icePresets() {
 // Elements: 1 circle 2 ring 3 segmented ring 4 spiral 5 star 6 polygon 7 hex grid 8 grid 9 stripes 10 speed lines
 // 11 wave 12 beam 13 radar sweep 14 lightning 15 orbiting dots 16 shockwave 17 linear gradient 18 radial gradient
 // 19 angular gradient 20 fresnel glow 21 height gradient 22 noise 23 cells 24 plasma 25 halftone 26 checker 27 solid
+// Element numbers added for the sci-fi motion set.
+constexpr int kArcRing = 28, kTickRing = 29, kLightColumn = 30, kFunnel = 31, kBrackets = 32;
+
+// The sci-fi motion effects, built from layers. Each is a flat picture meant for a particle quad
+// or a plane, and is tuned against the reference sheet's colours: violet, electric blue, cyan.
+std::vector<Preset> sciFiPresets() {
+    return {
+        preset("sf-holo-ring", "Sci-Fi: Holographic Ring", "Tall violet ellipses and a flat orbit ring around a glowing eye", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 0.25f, 0.08f, 0.7f, 0.55f, 0.3f, 1.0f, 0, 1.1f, 1.0f, 0.45f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.45f)
+                   .layer(1, 2, 0.4f, 0.15f, 1.0f, 0.7f, 0.45f, 1.0f, 0, 2.0f, 0.92f, 0.035f, 0.3f, 6, 0.5f).set(1, "aspect", 0.72f)
+                   .layer(2, kArcRing, 0.5f, 0.25f, 1.0f, 0.8f, 0.6f, 1.0f, 0, 2.2f, 0.8f, 0.05f, 0.3f, 9, 0.5f).set(2, "aspect", 0.72f).set(2, "spin", 18)
+                   .layer(3, kTickRing, 0.5f, 0.3f, 1.0f, 0.8f, 0.65f, 1.0f, 0, 1.3f, 0.62f, 0.1f, 0.3f, 60, 0.5f).set(3, "aspect", 0.72f)
+                   .layer(4, 2, 0.45f, 0.2f, 1.0f, 0.75f, 0.5f, 1.0f, 0, 2.0f, 0.27f, 0.06f, 0.3f, 6, 0.5f).set(4, "aspect", 3.7f).set(4, "rot", -8)
+                   .layer(5, kArcRing, 0.55f, 0.3f, 1.0f, 0.85f, 0.7f, 1.0f, 0, 2.2f, 0.27f, 0.06f, 0.3f, 6, 0.5f).set(5, "aspect", 3.7f).set(5, "rot", -8)
+                   .layer(6, 18, 0.7f, 0.5f, 1.0f, 1.0f, 0.95f, 1.0f, 0, 3.0f, 0.14f, 0.3f, 0.3f, 6, 0.5f)
+                   .layer(7, 1, 0.9f, 0.85f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.07f, 1.0f, 0.5f, 6, 0.5f)),
+        preset("sf-scan-beam", "Sci-Fi: Scanning Beam", "A blue column of light between two glowing discs", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 0.0f, 0.2f, 0.8f, 0.2f, 0.6f, 1.0f, 0, 0.9f, 1.0f, 0.4f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.35f)
+                   .layer(1, kLightColumn, 0.1f, 0.4f, 1.0f, 0.6f, 0.85f, 1.0f, 0, 2.0f, 1.0f, 0.22f, 0.3f, 22, 0.7f).set(1, "aspect", 0.45f)
+                   .layer(2, 12, 0.3f, 0.6f, 1.0f, 0.9f, 0.97f, 1.0f, 0, 3.0f, 1.0f, 0.1f, 0.4f, 6, 0.5f)
+                   .layer(3, 2, 0.15f, 0.5f, 1.0f, 0.7f, 0.9f, 1.0f, 0, 2.4f, 0.27f, 0.1f, 0.3f, 6, 0.5f).set(3, "aspect", 3.6f).set(3, "oy", -0.72f)
+                   .layer(4, 2, 0.1f, 0.45f, 1.0f, 0.6f, 0.85f, 1.0f, 0, 2.0f, 0.16f, 0.12f, 0.3f, 6, 0.5f).set(4, "aspect", 3.6f).set(4, "oy", -0.72f)
+                   .layer(5, 2, 0.1f, 0.4f, 1.0f, 0.6f, 0.85f, 1.0f, 0, 2.2f, 0.27f, 0.1f, 0.3f, 6, 0.5f).set(5, "aspect", 3.6f).set(5, "oy", 0.74f)
+                   .layer(6, 16, 0.2f, 0.55f, 1.0f, 0.7f, 0.9f, 1.0f, 0, 2.0f, 0.3f, 0.2f, 0.5f, 6, 0.6f).set(6, "aspect", 3.3f).set(6, "oy", 0.74f)
+                   .layer(7, 18, 0.5f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.2f, 0.3f, 0.3f, 6, 0.5f).set(7, "oy", 0.74f)),
+        preset("sf-energy-wave", "Sci-Fi: Energy Wave", "Rippling blue rings spreading from a bright spike", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 0.0f, 0.15f, 0.7f, 0.1f, 0.5f, 1.0f, 0, 0.9f, 1.0f, 0.5f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.4f)
+                   .layer(1, 2, 0.1f, 0.5f, 1.0f, 0.5f, 0.85f, 1.0f, 0, 2.6f, 0.5f, 0.07f, 0.3f, 6, 0.5f).set(1, "aspect", 1.9f).set(1, "oy", 0.1f)
+                   .layer(2, kArcRing, 0.15f, 0.65f, 1.0f, 0.6f, 0.95f, 1.0f, 0, 2.6f, 0.4f, 0.06f, 0.3f, 5, 0.5f).set(2, "aspect", 1.9f).set(2, "oy", 0.1f).set(2, "spin", 25)
+                   .layer(3, kArcRing, 0.2f, 0.7f, 1.0f, 0.8f, 1.0f, 1.0f, 0, 2.4f, 0.28f, 0.05f, 0.3f, 4, 0.5f).set(3, "aspect", 1.9f).set(3, "oy", 0.1f).set(3, "spin", -40)
+                   .layer(4, 16, 0.2f, 0.6f, 1.0f, 0.7f, 0.95f, 1.0f, 0, 2.0f, 0.5f, 0.1f, 0.5f, 6, 0.5f).set(4, "aspect", 1.9f).set(4, "oy", 0.1f)
+                   .layer(5, 12, 0.4f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.75f, 0.035f, 0.5f, 6, 0.5f).set(5, "oy", -0.15f)
+                   .layer(6, 18, 0.4f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.2f, 0.22f, 0.3f, 0.3f, 6, 0.5f).set(6, "oy", 0.1f)),
+        preset("sf-vortex-portal", "Sci-Fi: Vortex Portal", "A violet funnel of swirled rings", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 0.15f, 0.05f, 0.6f, 0.45f, 0.2f, 1.0f, 0, 1.0f, 1.0f, 0.45f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.4f)
+                   .layer(1, kFunnel, 0.4f, 0.2f, 1.0f, 0.8f, 0.6f, 1.0f, 0, 1.7f, 1.0f, 0.45f, 0.25f, 12, 0.8f)
+                   .layer(2, kFunnel, 0.5f, 0.3f, 1.0f, 0.9f, 0.75f, 1.0f, 0, 1.4f, 0.8f, 0.3f, 0.25f, 9, -0.6f).set(2, "oy", -0.05f)
+                   .layer(3, 18, 0.7f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 2.2f, 0.12f, 0.3f, 0.3f, 6, 0.5f).set(3, "oy", 0.8f)
+                   .layer(4, 2, 0.4f, 0.25f, 1.0f, 0.85f, 0.7f, 1.0f, 0, 2.0f, 0.25f, 0.08f, 0.3f, 6, 0.5f).set(4, "aspect", 3.6f).set(4, "oy", 0.8f)),
+        preset("sf-electric-arc", "Sci-Fi: Electric Arc", "Branching blue-white lightning with a hot glow", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 0.05f, 0.1f, 0.8f, 0.3f, 0.35f, 1.0f, 0, 1.1f, 1.0f, 0.4f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.4f)
+                   .layer(1, 14, 0.35f, 0.4f, 1.0f, 0.9f, 0.95f, 1.0f, 0, 3.4f, 1.0f, 0.3f, 0.3f, 5, 1.2f)
+                   .layer(2, 14, 0.4f, 0.45f, 1.0f, 0.95f, 0.97f, 1.0f, 0, 2.6f, 0.8f, 0.25f, 0.3f, 7, 1.7f).set(2, "ox", 0.25f).set(2, "rot", 25)
+                   .layer(3, 14, 0.4f, 0.5f, 1.0f, 0.9f, 0.95f, 1.0f, 0, 2.4f, 0.7f, 0.2f, 0.3f, 8, 2.1f).set(3, "ox", -0.3f).set(3, "rot", -35)
+                   .layer(4, 14, 0.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 2.0f, 0.5f, 0.2f, 0.3f, 9, 2.5f).set(4, "oy", 0.35f).set(4, "rot", 70)
+                   .layer(5, 18, 0.6f, 0.6f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.2f, 0.3f, 0.3f, 6, 0.5f)),
+        preset("sf-targeting", "Sci-Fi: Targeting Indicator", "A flat orbit ring and a reticle with a glowing centre", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 0.05f, 0.2f, 0.9f, 0.25f, 0.6f, 1.0f, 0, 1.0f, 1.0f, 0.45f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.35f)
+                   .layer(1, 2, 0.2f, 0.55f, 1.0f, 0.7f, 0.9f, 1.0f, 0, 2.4f, 0.22f, 0.1f, 0.3f, 6, 0.5f).set(1, "aspect", 4.4f)
+                   .layer(2, kArcRing, 0.3f, 0.65f, 1.0f, 0.85f, 0.95f, 1.0f, 0, 2.4f, 0.22f, 0.09f, 0.3f, 10, 0.5f).set(2, "aspect", 4.4f)
+                   .layer(3, 2, 0.2f, 0.55f, 1.0f, 0.8f, 0.95f, 1.0f, 0, 2.4f, 0.5f, 0.045f, 0.3f, 6, 0.5f)
+                   .layer(4, kTickRing, 0.3f, 0.65f, 1.0f, 0.9f, 0.97f, 1.0f, 0, 1.6f, 0.55f, 0.12f, 0.3f, 36, 0.5f).set(4, "spin", 12)
+                   .layer(5, 14, 0.3f, 0.6f, 1.0f, 0.8f, 0.95f, 1.0f, 0, 2.4f, 0.4f, 0.3f, 0.2f, 6, 1.6f).set(5, "oy", -0.5f)
+                   .layer(6, 14, 0.3f, 0.6f, 1.0f, 0.8f, 0.95f, 1.0f, 0, 2.4f, 0.4f, 0.3f, 0.2f, 6, 1.6f).set(6, "oy", 0.5f).set(6, "rot", 180)
+                   .layer(7, 18, 0.6f, 0.85f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.4f, 0.16f, 0.3f, 0.3f, 6, 0.5f)),
+        // ---- the small variants along the bottom of the sheet
+        preset("sf-orb", "Sci-Fi: Blue Orb", "A glowing blue core inside two turning rings", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 0.0f, 0.25f, 0.9f, 0.2f, 0.7f, 1.0f, 0, 1.3f, 1.0f, 0.4f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.5f)
+                   .layer(1, 1, 0.1f, 0.5f, 1.0f, 0.5f, 0.85f, 1.0f, 0, 2.0f, 0.42f, 1.0f, 0.5f, 6, 0.5f)
+                   .layer(2, 2, 0.1f, 0.45f, 1.0f, 0.6f, 0.9f, 1.0f, 0, 2.2f, 0.62f, 0.07f, 0.3f, 6, 0.5f)
+                   .layer(3, kArcRing, 0.2f, 0.6f, 1.0f, 0.7f, 0.95f, 1.0f, 0, 2.2f, 0.85f, 0.06f, 0.3f, 5, 0.8f)
+                   .layer(4, 18, 0.7f, 0.9f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.18f, 0.3f, 0.3f, 6, 0.5f)),
+        preset("sf-net-sphere", "Sci-Fi: Net Sphere", "A violet sphere of fine hexagonal net lines", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 0.15f, 0.05f, 0.6f, 0.35f, 0.2f, 0.9f, 0, 1.0f, 1.0f, 0.4f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.4f)
+                   .layer(1, 7, 0.4f, 0.25f, 1.0f, 0.85f, 0.7f, 1.0f, 0, 2.0f, 0.9f, 0.12f, 0.2f, 14, 0.5f)
+                   .layer(2, 1, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 4, 1.0f, 0.88f, 1.0f, 0.2f, 6, 0.5f)
+                   .layer(3, 2, 0.5f, 0.3f, 1.0f, 0.9f, 0.8f, 1.0f, 0, 2.4f, 0.9f, 0.03f, 0.3f, 6, 0.5f)
+                   .layer(4, 18, 0.8f, 0.7f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.15f, 0.3f, 0.3f, 6, 0.5f)),
+        preset("sf-red-ring", "Sci-Fi: Red Ring", "A flat red and magenta ring with a rising spark", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 0.5f, 0.0f, 0.15f, 1.0f, 0.2f, 0.5f, 0, 1.0f, 0.8f, 0.4f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.4f).set(0, "aspect", 1.5f).set(0, "oy", -0.2f)
+                   .layer(1, 2, 1.0f, 0.05f, 0.1f, 1.0f, 0.3f, 0.45f, 0, 2.4f, 0.28f, 0.09f, 0.3f, 6, 0.5f).set(1, "aspect", 3.4f).set(1, "oy", -0.2f)
+                   .layer(2, kArcRing, 1.0f, 0.1f, 0.3f, 1.0f, 0.4f, 0.6f, 0, 2.2f, 0.22f, 0.08f, 0.3f, 7, 0.5f).set(2, "aspect", 3.4f).set(2, "oy", -0.2f)
+                   .layer(3, 12, 1.0f, 0.2f, 0.2f, 1.0f, 0.85f, 0.7f, 0, 2.6f, 0.5f, 0.1f, 0.6f, 6, 0.5f).set(3, "oy", 0.2f)
+                   .layer(4, 18, 1.0f, 0.5f, 0.6f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.12f, 0.3f, 0.3f, 6, 0.5f).set(4, "oy", -0.2f)),
+        preset("sf-pillar", "Sci-Fi: Light Pillar", "A thin cyan pillar standing on spreading ripples", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, kLightColumn, 0.1f, 0.6f, 1.0f, 0.7f, 0.95f, 1.0f, 0, 1.8f, 1.0f, 0.2f, 0.3f, 14, 0.8f).set(0, "aspect", 0.25f)
+                   .layer(1, 12, 0.3f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 1.0f, 0.05f, 0.5f, 6, 0.5f)
+                   .layer(2, 16, 0.1f, 0.6f, 1.0f, 0.6f, 0.95f, 1.0f, 0, 2.0f, 0.3f, 0.12f, 0.5f, 6, 0.6f).set(2, "aspect", 3.3f).set(2, "oy", 0.75f)
+                   .layer(3, 2, 0.1f, 0.6f, 1.0f, 0.6f, 0.95f, 1.0f, 0, 2.2f, 0.27f, 0.08f, 0.3f, 6, 0.5f).set(3, "aspect", 3.5f).set(3, "oy", 0.75f)
+                   .layer(4, 18, 0.5f, 0.9f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.18f, 0.3f, 0.3f, 6, 0.5f).set(4, "oy", 0.75f)),
+        preset("sf-ripples", "Sci-Fi: Concentric Rings", "Several flat blue rings, each turning at its own speed", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 0.0f, 0.15f, 0.9f, 0.15f, 0.4f, 1.0f, 0, 1.0f, 1.0f, 0.4f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.4f).set(0, "aspect", 2.0f)
+                   .layer(1, kArcRing, 0.1f, 0.3f, 1.0f, 0.5f, 0.7f, 1.0f, 0, 2.2f, 0.5f, 0.07f, 0.3f, 6, 0.5f).set(1, "aspect", 2.0f).set(1, "spin", 20)
+                   .layer(2, kArcRing, 0.15f, 0.4f, 1.0f, 0.6f, 0.8f, 1.0f, 0, 2.2f, 0.4f, 0.06f, 0.3f, 7, 0.5f).set(2, "aspect", 2.0f).set(2, "spin", -35)
+                   .layer(3, kArcRing, 0.2f, 0.5f, 1.0f, 0.7f, 0.9f, 1.0f, 0, 2.2f, 0.3f, 0.05f, 0.3f, 5, 0.5f).set(3, "aspect", 2.0f).set(3, "spin", 50)
+                   .layer(4, 2, 0.2f, 0.5f, 1.0f, 0.8f, 0.95f, 1.0f, 0, 2.4f, 0.5f, 0.03f, 0.3f, 6, 0.5f).set(4, "aspect", 2.0f)
+                   .layer(5, 18, 0.5f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.14f, 0.3f, 0.3f, 6, 0.5f)),
+        preset("sf-crown-blue", "Sci-Fi: Blue Crown", "A flat blue ring with spiky points rising round it", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 2, 0.1f, 0.4f, 1.0f, 0.5f, 0.8f, 1.0f, 0, 2.2f, 0.28f, 0.09f, 0.3f, 6, 0.5f).set(0, "aspect", 3.3f).set(0, "oy", -0.25f)
+                   .layer(1, 14, 0.2f, 0.5f, 1.0f, 0.8f, 0.95f, 1.0f, 0, 2.2f, 0.4f, 0.2f, 0.3f, 4, 1.4f).set(1, "ox", -0.4f).set(1, "oy", 0.1f)
+                   .layer(2, 14, 0.2f, 0.5f, 1.0f, 0.8f, 0.95f, 1.0f, 0, 2.2f, 0.4f, 0.2f, 0.3f, 4, 1.8f).set(2, "ox", 0.4f).set(2, "oy", 0.1f)
+                   .layer(3, 12, 0.3f, 0.7f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 2.8f, 0.5f, 0.06f, 0.5f, 6, 0.5f).set(3, "oy", 0.05f)
+                   .layer(4, 18, 0.4f, 0.8f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.16f, 0.3f, 0.3f, 6, 0.5f).set(4, "oy", -0.25f)),
+        preset("sf-crown-orange", "Sci-Fi: Orange Crown", "A flat orange ring with flame-like points and a bright triangle core", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 2, 1.0f, 0.4f, 0.05f, 1.0f, 0.8f, 0.4f, 0, 2.4f, 0.28f, 0.09f, 0.3f, 6, 0.5f).set(0, "aspect", 3.3f).set(0, "oy", -0.25f)
+                   .layer(1, kArcRing, 1.0f, 0.5f, 0.1f, 1.0f, 0.85f, 0.5f, 0, 2.2f, 0.22f, 0.07f, 0.3f, 6, 0.5f).set(1, "aspect", 3.3f).set(1, "oy", -0.25f)
+                   .layer(2, 6, 1.0f, 0.6f, 0.1f, 1.0f, 0.95f, 0.6f, 0, 2.6f, 0.14f, 0.5f, 0.3f, 3, 0.5f)
+                   .layer(3, 14, 1.0f, 0.5f, 0.1f, 1.0f, 0.9f, 0.5f, 0, 2.2f, 0.4f, 0.25f, 0.3f, 5, 1.6f).set(3, "ox", -0.45f).set(3, "oy", 0.05f)
+                   .layer(4, 14, 1.0f, 0.5f, 0.1f, 1.0f, 0.9f, 0.5f, 0, 2.2f, 0.4f, 0.25f, 0.3f, 5, 2.0f).set(4, "ox", 0.45f).set(4, "oy", 0.05f)
+                   .layer(5, 18, 1.0f, 0.6f, 0.2f, 1.0f, 1.0f, 0.8f, 0, 3.0f, 0.2f, 0.3f, 0.3f, 6, 0.5f).set(5, "oy", -0.1f)),
+        preset("sf-crown-cyan", "Sci-Fi: Cyan Crown", "A cyan ring and spikes around a bright blue core", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 2, 0.0f, 0.7f, 1.0f, 0.6f, 0.95f, 1.0f, 0, 2.2f, 0.28f, 0.09f, 0.3f, 6, 0.5f).set(0, "aspect", 3.3f).set(0, "oy", -0.25f)
+                   .layer(1, 14, 0.1f, 0.7f, 1.0f, 0.8f, 1.0f, 1.0f, 0, 2.2f, 0.4f, 0.2f, 0.3f, 4, 1.4f).set(1, "ox", -0.4f).set(1, "oy", 0.05f)
+                   .layer(2, 14, 0.1f, 0.7f, 1.0f, 0.8f, 1.0f, 1.0f, 0, 2.2f, 0.4f, 0.2f, 0.3f, 4, 1.8f).set(2, "ox", 0.4f).set(2, "oy", 0.05f)
+                   .layer(3, 1, 0.3f, 0.8f, 1.0f, 0.9f, 1.0f, 1.0f, 0, 2.6f, 0.17f, 1.0f, 0.5f, 6, 0.5f).set(3, "oy", -0.1f)
+                   .layer(4, 18, 0.4f, 0.9f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.22f, 0.3f, 0.3f, 6, 0.5f).set(4, "oy", -0.1f)),
+        preset("sf-ring-core", "Sci-Fi: Ring and Core", "A bright blue disc with a thin flat ring through it", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 0.0f, 0.3f, 1.0f, 0.3f, 0.7f, 1.0f, 0, 1.2f, 1.0f, 0.4f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.5f)
+                   .layer(1, 2, 0.1f, 0.5f, 1.0f, 0.6f, 0.9f, 1.0f, 0, 2.2f, 0.28f, 0.08f, 0.3f, 6, 0.5f).set(1, "aspect", 3.3f)
+                   .layer(2, 1, 0.1f, 0.5f, 1.0f, 0.6f, 0.9f, 1.0f, 0, 2.4f, 0.4f, 1.0f, 0.5f, 6, 0.5f)
+                   .layer(3, 2, 0.5f, 0.85f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 2.6f, 0.45f, 0.04f, 0.3f, 6, 0.5f)
+                   .layer(4, 18, 0.8f, 0.95f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.2f, 0.3f, 0.3f, 6, 0.5f)),
+        preset("sf-sun-reticle", "Sci-Fi: Sun Reticle", "A golden-orange burst of rays inside a thin circle", "particle", kAdd,
+               LayerBuilder{}
+                   .layer(0, 18, 1.0f, 0.4f, 0.0f, 1.0f, 0.8f, 0.3f, 0, 1.2f, 1.0f, 0.45f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.5f)
+                   .layer(1, 2, 1.0f, 0.6f, 0.1f, 1.0f, 0.9f, 0.5f, 0, 2.2f, 0.95f, 0.03f, 0.3f, 6, 0.5f)
+                   .layer(2, 5, 1.0f, 0.55f, 0.1f, 1.0f, 0.9f, 0.5f, 0, 2.6f, 0.6f, 0.9f, 0.3f, 14, 0.5f).set(2, "spin", 12)
+                   .layer(3, 10, 1.0f, 0.6f, 0.15f, 1.0f, 0.95f, 0.6f, 0, 2.0f, 0.9f, 0.25f, 0.4f, 28, 1.4f)
+                   .layer(4, 18, 1.0f, 0.8f, 0.4f, 1.0f, 1.0f, 0.9f, 0, 3.2f, 0.2f, 0.3f, 0.3f, 6, 0.5f)),
+    };
+}
+
+std::vector<Preset> layerBasePresets();
 std::vector<Preset> layerPresets() {
+    std::vector<Preset> all = layerBasePresets();
+    for (Preset& p : sciFiPresets()) all.push_back(std::move(p));
+    return all;
+}
+
+std::vector<Preset> layerBasePresets() {
     return {
         preset("blank", "Start from a circle", "One circle to build on: add layers, change them, animate them", "plane", kAdd,
                LayerBuilder{}.layer(0, 1, 0.25f, 0.65f, 1.0f, 0.9f, 1.0f, 1.0f, 0, 1.6f, 0.7f, 1.0f, 0.5f, 6, 0.5f)),
@@ -370,6 +514,11 @@ const std::vector<ElementInfo>& buildElements() {
         {"Halftone dots", "Pattern", "A grid of dots", {"speed"}, {{"thick", "Dot size"}, {"count", "Dots across"}}, {{"size", 1.0f}, {"thick", 0.6f}, {"count", 12}}},
         {"Checker", "Pattern", "A chequerboard", {"thick", "soft", "speed"}, {{"count", "Squares"}}, {{"size", 1.0f}, {"count", 8}}},
         {"Solid colour", "Pattern", "A flat colour over the whole object", {"thick", "soft", "count", "speed", "size", "aspect", "rot", "spin", "warp", "twist", "ox", "oy", "space"}, {}, {}},
+        {"Arc ring", "Sci-fi", "A ring broken into arcs of different lengths", {}, {{"thick", "Ring width"}, {"count", "Arcs"}, {"speed", "Turning"}}, {{"size", 0.9f}, {"thick", 0.08f}, {"soft", 0.3f}, {"count", 7}, {"speed", 0.6f}}},
+        {"Tick ring", "Sci-fi", "Short tick marks standing on a ring, like a dial", {"speed"}, {{"thick", "Tick length"}, {"count", "Ticks"}}, {{"size", 0.95f}, {"thick", 0.1f}, {"soft", 0.2f}, {"count", 48}}},
+        {"Light column", "Sci-fi", "A column of fine vertical streaks that climb", {}, {{"thick", "Streak width"}, {"count", "Streaks"}, {"speed", "Climb speed"}}, {{"size", 1.0f}, {"thick", 0.25f}, {"soft", 0.3f}, {"count", 20}, {"speed", 0.8f}}},
+        {"Funnel", "Sci-fi", "A funnel seen from the side: swirled rings narrowing to a point", {}, {{"thick", "Ring width"}, {"count", "Rings"}, {"speed", "Swirl speed"}}, {{"size", 1.0f}, {"thick", 1.0f}, {"soft", 0.4f}, {"count", 10}, {"speed", 0.8f}}},
+        {"Corner brackets", "Sci-fi", "Four corner brackets of a square frame", {"speed"}, {{"thick", "Line width"}, {"count", "Bracket length (0 to 9)"}}, {{"size", 0.9f}, {"thick", 0.05f}, {"soft", 0.2f}, {"count", 6}}},
     };
     return all;
 }

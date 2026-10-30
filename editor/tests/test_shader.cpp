@@ -48,7 +48,7 @@ TEST_CASE("the library has the seven families with their presets", "[shader]") {
         CHECK(!f.limits.empty());
     }
     CHECK(numbers == std::set<int>{11, 12, 14, 15, 16, 18, 20});
-    CHECK(presets == 48);
+    CHECK(presets == 64);
     CHECK(findFamily("shield")->presets.size() == 6);
     CHECK(findFamily("ui")->presets.size() == 7);
 }

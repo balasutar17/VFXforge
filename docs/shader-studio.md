@@ -23,7 +23,15 @@ the right, watch it animate in the middle, key it on the timeline, and **Export 
 ## Families and presets (39)
 
 11 Emissive / Glow (7), 12 Hologram / Energy (6), 14 Force Field / Shield (6), 15 Particle / VFX
-material (7), 16 UI / Sprite (7), 18 Ice / Snow (6).
+material (7), 16 UI / Sprite (7), 18 Ice / Snow (6), 20 Layer Shader (25: 9 starters and 16 sci-fi).
+
+### Sci-fi motion effects (Layer Shader presets named "Sci-Fi: ...")
+
+The six large effects of the sci-fi sheet (Holographic Ring, Scanning Beam, Energy Wave, Vortex Portal,
+Electric Arc, Targeting Indicator) and its ten small variants are layer-shader presets. They are drawn
+wholly by the shader (no textures), front-on, on the Particle preview shape, and use five elements added
+for them: Arc ring, Tick ring, Light column, Funnel and Corner brackets. They match the sheet's shapes
+and colours by eye; they are not pixel copies of the sheet's painted art.
 
 ## What is exported
 

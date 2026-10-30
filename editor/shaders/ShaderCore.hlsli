@@ -702,6 +702,88 @@ float2 lyElement(int el, float2 q, ShadeIn I, float t, float thick, float soft, 
         m = abs(cx - 2.0 * floor(cx * 0.5));
         v = m;
     }
+    else if (el == 28)
+    {
+        // Broken arcs of a ring: each arc has its own length and brightness.
+        float ring = lyShape(r - 1.0, min(thick, 0.95), soft);
+        float u = (a / 6.2831853 + 0.5) * count + t * speed * 0.15;
+        float cell = floor(u);
+        float h = hash11(cell + seed * 5.0);
+        float f = frac(u);
+        float len = 0.3 + 0.62 * h;
+        float edge = 0.04 + hs * 0.5;
+        float on = smoothstep(0.0, edge, f) * (1.0 - smoothstep(len - edge, len, f));
+        m = ring * on * (0.55 + 0.45 * hash11(cell * 1.7 + seed));
+        v = saturate(f / max(len, 0.05));
+    }
+    else if (el == 29)
+    {
+        // Short tick marks standing on a ring, like a dial.
+        float n = max(count, 4.0);
+        float aa = frac(a / 6.2831853 * n + 0.5) - 0.5;
+        float across = abs(aa) * r * 6.2831853 / n;
+        float tick = 1.0 - smoothstep(0.012 - hs * 0.2, 0.012 + hs * 0.2 + 0.004, across);
+        float inner = 1.0 - thick;
+        float radial = smoothstep(inner - hs, inner + hs, r) * (1.0 - smoothstep(1.0 - hs, 1.0 + hs, r));
+        float longTick = step(0.5, frac(floor(a / 6.2831853 * n + 0.5) / 5.0 + 0.001)) ;
+        m = tick * radial * (0.6 + 0.4 * (1.0 - longTick));
+        v = saturate((r - inner) / max(thick, 0.01));
+    }
+    else if (el == 30)
+    {
+        // A column of light made of fine vertical streaks that climb.
+        float u = q.x * count * 0.5;
+        float cell = floor(u);
+        float h = hash11(cell + seed * 3.0);
+        float f = abs(frac(u) - 0.5) * 2.0;
+        float wid = max(thick * (0.25 + 0.75 * h), 0.03);
+        float streak = 1.0 - smoothstep(wid - hs, wid + hs, f);
+        float p = frac(q.y * 0.45 - t * speed * (0.3 + 0.5 * h) + h);
+        float climb = 0.35 + 0.65 * pow(p, 2.0);
+        float envelope = (1.0 - smoothstep(1.0 - 0.35, 1.0, abs(q.x))) * (1.0 - smoothstep(0.82, 1.0, abs(q.y)));
+        float core = exp(-(q.x * q.x) / 0.004) * 0.9;
+        m = saturate(streak * climb * envelope * (0.35 + 0.65 * h) + core * envelope);
+        v = saturate(0.5 - q.y * 0.5);
+    }
+    else if (el == 31)
+    {
+        // A funnel seen from the side: stacked ellipses that narrow toward the bottom, swirled.
+        float n = max(floor(count + 0.5), 3.0);
+        float mm = 0.0;
+        float vv = 0.0;
+        for (int k = 0; k < 14; k++)
+        {
+            if (float(k) >= n) break;
+            float s = (float(k) + frac(t * speed * 0.25)) / n;
+            float w = lerp(1.0, 0.09, pow(s, 0.85));
+            float yc = lerp(0.8, -0.85, pow(s, 0.9));
+            float squash = max(0.16 + 0.14 * (1.0 - s), 0.05);
+            float2 e = float2(q.x / w, (q.y - yc) / (w * squash));
+            float d = (length(e) - 1.0) * w * squash;
+            float ring = 1.0 - smoothstep(thick * 0.02 * (1.0 + 2.0 * (1.0 - s)) - hs * 0.4, thick * 0.02 * (1.0 + 2.0 * (1.0 - s)) + hs * 0.4 + 0.004, abs(d));
+            float ang = atan2(e.y, e.x) + s * 9.0 - t * speed * 2.0;
+            float break_ = 0.55 + 0.45 * sin(ang * 2.0 + float(k) * 1.7);
+            float fade = (1.0 - 0.55 * s) * break_;
+            float c = ring * fade;
+            if (c > mm) { mm = c; vv = s; }
+        }
+        m = mm;
+        v = vv;
+    }
+    else if (el == 32)
+    {
+        // Four corner brackets of a square frame.
+        float dx = abs(q.x);
+        float dy = abs(q.y);
+        float side = max(dx, dy);
+        float other = min(dx, dy);
+        float w = max(thick * 0.5, 0.01);
+        float onEdge = 1.0 - smoothstep(w - hs, w + hs, abs(side - (1.0 - w)));
+        float arm = 1.0 - max(count, 0.1) * 0.1;
+        float inArm = smoothstep(arm - hs, arm + hs, other);
+        m = onEdge * inArm;
+        v = saturate(other);
+    }
     else
     {
         m = 1.0;
