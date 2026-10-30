@@ -64,7 +64,11 @@ TEST_CASE("Set property: every property of every module applies and reverts") {
                 INFO(module.type << "." << p.key);
                 Value changed;
                 switch (p.kind) {
-                    case ValueKind::Float: changed = std::get<double>(p.defaultValue) + 0.25; break;
+                    case ValueKind::Float: {
+                        const double base = std::get<double>(p.defaultValue);
+                        changed = (p.max && base + 0.25 > *p.max) ? base - 0.25 : base + 0.25;
+                        break;
+                    }
                     case ValueKind::Int: changed = std::get<std::int64_t>(p.defaultValue) + 1; break;
                     case ValueKind::Bool: changed = !std::get<bool>(p.defaultValue); break;
                     case ValueKind::Scalar: changed = Scalar::random(0.5, 0.75); break;
@@ -75,6 +79,7 @@ TEST_CASE("Set property: every property of every module applies and reverts") {
                         break;
                     case ValueKind::Bursts: changed = BurstList{{{0.25, 12}}}; break;
                     case ValueKind::Points: changed = PointList{{{0, 0}, {1, 0}, {0.5, 1}}}; break;
+                    case ValueKind::Text: changed = std::get<std::string>(p.defaultValue) + "x"; break;
                     case ValueKind::Enum: changed = p.options.back(); break;
                     case ValueKind::Asset: {
                         const bool has = std::get<AssetRef>(*module.find(p.key)).id.valid();
@@ -89,7 +94,7 @@ TEST_CASE("Set property: every property of every module applies and reverts") {
             }
         }
     }
-    CHECK(checked == 166);
+    CHECK(checked == 196);
 }
 
 TEST_CASE("Set property: effect and layer fields") {

@@ -618,6 +618,9 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
     unitySide.offsetZ = 0.0f - unitySide.offsetZ;
     unitySide.dirZ = 0.0f - unitySide.dirZ;
     unitySide.gravityZ = 0.0f - unitySide.gravityZ;
+    unitySide.forceZ = 0.0f - unitySide.forceZ;
+    unitySide.driftZ = 0.0f - unitySide.driftZ;
+    unitySide.zoneZ = 0.0f - unitySide.zoneZ;
     const EmitterProgram& e = unitySide;
     const double total = effect.duration > 0.0 ? effect.duration : 0.01;
 
@@ -739,6 +742,27 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
         }
     }
     out["bursts"] = std::move(bursts);
+    if (e.subTrigger != 0 && e.subParent) {
+        // A sub emitter: Unity starts it when the parent's particle is born, dies or bounces. What it
+        // releases each time is its own burst at time 0.
+        std::string parentName;
+        for (const Layer& other : effect.layers) {
+            if (other.id == e.subParent->layer) {
+                parentName = other.name;
+            }
+        }
+        J sub = J::object();
+        sub["parent"] = parentName;
+        sub["trigger"] = e.subTrigger == 1 ? "birth" : (e.subTrigger == 2 ? "death" : "collision");
+        sub["count"] = e.subCount;
+        sub["chance"] = round6(e.subChance);
+        sub["inheritColor"] = e.subInheritColor;
+        sub["inheritMotion"] = round6(e.subInheritMotion);
+        out["subEmitter"] = std::move(sub);
+        out["bursts"] = J::array({J::array({0.0, e.subCount})});
+    } else {
+        out["subEmitter"] = nullptr;
+    }
 
     out["shape"] = shapeJson(e);
 
@@ -769,6 +793,26 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
         out["speedLimit"] = std::move(limit);
     } else {
         out["speedLimit"] = nullptr;
+    }
+    if (e.collide) {
+        J hit = J::object();
+        hit["floor"] = round6(e.floorY);
+        hit["bounce"] = round6(e.bounce);
+        hit["dampen"] = round6(e.collDampen);
+        hit["lifetimeLoss"] = round6(e.collLifeLoss);
+        hit["minKillSpeed"] = round6(e.collMinSpeed);
+        out["collision"] = std::move(hit);
+    } else {
+        out["collision"] = nullptr;
+    }
+    if (e.zone != 0) {
+        J zone = J::object();
+        zone["kill"] = e.zone == 1 ? "inside" : "outside";
+        zone["center"] = J::array({round6(e.zoneX), round6(e.zoneY), round6(e.zoneZ)});
+        zone["size"] = J::array({round6(e.zoneSX), round6(e.zoneSY), e.flat ? 1000.0 : round6(e.zoneSZ)});
+        out["zone"] = std::move(zone);
+    } else {
+        out["zone"] = nullptr;
     }
     out["inheritVelocity"] = e.inheritVelocity > 0.0f ? J(round6(e.inheritVelocity)) : J(nullptr);
     // By Speed: Unity reads these across a Range of speeds, as here.

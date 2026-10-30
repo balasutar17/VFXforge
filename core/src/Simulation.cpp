@@ -2,7 +2,9 @@
 
 #include <cmath>
 #include <cstring>
+#include <memory>
 #include <utility>
+#include <vector>
 
 #include "vfx/DetMath.h"
 
@@ -118,7 +120,29 @@ struct Simulation::Emitter {
     std::int64_t heldStep = 0;
     std::vector<float> held[kFieldCount];
 
+    // Sub emitters (see EmitterProgram::subParent). A parent records what happens to its particles in
+    // `events`; a sub emitter runs a private copy of its parent alongside itself and releases its own
+    // particles where those events happened.
+    struct Event {
+        float x, y, z, vx, vy, vz, r, g, b, a;
+        double offset;  // seconds into the step it happened
+    };
+    std::vector<Event> events;
+    int recordMask = 0;  // 1 births, 2 deaths, 4 bounces
+    std::vector<Emitter> shadow;  // empty, or one private copy of the parent (copies along with this emitter)
+    const Event* origin = nullptr;  // while a sub emitter's particle is being made
+
+    void note(int kind, std::uint32_t i, double offset) {
+        events.push_back(Event{f[kX][i], f[kY][i], f[kZ][i], f[kVX][i], f[kVY][i], f[kVZ][i], f[kR][i], f[kG][i],
+                               f[kB][i], f[kA][i], offset});
+        (void)kind;
+    }
+
     explicit Emitter(std::shared_ptr<const EmitterProgram> program) : p(std::move(program)) {
+        if (p->subParent) {
+            shadow.emplace_back(p->subParent);
+            shadow[0].recordMask = p->subTrigger;
+        }
         for (auto& field : f) {
             field.assign(p->capacity, 0.0f);
         }
@@ -141,8 +165,13 @@ struct Simulation::Emitter {
         dropped = 0;
         heldCount = 0;
         heldStep = atStep;
+        events.clear();
+        if (!shadow.empty()) {
+            shadow[0].restart(fromPass, atStep);
+        }
     }
 
+    void emitFromEvents(double t0);
     void seek(std::int64_t target);
     void advance();
     void emit(std::int64_t inPass, double a, double b, double base, double t0);
@@ -200,7 +229,11 @@ void Simulation::Emitter::advance() {
 
     // 1. Birth. A step may straddle the end of one pass and the start of the
     // next, so walk every pass the step touches.
-    if (e.emits) {
+    if (!shadow.empty()) {
+        shadow[0].events.clear();
+        shadow[0].advance();
+        emitFromEvents(t0);
+    } else if (e.emits) {
         const double length = e.effectDuration;
         if (e.loop) {
             auto k = static_cast<std::int64_t>(std::floor(t0 / length));
@@ -385,6 +418,38 @@ void Simulation::Emitter::advance() {
         }
     }
 
+    if (e.collide) {
+        // The floor: a particle that has gone through it is put back above it and sent up again,
+        // keeping `bounce` of its downward speed and losing `collDampen` of all its speed.
+        for (std::uint32_t i = 0; i < n; ++i) {
+            if (age[i] > 0.0f && y[i] < e.floorY && vy[i] < 0.0f) {
+                y[i] = e.floorY + (e.floorY - y[i]) * e.bounce;
+                const float keep = 1.0f - e.collDampen;
+                vx[i] *= keep;
+                vz[i] *= keep;
+                vy[i] = -vy[i] * e.bounce * keep;
+                if (recordMask & 4) {
+                    note(4, i, static_cast<double>(dt));
+                }
+                age[i] += e.collLifeLoss * life[i];
+                if (e.collMinSpeed > 0.0f &&
+                    vx[i] * vx[i] + vy[i] * vy[i] + vz[i] * vz[i] < e.collMinSpeed * e.collMinSpeed) {
+                    age[i] = life[i];  // too slow to bounce on: gone
+                }
+            }
+        }
+    }
+    if (e.zone != 0) {
+        const float hx = e.zoneSX * 0.5f, hy = e.zoneSY * 0.5f, hz = e.zoneSZ * 0.5f;
+        for (std::uint32_t i = 0; i < n; ++i) {
+            const bool inside = std::fabs(x[i] - e.zoneX) <= hx && std::fabs(y[i] - e.zoneY) <= hy &&
+                                std::fabs(z[i] - e.zoneZ) <= hz;
+            if (age[i] > 0.0f && (e.zone == 1 ? inside : !inside)) {
+                age[i] = life[i];
+            }
+        }
+    }
+
     // 3. Death. Survivors close up in order, so the oldest particle is always
     // first and the draw order never flickers.
     // First list who survives, then close up one field at a time: walking
@@ -394,6 +459,8 @@ void Simulation::Emitter::advance() {
     for (std::uint32_t i = 0; i < n; ++i) {
         if (age[i] < life[i]) {
             keep[kept++] = i;
+        } else if (recordMask & 2) {
+            note(2, i, static_cast<double>(dt));
         }
     }
     if (kept != n) {
@@ -845,22 +912,73 @@ void Simulation::Emitter::spawn(std::int64_t inPass, double offset, float progre
         // Only when set, so effects without one keep their exact bits.
         pos = det::Vec3f{pos.x + e.offsetX, pos.y + e.offsetY, pos.z + e.offsetZ};
     }
+    if (origin) {
+        pos = det::Vec3f{pos.x + origin->x, pos.y + origin->y, pos.z + origin->z};
+        dir = det::Vec3f{dir.x, dir.y, dir.z};
+    }
     f[kX][i] = pos.x;
     f[kY][i] = pos.y;
     f[kZ][i] = e.flat ? 0.0f : pos.z;
-    f[kVX][i] = dir.x * speed;
-    f[kVY][i] = dir.y * speed;
-    f[kVZ][i] = e.flat ? 0.0f : dir.z * speed;
+    const float carry = origin ? e.subInheritMotion : 0.0f;
+    f[kVX][i] = dir.x * speed + (origin ? origin->vx * carry : 0.0f);
+    f[kVY][i] = dir.y * speed + (origin ? origin->vy * carry : 0.0f);
+    f[kVZ][i] = e.flat ? 0.0f : dir.z * speed + (origin ? origin->vz * carry : 0.0f);
     f[kAge][i] = -static_cast<float>(clipped);
     f[kLife][i] = lifetime;
     f[kSize][i] = size;
     f[kRot][i] = sample(e.rotation, random(kChRotation), progress) + (e.pathAlign ? pathAngle : 0.0f);
     f[kSpin][i] = e.spin.isCurve() ? 0.0f : sample(e.spin, random(kChSpin), 0.0f);
-    f[kR][i] = e.color[0];
-    f[kG][i] = e.color[1];
-    f[kB][i] = e.color[2];
-    f[kA][i] = alpha;
+    const bool tinted = origin && e.subInheritColor;
+    f[kR][i] = tinted ? e.color[0] * origin->r : e.color[0];
+    f[kG][i] = tinted ? e.color[1] * origin->g : e.color[1];
+    f[kB][i] = tinted ? e.color[2] * origin->b : e.color[2];
+    f[kA][i] = tinted ? alpha * origin->a : alpha;
     f[kPick][i] = random(kChFrame);
+    if (recordMask & 1) {
+        note(1, i, clipped);
+    }
+}
+
+// A sub emitter's births: wherever its parent's particles were born, died or bounced during the step
+// that has just been run, `subCount` of its own, each event deciding by chance whether it counts.
+void Simulation::Emitter::emitFromEvents(double t0) {
+    const EmitterProgram& e = *p;
+    const double length = e.effectDuration;
+    for (const Event& event : shadow[0].events) {
+        const double when = t0 + event.offset;
+        std::int64_t inPass = 0;
+        if (e.loop) {
+            inPass = static_cast<std::int64_t>(std::floor(when / length));
+            if (inPass < firstPass) {
+                continue;
+            }
+        } else if (!(when < length)) {
+            continue;
+        }
+        const double inside = when - static_cast<double>(inPass) * length;
+        if (inside < e.start || inside >= e.start + e.duration) {
+            continue;
+        }
+        if (inPass != pass) {
+            pass = inPass;
+            carried = 0.0;
+            spawned = 0;
+            rateRandom = 0.0f;
+        }
+        if (e.subChance < 1.0f) {
+            const std::uint64_t key = det::particleKey(e.key, static_cast<std::uint64_t>(inPass), spawned);
+            if (!(det::unitFloat(det::mix64(key ^ 0x4348414e4345ull)) < e.subChance)) {
+                spawned += static_cast<std::uint64_t>(e.subCount);
+                continue;
+            }
+        }
+        origin = &event;
+        const auto progress = static_cast<float>((inside - e.start) / e.duration);
+        for (int k = 0; k < e.subCount; ++k) {
+            spawn(inPass, event.offset, progress);
+        }
+        origin = nullptr;
+    }
 }
 
 // ------------------------------------------------------------- Simulation

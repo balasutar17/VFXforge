@@ -164,6 +164,14 @@ struct EmitterProgram {
     bool emits = false;
     ScalarF rate;  // particles per second; a curve reads across the layer's duration
     std::vector<BurstF> bursts;
+    // A sub emitter: released where a particle of `subParent` is born (1), dies (2) or bounces (4)
+    // instead of by time. The parent is a private copy, run alongside this layer.
+    std::shared_ptr<const EmitterProgram> subParent;
+    int subTrigger = 0;
+    int subCount = 3;
+    float subChance = 1.0f;
+    float subInheritMotion = 0.0f;
+    bool subInheritColor = false;
 
     // Where particles appear.
     ShapeType shape = ShapeType::Point;
@@ -245,6 +253,11 @@ struct EmitterProgram {
     float speedLimit = 0, speedLimitDampen = 0.5f;
     float spinBySpeed = 0;      // degrees per second at the fast end of the speed range
     float inheritVelocity = 0;  // only used by the Unity export
+    // Collision with a floor, and a box that removes particles (Unity's Triggers).
+    bool collide = false;
+    float floorY = 0, bounce = 0.5f, collDampen = 0.1f, collLifeLoss = 0, collMinSpeed = 0;
+    int zone = 0;  // 0 off, 1 kill inside, 2 kill outside
+    float zoneX = 0, zoneY = 0, zoneZ = 0, zoneSX = 4, zoneSY = 4, zoneSZ = 4;
     // By Speed: tint and size read from the particle's speed, speedMin..speedMax across 0..1.
     std::vector<GradientKeyF> colorBySpeed;  // empty means no tint
     ScalarF sizeBySpeed;
@@ -330,7 +343,7 @@ struct Program {
 // a burst at the very start of a pass is in that pass's first drawing.
 std::int64_t heldDrawing(const EmitterProgram& e, std::int64_t step);
 
-std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const Layer& layer);
+std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const Layer& layer, int depth = 0);
 std::shared_ptr<const Program> compileEffect(const Effect& effect);
 
 // Keeps a program in step with a document while it is being edited.

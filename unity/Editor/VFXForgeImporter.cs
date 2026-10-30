@@ -181,6 +181,48 @@ namespace VFXForge.EditorTools
                 child.SetActive(Bool(layer, "enabled", true));
             }
 
+            // Sub emitters: every layer set off by another layer's particles becomes a child of that
+            // layer, joined to it in Unity's Sub Emitters module.
+            for (int i = 0; i < layers.Count; i++)
+            {
+                var layer = layers[i] as Dictionary<string, object>;
+                var sub = layer == null ? null : Obj(layer, "subEmitter");
+                if (sub == null)
+                    continue;
+                Transform childTransform = top.transform.Find(Str(layer, "name", "Layer " + (i + 1)));
+                Transform parentTransform = top.transform.Find(Str(sub, "parent", ""));
+                var childSystem = childTransform == null ? null : childTransform.GetComponent<ParticleSystem>();
+                var parentSystem = parentTransform == null ? null : parentTransform.GetComponent<ParticleSystem>();
+                if (childSystem == null || parentSystem == null || childSystem == parentSystem)
+                {
+                    ctx.LogImportWarning("The sub emitter \"" + Str(layer, "name", "") + "\" lost its parent layer, so it does not play.");
+                    continue;
+                }
+                // The child sits under its parent, as Unity's own Sub Emitters are made.
+                childTransform.SetParent(parentTransform, false);
+                var main = childSystem.main;
+                main.playOnAwake = false;
+                var childEmission = childSystem.emission;
+                childEmission.rateOverTime = 0f;
+                var subModule = parentSystem.subEmitters;
+                subModule.enabled = true;
+                string when = Str(sub, "trigger", "death");
+                var kind = when == "birth" ? ParticleSystemSubEmitterType.Birth
+                         : when == "collision" ? ParticleSystemSubEmitterType.Collision : ParticleSystemSubEmitterType.Death;
+                var inherit = ParticleSystemSubEmitterProperties.InheritNothing;
+                if (Bool(sub, "inheritColor", false))
+                    inherit |= ParticleSystemSubEmitterProperties.InheritColor;
+                if (Num(sub, "inheritMotion", 0) > 0)
+                {
+                    // On a sub emitter, Inherit Velocity takes the parent particle's own velocity.
+                    var carried = childSystem.inheritVelocity;
+                    carried.enabled = true;
+                    carried.mode = ParticleSystemInheritVelocityMode.Initial;
+                    carried.curve = (float)Num(sub, "inheritMotion", 0);
+                }
+                subModule.AddSubEmitter(childSystem, kind, inherit, (float)Num(sub, "chance", 1));
+            }
+
             // The 3D model the effect was made on, when it came along: drawn
             // by the VFX Forge model shader, which writes depth so particles
             // behind it are hidden, as in VFX Forge.
@@ -365,6 +407,45 @@ namespace VFXForge.EditorTools
                 carried.x = drift.x;
                 carried.y = drift.y;
                 carried.z = drift.z;
+            }
+            var hitInfo = Obj(layer, "collision");
+            if (hitInfo != null)
+            {
+                // A floor: Unity's Collision module against one plane, a child of this layer.
+                var floor = new GameObject("Floor");
+                floor.transform.SetParent(system.transform, false);
+                floor.transform.localPosition = new Vector3(0f, (float)Num(hitInfo, "floor", 0), 0f);
+                floor.transform.localRotation = Quaternion.identity;
+                var hit = system.collision;
+                hit.enabled = true;
+                hit.type = ParticleSystemCollisionType.Planes;
+                hit.mode = ParticleSystemCollisionMode.Collision3D;
+                hit.SetPlane(0, floor.transform);
+                hit.bounce = (float)Num(hitInfo, "bounce", 0.5);
+                hit.dampen = (float)Num(hitInfo, "dampen", 0.1);
+                hit.lifetimeLoss = (float)Num(hitInfo, "lifetimeLoss", 0);
+                hit.minKillSpeed = (float)Num(hitInfo, "minKillSpeed", 0);
+                hit.radiusScale = 0.0f;
+            }
+            var zoneInfo = Obj(layer, "zone");
+            if (zoneInfo != null)
+            {
+                // A box that removes particles: Unity's Triggers module with a trigger collider.
+                var zone = new GameObject("Kill zone");
+                zone.transform.SetParent(system.transform, false);
+                zone.transform.localPosition = Vec(zoneInfo, "center", Vector3.zero);
+                var box = zone.AddComponent<BoxCollider>();
+                box.isTrigger = true;
+                box.size = Vec(zoneInfo, "size", Vector3.one * 4f);
+                var triggers = system.trigger;
+                triggers.enabled = true;
+                triggers.SetCollider(0, box);
+                bool killInside = Str(zoneInfo, "kill", "inside") == "inside";
+                triggers.inside = killInside ? ParticleSystemOverlapAction.Kill : ParticleSystemOverlapAction.Ignore;
+                triggers.outside = killInside ? ParticleSystemOverlapAction.Ignore : ParticleSystemOverlapAction.Kill;
+                triggers.enter = ParticleSystemOverlapAction.Ignore;
+                triggers.exit = ParticleSystemOverlapAction.Ignore;
+                triggers.radiusScale = 0.0f;
             }
             var limitInfo = Obj(layer, "speedLimit");
             if (limitInfo != null)

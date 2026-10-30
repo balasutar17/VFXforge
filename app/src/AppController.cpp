@@ -637,6 +637,25 @@ void AppController::rebuildControls() {
                     kind = QStringLiteral("bursts");
                     row.insert(QStringLiteral("items"), burstsToList(*bursts));
                     row.insert(QStringLiteral("layerLength"), selected ? selected->duration : 0.0);
+                } else if (const auto* parentName = std::get_if<std::string>(&c.value);
+                           parentName && d.kind == vfx::ValueKind::Text && d.key == "parent") {
+                    // The layers a sub emitter can be set off by: every other layer, by name.
+                    kind = QStringLiteral("choice");
+                    row.insert(QStringLiteral("value"), text(*parentName));
+                    QVariantList options;
+                    QVariantMap none;
+                    none.insert(QStringLiteral("value"), QString());
+                    none.insert(QStringLiteral("label"), QStringLiteral("(none)"));
+                    options.push_back(none);
+                    for (const vfx::Layer& other : session_.effect().layers) {
+                        if (other.id != c.layer) {
+                            QVariantMap entry;
+                            entry.insert(QStringLiteral("value"), text(other.name));
+                            entry.insert(QStringLiteral("label"), text(other.name));
+                            options.push_back(entry);
+                        }
+                    }
+                    row.insert(QStringLiteral("options"), options);
                 } else if (const auto* choice = std::get_if<std::string>(&c.value);
                            choice && d.kind == vfx::ValueKind::Enum) {
                     // The particle's shape is picked from pictures; any other
@@ -1625,7 +1644,7 @@ void AppController::setControlDirection(int index, double heading, double tilt) 
 
 void AppController::setControlChoice(int index, const QString& option) {
     ControlView c;
-    if (!control(index, c) || c.desc->kind != vfx::ValueKind::Enum) {
+    if (!control(index, c) || (c.desc->kind != vfx::ValueKind::Enum && c.desc->key != "parent")) {
         return;
     }
     session_.endEdit();

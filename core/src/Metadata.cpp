@@ -68,6 +68,25 @@ Registry::Registry() {
             .help("How many particles appear each second."),
         P("bursts", "Bursts", ValueKind::Bursts, BurstList{})
             .help("Groups of particles released at set moments."),
+        P("trigger", "Emit When", ValueKind::Enum, text("time"))
+            .options({"time", "parent born", "parent dies", "parent bounces"})
+            .help("Sub emitter. Time: the usual Amount and Bursts. The others make this layer a "
+                  "sub emitter: it releases its particles where a particle of the Parent Layer is born, "
+                  "dies, or hits the floor. Unity: Sub Emitters."),
+        P("parent", "Parent Layer", ValueKind::Text, text(""))
+            .help("The name of the layer whose particles set this one off. A layer switched off "
+                  "still works as a parent, so it can be an invisible launcher."),
+        P("triggerCount", "Per Event", ValueKind::Float, num(3.0))
+            .range(1, 100).ui(1, 20)
+            .help("How many particles are released each time (a whole number)."),
+        P("triggerChance", "Chance", ValueKind::Float, num(1.0))
+            .range(0, 1).ui(0, 1)
+            .help("The chance that an event releases anything: 1 always, 0.25 one time in four."),
+        P("inheritMotion", "Inherit Motion", ValueKind::Float, num(0.0))
+            .range(0, 1).ui(0, 1)
+            .help("How much of the parent particle's own velocity the new particles start with."),
+        P("inheritColor", "Inherit Colour", ValueKind::Bool, Value(false))
+            .help("Start with the colour the parent particle has at that moment."),
     }));
 
     modules_.push_back(module("shape", "Shape", Stage::Spawn, {
@@ -234,6 +253,30 @@ Registry::Registry() {
             .unit("degrees per second").range(-36000, 36000).ui(-720, 720)
             .help("Extra spin that grows with the particle's speed: none when it is at the slow "
                   "end of the Speed Range, this much at the fast end. Unity: Rotation by Speed."),
+        P("collide", "Collide with Floor", ValueKind::Bool, Value(false))
+            .help("Particles that fall through the floor height bounce off it. Unity: Collision (a plane)."),
+        P("floorHeight", "Floor Height", ValueKind::Float, num(0.0))
+            .unit("units").range(-10000, 10000).ui(-5, 5)
+            .help("Where the floor is, up from the effect's centre."),
+        P("bounce", "Bounce", ValueKind::Float, num(0.5))
+            .range(0, 1).ui(0, 1)
+            .help("How much of its downward speed a particle keeps going up again: 0 lands dead, 1 bounces back as high."),
+        P("collisionDampen", "Collision Dampen", ValueKind::Float, num(0.1))
+            .range(0, 1).ui(0, 1)
+            .help("How much of all its speed a particle loses every time it hits the floor."),
+        P("collisionLifeLoss", "Lifetime Loss", ValueKind::Float, num(0.0))
+            .range(0, 1).ui(0, 1)
+            .help("The share of its life a particle loses at each hit: 1 kills it on contact."),
+        P("collisionMinSpeed", "Min Kill Speed", ValueKind::Float, num(0.0))
+            .unit("units per second").range(0, 10000).ui(0, 5)
+            .help("A particle slower than this after a hit is removed, so bounces die away instead of jittering."),
+        P("zone", "Kill Zone", ValueKind::Enum, text("off"))
+            .options({"off", "kill inside", "kill outside"})
+            .help("Removes particles inside (or outside) a box. Unity: Triggers, with a trigger collider."),
+        P("zoneCenter", "Zone Centre", ValueKind::Vec3, Vec3{0, 0, 0})
+            .unit("units").range(-10000, 10000).ui(-5, 5),
+        P("zoneSize", "Zone Size", ValueKind::Vec3, Vec3{4, 4, 4})
+            .unit("units").range(0, 10000).ui(0, 10),
         P("inheritVelocity", "Inherit Velocity", ValueKind::Float, num(0.0))
             .range(0, 1).ui(0, 1)
             .help("How much of the moving effect object's own speed the particles take with them "

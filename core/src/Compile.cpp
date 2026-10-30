@@ -411,7 +411,7 @@ std::uint64_t toCount(double value) {
 
 }  // namespace
 
-std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const Layer& layer) {
+std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const Layer& layer, int depth) {
     auto e = std::make_shared<EmitterProgram>();
     e->layer = layer.id;
     e->key = det::emitterKey(static_cast<std::uint64_t>(effect.seed), layer.id.value);
@@ -441,8 +441,37 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         std::stable_sort(e->bursts.begin(), e->bursts.end(),
                          [](const BurstF& x, const BurstF& y) { return x.time < y.time; });
     }
-    const double maxRate = std::max(0.0, static_cast<double>(e->rate.maxValue()));
+    double maxRate = std::max(0.0, static_cast<double>(e->rate.maxValue()));
     e->emits = emission.present() && e->duration > 0.0 && (maxRate > 0.0 || !e->bursts.empty());
+    if (emission.present() && depth < 3) {
+        const std::string& when = emission.get<std::string>("trigger");
+        const std::string& parentName = emission.get<std::string>("parent");
+        const int kind = when == "parent born" ? 1 : (when == "parent dies" ? 2 : (when == "parent bounces" ? 4 : 0));
+        if (kind != 0 && !parentName.empty()) {
+            for (const auto& other : effect.layers) {
+                if (other.id != layer.id && other.name == parentName) {
+                    e->subParent = compileLayer(effect, other, depth + 1);
+                    break;
+                }
+            }
+        }
+        if (e->subParent && e->subParent->emits && e->duration > 0.0) {
+            e->subTrigger = kind;
+            const double count = emission.get<double>("triggerCount");
+            e->subCount = std::isfinite(count) ? static_cast<int>(std::clamp(std::floor(count + 0.5), 1.0, 100.0)) : 3;
+            const double chance = emission.get<double>("triggerChance");
+            e->subChance = std::isfinite(chance) ? std::clamp(f(chance), 0.0f, 1.0f) : 1.0f;
+            const double inherit = emission.get<double>("inheritMotion");
+            e->subInheritMotion = std::isfinite(inherit) ? std::clamp(f(inherit), 0.0f, 1.0f) : 0.0f;
+            e->subInheritColor = emission.get<bool>("inheritColor");
+            e->emits = true;
+            e->bursts.clear();
+            e->rate = constantScalar(0.0f);
+            maxRate = 0.0;
+        } else {
+            e->subParent.reset();
+        }
+    }
 
     // ---------------------------------------------------------------- shape
     const Reader shape(firstOfType(layer, "shape"), "shape");
@@ -554,6 +583,23 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         e->speedLimitDampen = finite("speedLimitDampen", 0.0, 1.0, 0.5);
         e->spinBySpeed = finite("spinBySpeed", -36000.0, 36000.0, 0.0);
         e->inheritVelocity = finite("inheritVelocity", 0.0, 1.0, 0.0);
+        e->collide = motion.get<bool>("collide");
+        e->floorY = finite("floorHeight", -10000.0, 10000.0, 0.0);
+        e->bounce = finite("bounce", 0.0, 1.0, 0.5);
+        e->collDampen = finite("collisionDampen", 0.0, 1.0, 0.1);
+        e->collLifeLoss = finite("collisionLifeLoss", 0.0, 1.0, 0.0);
+        e->collMinSpeed = finite("collisionMinSpeed", 0.0, 10000.0, 0.0);
+        const std::string& zoneMode = motion.get<std::string>("zone");
+        e->zone = zoneMode == "kill inside" ? 1 : (zoneMode == "kill outside" ? 2 : 0);
+        const Vec3& zc = motion.get<Vec3>("zoneCenter");
+        const Vec3& zs = motion.get<Vec3>("zoneSize");
+        const auto fin = [&](double v, double lo, double hi) { return std::isfinite(v) ? f(std::clamp(v, lo, hi)) : 0.0f; };
+        e->zoneX = fin(zc.x, -10000.0, 10000.0);
+        e->zoneY = fin(zc.y, -10000.0, 10000.0);
+        e->zoneZ = e->flat ? 0.0f : fin(zc.z, -10000.0, 10000.0);
+        e->zoneSX = fin(zs.x, 0.0, 10000.0);
+        e->zoneSY = fin(zs.y, 0.0, 10000.0);
+        e->zoneSZ = e->flat ? 1e9f : fin(zs.z, 0.0, 10000.0);
 
         e->speedOverLife = toScalar(motion.get<Scalar>("speedOverLife"));
         e->eases = !(e->speedOverLife.mode == ScalarF::Mode::Constant && e->speedOverLife.a == 1.0f);
@@ -682,7 +728,14 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
     // Two upper bounds on how many particles can be alive at once; the
     // smaller is the one that matters.
     e->maxLifetime = std::max(1e-4, static_cast<double>(e->lifetime.maxValue()));
-    if (e->emits) {
+    if (e->subParent) {
+        // At most one event's worth of particles for each of the parent's, for as long as one of them lives.
+        const double parents = static_cast<double>(e->subParent->capacity);
+        const double perParent = e->subTrigger == 1 ? 1.0 : 1.0;
+        e->maxLifetime += e->subParent->maxLifetime;  // a sub emitter's history reaches back through the parent's
+        e->wanted = toCount(parents * e->subCount * perParent * (e->lifetime.maxValue() / std::max(1e-3, static_cast<double>(e->subParent->lifetime.maxValue())) + 1.0) + 16.0);
+        e->capacity = static_cast<std::uint32_t>(std::min<std::uint64_t>(e->wanted, kMaxParticlesPerEmitter));
+    } else if (e->emits) {
         double burstTotal = 0.0;
         for (const auto& b : e->bursts) {
             burstTotal += b.count;
@@ -774,8 +827,17 @@ std::shared_ptr<const Program> LiveProgram::current() {
             continue;
         }
         std::shared_ptr<const EmitterProgram> reused;
-        const bool dirty = allDirty_ || std::find(dirtyLayers_.begin(), dirtyLayers_.end(),
-                                                  layer.id) != dirtyLayers_.end();
+        bool subEmitter = false;
+        for (const auto& m : layer.modules) {
+            if (m.type == "emission") {
+                if (const Value* v = m.find("trigger")) {
+                    subEmitter = std::get<std::string>(*v) != "time";
+                }
+            }
+        }
+        // A sub emitter carries a copy of its parent, so any edit rebuilds it.
+        const bool dirty = allDirty_ || (subEmitter && !dirtyLayers_.empty()) ||
+                           std::find(dirtyLayers_.begin(), dirtyLayers_.end(), layer.id) != dirtyLayers_.end();
         if (!dirty && program_) {
             for (const auto& old : program_->emitters) {
                 if (old->layer == layer.id) {

@@ -831,3 +831,127 @@ TEST_CASE("By Speed modules tint and size a particle by how fast it goes", "[mot
     CHECK(l["bySpeed"]["range"][1].get<double>() == Catch::Approx(10.0));
     CHECK(l["bySpeed"]["color"].is_object());
 }
+
+TEST_CASE("A floor bounces particles and loses their energy; a kill zone removes them", "[motion][unity]") {
+    const auto dropped = [](bool collide, double bounce, double lifeLoss) {
+        return single([=](Layer& l) {
+            burstOnly(l, 1);
+            put(l, "emission", "bursts", Value(BurstList{{{0.0, 1}}}));
+            put(l, "initial", "lifetime", Scalar::constant(2.0));
+            put(l, "initial", "speed", Scalar::constant(0.0));
+            put(l, "initial", "spread", 0.0);
+            put(l, "shape", "offset", Vec3{0.0, 2.0, 0.0});
+            put(l, "motion", "gravity", Vec3{0.0, -20.0, 0.0});
+            put(l, "motion", "collide", collide);
+            put(l, "motion", "floorHeight", 0.0);
+            put(l, "motion", "bounce", bounce);
+            put(l, "motion", "collisionDampen", 0.0);
+            put(l, "motion", "collisionLifeLoss", lifeLoss);
+        });
+    };
+    // Without a floor it falls on; with one it never goes below it.
+    float lowest = 1e9f, lowestFree = 1e9f;
+    for (std::int64_t s = 1; s < 100; ++s) {
+        RenderFrame a = frameAt(dropped(true, 0.6, 0.0), s), b = frameAt(dropped(false, 0.6, 0.0), s);
+        if (!a.instances.empty()) lowest = std::min(lowest, a.instances[0].y);
+        if (!b.instances.empty()) lowestFree = std::min(lowestFree, b.instances[0].y);
+    }
+    CHECK(lowest > -0.1f);
+    CHECK(lowestFree < -5.0f);
+    // It comes back up after landing.
+    bool rose = false;
+    float previous = 1e9f;
+    for (std::int64_t s = 1; s < 100 && !rose; ++s) {
+        RenderFrame a = frameAt(dropped(true, 0.6, 0.0), s);
+        if (a.instances.empty()) continue;
+        rose = a.instances[0].y > previous + 0.01f && a.instances[0].y < 1.9f && s > 20;
+        previous = a.instances[0].y;
+    }
+    CHECK(rose);
+    // A hit that takes all its life away ends it at once.
+    CHECK(frameAt(dropped(true, 0.6, 1.0), 99).instances.empty());
+
+    const J hit = describe(dropped(true, 0.6, 0.0))["layers"][0]["collision"];
+    REQUIRE(hit.is_object());
+    CHECK(hit["bounce"].get<double>() == Catch::Approx(0.6));
+
+    const Effect zoned = single([](Layer& l) {
+        burstOnly(l, 1);
+        put(l, "initial", "lifetime", Scalar::constant(2.0));
+        put(l, "initial", "speed", Scalar::constant(5.0));
+        put(l, "initial", "direction", Vec3{1.0, 0.0, 0.0});
+        put(l, "initial", "spread", 0.0);
+        put(l, "motion", "gravity", Vec3{0.0, 0.0, 0.0});
+        put(l, "motion", "zone", std::string("kill inside"));
+        put(l, "motion", "zoneCenter", Vec3{3.0, 0.0, 0.0});
+        put(l, "motion", "zoneSize", Vec3{1.0, 4.0, 4.0});
+    });
+    CHECK(frameAt(zoned, 20).instances.size() == 1);  // short of the box
+    CHECK(frameAt(zoned, 40).instances.empty());      // inside it, gone
+    CHECK(describe(zoned)["layers"][0]["zone"]["kill"].get<std::string>() == "inside");
+}
+
+TEST_CASE("A sub emitter releases its particles where its parent's particles are born, die or bounce", "[motion][unity][sub]") {
+    const auto build = [](const char* when, double chance, bool disabledParent) {
+        IdGenerator ids(21);
+        const IdSource newId = [&ids]() { return ids.next(); };
+        Effect effect = makeEmptyEffect(newId, "Test", false);
+        effect.duration = 4.0;
+        effect.loop = "once";
+        Layer parent = makeBasicEmitter(newId, "Rocket");
+        parent.duration = 4.0;
+        parent.enabled = !disabledParent;
+        burstOnly(parent, 1);
+        put(parent, "initial", "lifetime", Scalar::constant(1.0));
+        put(parent, "initial", "speed", Scalar::constant(4.0));
+        put(parent, "initial", "direction", Vec3{1.0, 0.0, 0.0});
+        put(parent, "initial", "spread", 0.0);
+        put(parent, "motion", "gravity", Vec3{0.0, 0.0, 0.0});
+        Layer child = makeBasicEmitter(newId, "Sparks");
+        child.duration = 4.0;
+        put(child, "initial", "lifetime", Scalar::constant(0.5));
+        put(child, "initial", "speed", Scalar::constant(0.0));
+        put(child, "initial", "spread", 0.0);
+        put(child, "motion", "gravity", Vec3{0.0, 0.0, 0.0});
+        put(child, "emission", "trigger", std::string(when));
+        put(child, "emission", "parent", std::string("Rocket"));
+        put(child, "emission", "triggerCount", 5.0);
+        put(child, "emission", "triggerChance", chance);
+        effect.layers.push_back(parent);
+        effect.layers.push_back(child);
+        return effect;
+    };
+    const auto sparks = [](const Effect& effect, std::int64_t step) {
+        RenderFrame frame = frameAt(effect, step);
+        std::vector<SpriteInstance> out;
+        for (const RenderBatch& b : frame.batches) {
+            if (b.layer == effect.layers[1].id) {
+                for (std::uint32_t i = 0; i < b.count; ++i) out.push_back(frame.instances[b.first + i]);
+            }
+        }
+        return out;
+    };
+
+    // Born with the parent: sparks wait at the start. Dies after a second: they appear at its far end.
+    const Effect birth = build("parent born", 1.0, false), death = build("parent dies", 1.0, false);
+    CHECK(sparks(birth, 3).size() == 5);
+    for (const SpriteInstance& s : sparks(birth, 3)) CHECK(s.x < 0.5f);
+    CHECK(sparks(death, 30).empty());   // the rocket is still flying
+    const auto after = sparks(death, 66);  // just after it ends, at about 4 units out
+    REQUIRE(after.size() == 5);
+    for (const SpriteInstance& s : after) CHECK(s.x == Catch::Approx(4.0f).margin(0.3));
+    // No chance, no sparks; and a switched-off parent still sets them off.
+    CHECK(sparks(build("parent dies", 0.0, false), 66).empty());
+    CHECK(sparks(build("parent dies", 1.0, true), 66).size() == 5);
+    // Seeking straight to a moment gives what playing up to it does.
+    Simulation played(compileEffect(death)), jumped(compileEffect(death));
+    for (int i = 0; i < 70; ++i) played.advance();
+    jumped.seek(70);
+    CHECK(played.stateHash() == jumped.stateHash());
+
+    const J sub = describe(death)["layers"][1]["subEmitter"];
+    REQUIRE(sub.is_object());
+    CHECK(sub["trigger"].get<std::string>() == "death");
+    CHECK(sub["parent"].get<std::string>() == "Rocket");
+    CHECK(sub["count"].get<int>() == 5);
+}
