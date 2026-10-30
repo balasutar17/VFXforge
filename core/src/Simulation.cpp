@@ -252,6 +252,27 @@ void Simulation::Emitter::advance() {
             rot[i] += spin[i] * h;
         }
     }
+    if (e.spinBySpeed != 0.0f) {
+        const float range = e.speedMax - e.speedMin;
+        for (std::uint32_t i = 0; i < n; ++i) {
+            const float a1 = age[i] + dt;
+            const float h = a1 < dt ? (a1 > 0.0f ? a1 : 0.0f) : dt;
+            const float sp = std::sqrt(vx[i] * vx[i] + vy[i] * vy[i] + vz[i] * vz[i]);
+            rot[i] += e.spinBySpeed * clamp01((sp - e.speedMin) / range) * h;
+        }
+    }
+    if (e.hasForce) {
+        // A push on top of gravity, scaled across the particle's life.
+        for (std::uint32_t i = 0; i < n; ++i) {
+            const float a1 = age[i] + dt;
+            const float h = a1 < dt ? (a1 > 0.0f ? a1 : 0.0f) : dt;
+            const float m = e.forceRamp.isCurve() ? evalCurve(e.forceRamp.keys, clamp01(a1 / life[i]))
+                                                  : e.forceRamp.a;
+            vx[i] += e.forceX * m * h;
+            vy[i] += e.forceY * m * h;
+            vz[i] += e.forceZ * m * h;
+        }
+    }
     if (e.turbulence > 0.0f) {
         // Carried along by the swirls as they were, where the particle was,
         // at the start of the step. Done before the particle's own movement
@@ -308,6 +329,27 @@ void Simulation::Emitter::advance() {
             y[i] += nvy * go;
             z[i] += nvz * go;
             age[i] = a1;
+        }
+    }
+    if (e.driftX != 0.0f || e.driftY != 0.0f || e.driftZ != 0.0f) {
+        for (std::uint32_t i = 0; i < n; ++i) {
+            const float a1 = age[i];
+            const float h = a1 < dt ? (a1 > 0.0f ? a1 : 0.0f) : dt;
+            x[i] += e.driftX * h;
+            y[i] += e.driftY * h;
+            z[i] += e.driftZ * h;
+        }
+    }
+    if (e.speedLimit > 0.0f) {
+        const float pull = e.speedLimitDampen * std::min(1.0f, dt * 12.0f);
+        for (std::uint32_t i = 0; i < n; ++i) {
+            const float sp = std::sqrt(vx[i] * vx[i] + vy[i] * vy[i] + vz[i] * vz[i]);
+            if (sp > e.speedLimit) {
+                const float k = 1.0f - pull * (1.0f - e.speedLimit / sp);
+                vx[i] *= k;
+                vy[i] *= k;
+                vz[i] *= k;
+            }
         }
     }
     if (e.orbit != 0.0f) {
@@ -957,9 +999,9 @@ void Simulation::extract(RenderFrame& frame) const {
         batch.dissolveSoft = batch.dissolves ? e.dissolveSoft : 0.0f;
         batch.trail = e.trail;
         batch.trailWidth = e.trailWidth;
-        batch.gravityX = e.gravityX;
-        batch.gravityY = e.gravityY;
-        batch.gravityZ = e.flat ? 0.0f : e.gravityZ;
+        batch.gravityX = e.gravityX + e.forceX * (e.forceRamp.isCurve() ? 1.0f : e.forceRamp.a);
+        batch.gravityY = e.gravityY + e.forceY * (e.forceRamp.isCurve() ? 1.0f : e.forceRamp.a);
+        batch.gravityZ = e.flat ? 0.0f : e.gravityZ + e.forceZ * (e.forceRamp.isCurve() ? 1.0f : e.forceRamp.a);
         batch.drag = e.drag;
         batch.step = static_cast<float>(e.step);
         batch.turbulence = e.turbulence;
@@ -989,6 +1031,8 @@ void Simulation::extract(RenderFrame& frame) const {
         const bool sizeCurve = e.hasOverLife && e.sizeOverLife.isCurve();
         const bool opacityCurve = e.hasOverLife && e.opacityOverLife.isCurve();
         const bool tint = !e.colorOverLife.empty();
+        const bool bySpeedTint = !e.colorBySpeed.empty();
+        const bool bySpeedSize = e.hasSizeBySpeed;
         const float* x = from[kX].data();
         const float* y = from[kY].data();
         const float* z = from[kZ].data();
@@ -1028,6 +1072,20 @@ void Simulation::extract(RenderFrame& frame) const {
                 out.g *= c.g;
                 out.b *= c.b;
                 out.a *= c.a;
+            }
+            if (bySpeedTint || bySpeedSize) {
+                const float sp = std::sqrt(vx[i] * vx[i] + vy[i] * vy[i] + vz[i] * vz[i]);
+                const float s01 = clamp01((sp - e.speedMin) / (e.speedMax - e.speedMin));
+                if (bySpeedSize) {
+                    out.size *= e.sizeBySpeed.isCurve() ? evalCurve(e.sizeBySpeed.keys, s01) : e.sizeBySpeed.a;
+                }
+                if (bySpeedTint) {
+                    const Rgba c = evalGradient(e.colorBySpeed, s01);
+                    out.r *= c.r;
+                    out.g *= c.g;
+                    out.b *= c.b;
+                    out.a *= c.a;
+                }
             }
             int cell = 0;
             if (frames > 1) {

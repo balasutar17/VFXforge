@@ -733,3 +733,101 @@ TEST_CASE("the principles are handed to Unity", "[principles][unity]") {
         CHECK(root["layers"].size() == preset(id).layers.size());
     }
 }
+
+// ------------------------------------------------ Unity's motion modules (0.44)
+
+namespace {
+
+// Where the one particle of a burst is after `steps`.
+SpriteInstance onlyParticle(const Effect& effect, std::int64_t steps) {
+    RenderFrame frame = frameAt(effect, steps);
+    REQUIRE(frame.instances.size() == 1);
+    return frame.instances[0];
+}
+
+Effect still(const std::function<void(Layer&)>& more) {
+    return single([&](Layer& layer) {
+        burstOnly(layer, 1);
+        put(layer, "initial", "lifetime", Scalar::constant(2.0));
+        put(layer, "initial", "speed", Scalar::constant(0.0));
+        put(layer, "initial", "spread", 0.0);
+        put(layer, "motion", "gravity", Vec3{0.0, 0.0, 0.0});
+        more(layer);
+    });
+}
+
+}  // namespace
+
+TEST_CASE("Force over Lifetime pushes, and its ramp scales the push across the particle's life", "[motion][unity]") {
+    const Effect none = still([](Layer&) {});
+    const Effect pushed = still([](Layer& l) { put(l, "motion", "force", Vec3{4.0, 0.0, 0.0}); });
+    const Effect ramped = still([](Layer& l) {
+        put(l, "motion", "force", Vec3{4.0, 0.0, 0.0});
+        put(l, "motion", "forceRamp", Scalar::curve({{0, 0}, {1, 0}}));
+    });
+    CHECK(onlyParticle(none, 30).x == Catch::Approx(0.0f).margin(1e-5));
+    CHECK(onlyParticle(pushed, 30).x > 0.5f);
+    CHECK(onlyParticle(ramped, 30).x == Catch::Approx(0.0f).margin(1e-5));
+
+    const J l = describe(pushed)["layers"][0];
+    REQUIRE(l["extraForce"].is_array());
+    CHECK(l["extraForce"][0].get<double>() == Catch::Approx(4.0));
+    CHECK(describe(none)["layers"][0]["extraForce"].is_null());
+}
+
+TEST_CASE("Velocity over Lifetime moves particles at a steady speed that drag does not change", "[motion][unity]") {
+    const Effect drifting = still([](Layer& l) {
+        put(l, "motion", "drift", Vec3{2.0, 0.0, 0.0});
+        put(l, "motion", "drag", 5.0);
+    });
+    const SpriteInstance p = onlyParticle(drifting, 30);  // half a second
+    CHECK(p.x == Catch::Approx(1.0f).margin(0.05));
+    CHECK(describe(drifting)["layers"][0]["drift"][0].get<double>() == Catch::Approx(2.0));
+}
+
+TEST_CASE("Limit Velocity holds a fast particle back", "[motion][unity]") {
+    const auto fast = [](double limit) {
+        return single([limit](Layer& l) {
+            burstOnly(l, 1);
+            put(l, "initial", "lifetime", Scalar::constant(2.0));
+            put(l, "initial", "speed", Scalar::constant(20.0));
+            put(l, "initial", "direction", Vec3{1.0, 0.0, 0.0});
+            put(l, "initial", "spread", 0.0);
+            put(l, "motion", "gravity", Vec3{0.0, 0.0, 0.0});
+            put(l, "motion", "speedLimit", limit);
+            put(l, "motion", "speedLimitDampen", 1.0);
+        });
+    };
+    const float free = onlyParticle(fast(0.0), 60).x;
+    const float held = onlyParticle(fast(4.0), 60).x;
+    CHECK(free == Catch::Approx(20.0f).margin(0.1));
+    CHECK(held < free * 0.5f);
+    CHECK(describe(fast(4.0))["layers"][0]["speedLimit"]["limit"].get<double>() == Catch::Approx(4.0));
+}
+
+TEST_CASE("By Speed modules tint and size a particle by how fast it goes", "[motion][unity]") {
+    const auto at = [](double speed) {
+        return single([speed](Layer& l) {
+            burstOnly(l, 1);
+            put(l, "initial", "lifetime", Scalar::constant(2.0));
+            put(l, "initial", "speed", Scalar::constant(speed));
+            put(l, "initial", "direction", Vec3{1.0, 0.0, 0.0});
+            put(l, "initial", "spread", 0.0);
+            put(l, "motion", "gravity", Vec3{0.0, 0.0, 0.0});
+            put(l, "overLife", "speedMin", 0.0);
+            put(l, "overLife", "speedMax", 10.0);
+            put(l, "overLife", "colorBySpeed", Gradient{{{0.0, Color{1, 0, 0, 1}}, {1.0, Color{0, 0, 1, 1}}}});
+            put(l, "overLife", "sizeBySpeed", Scalar::curve({{0, 1}, {1, 3}}));
+        });
+    };
+    const SpriteInstance slow = onlyParticle(at(0.0), 1), fast = onlyParticle(at(10.0), 1);
+    CHECK(slow.r > 0.9f);
+    CHECK(slow.b < 0.1f);
+    CHECK(fast.b > 0.9f);
+    CHECK(fast.r < 0.1f);
+    CHECK(fast.size == Catch::Approx(slow.size * 3.0f).epsilon(0.02));
+    const J l = describe(at(10.0))["layers"][0];
+    REQUIRE(l["bySpeed"].is_object());
+    CHECK(l["bySpeed"]["range"][1].get<double>() == Catch::Approx(10.0));
+    CHECK(l["bySpeed"]["color"].is_object());
+}

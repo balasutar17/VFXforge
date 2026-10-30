@@ -433,7 +433,7 @@ TEST_CASE("The schema describes every module and is itself canonical JSON") {
             CHECK(p.contains("default"));
         }
     }
-    CHECK(properties == 86);
+    CHECK(properties == 97);
 }
 
 TEST_CASE("Migrations run in order, one version at a time") {

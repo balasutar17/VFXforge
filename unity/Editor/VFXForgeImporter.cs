@@ -337,22 +337,104 @@ namespace VFXForge.EditorTools
             }
 
             // ---- movement
-            if (layer.ContainsKey("force") && layer["force"] != null)
+            bool hasGravity = layer.ContainsKey("force") && layer["force"] != null;
+            bool hasPush = layer.ContainsKey("extraForce") && layer["extraForce"] != null;
+            if (hasGravity || hasPush)
             {
-                Vector3 force = Vec(layer, "force", Vector3.zero);
+                Vector3 force = hasGravity ? Vec(layer, "force", Vector3.zero) : Vector3.zero;
+                Vector3 push = hasPush ? Vec(layer, "extraForce", Vector3.zero) : Vector3.zero;
                 var forces = system.forceOverLifetime;
                 forces.enabled = true;
                 forces.space = ParticleSystemSimulationSpace.World;
-                forces.x = force.x;
-                forces.y = force.y;
-                forces.z = force.z;
+                // Gravity is steady; the push follows its own curve across the particle's life.
+                AnimationCurve ramp = AnimationCurve.Constant(0f, 1f, 1f);
+                if (hasPush && layer.ContainsKey("extraForceRamp") && layer["extraForceRamp"] != null)
+                    ramp = ScaledCurve(Curve(layer, "extraForceRamp", 1), 1f);
+                forces.x = new ParticleSystem.MinMaxCurve(1f, PushCurve(ramp, force.x, push.x));
+                forces.y = new ParticleSystem.MinMaxCurve(1f, PushCurve(ramp, force.y, push.y));
+                forces.z = new ParticleSystem.MinMaxCurve(1f, PushCurve(ramp, force.z, push.z));
+            }
+            if (layer.ContainsKey("drift") && layer["drift"] != null)
+            {
+                // Velocity over Lifetime: a steady extra speed. The module is shared with
+                // Speed over Life and Orbit below, which keep their own settings.
+                Vector3 drift = Vec(layer, "drift", Vector3.zero);
+                var carried = system.velocityOverLifetime;
+                carried.enabled = true;
+                carried.space = ParticleSystemSimulationSpace.Local;
+                carried.x = drift.x;
+                carried.y = drift.y;
+                carried.z = drift.z;
+            }
+            var limitInfo = Obj(layer, "speedLimit");
+            if (limitInfo != null)
+            {
+                var cap = system.limitVelocityOverLifetime;
+                cap.enabled = true;
+                cap.limit = (float)Num(limitInfo, "limit", 100000);
+                cap.dampen = (float)Num(limitInfo, "dampen", 0.5);
+            }
+            if (layer.ContainsKey("inheritVelocity") && layer["inheritVelocity"] != null)
+            {
+                var inherit = system.inheritVelocity;
+                inherit.enabled = true;
+                inherit.mode = ParticleSystemInheritVelocityMode.Initial;
+                inherit.curve = (float)Num(layer, "inheritVelocity", 0);
+            }
+            var bySpeed = Obj(layer, "bySpeed");
+            if (bySpeed != null)
+            {
+                var range = List(bySpeed, "range");
+                Vector2 span = range.Count >= 2 ? new Vector2((float)(double)range[0], (float)(double)range[1]) : new Vector2(0f, 5f);
+                if (bySpeed.ContainsKey("spin") && bySpeed["spin"] != null)
+                {
+                    var turning = system.rotationBySpeed;
+                    turning.enabled = true;
+                    turning.separateAxes = false;
+                    turning.z = new ParticleSystem.MinMaxCurve((float)Num(bySpeed, "spin", 0));
+                    turning.range = span;
+                }
+                if (bySpeed.ContainsKey("size") && bySpeed["size"] != null)
+                {
+                    var growing = system.sizeBySpeed;
+                    growing.enabled = true;
+                    growing.size = Curve(bySpeed, "size", 1);
+                    growing.range = span;
+                }
+                var speedGradient = Obj(bySpeed, "color");
+                if (speedGradient != null)
+                {
+                    var colorKeys = new List<GradientColorKey>();
+                    foreach (var item in List(speedGradient, "colors"))
+                    {
+                        var k = item as List<object>;
+                        if (k != null && k.Count >= 4)
+                            colorKeys.Add(new GradientColorKey(new Color((float)(double)k[1], (float)(double)k[2], (float)(double)k[3]), (float)(double)k[0]));
+                    }
+                    var alphaKeys = new List<GradientAlphaKey>();
+                    foreach (var item in List(speedGradient, "alphas"))
+                    {
+                        var k = item as List<object>;
+                        if (k != null && k.Count >= 2)
+                            alphaKeys.Add(new GradientAlphaKey((float)(double)k[1], (float)(double)k[0]));
+                    }
+                    var gradient = new Gradient();
+                    gradient.SetKeys(colorKeys.ToArray(), alphaKeys.ToArray());
+                    var tinted = system.colorBySpeed;
+                    tinted.enabled = true;
+                    tinted.color = new ParticleSystem.MinMaxGradient(gradient);
+                    tinted.range = span;
+                }
             }
             if (layer.ContainsKey("drag") && layer["drag"] != null)
             {
                 var limit = system.limitVelocityOverLifetime;
                 limit.enabled = true;
-                limit.limit = 100000f;
-                limit.dampen = 0f;
+                if (Obj(layer, "speedLimit") == null)
+                {
+                    limit.limit = 100000f;
+                    limit.dampen = 0f;
+                }
                 limit.drag = (float)Num(layer, "drag", 0);
                 limit.multiplyDragByParticleSize = false;
                 limit.multiplyDragByParticleVelocity = false;
@@ -648,6 +730,17 @@ namespace VFXForge.EditorTools
             AnimationCurve source = c.mode == ParticleSystemCurveMode.Curve ? c.curve : AnimationCurve.Constant(0f, 1f, c.constant);
             float m = c.mode == ParticleSystemCurveMode.Curve ? c.curveMultiplier : 1f;
             return ScaledCurve(source, factor * m);
+        }
+
+        // A steady value plus a push that follows a curve across the particle's life.
+        static AnimationCurve PushCurve(AnimationCurve ramp, float steady, float push)
+        {
+            var keys = new Keyframe[ramp.length];
+            for (int i = 0; i < ramp.length; i++)
+                keys[i] = new Keyframe(ramp[i].time, steady + push * ramp[i].value);
+            if (keys.Length == 0)
+                return AnimationCurve.Constant(0f, 1f, steady + push);
+            return new AnimationCurve(keys);
         }
 
         static AnimationCurve ScaledCurve(AnimationCurve source, float factor)

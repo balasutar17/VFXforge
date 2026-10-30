@@ -127,7 +127,14 @@
           "turbulenceSize": 1.5,
           "turbulenceChange": 0.6,
           "speedOverLife": 1.0,
-          "orbit": 0.0
+          "orbit": 0.0,
+          "force": [0.0, 0.0, 0.0],
+          "forceRamp": 1.0,
+          "drift": [0.0, 0.0, 0.0],
+          "speedLimit": 0.0,
+          "speedLimitDampen": 0.5,
+          "spinBySpeed": 0.0,
+          "inheritVelocity": 0.0
         },
         {
           "id": "m-4824e9f3e8075401",
@@ -135,6 +142,10 @@
           "size": {"curve": [[0.0, 1.0], [1.0, 0.4]]},
           "color": {"gradient": [[0.0, [1.0, 1.0, 1.0, 1.0]], [1.0, [1.0, 1.0, 1.0, 1.0]]]},
           "opacity": {"curve": [[0.0, 1.0], [1.0, 0.0]]},
+          "colorBySpeed": {"gradient": [[0.0, [1.0, 1.0, 1.0, 1.0]], [1.0, [1.0, 1.0, 1.0, 1.0]]]},
+          "sizeBySpeed": {"curve": [[0.0, 1.0], [1.0, 1.0]]},
+          "speedMin": 0.0,
+          "speedMax": 5.0,
           "dissolve": 0.0,
           "dissolveSoft": 0.15,
           "dissolveEdge": 0.0,

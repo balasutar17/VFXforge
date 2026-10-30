@@ -749,6 +749,55 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
         out["force"] = nullptr;
     }
     out["drag"] = e.drag > 0.0f ? J(round6(e.drag)) : J(nullptr);
+    // Force over Lifetime (on top of gravity), Velocity over Lifetime, Limit Velocity, Inherit Velocity.
+    if (e.hasForce) {
+        out["extraForce"] = J::array({round6(e.forceX), round6(e.forceY), e.flat ? 0.0 : round6(e.forceZ)});
+        out["extraForceRamp"] = e.forceRamp.isCurve() ? lifeCurve(e.forceRamp, 1.0) : J(round6(e.forceRamp.a));
+    } else {
+        out["extraForce"] = nullptr;
+        out["extraForceRamp"] = nullptr;
+    }
+    if (e.driftX != 0.0f || e.driftY != 0.0f || e.driftZ != 0.0f) {
+        out["drift"] = J::array({round6(e.driftX), round6(e.driftY), e.flat ? 0.0 : round6(e.driftZ)});
+    } else {
+        out["drift"] = nullptr;
+    }
+    if (e.speedLimit > 0.0f) {
+        J limit = J::object();
+        limit["limit"] = round6(e.speedLimit);
+        limit["dampen"] = round6(e.speedLimitDampen);
+        out["speedLimit"] = std::move(limit);
+    } else {
+        out["speedLimit"] = nullptr;
+    }
+    out["inheritVelocity"] = e.inheritVelocity > 0.0f ? J(round6(e.inheritVelocity)) : J(nullptr);
+    // By Speed: Unity reads these across a Range of speeds, as here.
+    if (e.spinBySpeed != 0.0f || e.hasSizeBySpeed || !e.colorBySpeed.empty()) {
+        J by = J::object();
+        by["range"] = J::array({round6(e.speedMin), round6(e.speedMax)});
+        by["spin"] = e.spinBySpeed != 0.0f ? J(round6(-e.spinBySpeed / kDeg)) : J(nullptr);
+        by["size"] = e.hasSizeBySpeed ? lifeCurve(e.sizeBySpeed, 1.0) : J(nullptr);
+        if (!e.colorBySpeed.empty()) {
+            std::vector<float> times;
+            for (const GradientKeyF& k : e.colorBySpeed) times.push_back(k.t);
+            J colours = J::array(), alphas = J::array();
+            for (const float t : keyTimes(times)) {
+                const GradientKeyF c = gradientAt(e.colorBySpeed, t);
+                colours.push_back(J::array({round6(t), round6(toScreen(std::min(c.r, 1.0f))),
+                                            round6(toScreen(std::min(c.g, 1.0f))), round6(toScreen(std::min(c.b, 1.0f)))}));
+                alphas.push_back(J::array({round6(t), round6(std::clamp(static_cast<double>(c.a), 0.0, 1.0))}));
+            }
+            J gradient = J::object();
+            gradient["colors"] = std::move(colours);
+            gradient["alphas"] = std::move(alphas);
+            by["color"] = std::move(gradient);
+        } else {
+            by["color"] = nullptr;
+        }
+        out["bySpeed"] = std::move(by);
+    } else {
+        out["bySpeed"] = nullptr;
+    }
     if (e.turbulence > 0.0f) {
         // Unity's own Noise module does this job. Its swirls are not the same
         // swirls, so the particles wander as much and as widely, not along

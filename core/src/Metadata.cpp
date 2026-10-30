@@ -211,6 +211,34 @@ Registry::Registry() {
             .unit("degrees per second").range(-3600, 3600).ui(-360, 360)
             .help("Turns every particle about the layer's centre as it travels, so straight paths "
                   "become arcs and spirals. Above 0 turns counter-clockwise, below 0 clockwise."),
+        P("force", "Force over Lifetime", ValueKind::Vec3, Vec3{0, 0, 0})
+            .unit("units per second squared").range(-10000, 10000).ui(-20, 20)
+            .help("A steady push on every particle, like wind or a magnet, on top of gravity. "
+                  "Unity: Force over Lifetime."),
+        P("forceRamp", "Force over Life", ValueKind::Scalar, Scalar::constant(1.0))
+            .unit("multiplier").range(-20, 20).ui(0, 2)
+            .help("How strong the force is from birth to death of each particle: 1 full, 0 none. "
+                  "As a curve the wind can build up or die away."),
+        P("drift", "Velocity over Lifetime", ValueKind::Vec3, Vec3{0, 0, 0})
+            .unit("units per second").range(-10000, 10000).ui(-10, 10)
+            .help("A constant extra speed added to every particle's movement, which gravity and drag "
+                  "do not change. Good for a steady current or conveyor. Unity: Velocity over Lifetime."),
+        P("speedLimit", "Limit Velocity", ValueKind::Float, num(0.0))
+            .unit("units per second").range(0, 10000).ui(0, 20)
+            .help("Particles faster than this are slowed down towards it. 0 is no limit. "
+                  "Unity: Limit Velocity over Lifetime."),
+        P("speedLimitDampen", "Limit Dampen", ValueKind::Float, num(0.5))
+            .range(0, 1).ui(0, 1)
+            .help("How hard particles over the limit are pulled back: 0 not at all, 1 firmly."),
+        P("spinBySpeed", "Spin by Speed", ValueKind::Float, num(0.0))
+            .unit("degrees per second").range(-36000, 36000).ui(-720, 720)
+            .help("Extra spin that grows with the particle's speed: none when it is at the slow "
+                  "end of the Speed Range, this much at the fast end. Unity: Rotation by Speed."),
+        P("inheritVelocity", "Inherit Velocity", ValueKind::Float, num(0.0))
+            .range(0, 1).ui(0, 1)
+            .help("How much of the moving effect object's own speed the particles take with them "
+                  "(a trail behind a runner). Used in Unity when the object moves; the preview "
+                  "keeps the emitter still, so it is not shown here. Unity: Inherit Velocity."),
     }));
 
     modules_.push_back(module("overLife", "Over Lifetime", Stage::Update, {
@@ -222,6 +250,19 @@ Registry::Registry() {
         P("opacity", "Opacity", ValueKind::Scalar, Scalar::curve({{0, 1}, {1, 0}}))
             .range(0, 1).ui(0, 1)
             .help("Fades each particle from birth to death."),
+        P("colorBySpeed", "Color by Speed", ValueKind::Gradient, Gradient{{{0, white}, {1, white}}})
+            .help("Tints each particle by how fast it is moving: the left end is the slow end of the "
+                  "Speed Range, the right end the fast end. Unity: Color by Speed."),
+        P("sizeBySpeed", "Size by Speed", ValueKind::Scalar, Scalar::curve({{0, 1}, {1, 1}}))
+            .unit("multiplier").range(0, 1000).ui(0, 2)
+            .help("Scales each particle by its speed, slow at the left, fast at the right. "
+                  "Unity: Size by Speed."),
+        P("speedMin", "Speed Range Slow", ValueKind::Float, num(0.0))
+            .unit("units per second").range(0, 10000).ui(0, 20)
+            .help("The speed the left end of the by-Speed curves stands for."),
+        P("speedMax", "Speed Range Fast", ValueKind::Float, num(5.0))
+            .unit("units per second").range(0, 10000).ui(0, 20)
+            .help("The speed the right end of the by-Speed curves stands for."),
         P("dissolve", "Dissolve", ValueKind::Float, num(0.0))
             .simple().range(0, 1).ui(0, 1)
             .help("Eats each particle away in ragged patches instead of only fading it: 0 never, "

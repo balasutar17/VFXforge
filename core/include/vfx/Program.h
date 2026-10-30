@@ -235,6 +235,21 @@ struct EmitterProgram {
     // stops it, below 0 sends it backwards. A curve reads across the
     // particle's life; a fixed number or a random range is the particle's
     // own for life.
+    // Force over Lifetime: a push on top of gravity, scaled by forceRamp across the particle's life.
+    float forceX = 0, forceY = 0, forceZ = 0;
+    ScalarF forceRamp;
+    bool hasForce = false;
+    // Velocity over Lifetime: extra distance per second that gravity and drag leave alone.
+    float driftX = 0, driftY = 0, driftZ = 0;
+    // Limit Velocity: speeds above this are pulled back by dampen (0 means no limit).
+    float speedLimit = 0, speedLimitDampen = 0.5f;
+    float spinBySpeed = 0;      // degrees per second at the fast end of the speed range
+    float inheritVelocity = 0;  // only used by the Unity export
+    // By Speed: tint and size read from the particle's speed, speedMin..speedMax across 0..1.
+    std::vector<GradientKeyF> colorBySpeed;  // empty means no tint
+    ScalarF sizeBySpeed;
+    bool hasSizeBySpeed = false;
+    float speedMin = 0, speedMax = 5;
     ScalarF speedOverLife;
     bool eases = false;  // speedOverLife is anything other than a fixed 1
     // Turning about the layer's centre, so paths become arcs and spirals.

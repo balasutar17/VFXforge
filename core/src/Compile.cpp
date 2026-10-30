@@ -520,6 +520,8 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
     // With no Motion module nothing acts on the particle at all.
     const Reader motion(firstOfType(layer, "motion"), "motion");
     e->speedOverLife = constantScalar(1.0f);
+    e->forceRamp = constantScalar(1.0f);
+    e->sizeBySpeed = constantScalar(1.0f);
     if (motion.present()) {
         const Vec3& gravity = motion.get<Vec3>("gravity");
         e->gravityX = f(gravity.x);
@@ -533,6 +535,25 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         e->turbulence = std::isfinite(turbulence) ? std::clamp(f(turbulence), 0.0f, 1000.0f) : 0.0f;
         e->turbulencePerUnit = 1.0f / (std::isfinite(swirl) ? std::clamp(f(swirl), 0.02f, 10000.0f) : 1.5f);
         e->turbulenceChange = std::isfinite(change) ? std::clamp(f(change), 0.0f, 60.0f) : 0.0f;
+
+        const auto finite = [&](const char* key, double lo, double hi, double fallback) {
+            const double v = motion.get<double>(key);
+            return f(std::isfinite(v) ? std::clamp(v, lo, hi) : fallback);
+        };
+        const Vec3& force = motion.get<Vec3>("force");
+        e->forceRamp = toScalar(motion.get<Scalar>("forceRamp"));
+        e->forceX = std::isfinite(force.x) ? f(std::clamp(force.x, -10000.0, 10000.0)) : 0.0f;
+        e->forceY = std::isfinite(force.y) ? f(std::clamp(force.y, -10000.0, 10000.0)) : 0.0f;
+        e->forceZ = (e->flat || !std::isfinite(force.z)) ? 0.0f : f(std::clamp(force.z, -10000.0, 10000.0));
+        e->hasForce = e->forceX != 0.0f || e->forceY != 0.0f || e->forceZ != 0.0f;
+        const Vec3& drift = motion.get<Vec3>("drift");
+        e->driftX = std::isfinite(drift.x) ? f(std::clamp(drift.x, -10000.0, 10000.0)) : 0.0f;
+        e->driftY = std::isfinite(drift.y) ? f(std::clamp(drift.y, -10000.0, 10000.0)) : 0.0f;
+        e->driftZ = (e->flat || !std::isfinite(drift.z)) ? 0.0f : f(std::clamp(drift.z, -10000.0, 10000.0));
+        e->speedLimit = finite("speedLimit", 0.0, 10000.0, 0.0);
+        e->speedLimitDampen = finite("speedLimitDampen", 0.0, 1.0, 0.5);
+        e->spinBySpeed = finite("spinBySpeed", -36000.0, 36000.0, 0.0);
+        e->inheritVelocity = finite("inheritVelocity", 0.0, 1.0, 0.0);
 
         e->speedOverLife = toScalar(motion.get<Scalar>("speedOverLife"));
         e->eases = !(e->speedOverLife.mode == ScalarF::Mode::Constant && e->speedOverLife.a == 1.0f);
@@ -564,6 +585,28 @@ std::shared_ptr<const EmitterProgram> compileLayer(const Effect& effect, const L
         }
         if (!tints) {
             e->colorOverLife.clear();  // all white: nothing to do each frame
+        }
+        bool byTint = false;
+        for (const auto& k : overLife.get<Gradient>("colorBySpeed").keys) {
+            const GradientKeyF key{f(k.t), f(k.color.r), f(k.color.g), f(k.color.b), f(k.color.a)};
+            byTint = byTint || key.r != 1.0f || key.g != 1.0f || key.b != 1.0f || key.a != 1.0f;
+            e->colorBySpeed.push_back(key);
+        }
+        if (!byTint) {
+            e->colorBySpeed.clear();
+        }
+        e->sizeBySpeed = toScalar(overLife.get<Scalar>("sizeBySpeed"));
+        e->hasSizeBySpeed = false;
+        if (e->sizeBySpeed.isCurve()) {
+            for (const auto& k : e->sizeBySpeed.keys) e->hasSizeBySpeed = e->hasSizeBySpeed || k.v != 1.0f;
+        } else {
+            e->hasSizeBySpeed = !(e->sizeBySpeed.mode == ScalarF::Mode::Constant && e->sizeBySpeed.a == 1.0f);
+        }
+        const double smin = overLife.get<double>("speedMin"), smax = overLife.get<double>("speedMax");
+        e->speedMin = std::isfinite(smin) ? std::clamp(f(smin), 0.0f, 10000.0f) : 0.0f;
+        e->speedMax = std::isfinite(smax) ? std::clamp(f(smax), 0.0f, 10000.0f) : 5.0f;
+        if (e->speedMax < e->speedMin + 0.05f) {
+            e->speedMax = e->speedMin + 0.05f;  // never a zero-width range
         }
         const double dissolve = overLife.get<double>("dissolve");
         e->dissolve = std::isfinite(dissolve) ? std::clamp(f(dissolve), 0.0f, 1.0f) : 0.0f;
