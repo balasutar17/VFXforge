@@ -67,8 +67,8 @@ TEST_CASE("the library has presets in every promised category", "[presets]") {
     const auto categories = presetCategories();
     for (const char* wanted : {"Toon", "Blasts", "Fire", "Water", "Glow and magic", "Frames", "Shooting",
                                "Rewards", "Weather", "3D", "3D Combat", "Symbol Outlines", "Energy Frames", "Sabers and Beams",
-                               "Holographic Ring", "Scanning Beam", "Energy Wave", "Vortex Portal", "Electric Arc",
-                               "Targeting Indicator", "Fish Swim", "3D Trails", "3D Clouds", "Rays and Light Beams",
+                               "Holographic Ring", "Scanning Beam", "Energy Wave", "Vortex Portal",
+                               "Fish Swim", "3D Trails",
                                "3D Frames", "Boosters", "3D Water"}) {
         INFO(wanted);
         CHECK(std::find(categories.begin(), categories.end(), wanted) != categories.end());
@@ -92,7 +92,7 @@ TEST_CASE("the library has presets in every promised category", "[presets]") {
 
 // The families made for the 3D view: those named "3D ..." and the newer ones that are not.
 static bool inThreeD(const std::string& category) {
-    for (const char* name : {"Holographic Ring", "Scanning Beam", "Energy Wave", "Vortex Portal", "Electric Arc", "Targeting Indicator", "Fish Swim", "Rays and Light Beams", "Boosters"}) {
+    for (const char* name : {"Holographic Ring", "Scanning Beam", "Energy Wave", "Vortex Portal", "Fish Swim", "Boosters"}) {
         if (category == name) {
             return true;
         }
@@ -426,8 +426,8 @@ TEST_CASE("an effect added from the library is a group, moved, delayed, sized an
 }
 
 TEST_CASE("the eight 3D families added in 0.40 each hold three distinct presets", "[presets]") {
-    for (const char* family : {"Holographic Ring", "Scanning Beam", "Energy Wave", "Vortex Portal", "Electric Arc",
-                               "Targeting Indicator", "Fish Swim", "3D Trails", "3D Clouds", "Rays and Light Beams",
+    for (const char* family : {"Holographic Ring", "Scanning Beam", "Energy Wave", "Vortex Portal",
+                               "Fish Swim", "3D Trails",
                                "3D Frames", "Boosters", "3D Water"}) {
         INFO(family);
         int count = 0;
@@ -450,8 +450,8 @@ TEST_CASE("the eight 3D families added in 0.40 each hold three distinct presets"
     }
 }
 
-TEST_CASE("the six sci-fi families each hold three built-up, distinct presets", "[presets]") {
-    for (const char* family : {"Holographic Ring", "Scanning Beam", "Energy Wave", "Vortex Portal", "Electric Arc", "Targeting Indicator"}) {
+TEST_CASE("the four sci-fi families each hold three built-up, distinct presets", "[presets]") {
+    for (const char* family : {"Holographic Ring", "Scanning Beam", "Energy Wave", "Vortex Portal"}) {
         INFO(family);
         int count = 0;
         std::set<std::string> recipes;

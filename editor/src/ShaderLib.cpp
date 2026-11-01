@@ -323,24 +323,6 @@ std::vector<Preset> sciFiPresets() {
                    .layer(2, kFunnel, 0.5f, 0.3f, 1.0f, 0.9f, 0.75f, 1.0f, 0, 1.4f, 0.8f, 0.3f, 0.25f, 9, -0.6f).set(2, "oy", -0.05f)
                    .layer(3, 18, 0.7f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 2.2f, 0.12f, 0.3f, 0.3f, 6, 0.5f).set(3, "oy", 0.8f)
                    .layer(4, 2, 0.4f, 0.25f, 1.0f, 0.85f, 0.7f, 1.0f, 0, 2.0f, 0.25f, 0.08f, 0.3f, 6, 0.5f).set(4, "aspect", 3.6f).set(4, "oy", 0.8f)),
-        preset("sf-electric-arc", "Sci-Fi: Electric Arc", "Branching blue-white lightning with a hot glow", "particle", kAdd,
-               LayerBuilder{}
-                   .layer(0, 18, 0.05f, 0.1f, 0.8f, 0.3f, 0.35f, 1.0f, 0, 1.1f, 1.0f, 0.4f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.4f)
-                   .layer(1, 14, 0.35f, 0.4f, 1.0f, 0.9f, 0.95f, 1.0f, 0, 3.4f, 1.0f, 0.3f, 0.3f, 5, 1.2f)
-                   .layer(2, 14, 0.4f, 0.45f, 1.0f, 0.95f, 0.97f, 1.0f, 0, 2.6f, 0.8f, 0.25f, 0.3f, 7, 1.7f).set(2, "ox", 0.25f).set(2, "rot", 25)
-                   .layer(3, 14, 0.4f, 0.5f, 1.0f, 0.9f, 0.95f, 1.0f, 0, 2.4f, 0.7f, 0.2f, 0.3f, 8, 2.1f).set(3, "ox", -0.3f).set(3, "rot", -35)
-                   .layer(4, 14, 0.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 2.0f, 0.5f, 0.2f, 0.3f, 9, 2.5f).set(4, "oy", 0.35f).set(4, "rot", 70)
-                   .layer(5, 18, 0.6f, 0.6f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.0f, 0.2f, 0.3f, 0.3f, 6, 0.5f)),
-        preset("sf-targeting", "Sci-Fi: Targeting Indicator", "A flat orbit ring and a reticle with a glowing centre", "particle", kAdd,
-               LayerBuilder{}
-                   .layer(0, 18, 0.05f, 0.2f, 0.9f, 0.25f, 0.6f, 1.0f, 0, 1.0f, 1.0f, 0.45f, 0.3f, 6, 0.5f).alphas(0, 0.0f, 0.35f)
-                   .layer(1, 2, 0.2f, 0.55f, 1.0f, 0.7f, 0.9f, 1.0f, 0, 2.4f, 0.22f, 0.1f, 0.3f, 6, 0.5f).set(1, "aspect", 4.4f)
-                   .layer(2, kArcRing, 0.3f, 0.65f, 1.0f, 0.85f, 0.95f, 1.0f, 0, 2.4f, 0.22f, 0.09f, 0.3f, 10, 0.5f).set(2, "aspect", 4.4f)
-                   .layer(3, 2, 0.2f, 0.55f, 1.0f, 0.8f, 0.95f, 1.0f, 0, 2.4f, 0.5f, 0.045f, 0.3f, 6, 0.5f)
-                   .layer(4, kTickRing, 0.3f, 0.65f, 1.0f, 0.9f, 0.97f, 1.0f, 0, 1.6f, 0.55f, 0.12f, 0.3f, 36, 0.5f).set(4, "spin", 12)
-                   .layer(5, 14, 0.3f, 0.6f, 1.0f, 0.8f, 0.95f, 1.0f, 0, 2.4f, 0.4f, 0.3f, 0.2f, 6, 1.6f).set(5, "oy", -0.5f)
-                   .layer(6, 14, 0.3f, 0.6f, 1.0f, 0.8f, 0.95f, 1.0f, 0, 2.4f, 0.4f, 0.3f, 0.2f, 6, 1.6f).set(6, "oy", 0.5f).set(6, "rot", 180)
-                   .layer(7, 18, 0.6f, 0.85f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 3.4f, 0.16f, 0.3f, 0.3f, 6, 0.5f)),
         // ---- the small variants along the bottom of the sheet
         preset("sf-orb", "Sci-Fi: Blue Orb", "A glowing blue core inside two turning rings", "particle", kAdd,
                LayerBuilder{}

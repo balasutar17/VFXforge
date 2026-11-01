@@ -124,7 +124,7 @@ the same length.
 
 ## Eight new 3D families (0.40, stage 1)
 
-Twenty-one new presets, three in each of (Sci-Fi Motion became six families of its own in 0.41, below): **Fish Swim**,
+Twenty-one new presets (3D Clouds and Rays and Light Beams were removed in 0.48.1), three in each of (Sci-Fi Motion became six families of its own in 0.41, below): **Fish Swim**,
 **3D Trails**, **3D Clouds**, **Rays and Light Beams**, **3D Frames**,
 **Boosters** and **3D Water**. Each is built from the same layers and modules as
 every other preset, so everything in it can be edited, duplicated, saved to
@@ -144,9 +144,9 @@ What this stage is, and is not:
 
 ## Sci-fi motion (0.41)
 
-Six families, three presets each, drawn to a reference sheet: **Holographic Ring**,
-**Scanning Beam**, **Energy Wave**, **Vortex Portal**, **Electric Arc** and
-**Targeting Indicator**. Each preset is one pass of its own sequence: it builds
+Four families, three presets each, drawn to a reference sheet: **Holographic Ring**,
+**Scanning Beam**, **Energy Wave** and **Vortex Portal**. (Electric Arc and Targeting
+Indicator were removed in 0.48.1 as not good enough.) Each preset is one pass of its own sequence: it builds
 up, goes active, runs, and fades back to nothing, so the loop is the whole story.
 Every part is its own layer (turning, recolourable, hideable, timed on its own).
 
@@ -166,5 +166,4 @@ What changed underneath:
   and end of its loop and plenty in the middle.
 
 Not done yet: Unity has not been checked; the arcs' two ends are set by the
-layer's position and size (no draggable end handles); the targeting
-indicators are placed by their position, not yet bound to a moving object.
+layer's position and size (no draggable end handles).
