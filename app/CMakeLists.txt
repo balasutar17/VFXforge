@@ -107,6 +107,9 @@ if(IOS)
     # Qt for iOS is linked statically, so the QML modules the window imports
     # have to be linked in by name.
     qt_import_qml_plugins(vfxforge)
+    # Sound and video play through Apple's own media engine on iPad. Qt's
+    # FFmpeg backend would need FFmpeg linked in as well, so leave it out.
+    qt_import_plugins(vfxforge EXCLUDE Qt6::QFFmpegMediaPlugin)
     return()
 endif()
 
