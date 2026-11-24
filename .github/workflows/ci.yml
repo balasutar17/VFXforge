@@ -396,7 +396,7 @@ jobs:
       - name: Configure
         run: |
           set -o pipefail
-          HOST="$(ls -d "$HOME/Qt/$QT_VERSION"/macos "$HOME/Qt/$QT_VERSION"/clang_64 2>/dev/null | head -1)"
+          HOST="$HOME/Qt/$QT_VERSION/macos"
           "$HOME/Qt/$QT_VERSION/ios/bin/qt-cmake" -S . -B build -G Xcode \
             -DVFX_BUILD_APP=ON -DVFX_BUILD_TESTS=OFF \
             "-DQT_HOST_PATH=$HOST" -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
