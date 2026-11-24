@@ -91,6 +91,25 @@ qt_add_shaders(vfxforge "vfxforge_shaders"
         shaders/image.frag
 )
 
+if(IOS)
+    # iPad only, iPadOS 17 or newer (the oldest Qt 6.10 supports). Qt's own
+    # iOS Info.plist template supplies the launch screen and orientations.
+    set_target_properties(vfxforge PROPERTIES
+        OUTPUT_NAME "VFX Forge"
+        MACOSX_BUNDLE_BUNDLE_NAME "VFX Forge"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.vfxforge.app"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.vfxforge.app"
+        XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "2"
+        XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET "17.0"
+    )
+    # Qt for iOS is linked statically, so the QML modules the window imports
+    # have to be linked in by name.
+    qt_import_qml_plugins(vfxforge)
+    return()
+endif()
+
 set_target_properties(vfxforge PROPERTIES
     OUTPUT_NAME "VFX Forge"
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/packaging/Info.plist.in"

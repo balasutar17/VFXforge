@@ -372,9 +372,59 @@ jobs:
           path: package
 
   # --------------------------------------------------------------- publish
+  # ------------------------------------------------------------------ iPad
+  # The app built for iPad (iPadOS 17 or newer). Unsigned: this checks that it
+  # compiles and links; running it on an iPad needs an Apple developer account.
+  app-ios:
+    runs-on: macos-latest
+    env:
+      OUT: results/app-ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt for Mac (the build tools) and for iOS
+        run: |
+          mkdir -p "$OUT"
+          set -o pipefail
+          pip3 install --break-system-packages aqtinstall 2>&1 | tail -1
+          {
+            python3 -m aqt install-qt mac desktop "$QT_VERSION" -O "$HOME/Qt" -m qtshadertools
+            python3 -m aqt install-qt mac ios "$QT_VERSION" ios -O "$HOME/Qt" -m qtshadertools qtmultimedia qtimageformats
+            ls "$HOME/Qt/$QT_VERSION"
+          } 2>&1 | tee "$OUT/install.txt"
+
+      - name: Configure
+        run: |
+          set -o pipefail
+          HOST="$(ls -d "$HOME/Qt/$QT_VERSION"/macos "$HOME/Qt/$QT_VERSION"/clang_64 2>/dev/null | head -1)"
+          "$HOME/Qt/$QT_VERSION/ios/bin/qt-cmake" -S . -B build -G Xcode \
+            -DVFX_BUILD_APP=ON -DVFX_BUILD_TESTS=OFF \
+            "-DQT_HOST_PATH=$HOST" -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            2>&1 | tee "$OUT/configure.txt"
+
+      - name: Build for iPad
+        run: |
+          set -o pipefail
+          cmake --build build --config Release --target vfxforge -- \
+            -sdk iphoneos -destination generic/platform=iOS \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO ENABLE_ONLY_ACTIVE_RESOURCES=NO \
+            2>&1 | tee "$OUT/build.txt" | grep -E "error|warning: .*deprecated|BUILD (SUCCEEDED|FAILED)" || true
+          APP="$(find build -name "VFX Forge.app" -path "*iphoneos*" | head -1)"
+          test -n "$APP"
+          echo "built: $APP" | tee -a "$OUT/build.txt"
+          du -sh "$APP" | tee -a "$OUT/build.txt"
+          lipo -info "$APP/VFX Forge" | tee -a "$OUT/build.txt"
+          plutil -p "$APP/Info.plist" | tee -a "$OUT/build.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-app-ios
+          path: results
+
   publish:
     if: always() && github.event_name != 'pull_request'
-    needs: [core, sanitizers, unity-scripts, app-linux, app-mac, app-windows]
+    needs: [core, sanitizers, unity-scripts, app-linux, app-mac, app-windows, app-ios]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -408,6 +458,7 @@ jobs:
           app-linux:   ${{ needs.app-linux.result }}
           app-mac:     ${{ needs.app-mac.result }}
           app-windows: ${{ needs.app-windows.result }}
+          app-ios:     ${{ needs.app-ios.result }}
           TXT
           cat SUMMARY.txt
           git add -A
