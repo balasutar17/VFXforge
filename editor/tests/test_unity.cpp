@@ -384,8 +384,23 @@ TEST_CASE("an export writes the helper, the atlas and the effect", "[unity][file
     CHECK(written == base / "Assets/VFXForge/Effects/Spark.vfxforge");
     CHECK(readText(written) == unityDescription(effect, {}, unitySounds(effect, {})));
     CHECK(std::filesystem::exists(base / "Assets/VFXForge/Editor/VFXForgeJson.cs"));
+    // Each file comes with a .meta holding a GUID that does not change from one
+    // export to the next, so the URP renderer's link to the Colours feature holds.
+    const auto coloursMeta = base / "Assets/VFXForge/URP/VFXForgeColours.cs.meta";
+    const std::string firstMeta = readText(coloursMeta);
+    CHECK(firstMeta.rfind("fileFormatVersion: 2\nguid: ", 0) == 0);
+    CHECK(firstMeta.size() == std::string("fileFormatVersion: 2\nguid: \n").size() + 32);
+    std::filesystem::remove(coloursMeta);
+    REQUIRE(exportToUnityProject(effect, base).ok());
+    CHECK(readText(coloursMeta) == firstMeta);
+    // A .meta Unity already made is left as it is.
+    {
+        std::ofstream mine(coloursMeta, std::ios::binary | std::ios::trunc);
+        mine << "fileFormatVersion: 2\nguid: 0123456789abcdef0123456789abcdef\n";
+    }
     // Again, for the same effect: replaced in place, still one file.
     REQUIRE(exportToUnityProject(effect, base).ok());
+    CHECK(readText(coloursMeta) == "fileFormatVersion: 2\nguid: 0123456789abcdef0123456789abcdef\n");
     int effects = 0;
     for (const auto& entry : std::filesystem::directory_iterator(base / "Assets/VFXForge/Effects")) {
         effects += entry.path().extension() == ".vfxforge" ? 1 : 0;

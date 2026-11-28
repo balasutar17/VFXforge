@@ -5,6 +5,7 @@
 //
 // A file is read from disk; anything else is taken as a preset id
 // (vfxshot list names them).
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -38,7 +39,9 @@ int usage() {
                  "  vfxexport plan <effect.vfx | preset-id>... --out <folder> [--size n] [--times a,b,c]\n"
                  "      For checking an export in an engine: writes plan.json (how to frame each\n"
                  "      effect and when to look) and VFX Forge's own picture of each moment.\n"
-                 "      A file is framed with --view x,y,height (2D) given before it.\n";
+                 "      A file is framed with --view x,y,height (2D) given before it.\n"
+                 "  vfxexport stats <effect.vfx | preset-id>... [--times a,b,c]\n"
+                 "      Each layer's particles at those moments: count, centre, spread, speed.\n";
     return 2;
 }
 
@@ -214,10 +217,73 @@ int unrealExport(const std::vector<std::string>& args) {
     return 0;
 }
 
+// Where each layer's particles are at given moments: how many, their centre,
+// how far they spread (RMS distance from the centre) and how fast they move.
+// The same numbers the Unity capture script logs, for comparing the two.
+int stats(const std::vector<std::string>& args) {
+    std::vector<double> times{0.25, 0.6, 1.0};
+    std::vector<std::string> inputs;
+    for (std::size_t i = 1; i < args.size(); ++i) {
+        if (args[i] == "--times" && i + 1 < args.size()) {
+            times.clear();
+            std::string list = args[++i];
+            for (std::size_t at = 0; at < list.size();) {
+                const std::size_t comma = list.find(',', at);
+                times.push_back(std::atof(list.substr(at, comma - at).c_str()));
+                at = comma == std::string::npos ? list.size() : comma + 1;
+            }
+        } else {
+            inputs.push_back(args[i]);
+        }
+    }
+    if (inputs.empty()) {
+        return usage();
+    }
+    for (const std::string& input : inputs) {
+        auto loaded = load(input);
+        if (!loaded) {
+            std::cerr << input << ": " << loaded.error().message << "\n";
+            return 1;
+        }
+        const Effect& effect = loaded.value().effect;
+        Simulation sim(compileEffect(effect));
+        const double step = sim.program().step;
+        for (const double t : times) {
+            sim.seek(static_cast<std::int64_t>(t / step + 0.5));
+            std::printf("%s @%gs: %u particles\n", effect.name.c_str(), t, sim.aliveCount());
+            const auto layers = sim.stats();
+            for (std::size_t i = 0; i < layers.size(); ++i) {
+                const ParticleView v = sim.particles(i);
+                if (v.count == 0) {
+                    continue;
+                }
+                double mx = 0, my = 0, mz = 0, speed = 0;
+                for (std::uint32_t k = 0; k < v.count; ++k) {
+                    mx += v.x[k]; my += v.y[k]; mz += v.z[k];
+                    speed += std::sqrt(double(v.vx[k]) * v.vx[k] + double(v.vy[k]) * v.vy[k] + double(v.vz[k]) * v.vz[k]);
+                }
+                mx /= v.count; my /= v.count; mz /= v.count; speed /= v.count;
+                double spread = 0;
+                for (std::uint32_t k = 0; k < v.count; ++k) {
+                    spread += (v.x[k] - mx) * (v.x[k] - mx) + (v.y[k] - my) * (v.y[k] - my) + (v.z[k] - mz) * (v.z[k] - mz);
+                }
+                spread = std::sqrt(spread / v.count);
+                const Layer* layer = findLayer(effect, layers[i].layer);
+                std::printf("    %s: %u alive, centre (%.2f, %.2f, %.2f), spread %.2f, speed %.2f\n",
+                            layer ? layer->name.c_str() : "?", v.count, mx, my, mz, spread, speed);
+            }
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char** argv) {
     std::vector<std::string> args(argv + 1, argv + argc);
     if (!args.empty() && args[0] == "plan") {
         return plan(args);
+    }
+    if (!args.empty() && args[0] == "stats") {
+        return stats(args);
     }
     if (!args.empty() && args[0] == "unreal") {
         return unrealExport(args);

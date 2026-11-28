@@ -1023,3 +1023,30 @@ TEST_CASE("The particle limit caps a layer, and the Unity main-module settings a
         CHECK(sim.aliveCount() <= 40);
     }
 }
+
+TEST_CASE("Drag goes to Unity as the steady rate that slows particles as VFX Forge does", "[motion][unity][drag]") {
+    IdGenerator ids(34);
+    const IdSource newId = [&ids]() { return ids.next(); };
+    Effect effect = makeEmptyEffect(newId, "Test", false);
+    effect.duration = 2.0;
+    Layer layer = makeBasicEmitter(newId, "Puffs");
+    layer.duration = 2.0;
+    put(layer, "initial", "lifetime", Scalar::constant(2.0));
+    put(layer, "initial", "speed", Scalar::constant(10.0));
+    put(layer, "motion", "gravity", Vec3{0, 0, 0});
+    put(layer, "motion", "drag", 4.2);
+    effect.layers.push_back(std::move(layer));
+    const J out = describe(effect);
+    const double rate = out["layers"][0]["dragRate"].get<double>();
+    // Unity's Limit Velocity Dampen loses speed as exp(-rate * t): after one
+    // second the speed left must be what VFX Forge's own simulation leaves.
+    Simulation sim(compileEffect(effect));
+    const auto atOneSecond = static_cast<std::int64_t>(1.0 / sim.program().step + 0.5);
+    sim.seek(atOneSecond);
+    const ParticleView v = sim.particles(0);
+    REQUIRE(v.count > 0);
+    // The oldest particle was born at the start, so it has had a full second of drag.
+    const double speed = std::sqrt(double(v.vx[0]) * v.vx[0] + double(v.vy[0]) * v.vy[0]);
+    CHECK(10.0 * std::exp(-rate * double(v.age[0])) == Catch::Approx(speed).epsilon(0.02));
+    CHECK(out["layers"][0]["drag"].get<double>() == Catch::Approx(4.2));
+}

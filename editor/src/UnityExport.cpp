@@ -780,6 +780,11 @@ J layerJson(const Effect& effect, const Layer& layer, int order,
         out["force"] = nullptr;
     }
     out["drag"] = e.drag > 0.0f ? J(round6(e.drag)) : J(nullptr);
+    // VFX Forge's drag slows a particle in proportion to its speed. Each step
+    // divides the speed by (1 + drag x step), which over a second is the same as
+    // losing speed at this steady rate. Unity's own Drag takes a fixed amount off
+    // instead, so the importer turns this into Limit Velocity's Dampen.
+    out["dragRate"] = e.drag > 0.0f ? J(round6(std::log1p(double(e.drag) * e.step) / e.step)) : J(nullptr);
     // Force over Lifetime (on top of gravity), Velocity over Lifetime, Limit Velocity, Inherit Velocity.
     if (e.hasForce) {
         out["extraForce"] = J::array({round6(e.forceX), round6(e.forceY), e.flat ? 0.0 : round6(e.forceZ)});
@@ -1409,6 +1414,18 @@ Status exportToUnityProject(const Effect& effect, const std::filesystem::path& p
         }
         if (Status ok = writeFileAtomic(target, f.bytes); !ok) {
             return ok;
+        }
+        // The same GUID the .unitypackage gives it, so a file keeps one identity
+        // however it arrives. Without it Unity makes up a new one each time the
+        // file is new to the project, and anything that pointed at the old one
+        // (the VFX Forge Colours feature in a URP renderer) is left pointing at
+        // nothing. A .meta already there is Unity's and is left alone.
+        std::filesystem::path meta = target;
+        meta += ".meta";
+        if (!std::filesystem::exists(meta, ec)) {
+            if (Status ok = writeFileAtomic(meta, "fileFormatVersion: 2\nguid: " + guidFor(f.path) + "\n"); !ok) {
+                return ok;
+            }
         }
         if (written && f.path.size() > 9 && f.path.compare(f.path.size() - 9, 9, ".vfxforge") == 0) {
             *written = target;

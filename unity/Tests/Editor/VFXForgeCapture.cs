@@ -114,10 +114,26 @@ namespace VFXForge.Tests
                 }
                 instance.transform.position = Vector3.zero;
                 var system = instance.GetComponent<ParticleSystem>();
+                // "stepped": run forward a frame at a time, as playing does,
+                // instead of jumping straight to each moment.
+                bool stepped = plan.ContainsKey("stepped") && (bool)plan["stepped"];
+                float reached = 0f;
+                if (stepped)
+                    system.Simulate(0f, true, true, true);
                 foreach (var t in (List<object>)e["times"])
                 {
                     float at = (float)System.Convert.ToDouble(t);
-                    system.Simulate(at, true, true, true);
+                    if (stepped)
+                    {
+                        const float frame = 1f / 60f;
+                        while (reached + frame * 0.5f < at)
+                        {
+                            system.Simulate(frame, true, false, true);
+                            reached += frame;
+                        }
+                    }
+                    else
+                        system.Simulate(at, true, true, true);
                     Render(cam, rt);
                     var picture = new Texture2D(size, size, TextureFormat.RGBA32, false, false);
                     var was = RenderTexture.active;
@@ -132,6 +148,34 @@ namespace VFXForge.Tests
                     foreach (var ps in instance.GetComponentsInChildren<ParticleSystem>())
                         alive += ps.particleCount;
                     log.AppendLine(name + " @" + at + "s: " + alive + " particles");
+                    // Each layer: where its particles are, how big, how see-through,
+                    // and the bounds its renderer is culled by.
+                    foreach (var ps in instance.GetComponentsInChildren<ParticleSystem>())
+                    {
+                        if (ps.particleCount == 0)
+                            continue;
+                        var parts = new ParticleSystem.Particle[ps.particleCount];
+                        int n = ps.GetParticles(parts);
+                        Vector3 sum = Vector3.zero; float sizeSum = 0f, alpha = 0f, speed = 0f, spread = 0f;
+                        for (int i = 0; i < n; i++)
+                        {
+                            sum += parts[i].position;
+                            sizeSum += parts[i].GetCurrentSize(ps);
+                            alpha += parts[i].GetCurrentColor(ps).a / 255f;
+                            speed += parts[i].totalVelocity.magnitude;
+                        }
+                        for (int i = 0; i < n; i++)
+                            spread += (parts[i].position - sum / n).sqrMagnitude;
+                        spread = Mathf.Sqrt(spread / n);
+                        var r = ps.GetComponent<ParticleSystemRenderer>();
+                        log.AppendLine("    " + ps.name + ": " + n + " alive, mean position " + (sum / n).ToString("F2") +
+                                       " (" + ps.main.simulationSpace + "), size " + (sizeSum / n).ToString("F3") +
+                                       ", alpha " + (alpha / n).ToString("F2") + ", spread " + spread.ToString("F2") +
+                                       ", speed " + (speed / n).ToString("F2") + ", world " +
+                                       ps.transform.TransformPoint(sum / n).ToString("F2") + ", renderer " +
+                                       (r == null ? "none" : (r.enabled ? "on" : "OFF") + " bounds " + r.bounds.center.ToString("F1") +
+                                       " size " + r.bounds.size.ToString("F1")));
+                    }
                 }
                 Object.DestroyImmediate(instance);
             }

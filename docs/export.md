@@ -39,7 +39,7 @@ the Unity script only reads the numbers and sets fields.
 | Colour | Start Color, as shown on screen |
 | A fixed or random size/opacity "over life" | Folded into Start Size / Start Color, where it is a per-particle multiplier |
 | Gravity | Force over Lifetime, world space |
-| Drag | Limit Velocity over Lifetime: Drag |
+| Drag | Limit Velocity over Lifetime: a Speed of 0 with the Dampen that slows particles as VFX Forge does (in proportion to their speed). Unity's own Drag takes a fixed amount of speed off instead, so it is used only on a layer that also has a Speed Limit |
 | Spin | Rotation over Lifetime |
 | Size over life (curve) | Size over Lifetime |
 | Colour and opacity over life | Color over Lifetime. Unity gradients cannot be brighter than white, so a white-hot gradient is divided down and the difference moves into the material's Glow |
@@ -62,7 +62,7 @@ the Unity script only reads the numbers and sets fields.
 | Rotation / Size / Colour by Speed | Rotation, Size and Color by Speed |
 | Collide (floor) | Collision: a plane at the floor height, with Bounce, Dampen, Lifetime Loss, Min Kill Speed |
 | Kill Zone | Triggers: a box collider, Inside or Outside set to Kill |
-| Emit When (parent born / dies / bounces) | Sub Emitters: Birth, Death or Collision, with Emit Probability and Inherit |
+| Emit When (parent born / dies / bounces) | Sub Emitters: Birth, Death or Collision, with Emit Probability and Inherit. Unity turns a sub emitter's shape to face the way the parent particle moves, which would stand a flat effect's ring on its edge, so in a 2D effect a sub emitter that sprays every way uses a Sphere held flat (Limit Velocity, Z 0) |
 | Trail Share, Tail Width, Fades, Detail, Picture, In World | Trails: Ratio, Width over Trail, Color over Trail, Minimum Vertex Distance, Texture Mode, World Space |
 | Light Share, Intensity, Range, Follows Size/Fade, Limit | Lights: Ratio, Intensity, Range, Size Affects Range, Alpha Affects Intensity, Max Lights (a point light template is made under the layer) |
 | Max Particles, Prewarm, Simulation Speed/Space, Scaling Mode, Culling Mode, Ring Buffer, Stop Action | The same settings in the Particle System main module. Only Max Particles shows in the preview; the others are Unity-only |

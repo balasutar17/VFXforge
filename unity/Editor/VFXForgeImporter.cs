@@ -19,7 +19,7 @@ using UnityEngine;
 
 namespace VFXForge.EditorTools
 {
-    [ScriptedImporter(9, "vfxforge")]
+    [ScriptedImporter(11, "vfxforge")]
     public class VFXForgeImporter : ScriptedImporter
     {
         public const string ShaderPath = "Assets/VFXForge/Shaders/VFXForgeParticle.shader";
@@ -101,12 +101,25 @@ namespace VFXForge.EditorTools
                     default: topMain.stopAction = ParticleSystemStopAction.None; break;
                 }
             }
+            // Each layer's object, by position; and the first layer of each name, which a
+            // sub emitter's Parent Layer means. Layers may share a name in VFX Forge, but
+            // their objects may not in Unity (a scene keeps track of them by name), so a
+            // repeated name gets a number: Candy, Candy 2, Candy 3.
+            var layerObjects = new GameObject[layers.Count];
+            var firstByName = new Dictionary<string, GameObject>();
+            var nameCount = new Dictionary<string, int>();
             for (int i = 0; i < layers.Count; i++)
             {
                 var layer = layers[i] as Dictionary<string, object>;
                 if (layer == null)
                     continue;
-                var child = new GameObject(Str(layer, "name", "Layer " + (i + 1)));
+                string layerName = Str(layer, "name", "Layer " + (i + 1));
+                nameCount.TryGetValue(layerName, out int seen);
+                nameCount[layerName] = seen + 1;
+                var child = new GameObject(seen == 0 ? layerName : layerName + " " + (seen + 1));
+                layerObjects[i] = child;
+                if (!firstByName.ContainsKey(layerName))
+                    firstByName[layerName] = child;
                 child.transform.SetParent(top.transform, false);
                 var system = child.AddComponent<ParticleSystem>();
                 system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
@@ -200,8 +213,8 @@ namespace VFXForge.EditorTools
                 var sub = layer == null ? null : Obj(layer, "subEmitter");
                 if (sub == null)
                     continue;
-                Transform childTransform = top.transform.Find(Str(layer, "name", "Layer " + (i + 1)));
-                Transform parentTransform = top.transform.Find(Str(sub, "parent", ""));
+                Transform childTransform = layerObjects[i] == null ? null : layerObjects[i].transform;
+                Transform parentTransform = firstByName.TryGetValue(Str(sub, "parent", ""), out var parentObject) ? parentObject.transform : null;
                 var childSystem = childTransform == null ? null : childTransform.GetComponent<ParticleSystem>();
                 var parentSystem = parentTransform == null ? null : parentTransform.GetComponent<ParticleSystem>();
                 if (childSystem == null || parentSystem == null || childSystem == parentSystem)
@@ -230,6 +243,30 @@ namespace VFXForge.EditorTools
                     carried.enabled = true;
                     carried.mode = ParticleSystemInheritVelocityMode.Initial;
                     carried.curve = (float)Num(sub, "inheritMotion", 0);
+                }
+                // Unity turns a sub emitter's shape to face the way the parent particle is
+                // moving, which stands a flat effect's ring of sparks on its edge. A sphere
+                // looks the same however it is turned; held flat, it sprays in the picture's
+                // plane whichever way the parent was going.
+                var childShape = childSystem.shape;
+                if (Str(root, "space", "2d") == "2d" && childShape.enabled &&
+                    childShape.shapeType == ParticleSystemShapeType.Circle && childShape.arc >= 359.9f)
+                {
+                    childShape.shapeType = ParticleSystemShapeType.Sphere;
+                    childShape.rotation = Vector3.zero;
+                    // Its sparks keep no speed towards the camera. A layer with drag already
+                    // uses Limit Velocity for it; its depth speed then dies away with the rest,
+                    // which looks the same in a flat picture.
+                    var flat = childSystem.limitVelocityOverLifetime;
+                    if (!flat.enabled)
+                    {
+                        flat.enabled = true;
+                        flat.separateAxes = true;
+                        flat.limitX = 100000f;
+                        flat.limitY = 100000f;
+                        flat.limitZ = 0f;
+                        flat.dampen = 1f;
+                    }
                 }
                 subModule.AddSubEmitter(childSystem, kind, inherit, (float)Num(sub, "chance", 1));
             }
@@ -539,14 +576,24 @@ namespace VFXForge.EditorTools
             {
                 var limit = system.limitVelocityOverLifetime;
                 limit.enabled = true;
-                if (Obj(layer, "speedLimit") == null)
-                {
-                    limit.limit = 100000f;
-                    limit.dampen = 0f;
-                }
-                limit.drag = (float)Num(layer, "drag", 0);
                 limit.multiplyDragByParticleSize = false;
                 limit.multiplyDragByParticleVelocity = false;
+                if (Obj(layer, "speedLimit") == null)
+                {
+                    // Drag in proportion to speed, as in VFX Forge: with no speed allowed,
+                    // Dampen takes the same share of the speed every moment. Unity applies
+                    // it as (1 - Dampen) every 1/30 s, whatever the frame rate.
+                    double rate = Num(layer, "dragRate", Num(layer, "drag", 0));
+                    limit.limit = 0f;
+                    limit.dampen = (float)(1.0 - System.Math.Exp(-rate / 30.0));
+                    limit.drag = 0f;
+                }
+                else
+                {
+                    // The Dampen is the speed limit's own here, so drag falls back
+                    // to Unity's, which takes a fixed amount of speed off instead.
+                    limit.drag = (float)Num(layer, "drag", 0);
+                }
             }
             if (layer.ContainsKey("spin") && layer["spin"] != null)
             {
