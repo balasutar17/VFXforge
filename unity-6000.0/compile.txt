@@ -1,0 +1,75 @@
+image: unityci/editor:ubuntu-6000.0.3f1-base-4.0.0
+Unable to find image 'unityci/editor:ubuntu-6000.0.3f1-base-4.0.0' locally
+ubuntu-6000.0.3f1-base-4.0.0: Pulling from unityci/editor
+26538842dfbf: Pulling fs layer
+9d15dfaff04c: Pulling fs layer
+309d4de0c9d6: Pulling fs layer
+5e43ed85d1df: Pulling fs layer
+4f4fb700ef54: Pulling fs layer
+1bf9941db116: Pulling fs layer
+43eb529a8502: Pulling fs layer
+c61d0097138a: Pulling fs layer
+efc9bbe6beae: Pulling fs layer
+6980296657e3: Pulling fs layer
+0e69968810cc: Pulling fs layer
+909ae6bde354: Pulling fs layer
+20c5987e3d6e: Pulling fs layer
+42ff45617636: Pulling fs layer
+5e43ed85d1df: Waiting
+4f4fb700ef54: Waiting
+1bf9941db116: Waiting
+43eb529a8502: Waiting
+c61d0097138a: Waiting
+efc9bbe6beae: Waiting
+6980296657e3: Waiting
+0e69968810cc: Waiting
+909ae6bde354: Waiting
+20c5987e3d6e: Waiting
+42ff45617636: Waiting
+9d15dfaff04c: Verifying Checksum
+9d15dfaff04c: Download complete
+26538842dfbf: Verifying Checksum
+26538842dfbf: Download complete
+5e43ed85d1df: Verifying Checksum
+5e43ed85d1df: Download complete
+4f4fb700ef54: Verifying Checksum
+4f4fb700ef54: Download complete
+309d4de0c9d6: Verifying Checksum
+309d4de0c9d6: Download complete
+1bf9941db116: Verifying Checksum
+1bf9941db116: Download complete
+c61d0097138a: Verifying Checksum
+c61d0097138a: Download complete
+43eb529a8502: Verifying Checksum
+43eb529a8502: Download complete
+efc9bbe6beae: Verifying Checksum
+efc9bbe6beae: Download complete
+6980296657e3: Verifying Checksum
+6980296657e3: Download complete
+26538842dfbf: Pull complete
+20c5987e3d6e: Verifying Checksum
+20c5987e3d6e: Download complete
+909ae6bde354: Verifying Checksum
+909ae6bde354: Download complete
+42ff45617636: Verifying Checksum
+42ff45617636: Download complete
+9d15dfaff04c: Pull complete
+309d4de0c9d6: Pull complete
+5e43ed85d1df: Pull complete
+4f4fb700ef54: Pull complete
+1bf9941db116: Pull complete
+43eb529a8502: Pull complete
+c61d0097138a: Pull complete
+efc9bbe6beae: Pull complete
+6980296657e3: Pull complete
+0e69968810cc: Verifying Checksum
+0e69968810cc: Download complete
+0e69968810cc: Pull complete
+909ae6bde354: Pull complete
+20c5987e3d6e: Pull complete
+42ff45617636: Pull complete
+Digest: sha256:4cd905c00a796967aa3a782c06b7200da5c0eba0c504d92e5796149980fa8723
+Status: Downloaded newer image for unityci/editor:ubuntu-6000.0.3f1-base-4.0.0
+compiler: /opt/unity/Editor/Data/MonoBleedingEdge/lib/mono/4.5/mcs.exe
+netstandard: /opt/unity/Editor/Data/MonoBleedingEdge/lib/mono/4.7.1-api/Facades/netstandard.dll
+COMPILED OK

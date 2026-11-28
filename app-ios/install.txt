@@ -1,0 +1,140 @@
+INFO    : aqtinstall(aqt) v3.3.0 on Python 3.15.2 [CPython Clang 21.0.0 (clang-2100.3.34.2)]
+INFO    : Found extension qtwebengine
+INFO    : Found extension qtpdf
+INFO    : Downloading qtshadertools...
+INFO    : Downloading qtbase...
+INFO    : Downloading qtsvg...
+INFO    : Downloading qtdeclarative...
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Finished installation of qtshadertools-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z in 2.46698646
+INFO    : Finished installation of qtsvg-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z in 2.60834929
+INFO    : Downloading qttools...
+INFO    : Downloading qttranslations...
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Finished installation of qttranslations-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z in 3.54928929
+INFO    : Finished installation of qttools-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z in 7.51239317
+INFO    : Finished installation of qtbase-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z in 10.46720913
+INFO    : Finished installation of qtdeclarative-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z in 19.90508500
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/bin/qmake
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6LabsWavefrontMesh.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2FusionStyleImpl.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Platform.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6LabsFolderListModel.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickVectorImageHelpers.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QmlCore.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Concurrent.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6LabsQmlModels.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickEffects.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QmlWorkerScript.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2MacOSStyleImpl.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Designer.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2Impl.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QmlIntegration.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2IOSStyleImpl.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Xml.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2Universal.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickDialogs2QuickImpl.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6SvgWidgets.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6LabsAnimation.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6UiTools.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6ShaderTools.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickDialogs2Utils.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickTest.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickDialogs2.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QmlXmlListModel.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2FluentWinUI3StyleImpl.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Help.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6OpenGLWidgets.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6UiPlugin.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Quick.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2Imagine.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6LabsSharedImage.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Linguist.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6PrintSupport.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2Fusion.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2BasicStyleImpl.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickVectorImage.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2ImagineStyleImpl.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6LabsSynchronizer.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickWidgets.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Svg.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickTemplates2.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QmlMeta.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QmlNetwork.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2Basic.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Core.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Gui.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2MaterialStyleImpl.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QmlAssetDownloader.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2Material.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6OpenGL.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QmlLocalStorage.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6LabsSettings.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Test.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Network.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Sql.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6LabsPlatform.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickLayouts.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6DBus.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QmlCompiler.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Widgets.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6Qml.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QuickControls2UniversalStyleImpl.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/pkgconfig/Qt6QmlModels.pc
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6QmlLS.prl
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6FbSupport.prl
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6QmlDebug.prl
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6QmlTypeRegistrar.prl
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6QuickTestUtils.prl
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6ExampleIcons.prl
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6QuickControlsTestUtils.prl
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6DeviceDiscoverySupport.prl
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6QmlDom.prl
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6ExamplesAssetDownloader.prl
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6QmlAssetDownloader.prl
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6PacketProtocol.prl
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6QmlFormat.prl
+INFO    : Patching /Users/runner/Qt/6.10.1/macos/lib/libQt6QmlToolingSettings.prl
+INFO    : Finished installation
+INFO    : Time elapsed: 25.66654937 second
+INFO    : aqtinstall(aqt) v3.3.0 on Python 3.15.2 [CPython Clang 21.0.0 (clang-2100.3.34.2)]
+INFO    : Found installed mac-desktop Qt at /Users/runner/Qt/6.10.1/macos
+INFO    : Found extension qtpdf
+INFO    : Downloading qtimageformats...
+INFO    : Downloading qtmultimedia...
+INFO    : Downloading qtshadertools...
+INFO    : Downloading qtbase...
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Finished installation of qtimageformats-MacOS-MacOS_14-Clang-IOS-IOS_ANY-ARM64.7z in 3.06331646
+INFO    : Downloading qttools...
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Finished installation of qtshadertools-MacOS-MacOS_14-Clang-IOS-IOS_ANY-ARM64.7z in 7.70064471
+INFO    : Finished installation of qttools-MacOS-MacOS_14-Clang-IOS-IOS_ANY-ARM64.7z in 5.10865154
+INFO    : Downloading qtdeclarative...
+INFO    : Downloading qtsvg...
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Finished installation of qtsvg-MacOS-MacOS_14-Clang-IOS-IOS_ANY-ARM64.7z in 3.89450587
+INFO    : Downloading qttranslations...
+INFO    : Redirected: qt.mirror.constant.com
+INFO    : Finished installation of qttranslations-MacOS-MacOS_14-Clang-IOS-IOS_ANY-ARM64.7z in 2.88465679
+INFO    : Finished installation of qtmultimedia-MacOS-MacOS_14-Clang-IOS-IOS_ANY-ARM64.7z in 19.00148708
+INFO    : Finished installation of qtbase-MacOS-MacOS_14-Clang-IOS-IOS_ANY-ARM64.7z in 86.52609946
+INFO    : Finished installation of qtdeclarative-MacOS-MacOS_14-Clang-IOS-IOS_ANY-ARM64.7z in 141.10098321
+INFO    : Patching /Users/runner/Qt/6.10.1/ios/bin/qmake
+INFO    : Patching /Users/runner/Qt/6.10.1/ios/bin/qtpaths
+INFO    : Patching /Users/runner/Qt/6.10.1/ios/bin/qmake6
+INFO    : Patching /Users/runner/Qt/6.10.1/ios/bin/qtpaths6
+INFO    : Patching /Users/runner/Qt/6.10.1/ios/bin/target_qt.conf
+INFO    : Finished installation
+INFO    : Time elapsed: 157.53779371 second
+ios
+macos

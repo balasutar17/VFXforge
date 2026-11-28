@@ -1,0 +1,78 @@
+-- The CXX compiler identification is AppleClang 21.0.0.21000101
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Performing Test HAVE_EGL
+-- Performing Test HAVE_EGL - Failed
+-- Could NOT find EGL (missing: EGL_INCLUDE_DIR HAVE_EGL EGL_LIBRARY) 
+-- Performing Test HAVE_GLESv2
+-- Performing Test HAVE_GLESv2 - Success
+-- Found GLESv2: /Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/System/Library/Frameworks/OpenGLES.framework
+-- Found ZLIB: /Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/lib/libz.tbd (found version "1.2.12")
+-- Found WrapSystemZLIB: TRUE (found version "1.2.12")
+-- Using system ZLIB.
+-- Found WrapZLIB: TRUE (found version "1.2.12")
+-- Using Qt bundled PNG.
+-- Found WrapPNG: TRUE (found version "6.10.1")
+-- Using Qt bundled Harfbuzz.
+-- Found WrapHarfbuzz: TRUE (found version "6.10.1")
+-- Using Qt bundled Freetype.
+-- Found WrapFreetype: TRUE (found version "6.10.1")
+-- Performing Test HAVE_STDATOMIC
+-- Performing Test HAVE_STDATOMIC - Success
+-- Found WrapAtomic: TRUE
+-- Looking for backtrace
+-- Looking for backtrace - found
+-- backtrace facility detected in default set of libraries
+-- Found Backtrace: /Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/usr/include
+-- Using Qt bundled PCRE2.
+-- Found WrapPCRE2: TRUE (found version "6.10.1")
+-- Performing Test HAVE_GETTIME
+-- Performing Test HAVE_GETTIME - Success
+-- Performing Test HAVE_SHM_OPEN_SHM_UNLINK
+-- Performing Test HAVE_SHM_OPEN_SHM_UNLINK - Success
+-- Found WrapRt: TRUE
+-- Using Qt bundled Jpeg.
+-- Found WrapJpeg: TRUE (found version "6.10.1")
+-- Could NOT find Qt6Quick3DPrivate (missing: Qt6Quick3DPrivate_DIR)
+CMake Warning at /opt/homebrew/share/cmake/Modules/CMakeFindDependencyMacro.cmake:93 (find_package):
+  Found package configuration file:
+
+    /Users/runner/Qt/6.10.1/ios/lib/cmake/Qt6Quick3DSpatialAudioPrivate/Qt6Quick3DSpatialAudioPrivateConfig.cmake
+
+  but it set Qt6Quick3DSpatialAudioPrivate_FOUND to FALSE so package
+  "Qt6Quick3DSpatialAudioPrivate" is considered to be NOT FOUND.  Reason
+  given by package:
+
+  Qt6Quick3DSpatialAudioPrivate could not be found because dependency
+  Qt6Quick3DPrivate could not be found.
+
+  Configuring with --debug-find-pkg=Qt6Quick3DPrivate might reveal details
+  why the package was not found.
+
+  Configuring with -DQT_DEBUG_FIND_PACKAGE=ON will print the values of some
+  of the path variables that find_package uses to try and find the package.
+
+Call Stack (most recent call first):
+  /opt/homebrew/share/cmake/Modules/CMakeFindDependencyMacro.cmake:125 (__find_dependency_common)
+  /Users/runner/Qt/6.10.1/ios/lib/cmake/Qt6/QtPublicDependencyHelpers.cmake:142 (find_dependency)
+  /Users/runner/Qt/6.10.1/ios/lib/cmake/Qt6Qml/QmlPlugins/Qt6quick3dspatialaudioDependencies.cmake:22 (_qt_internal_find_qt_dependencies)
+  /Users/runner/Qt/6.10.1/ios/lib/cmake/Qt6Qml/QmlPlugins/Qt6quick3dspatialaudioConfig.cmake:52 (include)
+  /Users/runner/Qt/6.10.1/ios/lib/cmake/Qt6/QtPublicPluginHelpers.cmake:638 (include)
+  /Users/runner/Qt/6.10.1/ios/lib/cmake/Qt6Qml/Qt6QmlPlugins.cmake:6 (__qt_internal_include_qml_plugin_packages)
+  /Users/runner/Qt/6.10.1/ios/lib/cmake/Qt6Qml/Qt6QmlConfig.cmake:195 (include)
+  /Users/runner/Qt/6.10.1/ios/lib/cmake/Qt6/Qt6Config.cmake:237 (find_package)
+  app/CMakeLists.txt:6 (find_package)
+
+
+shaders/sprite.vert -> shaders/sprite.vert.qsb exposed as ://shaders/sprite.vert.qsb
+shaders/sprite.frag -> shaders/sprite.frag.qsb exposed as ://shaders/sprite.frag.qsb
+shaders/image.frag -> shaders/image.frag.qsb exposed as ://shaders/image.frag.qsb
+-- Configuring done (64.0s)
+-- Generating done (2.5s)
+-- Build files have been written to: /Users/runner/work/VFXforge/VFXforge/build
