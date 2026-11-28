@@ -254,7 +254,7 @@ AppController::AppController(QObject* parent) : QObject(parent) {
     inboxTimer_ = new QTimer(this);
     inboxTimer_->setInterval(500);
     connect(inboxTimer_, &QTimer::timeout, this, &AppController::scanLinkFolder);
-    QDir().mkpath(linkFolder());  // so Photoshop's panel can be pointed at it
+    QDir().mkpath(linkFolderPath());  // so Photoshop's panel can be pointed at it
     scanLinkFolder();               // what is already there stays where it is
     inboxTimer_->start();
 #endif
