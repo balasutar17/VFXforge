@@ -9,6 +9,8 @@
 #include <memory>
 
 #include <QColor>
+#include <QFileSystemWatcher>
+#include <QHash>
 #include <QImage>
 #include <QObject>
 #include <QSet>
@@ -449,8 +451,14 @@ public:
     // A name like "fire_4x2.png" sets the sprite-sheet grid to 4 by 2.
     Q_INVOKABLE bool usePicture(const QUrl& file);
     Q_INVOKABLE bool usePicturePath(const QString& path);
+    QVariantMap pictureInfo() const;  // the selected layer's picture, as the Shape panel shows it
     Q_INVOKABLE bool useSamplePicture();  // the toon flame sheet that ships with the app
     Q_INVOKABLE void clearPicture();
+    // Opens the layer's picture in Photoshop (or, with none, the layer's
+    // shape as a starting point). Saving there updates the layer here.
+    Q_INVOKABLE void editInPhotoshop();
+    // Stops updating the layer when its picture file is saved.
+    Q_INVOKABLE void unlinkPicture();
     // Sprite-sheet settings of the selected layer's picture: columns, rows,
     // frames, fps (numbers), animate (life, loop, random), randomStart.
     Q_INVOKABLE void setPictureNumber(const QString& key, double value);
@@ -554,12 +562,24 @@ private:
     bool control(int index, vfx::editor::ControlView& out) const;
     // The settings shown now: the Simple controls, or every setting.
     std::vector<vfx::editor::ControlView> views() const;
-    QVariantMap pictureInfo() const;
     QVariantList shapeEdits(int number) const;
     QVariantMap soundInfo() const;
     vfx::Id soundModuleId() const;
     bool useSoundBytes(const std::string& wav, const QString& name);
-    bool usePictureImage(const QImage& image, const QString& name);
+    bool usePictureImage(const QImage& image, const QString& name, vfx::Id layer = {}, bool refresh = false);
+    QImage readPictureFile(const QString& path, QString* problem, QStringList* notes) const;
+    vfx::Id spriteModuleOf(vfx::Id layer) const;
+    // The live link: picture files the artist keeps editing, and the layers
+    // that draw them. Saving a file updates its layers.
+    void linkPicture(const QString& path, vfx::Id layer);
+    void unlinkLayer(vfx::Id layer);
+    void reloadLinkedPictures();
+    QString linkedFile(vfx::Id layer) const;
+    QFileSystemWatcher* linkWatcher_ = nullptr;
+    QTimer* linkTimer_ = nullptr;
+    QHash<QString, QList<quint64>> links_;
+    QSet<QString> linkPending_;
+    int linkRetries_ = 0;
     vfx::Id spriteModuleId() const;
     void applyControl(int index, const vfx::Value& value);
     void loadBackdrop();

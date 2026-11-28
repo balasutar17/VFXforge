@@ -16,6 +16,7 @@ add_library(vfx_editor STATIC
     src/Audio.cpp
     src/Blend.cpp
     src/Budget.cpp
+    src/Psd.cpp
     src/Frames.cpp
     src/Image.cpp
     src/MeshAnalysis.cpp

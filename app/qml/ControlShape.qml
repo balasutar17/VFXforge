@@ -14,6 +14,8 @@ Item {
 
     // The picture settings, kept here so the panel answers at once.
     readonly property var picture: info.picture || ({ has: false })
+    // Photoshop and the live link are for computers, not the iPad.
+    readonly property bool canLink: Qt.platform.os !== "ios"
     property int columns: picture.columns || 1
     property int rows: picture.rows || 1
     property int frames: picture.frames || 0
@@ -116,7 +118,7 @@ Item {
         id: pictureDialog
         title: "Choose a picture or sprite sheet for this layer"
         fileMode: FileDialog.OpenFile
-        nameFilters: ["Pictures (*.png *.webp *.tga *.tif *.tiff *.jpg *.jpeg *.bmp *.gif)", "All files (*)"]
+        nameFilters: ["Pictures (*.png *.psd *.psb *.webp *.tga *.tif *.tiff *.jpg *.jpeg *.bmp *.gif)", "All files (*)"]
         onAccepted: app.usePicture(selectedFile)
     }
 
@@ -162,6 +164,12 @@ Item {
                             onClicked: pictureDialog.open()
                         }
                         VButton {
+                            text: "Paint in Photoshop"
+                            visible: root.canLink
+                            tip: "Opens this layer's shape in Photoshop as a starting point. Paint over it and save: the layer updates here each time."
+                            onClicked: app.editInPhotoshop()
+                        }
+                        VButton {
                             text: "Try a sample sheet"
                             quiet: true
                             tip: "A hand-drawn toon flame in 8 frames, to see how sprite sheets work."
@@ -171,7 +179,7 @@ Item {
                     Text {
                         width: parent.width
                         wrapMode: Text.WordWrap
-                        text: "A PNG with a see-through background works best. Name a sheet like fire_4x2.png and its grid is set for you."
+                        text: "A PNG or a Photoshop file with a see-through background works best. Name a sheet like fire_4x2.png and its grid is set for you."
                         color: theme.faint
                         font.pixelSize: theme.smallFontSize
                     }
@@ -267,9 +275,29 @@ Item {
                             color: root.picture.problem ? theme.error : theme.faint
                             font.pixelSize: theme.smallFontSize
                         }
+                        // The live link to the file the picture came from.
+                        Text {
+                            width: parent.width
+                            visible: !!root.picture.linked
+                            text: "Follows " + (root.picture.linked || "") + ": saving it updates this layer."
+                                  + " <a href=\"stop\">Stop following</a>"
+                            textFormat: Text.StyledText
+                            linkColor: theme.accent
+                            wrapMode: Text.WordWrap
+                            color: theme.accent
+                            font.pixelSize: theme.smallFontSize
+                            onLinkActivated: app.unlinkPicture()
+                            HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor }
+                        }
                         Flow {
                             width: parent.width
                             spacing: 6
+                            VButton {
+                                text: "Edit in Photoshop"
+                                visible: root.canLink
+                                tip: "Opens the picture in Photoshop. Each time you save there, the layer updates here."
+                                onClicked: app.editInPhotoshop()
+                            }
                             VButton {
                                 text: "Change…"
                                 onClicked: pictureDialog.open()

@@ -4,6 +4,9 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
+#include <QEventLoop>
+#include <QThread>
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -30,6 +33,9 @@
 #include <QtQml>
 
 #include "vfx/Serialize.h"
+#include "vfx/FileIO.h"
+#include "vfx/editor/Image.h"
+#include "vfx/editor/Psd.h"
 #include "AppController.h"
 #include "PreviewItems.h"
 #include "ReferenceController.h"
@@ -505,6 +511,52 @@ int main(int argc, char* argv[]) {
                                     selfTest.result = 1;
                                 }
                                 controller.undo();
+                            }
+                            // The Photoshop link: a .psd as a layer's picture,
+                            // then saved again (written aside and renamed over,
+                            // as Photoshop does) and picked up on its own.
+                            {
+                                QTextStream linkOut(&selfTest.report);
+                                const QString folder = QDir::temp().filePath(QStringLiteral("vfxforge-link-test"));
+                                QDir().mkpath(folder);
+                                const QString psd = QDir(folder).filePath(QStringLiteral("link-test.psd"));
+                                auto picture = [](int w, int h, std::uint8_t red) {
+                                    vfx::editor::Image image;
+                                    image.width = w;
+                                    image.height = h;
+                                    image.rgba.assign(static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4u, 255);
+                                    for (std::size_t p = 0; p < image.rgba.size(); p += 4) {
+                                        image.rgba[p] = red;
+                                        image.rgba[p + 3] = static_cast<std::uint8_t>((p / 4) % 2 ? 255 : 128);
+                                    }
+                                    return image;
+                                };
+                                const bool written = vfx::writeFileAtomic(vfx::pathFromUtf8(psd.toUtf8().toStdString()),
+                                                                          vfx::editor::writePsd(picture(64, 48, 200), "Paint")).ok();
+                                const bool used = written && controller.usePicturePath(psd);
+                                const QVariantMap first = controller.pictureInfo();
+                                const bool read = used && first.value(QStringLiteral("width")).toInt() == 64 &&
+                                                  first.value(QStringLiteral("linked")).toString() == QStringLiteral("link-test.psd");
+                                QThread::msleep(1100);  // a new modification time on every file system
+                                (void)vfx::writeFileAtomic(vfx::pathFromUtf8(psd.toUtf8().toStdString()),
+                                                           vfx::editor::writePsd(picture(32, 16, 90), "Paint"));
+                                QElapsedTimer waited;
+                                waited.start();
+                                while (waited.elapsed() < 6000 &&
+                                       controller.pictureInfo().value(QStringLiteral("width")).toInt() != 32) {
+                                    QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+                                    QThread::msleep(20);
+                                }
+                                const bool followed = controller.pictureInfo().value(QStringLiteral("width")).toInt() == 32;
+                                linkOut << "photoshop link: psd read " << (read ? "yes" : "NO") << ", save followed "
+                                        << (followed ? "yes" : "NO") << " after " << waited.elapsed() << " ms ("
+                                        << controller.message() << ")\n";
+                                if (!read || !followed) {
+                                    linkOut << "FAIL: the Photoshop link did not read or follow the file\n";
+                                    selfTest.result = 1;
+                                }
+                                controller.clearPicture();
+                                QDir(folder).removeRecursively();
                             }
                             const int steps = tour->property("steps").toList().size();
                             QMetaObject::invokeMethod(tour, "showStep", Q_ARG(QVariant, 0));

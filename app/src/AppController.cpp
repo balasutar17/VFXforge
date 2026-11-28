@@ -17,6 +17,13 @@
 #include <QBuffer>
 #include <QFile>
 #include <QFileInfo>
+#include <QDesktopServices>
+#include <QDir>
+#include <QtGlobal>
+#if QT_CONFIG(process)
+#include <QProcess>
+#endif
+#include <QStandardPaths>
 #include <QImageReader>
 #include <QRegularExpression>
 #include <QRandomGenerator>
@@ -34,6 +41,7 @@
 #include "vfx/editor/Frames.h"
 #include "vfx/editor/Audio.h"
 #include "vfx/editor/Image.h"
+#include "vfx/editor/Psd.h"
 #include "vfx/editor/SoundLibrary.h"
 #include "vfx/editor/Presets.h"
 #include "vfx/editor/Refine.h"
@@ -231,6 +239,16 @@ AppController::AppController(QObject* parent) : QObject(parent) {
     budgetTimer_->setSingleShot(true);
     budgetTimer_->setInterval(300);
     connect(budgetTimer_, &QTimer::timeout, this, &AppController::measureBudget);
+    linkWatcher_ = new QFileSystemWatcher(this);
+    linkTimer_ = new QTimer(this);
+    linkTimer_->setSingleShot(true);
+    linkTimer_->setInterval(400);  // Photoshop writes in steps; wait for it to finish
+    connect(linkWatcher_, &QFileSystemWatcher::fileChanged, this, [this](const QString& path) {
+        linkPending_.insert(path);
+        linkRetries_ = 0;
+        linkTimer_->start();
+    });
+    connect(linkTimer_, &QTimer::timeout, this, &AppController::reloadLinkedPictures);
     connect(this, &AppController::documentChanged, budgetTimer_, qOverload<>(&QTimer::start));
     measureBudget();
     say(QStringLiteral("Ready. Pick an effect from the library, or shape this one with the controls on the right."));
@@ -2195,8 +2213,10 @@ void AppController::setSoundFlag(const QString& key, bool value) {
 
 // ------------------------------------------------------------- pictures
 
-vfx::Id AppController::spriteModuleId() const {
-    const vfx::Layer* layer = vfx::findLayer(session_.effect(), selectedLayerId());
+vfx::Id AppController::spriteModuleId() const { return spriteModuleOf(selectedLayerId()); }
+
+vfx::Id AppController::spriteModuleOf(vfx::Id layerId) const {
+    const vfx::Layer* layer = vfx::findLayer(session_.effect(), layerId);
     if (!layer) {
         return vfx::Id{};
     }
@@ -2261,6 +2281,10 @@ QVariantMap AppController::pictureInfo() const {
         return info;
     }
     info.insert(QStringLiteral("has"), true);
+    if (const QString linked = linkedFile(selectedLayerId()); !linked.isEmpty()) {
+        info.insert(QStringLiteral("linked"), QFileInfo(linked).fileName());
+        info.insert(QStringLiteral("linkedPath"), QDir::toNativeSeparators(linked));
+    }
     const auto file = session_.projectFolder() / vfx::pathFromUtf8(asset->path);
     info.insert(QStringLiteral("source"), QUrl::fromLocalFile(QString::fromStdU16String(file.u16string())));
     QString name = text(asset->path);
@@ -2279,9 +2303,9 @@ QVariantMap AppController::pictureInfo() const {
     return info;
 }
 
-bool AppController::usePictureImage(const QImage& source, const QString& name) {
-    const vfx::Id layer = selectedLayerId();
-    if (!layer.valid() || !spriteModuleId().valid()) {
+bool AppController::usePictureImage(const QImage& source, const QString& name, vfx::Id target, bool refresh) {
+    const vfx::Id layer = target.valid() ? target : selectedLayerId();
+    if (!layer.valid() || !spriteModuleOf(layer).valid()) {
         say(QStringLiteral("Pick a layer first."), true);
         return false;
     }
@@ -2307,12 +2331,19 @@ bool AppController::usePictureImage(const QImage& source, const QString& name) {
     // "fire_4x2.png", "smoke 8x8.png": the grid is in the name.
     const QRegularExpression grid(QStringLiteral("(\\d{1,2})\\s*[xX×]\\s*(\\d{1,2})"));
     const QRegularExpressionMatch match = grid.match(name);
-    const bool first = !pictureInfo().value(QStringLiteral("has")).toBool();
-    session_.beginEdit("Use Picture");
+    bool first = true;
+    if (const vfx::Layer* l = vfx::findLayer(session_.effect(), layer)) {
+        for (const vfx::Module& m : l->modules) {
+            const vfx::Value* t = m.type == "sprite" ? m.find("texture") : nullptr;
+            const auto* ref = t ? std::get_if<vfx::AssetRef>(t) : nullptr;
+            first = first && !(ref && ref->id.valid());
+        }
+    }
+    session_.beginEdit(refresh ? "Update Picture" : "Use Picture");
     bool ok = report(session_.useImage(layer, utf8(name), png));
     bool whitened = false;
-    if (ok) {
-        const vfx::Id sprite = spriteModuleId();
+    if (ok && !refresh) {
+        const vfx::Id sprite = spriteModuleOf(layer);
         auto put = [&](const char* key, vfx::Value value) {
             (void)session_.set(vfx::Path::property(layer, sprite, key), std::move(value));
         };
@@ -2341,6 +2372,10 @@ bool AppController::usePictureImage(const QImage& source, const QString& name) {
         }
     }
     session_.endEdit();
+    if (ok && refresh) {
+        changed(Structure);
+        return true;
+    }
     if (ok) {
         changed(Structure);
         QString line = match.hasMatch()
@@ -2358,15 +2393,295 @@ bool AppController::usePictureImage(const QImage& source, const QString& name) {
 
 bool AppController::usePicture(const QUrl& file) { return usePicturePath(file.toLocalFile()); }
 
-bool AppController::usePicturePath(const QString& path) {
-    QImageReader reader(path);
+// Reads a picture file, Photoshop documents included.
+QImage AppController::readPictureFile(const QString& path, QString* problem, QStringList* notes) const {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        *problem = file.errorString();
+        return {};
+    }
+    const QByteArray bytes = file.readAll();
+    const std::string_view view(bytes.constData(), static_cast<std::size_t>(bytes.size()));
+    if (vfx::editor::looksLikePsd(view)) {
+        auto psd = vfx::editor::readPsd(view);
+        if (!psd) {
+            *problem = text(psd.error().message);
+            return {};
+        }
+        const vfx::editor::Image& merged = psd.value().merged;
+        QImage image(merged.width, merged.height, QImage::Format_RGBA8888);
+        for (int y = 0; y < merged.height; ++y) {
+            std::memcpy(image.scanLine(y),
+                        &merged.rgba[static_cast<std::size_t>(y) * static_cast<std::size_t>(merged.width) * 4u],
+                        static_cast<std::size_t>(merged.width) * 4u);
+        }
+        for (const std::string& note : psd.value().notes) {
+            notes->append(text(note));
+        }
+        return image;
+    }
+    QBuffer buffer;
+    buffer.setData(bytes);
+    buffer.open(QIODevice::ReadOnly);
+    QImageReader reader(&buffer);
     reader.setAutoTransform(true);
     const QImage image = reader.read();
     if (image.isNull()) {
-        say(QStringLiteral("That picture could not be read: %1").arg(reader.errorString()), true);
+        *problem = reader.errorString();
+    }
+    return image;
+}
+
+bool AppController::usePicturePath(const QString& path) {
+    QString problem;
+    QStringList notes;
+    const QImage image = readPictureFile(path, &problem, &notes);
+    if (image.isNull()) {
+        say(QStringLiteral("That picture could not be read: %1").arg(problem), true);
         return false;
     }
-    return usePictureImage(image, QFileInfo(path).fileName());
+    const vfx::Id layer = selectedLayerId();
+    if (!usePictureImage(image, QFileInfo(path).fileName())) {
+        return false;
+    }
+    linkPicture(path, layer);
+    if (!notes.isEmpty()) {
+        say(notes.join(QLatin1Char(' ')));
+    }
+    return true;
+}
+
+// ------------------------------------------------------------ live link
+
+void AppController::linkPicture(const QString& path, vfx::Id layer) {
+    unlinkLayer(layer);
+    const QString file = QFileInfo(path).absoluteFilePath();
+    links_[file].append(layer.value);
+    if (!linkWatcher_->files().contains(file)) {
+        linkWatcher_->addPath(file);
+    }
+}
+
+void AppController::unlinkLayer(vfx::Id layer) {
+    for (auto it = links_.begin(); it != links_.end();) {
+        it.value().removeAll(layer.value);
+        if (it.value().isEmpty()) {
+            linkWatcher_->removePath(it.key());
+            it = links_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+QString AppController::linkedFile(vfx::Id layer) const {
+    for (auto it = links_.cbegin(); it != links_.cend(); ++it) {
+        if (it.value().contains(layer.value)) {
+            return it.key();
+        }
+    }
+    return {};
+}
+
+void AppController::unlinkPicture() {
+    const QString file = linkedFile(selectedLayerId());
+    unlinkLayer(selectedLayerId());
+    if (!file.isEmpty()) {
+        changed(Values);
+        say(QStringLiteral("%1 is no longer followed: saving it won't change this layer.").arg(QFileInfo(file).fileName()));
+    }
+}
+
+void AppController::reloadLinkedPictures() {
+    const QSet<QString> pending = linkPending_;
+    linkPending_.clear();
+    QStringList updated;
+    for (const QString& file : pending) {
+        if (!links_.contains(file)) {
+            continue;
+        }
+        // Many apps save by writing a new file and renaming it over the old
+        // one, which ends the watch; watch the new file.
+        if (!QFileInfo::exists(file)) {
+            if (linkRetries_++ < 10) {
+                linkPending_.insert(file);
+            }
+            continue;
+        }
+        if (!linkWatcher_->files().contains(file)) {
+            linkWatcher_->addPath(file);
+        }
+        QString problem;
+        QStringList notes;
+        const QImage image = readPictureFile(file, &problem, &notes);
+        if (image.isNull()) {
+            // Probably still being written: try again shortly.
+            if (linkRetries_++ < 10) {
+                linkPending_.insert(file);
+            } else {
+                say(QStringLiteral("%1 changed but could not be read: %2").arg(QFileInfo(file).fileName(), problem), true);
+            }
+            continue;
+        }
+        QList<quint64>& layers = links_[file];
+        for (int i = layers.size() - 1; i >= 0; --i) {
+            const vfx::Id layer{layers[i]};
+            if (!vfx::findLayer(session_.effect(), layer)) {
+                layers.removeAt(i);  // the layer is gone, or another effect is open
+                continue;
+            }
+            if (usePictureImage(image, QFileInfo(file).fileName(), layer, true)) {
+                if (!updated.contains(QFileInfo(file).fileName())) {
+                    updated.append(QFileInfo(file).fileName());
+                }
+            }
+        }
+        if (layers.isEmpty()) {
+            linkWatcher_->removePath(file);
+            links_.remove(file);
+        }
+    }
+    if (!linkPending_.isEmpty()) {
+        linkTimer_->start();
+    }
+    if (!updated.isEmpty()) {
+        say(QStringLiteral("Updated from %1.").arg(updated.join(QStringLiteral(", "))));
+    }
+}
+
+namespace {
+
+// Where Edit in Photoshop keeps the files it hands over.
+QString linkFolder() {
+    const QString documents = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    return QDir(documents).filePath(QStringLiteral("VFX Forge Link"));
+}
+
+// Opens a file in Photoshop, or in whatever opens it when Photoshop can't be
+// found. Says which.
+bool openInPhotoshop(const QString& file) {
+#if defined(Q_OS_MACOS) && QT_CONFIG(process)
+    QProcess open;
+    open.start(QStringLiteral("/usr/bin/open"), {QStringLiteral("-b"), QStringLiteral("com.adobe.Photoshop"), file});
+    if (open.waitForFinished(8000) && open.exitStatus() == QProcess::NormalExit && open.exitCode() == 0) {
+        return true;
+    }
+#elif defined(Q_OS_WIN) && QT_CONFIG(process)
+    // Photoshop records where it is installed, one group per version.
+    QSettings adobe(QStringLiteral("HKEY_LOCAL_MACHINE\\SOFTWARE\\Adobe\\Photoshop"), QSettings::NativeFormat);
+    QStringList versions = adobe.childGroups();
+    std::sort(versions.begin(), versions.end(),
+              [](const QString& a, const QString& b) { return a.toDouble() > b.toDouble(); });
+    for (const QString& version : versions) {
+        const QString folder = adobe.value(version + QStringLiteral("/ApplicationPath")).toString();
+        const QString exe = QDir(folder).filePath(QStringLiteral("Photoshop.exe"));
+        if (!folder.isEmpty() && QFileInfo::exists(exe) && QProcess::startDetached(exe, {QDir::toNativeSeparators(file)})) {
+            return true;
+        }
+    }
+#endif
+    QDesktopServices::openUrl(QUrl::fromLocalFile(file));
+    return false;
+}
+
+}  // namespace
+
+void AppController::editInPhotoshop() {
+    const vfx::Id layerId = selectedLayerId();
+    const vfx::Layer* layer = vfx::findLayer(session_.effect(), layerId);
+    if (!layer || !spriteModuleOf(layerId).valid()) {
+        say(QStringLiteral("Pick a layer that draws particles first."), true);
+        return;
+    }
+    QString file = linkedFile(layerId);
+    if (file.isEmpty() || !QFileInfo::exists(file)) {
+        // Hand over what the layer draws now: its picture, or its shape.
+        vfx::editor::Image start;
+        const QVariantMap info = pictureInfo();
+        bool hadPicture = false;
+        if (info.value(QStringLiteral("has")).toBool() && info.value(QStringLiteral("width")).toInt() > 0) {
+            QFile png(info.value(QStringLiteral("source")).toUrl().toLocalFile());
+            if (png.open(QIODevice::ReadOnly)) {
+                const QByteArray bytes = png.readAll();
+                auto decoded = vfx::editor::decodePng(std::string_view(bytes.constData(), static_cast<std::size_t>(bytes.size())));
+                if (decoded) {
+                    start = std::move(decoded.value());
+                    hadPicture = true;
+                }
+            }
+        }
+        if (!hadPicture) {
+            std::string shape = "circle";
+            for (const vfx::Module& m : layer->modules) {
+                const vfx::Value* v = m.type == "sprite" ? m.find("shape") : nullptr;
+                if (const auto* name = v ? std::get_if<std::string>(v) : nullptr) {
+                    shape = *name;
+                }
+            }
+            const int number = std::max(0, vfx::editor::shapeNumber(shape));
+            const vfx::editor::Image coded = vfx::editor::drawShapePicture(number, vfx::editor::kShapePictureSize);
+            // Red is the shading, green the shine, blue the coverage: turn
+            // it into a white shape, lightly shaded, to paint over.
+            start.width = coded.width;
+            start.height = coded.height;
+            start.rgba.resize(coded.rgba.size());
+            for (std::size_t p = 0; p < coded.rgba.size() / 4; ++p) {
+                const float tone = (coded.rgba[p * 4] - 128) / 128.0f;
+                const float shine = coded.rgba[p * 4 + 1] / 255.0f;
+                const float v = std::clamp(0.88f + 0.3f * tone + shine, 0.0f, 1.0f);
+                const auto grey = static_cast<std::uint8_t>(std::lround(v * 255.0f));
+                start.rgba[p * 4] = start.rgba[p * 4 + 1] = start.rgba[p * 4 + 2] = grey;
+                start.rgba[p * 4 + 3] = coded.rgba[p * 4 + 2];
+            }
+        }
+
+        QDir folder(linkFolder());
+        if (!folder.mkpath(QStringLiteral("."))) {
+            say(QStringLiteral("Could not make the folder %1.").arg(folder.path()), true);
+            return;
+        }
+        QString base = text(layer->name).trimmed();
+        base.replace(QRegularExpression(QStringLiteral("[\\\\/:*?\"<>|]")), QStringLiteral("-"));
+        if (base.isEmpty()) {
+            base = QStringLiteral("Layer");
+        }
+        const int columns = info.value(QStringLiteral("columns")).toInt();
+        const int rows = info.value(QStringLiteral("rows")).toInt();
+        if (hadPicture && (columns > 1 || rows > 1)) {
+            base += QStringLiteral(" %1x%2").arg(columns).arg(rows);  // keeps the sheet's grid in the name
+        }
+        file = folder.filePath(base + QStringLiteral(".psd"));
+        for (int n = 2; QFileInfo::exists(file); ++n) {
+            file = folder.filePath(QStringLiteral("%1 %2.psd").arg(base).arg(n));
+        }
+        const std::string psd = vfx::editor::writePsd(start, utf8(base));
+        if (vfx::Status written = vfx::writeFileAtomic(toPath(file), psd); !written) {
+            say(QStringLiteral("Could not write %1: %2").arg(file, text(written.error().message)), true);
+            return;
+        }
+        if (!hadPicture) {
+            QImage image(start.width, start.height, QImage::Format_RGBA8888);
+            for (int y = 0; y < start.height; ++y) {
+                std::memcpy(image.scanLine(y), &start.rgba[static_cast<std::size_t>(y) * static_cast<std::size_t>(start.width) * 4u],
+                            static_cast<std::size_t>(start.width) * 4u);
+            }
+            if (!usePictureImage(image, QFileInfo(file).fileName(), layerId, false)) {
+                return;
+            }
+        }
+        linkPicture(file, layerId);
+        changed(Values);
+    }
+    const QString name = QFileInfo(file).fileName();
+    if (openInPhotoshop(file)) {
+#if defined(Q_OS_MACOS)
+        say(QStringLiteral("Opened %1 in Photoshop. Paint, press Cmd+S, and this layer updates.").arg(name));
+#else
+        say(QStringLiteral("Opened %1 in Photoshop. Paint, press Ctrl+S, and this layer updates.").arg(name));
+#endif
+    } else {
+        say(QStringLiteral("Photoshop wasn't found, so %1 opened in the app your computer uses for it. Saving it still updates this layer.").arg(name));
+    }
 }
 
 bool AppController::useSamplePicture() {
@@ -2382,6 +2697,7 @@ bool AppController::useSamplePicture() {
 }
 
 void AppController::clearPicture() {
+    unlinkLayer(selectedLayerId());
     if (report(session_.clearImage(selectedLayerId()))) {
         changed(Structure);
         say(QStringLiteral("Back to the shape."));
