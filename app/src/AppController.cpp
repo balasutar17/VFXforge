@@ -21,6 +21,8 @@
 #include <QRegularExpression>
 #include <QRandomGenerator>
 #include <QSettings>
+
+#include "vfx/editor/Budget.h"
 #include <QVariantMap>
 
 #include "vfx/Command.h"
@@ -223,7 +225,67 @@ AppController::AppController(QObject* parent) : QObject(parent) {
     rebuildLayers();
     rebuildControls();
     loadBackdrop();
+    // The phone budget follows the effect a moment after each change, so a
+    // drag on a slider is not measured at every step of the way.
+    budgetTimer_ = new QTimer(this);
+    budgetTimer_->setSingleShot(true);
+    budgetTimer_->setInterval(300);
+    connect(budgetTimer_, &QTimer::timeout, this, &AppController::measureBudget);
+    connect(this, &AppController::documentChanged, budgetTimer_, qOverload<>(&QTimer::start));
+    measureBudget();
     say(QStringLiteral("Ready. Pick an effect from the library, or shape this one with the controls on the right."));
+}
+
+void AppController::measureBudget() {
+    const vfx::editor::BudgetReport r = vfx::editor::measureBudget(session_.effect());
+    QVariantMap m;
+    m.insert(QStringLiteral("grade"), static_cast<int>(r.grade));
+    m.insert(QStringLiteral("gradeName"), QString::fromUtf8(vfx::editor::budgetGradeName(r.grade)));
+    m.insert(QStringLiteral("particles"), static_cast<int>(r.peakParticles));
+    m.insert(QStringLiteral("particlesGrade"), static_cast<int>(r.particlesGrade));
+    m.insert(QStringLiteral("fill"), r.peakFill);
+    m.insert(QStringLiteral("fillGrade"), static_cast<int>(r.fillGrade));
+    m.insert(QStringLiteral("meanFill"), r.meanFill);
+    m.insert(QStringLiteral("peakTime"), r.peakTime);
+    m.insert(QStringLiteral("draws"), r.draws);
+    m.insert(QStringLiteral("drawsGrade"), static_cast<int>(r.drawsGrade));
+    m.insert(QStringLiteral("lights"), r.lights);
+    QVariantList layers;
+    for (const vfx::editor::LayerCost& c : r.layers) {
+        QVariantMap l;
+        l.insert(QStringLiteral("name"), QString::fromStdString(c.name));
+        l.insert(QStringLiteral("particles"), static_cast<int>(c.peakParticles));
+        l.insert(QStringLiteral("fill"), c.peakFill);
+        l.insert(QStringLiteral("share"), c.share);
+        l.insert(QStringLiteral("trail"), c.trail);
+        l.insert(QStringLiteral("lights"), c.lights);
+        layers.push_back(l);
+    }
+    m.insert(QStringLiteral("layers"), layers);
+    QStringList notes;
+    for (const std::string& n : r.notes) {
+        notes.push_back(QString::fromStdString(n));
+    }
+    m.insert(QStringLiteral("notes"), notes);
+    budget_ = m;
+    emit budgetChanged();
+}
+
+void AppController::makeMobileSafe() {
+    session_.endEdit();
+    std::string said;
+    const vfx::Effect lighter = vfx::editor::makeMobileSafe(session_.effect(), &said);
+    if (vfx::writeEffect(lighter) == vfx::writeEffect(session_.effect())) {
+        say(QString::fromStdString(said));
+        return;
+    }
+    if (!report(session_.applyEffect(lighter, "Make mobile-safe"))) {
+        return;
+    }
+    changed(Structure);
+    emit playbackChanged();
+    measureBudget();
+    say(QString::fromStdString(said));
 }
 
 QString AppController::version() const { return QCoreApplication::applicationVersion(); }

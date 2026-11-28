@@ -19,6 +19,7 @@
 #include "vfx/Program.h"
 #include "vfx/Simulation.h"
 #include "vfx/editor/Archive.h"
+#include "vfx/editor/Budget.h"
 #include "vfx/editor/Picture.h"
 #include "vfx/editor/SpriteMesh.h"
 #include "vfx/editor/Presets.h"
@@ -41,7 +42,9 @@ int usage() {
                  "      effect and when to look) and VFX Forge's own picture of each moment.\n"
                  "      A file is framed with --view x,y,height (2D) given before it.\n"
                  "  vfxexport stats <effect.vfx | preset-id>... [--times a,b,c]\n"
-                 "      Each layer's particles at those moments: count, centre, spread, speed.\n";
+                 "      Each layer's particles at those moments: count, centre, spread, speed.\n"
+                 "  vfxexport budget <effect.vfx | preset-id>...\n"
+                 "      How heavy each effect is to draw on a phone, and which layers cost most.\n";
     return 2;
 }
 
@@ -277,6 +280,40 @@ int stats(const std::vector<std::string>& args) {
     return 0;
 }
 
+// How heavy each effect is to draw on a phone (see Budget.h).
+int budget(const std::vector<std::string>& args) {
+    if (args.size() < 2) {
+        return usage();
+    }
+    for (std::size_t i = 1; i < args.size(); ++i) {
+        auto loaded = load(args[i]);
+        if (!loaded) {
+            std::cerr << args[i] << ": " << loaded.error().message << "\n";
+            return 1;
+        }
+        const BudgetReport r = measureBudget(loaded.value().effect);
+        std::printf("%s: %s  (particles %u, fill %.2f screens at %.2f s, mean %.2f, draws %d, lights %d)\n",
+                    loaded.value().effect.name.c_str(), budgetGradeName(r.grade), r.peakParticles, r.peakFill,
+                    r.peakTime, r.meanFill, r.draws, r.lights);
+        for (const LayerCost& l : r.layers) {
+            std::printf("    %-18s particles %4u  fill %5.2f (mean %.2f, %3.0f%% of the peak)%s%s\n", l.name.c_str(),
+                        l.peakParticles, l.peakFill, l.meanFill, 100.0 * l.share, l.trail ? "  trail" : "",
+                        l.lights ? "  lights" : "");
+        }
+        for (const std::string& note : r.notes) {
+            std::printf("    - %s\n", note.c_str());
+        }
+        if (r.grade > BudgetGrade::Fine) {
+            std::string said;
+            const Effect lighter = makeMobileSafe(loaded.value().effect, &said);
+            const BudgetReport after = measureBudget(lighter);
+            std::printf("    mobile-safe: %s (particles %u, fill %.2f, draws %d)\n      %s\n", budgetGradeName(after.grade),
+                        after.peakParticles, after.peakFill, after.draws, said.c_str());
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char** argv) {
     std::vector<std::string> args(argv + 1, argv + argc);
     if (!args.empty() && args[0] == "plan") {
@@ -284,6 +321,9 @@ int main(int argc, char** argv) {
     }
     if (!args.empty() && args[0] == "stats") {
         return stats(args);
+    }
+    if (!args.empty() && args[0] == "budget") {
+        return budget(args);
     }
     if (!args.empty() && args[0] == "unreal") {
         return unrealExport(args);

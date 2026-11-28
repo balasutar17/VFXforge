@@ -490,6 +490,22 @@ int main(int argc, char* argv[]) {
                                 return;
                             }
                             controller.setLibraryOpen(false);
+                            // The phone budget: a heavy library effect, made mobile-safe.
+                            {
+                                QTextStream budgetOut(&selfTest.report);
+                                controller.openPreset(QStringLiteral("ground-mist"));
+                                QMetaObject::invokeMethod(&controller, "measureBudget", Qt::DirectConnection);
+                                const int before = controller.budget().value(QStringLiteral("grade")).toInt();
+                                controller.makeMobileSafe();
+                                const int after = controller.budget().value(QStringLiteral("grade")).toInt();
+                                budgetOut << "phone budget: Ground Mist " << before << " -> " << after << " ("
+                                          << controller.message() << ")\n";
+                                if (before != 3 || after > 1) {
+                                    budgetOut << "FAIL: the phone budget or Make mobile-safe did not work\n";
+                                    selfTest.result = 1;
+                                }
+                                controller.undo();
+                            }
                             const int steps = tour->property("steps").toList().size();
                             QMetaObject::invokeMethod(tour, "showStep", Q_ARG(QVariant, 0));
                             QTimer::singleShot(500, &application, [&, window, tour, steps, finish]() {

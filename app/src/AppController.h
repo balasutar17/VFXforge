@@ -14,7 +14,9 @@
 #include <QSet>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <QUrl>
+#include <QVariantMap>
 #include <QVariantList>
 
 #include "AudioPlayer.h"
@@ -146,6 +148,11 @@ class AppController : public QObject {
     Q_PROPERTY(bool soundAvailable READ soundAvailable CONSTANT)
     Q_PROPERTY(QVariantList librarySounds READ librarySounds CONSTANT)
     Q_PROPERTY(bool importingSound READ importingSound NOTIFY importingSoundChanged)
+
+    // How heavy the effect is to draw on a phone (see vfx/editor/Budget.h):
+    // grade (0 light .. 3 too heavy), gradeName, particles, fill, meanFill,
+    // draws, lights, the grades of each, layers (heaviest first) and notes.
+    Q_PROPERTY(QVariantMap budget READ budget NOTIFY budgetChanged)
 
 public:
     explicit AppController(QObject* parent = nullptr);
@@ -465,6 +472,11 @@ public:
     // For the Reference to VFX workspace, which changes the effect as a
     // whole: refresh everything shown, say something, frame the viewport.
     void effectChangedOutside(const QString& message, bool error = false);
+
+    QVariantMap budget() const { return budget_; }
+    // Trims the heaviest layers until the effect is OK on a phone, or as near
+    // as it goes without changing the look. One step to undo.
+    Q_INVOKABLE void makeMobileSafe();
     void suggestView(double x, double y, double unitsHigh) { emit viewSuggested(x, y, unitsHigh); }
 
 signals:
@@ -491,11 +503,18 @@ signals:
     void exportsChanged();
     void soundOnChanged();
     void importingSoundChanged();
+    void budgetChanged();
     // The viewport should show this part of the world: the point in the
     // middle and how many units fit top to bottom. Zero height means "reset".
     void viewSuggested(double x, double y, double unitsHigh);
 
+public slots:
+    // Normally run a moment after each change; the self-test calls it directly.
+    void measureBudget();
+
 private:
+    QVariantMap budget_;
+    QTimer* budgetTimer_ = nullptr;
     enum Refresh { Values = 0, Structure = 1 };
     void groupDone(const vfx::Status& status, const QString& said);
     vfx::editor::LayerTransform gizmoTransform_;

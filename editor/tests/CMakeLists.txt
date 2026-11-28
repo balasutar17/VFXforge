@@ -9,6 +9,7 @@ add_executable(vfx_editor_tests
     test_model.cpp
     test_presets.cpp
     test_principles.cpp
+    test_budget.cpp
     test_reference.cpp
     test_reference_lines.cpp
     test_session.cpp

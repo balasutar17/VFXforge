@@ -316,6 +316,9 @@ ApplicationWindow {
                     }
                 }
 
+                // How heavy the effect is on a phone, and a lighter version in one click.
+                BudgetBadge { id: budgetBadge }
+
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 22; Layout.leftMargin: 6; Layout.rightMargin: 6; color: theme.line }
 
                 VButton { text: "Undo"; enabled: app.canUndo; tip: app.canUndo ? "Undo: " + app.undoName : "Nothing to undo"; onClicked: app.undo() }
