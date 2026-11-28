@@ -144,3 +144,15 @@ on its second pass, so the last frame leads straight into the first.
 
 In Unity, select all the frames in the Project window and drag them into a
 scene: Unity creates the animation clip and the Animator for them.
+
+### Spread from a rectangle or an outline
+
+A flat rectangle or outline that sends particles within a spread has no exact
+Unity shape: Unity's Random Direction approximates the spread. How far Random
+Direction fans particles out is not in proportion to the amount, so VFX Forge
+uses amounts measured in Unity 6 (a flat box and a flat outline, 4000 and 200
+particles per amount): a 26 degree spread is 0.089 on a box (it used to be
+0.144, which fanned out to 41 degrees). Up to about 45 degrees the directions
+are spread evenly, as in VFX Forge. An outline's random directions also go
+into depth, so in a 2D effect those particles are held flat (Limit Velocity,
+Z 0); they keep about 94% of their speed in the picture.

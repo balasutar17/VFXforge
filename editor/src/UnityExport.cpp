@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -229,8 +230,32 @@ J shapeJson(const EmitterProgram& e) {
     if (e.flat && shape == ShapeType::Box) shape = ShapeType::Rectangle;
 
     // Spread that a Unity shape cannot express exactly is approximated by
-    // mixing in random directions.
-    const double mix = std::clamp(spreadDeg / 180.0, 0.0, 1.0);
+    // mixing in random directions. How far Unity's Random Direction fans
+    // particles out is not in proportion to the amount; in a flat effect it
+    // was measured in Unity 6 (a flat box, 4000 particles per amount), and
+    // this table gives the amount whose widest angle is the layer's spread.
+    // Up to about 45 degrees Unity's angles are spread evenly, as VFX Forge's are.
+    // An outline (the importer's Path shape, a mesh) was measured the same way;
+    // its random directions also go into depth, so it fans out less per amount.
+    using Table = std::vector<std::pair<double, double>>;
+    static const Table boxTable = {{0.0, 0.0},   {5.8, 0.02},  {14.8, 0.05}, {23.6, 0.08},
+                                   {29.2, 0.10}, {41.9, 0.15}, {52.2, 0.20}, {67.1, 0.30},
+                                   {77.4, 0.40}, {89.9, 0.50}, {179.8, 0.70}, {180.0, 1.0}};
+    static const Table pathTable = {{0.0, 0.0},   {1.2, 0.02},  {3.0, 0.05},  {6.3, 0.10},
+                                    {10.1, 0.15}, {14.5, 0.20}, {24.9, 0.30}, {41.8, 0.40},
+                                    {87.3, 0.50}, {179.1, 0.70}, {180.0, 1.0}};
+    auto randomDirectionFor = [](const Table& table, double deg) {
+        if (deg <= 0.0) return 0.0;
+        for (std::size_t i = 1; i < table.size(); ++i) {
+            if (deg <= table[i].first) {
+                const double t = (deg - table[i - 1].first) / (table[i].first - table[i - 1].first);
+                return table[i - 1].second + t * (table[i].second - table[i - 1].second);
+            }
+        }
+        return 1.0;
+    };
+    const double mix = e.flat ? randomDirectionFor(boxTable, spreadDeg) : std::clamp(spreadDeg / 180.0, 0.0, 1.0);
+    const double pathMix = e.flat ? randomDirectionFor(pathTable, spreadDeg) : mix;
     // A flat outline or area, standing up or lying on the ground, as a
     // mesh the importer builds. Unity's box would point its particles along
     // its own depth, which a flat box does not have.
@@ -249,7 +274,7 @@ J shapeJson(const EmitterProgram& e) {
         s["outward"] = 1.0;
         s["aim"] = "direction";
         s["direction"] = J::array({round6(e.dirX), round6(e.dirY), round6(e.dirZ)});
-        s["randomDirection"] = round6(randomDirection);
+        s["randomDirection"] = round6(randomDirection == mix ? pathMix : randomDirection);
         s["align"] = false;
         s["exact"] = randomDirection == 0.0;
     };

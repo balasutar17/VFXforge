@@ -217,7 +217,9 @@ TEST_CASE("a rectangle sending particles up is a box facing up", "[unity][shape]
     CHECK(shape["scale"][0].get<double>() == Catch::Approx(4.0));
     CHECK(shape["scale"][1].get<double>() == Catch::Approx(0.0).margin(1e-6));
     CHECK(shape["scale"][2].get<double>() == Catch::Approx(0.5));
-    CHECK(shape["randomDirection"].get<double>() == Catch::Approx(0.1));
+    // 18 degrees each way: the Random Direction measured in Unity to fan a flat
+    // box out to 18 degrees (between 14.8 at 0.05 and 23.6 at 0.08).
+    CHECK(shape["randomDirection"].get<double>() == Catch::Approx(0.05 + (18.0 - 14.8) / (23.6 - 14.8) * 0.03).epsilon(1e-4));
     CHECK(shape["edge"] == false);
 }
 

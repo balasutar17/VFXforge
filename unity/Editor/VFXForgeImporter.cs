@@ -19,7 +19,7 @@ using UnityEngine;
 
 namespace VFXForge.EditorTools
 {
-    [ScriptedImporter(11, "vfxforge")]
+    [ScriptedImporter(12, "vfxforge")]
     public class VFXForgeImporter : ScriptedImporter
     {
         public const string ShaderPath = "Assets/VFXForge/Shaders/VFXForgeParticle.shader";
@@ -157,6 +157,11 @@ namespace VFXForge.EditorTools
                                                picture, out trailMaterial, out pathMesh);
                 if (pathMesh != null)
                     ctx.AddObjectToAsset("path " + i, pathMesh);
+                // An outline's random directions go into depth as well; a flat effect keeps them flat.
+                var layerShape = Obj(layer, "shape");
+                if (Str(root, "space", "2d") == "2d" && layerShape != null && Str(layerShape, "type", "") == "path" &&
+                    Num(layerShape, "randomDirection", 0) > 0 && !Bool(layerShape, "ground", false))
+                    HoldFlat(system);
                 if (material != null)
                     ctx.AddObjectToAsset("material " + i, material);
                 if (trailMaterial != null)
@@ -254,19 +259,7 @@ namespace VFXForge.EditorTools
                 {
                     childShape.shapeType = ParticleSystemShapeType.Sphere;
                     childShape.rotation = Vector3.zero;
-                    // Its sparks keep no speed towards the camera. A layer with drag already
-                    // uses Limit Velocity for it; its depth speed then dies away with the rest,
-                    // which looks the same in a flat picture.
-                    var flat = childSystem.limitVelocityOverLifetime;
-                    if (!flat.enabled)
-                    {
-                        flat.enabled = true;
-                        flat.separateAxes = true;
-                        flat.limitX = 100000f;
-                        flat.limitY = 100000f;
-                        flat.limitZ = 0f;
-                        flat.dampen = 1f;
-                    }
+                    HoldFlat(childSystem);
                 }
                 subModule.AddSubEmitter(childSystem, kind, inherit, (float)Num(sub, "chance", 1));
             }
@@ -1430,6 +1423,22 @@ namespace VFXForge.EditorTools
             if (from == null || !from.TryGetValue(key, out value))
                 return fallback;
             return value as string ?? fallback;
+        }
+
+        // Particles of a flat effect keep no speed towards the camera. A layer with
+        // drag already uses Limit Velocity for it; its depth speed then dies away
+        // with the rest, which looks the same in a flat picture.
+        static void HoldFlat(ParticleSystem system)
+        {
+            var flat = system.limitVelocityOverLifetime;
+            if (flat.enabled)
+                return;
+            flat.enabled = true;
+            flat.separateAxes = true;
+            flat.limitX = 100000f;
+            flat.limitY = 100000f;
+            flat.limitZ = 0f;
+            flat.dampen = 1f;
         }
 
         static double Num(Dictionary<string, object> from, string key, double fallback)
