@@ -71,6 +71,7 @@ qt_add_resources(vfxforge "vfxforge_qml"
         qml/ShaderWorkspace.qml
         qml/Gizmo.qml
         qml/BloomLayer.qml
+        qml/Tour.qml
         samples/toon-flame-4x2.png
         samples/reference-flash.png
         samples/reference-burst.gif

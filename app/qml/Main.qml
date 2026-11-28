@@ -21,10 +21,16 @@ ApplicationWindow {
     property var pendingAction: null
     property var afterSave: null
     property bool closeConfirmed: false
-    // True while a question is on screen; keyboard shortcuts wait for it.
-    readonly property bool asking: unsaved.visible
+    // True while a question or the tour is on screen; keyboard shortcuts wait for it.
+    readonly property bool asking: unsaved.visible || tour.visible
 
-    Component.onCompleted: if (showLibraryAtStart) app.libraryOpen = true
+    // The very first start shows the tour, then the library.
+    Component.onCompleted: {
+        if (showTourAtStart)
+            tour.start()
+        else if (showLibraryAtStart)
+            app.libraryOpen = true
+    }
 
     // Opening a preset or a file says which part of the world to look at.
     Connections {
@@ -239,11 +245,11 @@ ApplicationWindow {
                 anchors.rightMargin: 12
                 spacing: 6
 
-                VButton { primary: true; text: "Library"; tip: "Browse the ready-made effects"; onClicked: app.libraryOpen = true }
-                VButton { text: "From a reference…"; tip: "Rebuild an effect from a picture, a GIF or a short video of it (Ctrl/Cmd+R)"; onClicked: reference.open = true }
-                VButton { text: "New 2D"; tip: "Start a new flat effect"; onClicked: root.guard(function() { app.newEffect(false) }) }
-                VButton { text: "New 3D"; tip: "Start a new effect with depth"; onClicked: root.guard(function() { app.newEffect(true) }) }
-                VButton { text: "Shader"; tip: "Make a game shader: pick a look, adjust it, animate it, and export a material to Unity"; onClicked: shaderStudio.open = true }
+                VButton { id: libraryButton; primary: true; text: "Library"; tip: "Browse the ready-made effects"; onClicked: app.libraryOpen = true }
+                VButton { id: referenceButton; text: "From a reference…"; tip: "Rebuild an effect from a picture, a GIF or a short video of it (Ctrl/Cmd+R)"; onClicked: reference.open = true }
+                VButton { id: new2dButton; text: "New 2D"; tip: "Start a new flat effect"; onClicked: root.guard(function() { app.newEffect(false) }) }
+                VButton { id: new3dButton; text: "New 3D"; tip: "Start a new effect with depth"; onClicked: root.guard(function() { app.newEffect(true) }) }
+                VButton { id: shaderButton; text: "Shader"; tip: "Make a game shader: pick a look, adjust it, animate it, and export a material to Unity"; onClicked: shaderStudio.open = true }
                 VButton { text: "Open…"; tip: "Open a .vfx file"; onClicked: root.guard(function() { openDialog.open() }) }
                 VButton { text: "Save"; tip: "Save this effect"; enabled: app.dirty || !app.hasFile; onClicked: root.saveThen(null) }
                 VButton { text: "Save As…"; tip: "Save a copy under a new name"; onClicked: root.saveAsThen(null) }
@@ -253,7 +259,7 @@ ApplicationWindow {
                     tip: "Keep this effect in your own library, under the effect's name, to open or add to other effects later. The same name replaces the one there."
                     onClicked: app.saveToLibrary(viewport.viewState())
                 }
-                VButton { text: "Export…"; tip: "To Unity, or as animation frames (Ctrl/Cmd+E)"; onClicked: app.exportOpen = true }
+                VButton { id: exportButton; text: "Export…"; tip: "To Unity, or as animation frames (Ctrl/Cmd+E)"; onClicked: app.exportOpen = true }
                 // One-click changes to the whole effect, built on the
                 // animation principles. Locked layers are left alone.
                 VButton {
@@ -314,6 +320,7 @@ ApplicationWindow {
 
                 VButton { text: "Undo"; enabled: app.canUndo; tip: app.canUndo ? "Undo: " + app.undoName : "Nothing to undo"; onClicked: app.undo() }
                 VButton { text: "Redo"; enabled: app.canRedo; tip: app.canRedo ? "Redo: " + app.redoName : "Nothing to redo"; onClicked: app.redo() }
+                VButton { text: "Tour"; tip: "Show the first-run tour again"; onClicked: tour.start() }
 
                 Item { Layout.fillWidth: true }
 
@@ -349,6 +356,7 @@ ApplicationWindow {
 
             // ---- left: the effect and its layers
             Rectangle {
+                id: leftPanel
                 Layout.preferredWidth: 250
                 Layout.fillHeight: true
                 color: theme.panel
@@ -975,6 +983,7 @@ ApplicationWindow {
                 spacing: 0
 
                 Rectangle {
+                    id: viewportArea
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     color: app.previewBackground === "black" ? "#000000"
@@ -1273,6 +1282,7 @@ ApplicationWindow {
 
                 // ---- transport: the scrub bar, then the buttons
                 Rectangle {
+                    id: transportBar
                     Layout.fillWidth: true
                     Layout.preferredHeight: 76
                     color: theme.panel
@@ -1605,6 +1615,64 @@ ApplicationWindow {
                 font.pixelSize: theme.smallFontSize
             }
         }
+    }
+
+    // ------------------------------------------------- the first-run tour
+
+    Tour {
+        id: tour
+        finishText: "Open the Library"
+        onFinished: function(completed) {
+            app.markTourSeen()
+            if (completed || showLibraryAtStart)
+                app.libraryOpen = true
+        }
+        steps: [
+            { title: "Welcome to VFX Forge",
+              body: "Make game effects (sparkles, bursts, fire, magic, rewards) and send them straight to Unity. "
+                  + "This short tour shows the places you will use most. It takes about a minute.",
+              targets: [] },
+            { title: "Start from the Library",
+              body: "Over 150 ready-made effects, sorted by kind. Pick one and it opens here, fully editable. "
+                  + "It is the quickest way to a good result: choose something close, then make it yours.",
+              targets: [libraryButton] },
+            { title: "Or start fresh",
+              body: "From a reference rebuilds an effect from a picture, GIF or short video. New 2D is for flat "
+                  + "effects (UI, match-3, 2D games), New 3D for effects with depth, and Shader makes an animated "
+                  + "game material.",
+              targets: [referenceButton, new2dButton, new3dButton, shaderButton] },
+            { title: "Effects are made of layers",
+              body: "Each layer is one part of the effect: a flash, a ring of sparks, a puff of smoke. "
+                  + "Select a layer to change it. Show, hide, lock or group layers here.",
+              desk: "Right-click a layer for more: duplicate, group, delete.",
+              touch: "Touch and hold a layer for more: duplicate, group, delete.",
+              targets: [leftPanel] },
+            { title: "Watch it here",
+              body: "The effect plays in the preview. Drag the handles to move, turn or resize the selected layer.",
+              desk: "W, E and R switch between move, turn and size. Scroll to zoom, drag with the right button "
+                  + "to look around, double-click to reset the view.",
+              touch: "Pinch to zoom, drag with two fingers to look around, double-tap to reset the view.",
+              targets: [viewportArea] },
+            { title: "Play and scrub",
+              body: "Play, pause and restart the effect, or drag the bar to look at any moment of it.",
+              desk: "Space plays and pauses. The comma and full-stop keys step one frame.",
+              targets: [transportBar] },
+            { title: "Change how it looks",
+              body: "The settings of the selected layer: how many particles, how fast and how far they go, their "
+                  + "size, colour and shape, and how they change over their life. Every change shows at once.",
+              targets: [controlsPanel] },
+            { title: "Send it to your game",
+              body: "When it looks right, Export. Send the effect to a Unity project (URP or Built-in), "
+                  + "as a .unitypackage, or as animation frames and a sprite sheet.",
+              desk: "Choose your Unity project folder once and VFX Forge remembers it.",
+              touch: "On iPad the export is saved through the Files app, to iCloud Drive or another folder "
+                   + "you can open on your Mac.",
+              targets: [exportButton] },
+            { title: "You are ready",
+              body: "Open the Library and pick your first effect. You can see this tour again any time "
+                  + "with the Tour button at the top.",
+              targets: [] }
+        ]
     }
 
     // ------------------------------------------------------ the library

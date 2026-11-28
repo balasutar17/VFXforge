@@ -1938,6 +1938,10 @@ QVariantMap AppController::soundInfo() const {
     return info;
 }
 
+void AppController::markTourSeen() {
+    QSettings().setValue(QStringLiteral("tour/seen"), true);
+}
+
 void AppController::setSoundOn(bool on) {
     if (on == soundOn_) {
         return;

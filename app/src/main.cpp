@@ -13,6 +13,7 @@
 #include <QList>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QSettings>
 #include <QQmlError>
 #include <QQmlPropertyMap>
 #include <QQuickStyle>
@@ -168,6 +169,10 @@ int main(int argc, char* argv[]) {
     // A fresh start opens on the library. Opening a file goes straight to it.
     engine.rootContext()->setContextProperty(QStringLiteral("showLibraryAtStart"),
                                              !selfTest.enabled && fileToOpen.isEmpty());
+    // The tour, once, on the very first start (never during a self-test).
+    engine.rootContext()->setContextProperty(
+        QStringLiteral("showTourAtStart"),
+        !selfTest.enabled && fileToOpen.isEmpty() && !QSettings().value(QStringLiteral("tour/seen"), false).toBool());
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
 
     if (engine.rootObjects().isEmpty()) {
@@ -475,7 +480,41 @@ int main(int argc, char* argv[]) {
                             }
                             QDir(scratch).removeRecursively();
                             shaderStudio.setOpen(false);
-                            finish();
+                            // The first-run tour: a card in the middle, then
+                            // one pointing at a part of the window.
+                            QObject* tour = window->findChild<QObject*>(QStringLiteral("tour"));
+                            if (!tour) {
+                                out << "FAIL: the first-run tour is missing\n";
+                                selfTest.result = 1;
+                                finish();
+                                return;
+                            }
+                            controller.setLibraryOpen(false);
+                            const int steps = tour->property("steps").toList().size();
+                            QMetaObject::invokeMethod(tour, "showStep", Q_ARG(QVariant, 0));
+                            QTimer::singleShot(500, &application, [&, window, tour, steps, finish]() {
+                                capture(window, selfTest, QStringLiteral("-tour"), QStringLiteral("the tour's first card"));
+                                QMetaObject::invokeMethod(tour, "showStep", Q_ARG(QVariant, 4));
+                                QTimer::singleShot(600, &application, [&, window, tour, steps, finish]() {
+                                    capture(window, selfTest, QStringLiteral("-tour-preview"),
+                                            QStringLiteral("the tour pointing at the preview"));
+                                    QMetaObject::invokeMethod(tour, "showStep", Q_ARG(QVariant, 7));
+                                    QTimer::singleShot(600, &application, [&, window, tour, steps, finish]() {
+                                        capture(window, selfTest, QStringLiteral("-tour-export"),
+                                                QStringLiteral("the tour pointing at Export"));
+                                        const bool shown = tour->property("visible").toBool();
+                                        QMetaObject::invokeMethod(tour, "stop", Q_ARG(QVariant, false));
+                                        QTextStream tourOut(&selfTest.report);
+                                        tourOut << "first-run tour: " << steps << " steps, "
+                                                << (shown ? "shown" : "NOT SHOWN") << "\n";
+                                        if (steps < 5 || !shown) {
+                                            tourOut << "FAIL: the first-run tour did not show\n";
+                                            selfTest.result = 1;
+                                        }
+                                        finish();
+                                    });
+                                });
+                            });
                         });
                     });
                 });

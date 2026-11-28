@@ -430,6 +430,8 @@ public:
     Q_INVOKABLE void previewLayerSound();
     Q_INVOKABLE void stopPreview();
     // Sound module settings of the selected layer.
+    // The first-run tour has been seen (or skipped): do not show it again.
+    Q_INVOKABLE void markTourSeen();
     Q_INVOKABLE void setSoundNumber(const QString& key, double value);
     Q_INVOKABLE void setSoundChoice(const QString& key, const QString& value);
     Q_INVOKABLE void setSoundFlag(const QString& key, bool value);
