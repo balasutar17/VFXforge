@@ -17,6 +17,7 @@
 #include <QBuffer>
 #include <QFile>
 #include <QFileInfo>
+#include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
 #include <QtGlobal>
@@ -249,6 +250,14 @@ AppController::AppController(QObject* parent) : QObject(parent) {
         linkTimer_->start();
     });
     connect(linkTimer_, &QTimer::timeout, this, &AppController::reloadLinkedPictures);
+#if !defined(Q_OS_IOS)
+    inboxTimer_ = new QTimer(this);
+    inboxTimer_->setInterval(500);
+    connect(inboxTimer_, &QTimer::timeout, this, &AppController::scanLinkFolder);
+    QDir().mkpath(linkFolder());  // so Photoshop's panel can be pointed at it
+    scanLinkFolder();               // what is already there stays where it is
+    inboxTimer_->start();
+#endif
     connect(this, &AppController::documentChanged, budgetTimer_, qOverload<>(&QTimer::start));
     measureBudget();
     say(QStringLiteral("Ready. Pick an effect from the library, or shape this one with the controls on the right."));
@@ -2453,10 +2462,24 @@ bool AppController::usePicturePath(const QString& path) {
 
 // ------------------------------------------------------------ live link
 
+namespace {
+
+// A file's modification time and size, to tell whether it changed.
+QString stampOf(const QString& file) {
+    const QFileInfo info(file);
+    if (!info.exists()) {
+        return {};
+    }
+    return QString::number(info.lastModified().toMSecsSinceEpoch()) + QLatin1Char(':') + QString::number(info.size());
+}
+
+}  // namespace
+
 void AppController::linkPicture(const QString& path, vfx::Id layer) {
     unlinkLayer(layer);
     const QString file = QFileInfo(path).absoluteFilePath();
     links_[file].append(layer.value);
+    linkLoaded_.insert(file, stampOf(file));
     if (!linkWatcher_->files().contains(file)) {
         linkWatcher_->addPath(file);
     }
@@ -2467,6 +2490,7 @@ void AppController::unlinkLayer(vfx::Id layer) {
         it.value().removeAll(layer.value);
         if (it.value().isEmpty()) {
             linkWatcher_->removePath(it.key());
+            linkLoaded_.remove(it.key());
             it = links_.erase(it);
         } else {
             ++it;
@@ -2511,6 +2535,10 @@ void AppController::reloadLinkedPictures() {
         if (!linkWatcher_->files().contains(file)) {
             linkWatcher_->addPath(file);
         }
+        const QString stamp = stampOf(file);
+        if (stamp == linkLoaded_.value(file)) {
+            continue;  // already shown as it is now
+        }
         QString problem;
         QStringList notes;
         const QImage image = readPictureFile(file, &problem, &notes);
@@ -2523,6 +2551,7 @@ void AppController::reloadLinkedPictures() {
             }
             continue;
         }
+        linkLoaded_.insert(file, stamp);
         QList<quint64>& layers = links_[file];
         for (int i = layers.size() - 1; i >= 0; --i) {
             const vfx::Id layer{layers[i]};
@@ -2539,6 +2568,7 @@ void AppController::reloadLinkedPictures() {
         if (layers.isEmpty()) {
             linkWatcher_->removePath(file);
             links_.remove(file);
+            linkLoaded_.remove(file);
         }
     }
     if (!linkPending_.isEmpty()) {
@@ -2551,8 +2581,13 @@ void AppController::reloadLinkedPictures() {
 
 namespace {
 
-// Where Edit in Photoshop keeps the files it hands over.
+// Where Edit in Photoshop keeps the files it hands over, and where the
+// Photoshop panel sends to. VFX_FORGE_LINK_FOLDER moves it (for the self-test).
 QString linkFolder() {
+    const QString moved = qEnvironmentVariable("VFX_FORGE_LINK_FOLDER");
+    if (!moved.isEmpty()) {
+        return moved;
+    }
     const QString documents = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
     return QDir(documents).filePath(QStringLiteral("VFX Forge Link"));
 }
@@ -2585,6 +2620,57 @@ bool openInPhotoshop(const QString& file) {
 }
 
 }  // namespace
+
+QString AppController::linkFolderPath() const { return QDir::toNativeSeparators(linkFolder()); }
+
+void AppController::scanLinkFolder() {
+    const QString folder = linkFolder();
+    const bool fresh = folder != inboxFolder_;
+    if (fresh) {
+        // A new folder: what is in it already is not news.
+        inboxFolder_ = folder;
+        inboxSeen_.clear();
+        inboxSettling_.clear();
+    }
+    const QFileInfoList files = QDir(folder).entryInfoList(
+        {QStringLiteral("*.png"), QStringLiteral("*.psd"), QStringLiteral("*.psb"), QStringLiteral("*.webp"),
+         QStringLiteral("*.tga"), QStringLiteral("*.tif"), QStringLiteral("*.tiff")},
+        QDir::Files);
+    for (const QFileInfo& info : files) {
+        const QString file = info.absoluteFilePath();
+        const QString stamp = stampOf(file);
+        const QString before = inboxSeen_.value(file);
+        inboxSeen_.insert(file, stamp);
+        if (fresh) {
+            continue;
+        }
+        if (stamp != before) {
+            inboxSettling_.insert(file);  // wait until it stops changing
+            continue;
+        }
+        if (!inboxSettling_.remove(file)) {
+            continue;
+        }
+        if (links_.contains(file)) {
+            linkPending_.insert(file);  // a file a layer follows: update it
+            linkRetries_ = 0;
+            linkTimer_->start();
+            continue;
+        }
+        // Something new from Photoshop: it goes on the selected layer.
+        const vfx::Layer* layer = vfx::findLayer(session_.effect(), selectedLayerId());
+        if (!layer || !spriteModuleId().valid()) {
+            say(QStringLiteral("%1 arrived from Photoshop. Pick a layer that draws particles, then send it again.")
+                    .arg(info.fileName()));
+            continue;
+        }
+        const QString layerName = text(layer->name);
+        if (usePicturePath(file)) {
+            say(QStringLiteral("%1 from Photoshop is on the layer %2. Send it again to update it.")
+                    .arg(info.fileName(), layerName));
+        }
+    }
+}
 
 void AppController::editInPhotoshop() {
     const vfx::Id layerId = selectedLayerId();

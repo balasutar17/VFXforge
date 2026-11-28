@@ -1,0 +1,28 @@
+{
+  "manifestVersion": 5,
+  "id": "com.vfxforge.link",
+  "name": "VFX Forge Link",
+  "version": "1.0.0",
+  "main": "index.html",
+  "host": { "app": "PS", "minVersion": "24.0.0" },
+  "requiredPermissions": {
+    "localFileSystem": "request"
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "vfxforgeLink",
+      "label": { "default": "VFX Forge Link" },
+      "minimumSize": { "width": 230, "height": 260 },
+      "maximumSize": { "width": 2000, "height": 2000 },
+      "preferredDockedSize": { "width": 260, "height": 330 },
+      "preferredFloatingSize": { "width": 280, "height": 360 },
+      "icons": [
+        { "width": 23, "height": 23, "path": "icons/panel.png", "scale": [1, 2], "theme": ["all"], "species": ["chrome"] }
+      ]
+    }
+  ],
+  "icons": [
+    { "width": 48, "height": 48, "path": "icons/plugin.png", "scale": [1, 2], "theme": ["all"], "species": ["pluginList"] }
+  ]
+}

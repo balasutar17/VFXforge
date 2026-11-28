@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { padding: 10px 12px; color: var(--uxp-host-text-color); font-size: 12px; }
+  sp-button { width: 100%; margin-top: 8px; }
+  .hint { color: var(--uxp-host-text-color-secondary); margin: 4px 0 2px; line-height: 1.4; }
+  #status { margin-top: 12px; min-height: 34px; line-height: 1.4; }
+  #status.bad { color: #f0806a; }
+  .folder { margin-top: 14px; color: var(--uxp-host-text-color-secondary); word-break: break-all; }
+  .folder a { color: var(--uxp-host-link-text-color); cursor: pointer; }
+</style>
+</head>
+<body>
+  <sp-heading size="XS">Send to VFX Forge</sp-heading>
+  <div class="hint">Pick a layer in VFX Forge, then send from here. Sending the same thing again updates it there.</div>
+
+  <sp-button id="sendPicture" variant="cta">Send the whole picture</sp-button>
+  <sp-button id="sendLayer" variant="secondary">Send the selected layer</sp-button>
+  <sp-button id="sendSheet" variant="secondary">Send frames as a sprite sheet</sp-button>
+  <div class="hint">Frames are the layers in the selected group (or the top-level layers), bottom one first.</div>
+
+  <div id="status"></div>
+  <div class="folder">Folder: <span id="folderName">not chosen yet</span> · <a id="changeFolder">Change</a></div>
+  <script src="index.js"></script>
+</body>
+</html>

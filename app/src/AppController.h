@@ -459,6 +459,8 @@ public:
     Q_INVOKABLE void editInPhotoshop();
     // Stops updating the layer when its picture file is saved.
     Q_INVOKABLE void unlinkPicture();
+    // Where Edit in Photoshop and the Photoshop panel keep their files.
+    Q_INVOKABLE QString linkFolderPath() const;
     // Sprite-sheet settings of the selected layer's picture: columns, rows,
     // frames, fps (numbers), animate (life, loop, random), randomStart.
     Q_INVOKABLE void setPictureNumber(const QString& key, double value);
@@ -578,6 +580,14 @@ private:
     QFileSystemWatcher* linkWatcher_ = nullptr;
     QTimer* linkTimer_ = nullptr;
     QHash<QString, QList<quint64>> links_;
+    QHash<QString, QString> linkLoaded_;  // file -> its time and size when last read
+    // The folder Photoshop's VFX Forge Link panel sends to: a picture that
+    // arrives there goes onto the selected layer.
+    void scanLinkFolder();
+    QTimer* inboxTimer_ = nullptr;
+    QString inboxFolder_;
+    QHash<QString, QString> inboxSeen_;   // file -> time and size last looked at
+    QSet<QString> inboxSettling_;         // arrived or changed, waiting until it stops changing
     QSet<QString> linkPending_;
     int linkRetries_ = 0;
     vfx::Id spriteModuleId() const;

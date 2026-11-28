@@ -11,6 +11,7 @@
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QImage>
+#include <QColor>
 #include <QPainter>
 #include <QPolygonF>
 #include <QList>
@@ -556,6 +557,41 @@ int main(int argc, char* argv[]) {
                                     selfTest.result = 1;
                                 }
                                 controller.clearPicture();
+
+                                // The Photoshop panel's folder: a sheet sent
+                                // there lands on the selected layer.
+                                const QString inbox = QDir(folder).filePath(QStringLiteral("inbox"));
+                                QDir().mkpath(inbox);
+                                qputenv("VFX_FORGE_LINK_FOLDER", inbox.toUtf8());
+                                QElapsedTimer settle;
+                                settle.start();
+                                while (settle.elapsed() < 800) {  // let it look at the new folder first
+                                    QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+                                    QThread::msleep(20);
+                                }
+                                QImage sheet(96, 48, QImage::Format_RGBA8888);
+                                sheet.fill(QColor(255, 120, 40, 200));
+                                const bool saved = sheet.save(QDir(inbox).filePath(QStringLiteral("sent-flame_4x2.png")));
+                                QElapsedTimer arrived;
+                                arrived.start();
+                                while (arrived.elapsed() < 6000 &&
+                                       controller.pictureInfo().value(QStringLiteral("linked")).toString() !=
+                                           QStringLiteral("sent-flame_4x2.png")) {
+                                    QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+                                    QThread::msleep(20);
+                                }
+                                const QVariantMap got = controller.pictureInfo();
+                                const bool landed = saved && got.value(QStringLiteral("linked")).toString() == QStringLiteral("sent-flame_4x2.png") &&
+                                                    got.value(QStringLiteral("columns")).toInt() == 4 &&
+                                                    got.value(QStringLiteral("rows")).toInt() == 2;
+                                linkOut << "photoshop panel folder: sheet landed " << (landed ? "yes" : "NO") << " after "
+                                        << arrived.elapsed() << " ms (" << controller.message() << ")\n";
+                                if (!landed) {
+                                    linkOut << "FAIL: a picture sent to the link folder did not reach the layer\n";
+                                    selfTest.result = 1;
+                                }
+                                controller.clearPicture();
+                                qunsetenv("VFX_FORGE_LINK_FOLDER");
                                 QDir(folder).removeRecursively();
                             }
                             const int steps = tour->property("steps").toList().size();
