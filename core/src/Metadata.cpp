@@ -399,7 +399,7 @@ Registry::Registry() {
                       "question", "lightning", "shield", "sword", "paw", "zed", "infinity", "lock", "fish",
                       "holoticks", "holosegs", "holonodes", "holodisc", "scandisc", "holocylinder", "helix",
                       "energyring", "slicearc", "swirlarms", "arcbolt", "arcjag", "arcfork", "reticle",
-                      "lockring", "vstreaks", "ovalhalo", "hexnet"})
+                      "lockring", "vstreaks", "ovalhalo", "hexnet", "chainlink"})
             .help("What each particle looks like when it has no texture."),
         P("align", "Align", ValueKind::Enum, text("none"))
             .options({"none", "movement"})

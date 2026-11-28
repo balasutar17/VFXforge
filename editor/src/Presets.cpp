@@ -2477,6 +2477,302 @@ Effect coinFountain3d(const IdSource& id) {
     return e;
 }
 
+// ======================================================== match-3 pack
+// Gem clears in six colours, special pieces, combos and blockers. A tile is
+// about 1.2 units across, as for the other match-3 effects.
+
+// A gem breaking: a white flash, shards and tiny facets in its colour, a ring
+// and a few twinkles. `deep` is the gem's colour, `light` its pale shine.
+Effect gemClear(const IdSource& id, const char* name, unsigned deep, unsigned light) {
+    Effect e = begin(id, name, 0.9);
+    add(e, Make(id, "Flash").burst(1).life(0.14, 0.14).speed(0, 0).size(2.2, 2.2).color(0xffffff)
+               .gravity(0, 0).sizeOver({{0, 0.4}, {0.35, 1.0}, {1, 1.1}}).fade({{0, 1}, {1, 0}}).additive().glow(1.5));
+    add(e, Make(id, "Glow").burst(1).life(0.3, 0.3).speed(0, 0).size(2.6, 2.6).color(light)
+               .gravity(0, 0).sizeOver({{0, 0.5}, {1, 1.1}}).fade({{0, 0.8}, {1, 0}}).additive());
+    add(e, Make(id, "Ring").burst(1).life(0.26, 0.26).speed(0, 0).size(2.6, 2.6).color(light)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {1, 1}}).fade({{0, 1}, {0.6, 0.7}, {1, 0}}).look("ring").additive().glow(1.3));
+    add(e, Make(id, "Shards").burst(8).circle(0.25).life(0.4, 0.65).speed(4, 7.5).aim(90, 180)
+               .size(0.4, 0.6).turn(0, 360).spin(-700, 700).color(deep).gravity(0, -10).drag(1.0)
+               .sizeOver({{0, 1}, {0.75, 1}, {1, 0}}).solid().look("shard").sound("pop", false, 0.0, 0.9, 2.0));
+    add(e, Make(id, "Facets").burst(10).circle(0.3).life(0.3, 0.5).speed(2.5, 5.5).aim(90, 180)
+               .size(0.18, 0.28).turn(0, 360).spin(-500, 500).color(light).gravity(0, -6).drag(1.5)
+               .sizeOver({{0, 1}, {1, 0}}).solid().look("gem"));
+    add(e, Make(id, "Twinkles").burst(5, 0.05).circle(0.7).life(0.3, 0.5).speed(0.3, 1.2).aim(90, 180)
+               .size(0.4, 0.7).turn(0, 45).color(0xffffff).gravity(0, 0)
+               .sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.4));
+    return e;
+}
+
+Effect gemClearRed(const IdSource& id) { return gemClear(id, "Red Gem Clear", 0xff2d4a, 0xffb3bf); }
+Effect gemClearBlue(const IdSource& id) { return gemClear(id, "Blue Gem Clear", 0x2b7bff, 0xb3d4ff); }
+Effect gemClearGreen(const IdSource& id) { return gemClear(id, "Green Gem Clear", 0x22c55e, 0xb6f5c8); }
+Effect gemClearYellow(const IdSource& id) { return gemClear(id, "Yellow Gem Clear", 0xffc61a, 0xfff0a8); }
+Effect gemClearPurple(const IdSource& id) { return gemClear(id, "Purple Gem Clear", 0x9b4dff, 0xdcc2ff); }
+Effect gemClearOrange(const IdSource& id) { return gemClear(id, "Orange Gem Clear", 0xff7a1a, 0xffcf9e); }
+
+// Two striped pieces swapped: beams along the row and the column at once.
+Effect crossBlast(const IdSource& id) {
+    Effect e = begin(id, "Cross Blast", 1.1);
+    add(e, Make(id, "Flash").burst(1).life(0.2, 0.2).speed(0, 0).size(3.4, 3.4).color(0xffffff)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {0.3, 1}, {1, 1.1}}).fade({{0, 1}, {1, 0}}).look("starflash")
+               .additive().glow(1.6).sound("zap", false, 0.0, 0.9));
+    for (const bool across : {true, false}) {
+        const char* n = across ? "Row" : "Column";
+        for (const double heading : {across ? 0.0 : 90.0, across ? 180.0 : 270.0}) {
+            add(e, Make(id, (std::string(n) + " glow").c_str()).burst(1).life(0.42, 0.42).speed(30, 30)
+                       .aim(heading, 0).size(2.2, 2.2).color(0xffb84a).gravity(0, 0).fade({{0, 0.8}, {1, 0}})
+                       .look("streak").additive().glow(1.4).streak(0.34));
+            add(e, Make(id, (std::string(n) + " core").c_str()).burst(1).life(0.4, 0.4).speed(30, 30)
+                       .aim(heading, 0).size(0.9, 0.9).color(0xfff6d8).gravity(0, 0).fade({{0, 1}, {0.6, 1}, {1, 0}})
+                       .look("streak").additive().glow(2.2).streak(0.30));
+        }
+        add(e, Make(id, (std::string(n) + " sparks").c_str()).burst(36).line(across ? -6 : 0, across ? 0 : -6,
+                   across ? 6 : 0, across ? 0 : 6)
+                   .life(0.25, 0.5).speed(1.5, 4).aim(across ? 90 : 0, 180).size(0.1, 0.18).color(0xffd36b).drag(2)
+                   .gravity(0, 0).fade({{0, 1}, {1, 0}}).look("spark").additive().glow(1.6).streak(0.05));
+    }
+    add(e, Make(id, "Twinkles").burst(10, 0.08).rect(8, 8).life(0.3, 0.5).speed(0, 0.3).size(0.4, 0.7)
+               .turn(0, 45).color(0xffffff).gravity(0, 0).sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid()
+               .look("twinkle").additive().glow(1.4));
+    return e;
+}
+
+// A wrapped piece clearing the 3 x 3 around it: a square shock, a flash and chunks.
+Effect areaBlast(const IdSource& id) {
+    Effect e = begin(id, "Area Blast", 1.2);
+    add(e, Make(id, "Flash").burst(1).life(0.22, 0.22).speed(0, 0).size(4.4, 4.4).color(0xfff4d0)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {0.3, 1}, {1, 1.1}}).fade({{0, 1}, {1, 0}}).additive().glow(1.6)
+               .sound("boom", false, 0.0, 0.8));
+    add(e, Make(id, "Square shock").burst(1).life(0.35, 0.35).speed(0, 0).size(4.8, 4.8).color(0xffc94a)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {1, 1.05}}).fade({{0, 1}, {0.6, 0.7}, {1, 0}}).look("frame")
+               .additive().glow(1.4));
+    add(e, Make(id, "Shock ring").burst(1, 0.05).life(0.4, 0.4).speed(0, 0).size(6.5, 6.5).color(0xffffff)
+               .gravity(0, 0).sizeOver({{0, 0.2}, {1, 1}}).fade({{0, 0.8}, {1, 0}}).look("shockwave").additive());
+    add(e, Make(id, "Chunks").burst(16).circle(0.6).life(0.5, 0.8).speed(5, 9).aim(90, 180).size(0.3, 0.5)
+               .turn(0, 360).spin(-600, 600).color(0xff8a3d).gravity(0, -12).drag(0.8)
+               .tint({{0, 1.3, 1.2, 1.0, 1}, {1, 0.8, 0.7, 0.7, 1}}).sizeOver({{0, 1}, {0.8, 1}, {1, 0}}).solid().look("candy"));
+    add(e, Make(id, "Smoke").burst(8, 0.05).circle(0.8).life(0.6, 0.9).speed(1, 2.5).aim(90, 180).size(1.2, 1.8)
+               .turn(0, 360).color(0xfffaf0, 0.6).drag(2).gravity(0, 0.5).sizeOver({{0, 0.5}, {1, 1.3}})
+               .fade({{0, 0.8}, {1, 0}}).look("puffball"));
+    return e;
+}
+
+// The colour bomb: a swirling orb that zaps lightning out to every piece of one colour.
+Effect colourBomb(const IdSource& id) {
+    Effect e = begin(id, "Colour Bomb", 1.4);
+    add(e, Make(id, "Orb glow").burst(1).life(1.0, 1.0).speed(0, 0).size(3.2, 3.2).color(0xc79bff)
+               .gravity(0, 0).sizeOver({{0, 0.4}, {0.2, 1}, {0.8, 1}, {1, 1.4}}).fade({{0, 0.9}, {0.8, 0.8}, {1, 0}}).additive());
+    add(e, Make(id, "Orb").burst(1).life(0.9, 0.9).speed(0, 0).size(1.4, 1.4).turn(0, 0).spin(540, 540)
+               .color(0xffffff).gravity(0, 0).sizeOver({{0, 0.6}, {0.2, 1}, {0.85, 1.05}, {1, 0}}).solid()
+               .look("swirl").sound("electric-loop", false, 0.0, 0.7));
+    add(e, Make(id, "Bolts").rate(14).from(0.15, 0.7).life(0.12, 0.2).speed(0, 0).circle(0.1).size(3.2, 4.4)
+               .turn(0, 360).color(0xd9c2ff).gravity(0, 0).fade({{0, 1}, {1, 0}}).look("arcbolt").additive().glow(1.8));
+    add(e, Make(id, "Zapped pieces").rate(10).from(0.2, 0.7).rect(7, 7).life(0.25, 0.35).speed(0, 0).size(1.0, 1.4)
+               .turn(0, 45).color(0xffffff).gravity(0, 0).sizeOver({{0, 0.2}, {0.3, 1}, {1, 0}}).solid()
+               .look("starflash").additive().glow(1.6));
+    add(e, Make(id, "Rainbow sparks").burst(30, 0.9).circle(0.4).life(0.4, 0.7).speed(4, 8).aim(90, 180)
+               .size(0.14, 0.24).color(0xffffff).drag(2).gravity(0, -3)
+               .tint({{0, 1, 0.35, 0.45, 1}, {0.33, 1, 0.85, 0.3, 1}, {0.66, 0.4, 0.8, 1, 1}, {1, 0.75, 0.45, 1, 1}})
+               .fade({{0, 1}, {1, 0}}).look("spark").additive().glow(1.7).streak(0.05));
+    add(e, Make(id, "Final flash").burst(1, 0.9).life(0.25, 0.25).speed(0, 0).size(5, 5).color(0xffffff)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {0.3, 1}, {1, 1.1}}).fade({{0, 1}, {1, 0}}).look("starflash")
+               .additive().glow(1.6));
+    return e;
+}
+
+// A special piece forming where a match was made: sparkles drawn inward, a swirl, a ping.
+Effect specialMade(const IdSource& id) {
+    Effect e = begin(id, "Special Piece Made", 1.0);
+    add(e, Make(id, "Gathering ring").burst(1).life(0.4, 0.4).speed(0, 0).size(3.0, 3.0).color(0xfff0b8)
+               .gravity(0, 0).sizeOver({{0, 1}, {1, 0.25}}).fade({{0, 0}, {0.3, 0.9}, {1, 0.6}}).look("softring").additive().glow(1.3));
+    add(e, Make(id, "Drawn in").burst(14).circle(1.5, true).life(0.38, 0.42).speed(-4.2, -3.6).sendOut()
+               .size(0.25, 0.4).color(0xffe27a).gravity(0, 0).sizeOver({{0, 0.6}, {0.8, 1}, {1, 0}}).solid()
+               .look("twinkle").additive().glow(1.5).streak(0.04));
+    add(e, Make(id, "Ping").burst(1, 0.4).life(0.3, 0.3).speed(0, 0).size(2.6, 2.6).color(0xffffff)
+               .gravity(0, 0).sizeOver({{0, 0}, {0.3, 1.1}, {0.6, 1}, {1, 0}}).solid().look("starfour")
+               .additive().glow(1.7).sound("sparkle", false, 0.4, 0.9));
+    add(e, Make(id, "Swirl").burst(1, 0.4).life(0.5, 0.5).speed(0, 0).size(2.0, 2.0).spin(360, 360).color(0xffd86b)
+               .gravity(0, 0).sizeOver({{0, 0.4}, {1, 1.2}}).fade({{0, 0.9}, {1, 0}}).look("spiral").additive().glow(1.3));
+    add(e, Make(id, "Halo").burst(1, 0.4).life(0.6, 0.6).speed(0, 0).size(2.4, 2.4).color(0xffe9a0)
+               .gravity(0, 0).sizeOver({{0, 0.6}, {1, 1.1}}).fade({{0, 0.7}, {1, 0}}).additive());
+    return e;
+}
+
+// Two pieces swapping places: a quick white glint across them.
+Effect swapShine(const IdSource& id) {
+    Effect e = begin(id, "Swap Shine", 0.4);
+    add(e, Make(id, "Glint").burst(1).at(-0.6, 0).life(0.22, 0.22).speed(5.5, 5.5).aim(0, 0).size(0.9, 0.9)
+               .color(0xffffff).gravity(0, 0).fade({{0, 0}, {0.3, 1}, {1, 0}}).look("streak").additive().glow(1.6).streak(0.06)
+               .sound("whoosh", false, 0.0, 0.4));
+    add(e, Make(id, "Back glint").burst(1).at(0.6, 0).life(0.22, 0.22).speed(5.5, 5.5).aim(180, 0).size(0.7, 0.7)
+               .color(0xfff4c8).gravity(0, 0).fade({{0, 0}, {0.3, 0.8}, {1, 0}}).look("streak").additive().glow(1.4).streak(0.06));
+    add(e, Make(id, "Twinkle").burst(1, 0.12).life(0.22, 0.22).speed(0, 0).size(0.9, 0.9).color(0xffffff)
+               .gravity(0, 0).sizeOver({{0, 0}, {0.4, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.5));
+    return e;
+}
+
+// A swap that makes no match: a small grey puff each side as the pieces bump back.
+Effect noMatch(const IdSource& id) {
+    Effect e = begin(id, "No Match", 0.6);
+    for (const double side : {-0.6, 0.6}) {
+        add(e, Make(id, side < 0 ? "Left puff" : "Right puff").burst(4, 0.1).at(side, -0.2).circle(0.15).life(0.35, 0.5)
+                   .speed(0.6, 1.4).aim(side < 0 ? 180 : 0, 50).size(0.35, 0.55).turn(0, 360).color(0xc9cdd6, 0.7)
+                   .drag(3).gravity(0, 0.4).sizeOver({{0, 0.5}, {1, 1.2}}).fade({{0, 0.8}, {1, 0}}).look("puffball"));
+    }
+    add(e, Make(id, "Bump").burst(1, 0.1).life(0.2, 0.2).speed(0, 0).size(1.2, 1.2).color(0xe4e7ee)
+               .gravity(0, 0).sizeOver({{0, 0.5}, {1, 1}}).fade({{0, 0.5}, {1, 0}}).look("ring").additive()
+               .sound("hit", false, 0.1, 0.35));
+    return e;
+}
+
+// A collected piece flying along a curve to the goal counter, top right, and a pop there.
+Effect collectToGoal(const IdSource& id) {
+    Effect e = begin(id, "Collect to Goal", 1.2);
+    const PointList curve{{{0, 0}, {0.6, 1.4}, {1.6, 2.6}, {2.8, 3.4}, {4.0, 3.8}}};
+    add(e, Make(id, "Piece").path(curve, false).travel(1.25, 0.002).from(0, 0.8).rate(60).life(0.034, 0.034).speed(0, 0)
+               .size(0.9, 0.9).color(0xffd23f).gravity(0, 0).solid().look("star").glow(1.2));
+    add(e, Make(id, "Trail").path(curve, false).travel(1.25, 0.03).from(0, 0.8).rate(90).life(0.25, 0.4).speed(0, 0.3)
+               .aim(90, 180).size(0.25, 0.45).turn(0, 45).color(0xfff0a0).gravity(0, 0)
+               .sizeOver({{0, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.4));
+    add(e, Make(id, "Arrival ring").burst(1, 0.8).at(4.0, 3.8).life(0.3, 0.3).speed(0, 0).size(2.0, 2.0).color(0xfff3b0)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {1, 1}}).fade({{0, 1}, {1, 0}}).look("ring").additive().glow(1.4)
+               .sound("collect", false, 0.8, 0.9));
+    add(e, Make(id, "Arrival sparks").burst(10, 0.8).at(4.0, 3.8).life(0.3, 0.45).speed(2, 4).aim(90, 180).size(0.3, 0.5)
+               .turn(0, 45).color(0xffe27a).drag(3).gravity(0, 0).sizeOver({{0, 1}, {1, 0}}).solid().look("twinkle")
+               .additive().glow(1.4));
+    return e;
+}
+
+// A slow sparkle over the whole board while the player thinks. Loops.
+Effect boardTwinkle(const IdSource& id) {
+    Effect e = begin(id, "Board Twinkle", 4.0);
+    add(e, Make(id, "Twinkles").rate(4).rect(10, 10).life(0.6, 1.0).speed(0, 0.1).size(0.4, 0.8).turn(0, 45)
+               .color(0xffffff).gravity(0, 0).sizeOver({{0, 0}, {0.4, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.4));
+    add(e, Make(id, "Glints").rate(2).rect(10, 10).life(0.8, 1.2).speed(0, 0).size(1.0, 1.6).turn(0, 0)
+               .color(0xfff3c4).gravity(0, 0).sizeOver({{0, 0}, {0.5, 1}, {1, 0}}).fade({{0, 0}, {0.5, 0.5}, {1, 0}})
+               .look("glint").additive());
+    tools::smoothLoop(e);
+    return e;
+}
+
+// ---- combos: the same burst, bigger and brighter each step.
+Effect comboBurst(const IdSource& id, const char* name, int level) {
+    const double k = 1.0 + 0.45 * (level - 1);
+    Effect e = begin(id, name, 1.2 + 0.2 * level);
+    add(e, Make(id, "Rays").burst(1).life(0.7 + 0.15 * level, 0.7 + 0.15 * level).speed(0, 0).size(4.5 * k, 4.5 * k)
+               .spin(60, 60).color(level == 3 ? 0xffd23f : 0xfff0b0).gravity(0, 0).sizeOver({{0, 0.3}, {0.25, 1}, {1, 1.1}})
+               .fade({{0, 0}, {0.15, 0.7}, {0.7, 0.5}, {1, 0}}).look("rays").additive());
+    add(e, Make(id, "Flash").burst(1).life(0.22, 0.22).speed(0, 0).size(3.2 * k, 3.2 * k).color(0xffffff)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {0.3, 1}, {1, 1.1}}).fade({{0, 1}, {1, 0}}).look("starflash").additive().glow(1.6)
+               .sound(level >= 3 ? "level-up" : "sparkle", false, 0.0, 0.9));
+    add(e, Make(id, "Stars").burst(6 + 4 * level).circle(0.3).life(0.5, 0.8).speed(3.5 * k, 6.5 * k).aim(90, 180)
+               .size(0.35, 0.6).turn(0, 360).spin(-300, 300).color(0xffd23f).drag(2.2).gravity(0, -2)
+               .sizeOver({{0, 0.5}, {0.15, 1.1}, {0.3, 1}, {1, 0}}).solid().look("star").glow(1.2));
+    add(e, Make(id, "Twinkles").burst(8 * level, 0.05).circle(1.2 * k).life(0.3, 0.6).speed(0.2, 1).aim(90, 180)
+               .size(0.4, 0.8).turn(0, 45).color(0xffffff).gravity(0, 0).sizeOver({{0, 0}, {0.3, 1}, {1, 0}}).solid()
+               .look("twinkle").additive().glow(1.5));
+    if (level >= 2) {
+        add(e, Make(id, "Ring").burst(1).life(0.4, 0.4).speed(0, 0).size(4.0 * k, 4.0 * k).color(0xfff3b0)
+                   .gravity(0, 0).sizeOver({{0, 0.2}, {1, 1}}).fade({{0, 1}, {1, 0}}).look("ring").additive().glow(1.3));
+    }
+    if (level >= 3) {
+        add(e, Make(id, "Confetti").burst(36, 0.05).circle(0.4).life(1.2, 1.8).speed(6, 10).aim(90, 70).size(0.18, 0.3)
+                   .turn(0, 360).spin(-600, 600).color(0xffffff).drag(1.6).gravity(0, -4)
+                   .tint({{0, 1, 0.3, 0.45, 1}, {0.33, 1, 0.85, 0.2, 1}, {0.66, 0.3, 0.75, 1, 1}, {1, 0.45, 0.9, 0.45, 1}})
+                   .fade({{0, 1}, {0.85, 1}, {1, 0}}).look("confetti").turbulence(0.8, 1.4, 0.6));
+    }
+    return e;
+}
+
+Effect comboGood(const IdSource& id) { return comboBurst(id, "Combo Good", 1); }
+Effect comboGreat(const IdSource& id) { return comboBurst(id, "Combo Great", 2); }
+Effect comboAmazing(const IdSource& id) { return comboBurst(id, "Combo Amazing", 3); }
+
+// ---- blockers
+
+Effect iceCrack(const IdSource& id) {
+    Effect e = begin(id, "Ice Crack", 1.0);
+    add(e, Make(id, "Crack").burst(1).life(0.18, 0.18).speed(0, 0).size(1.6, 1.6).turn(0, 360).color(0xffffff)
+               .gravity(0, 0).fade({{0, 1}, {1, 0}}).look("crack").additive().glow(1.5).sound("hit", false, 0.0, 0.6));
+    add(e, Make(id, "Frost flash").burst(1, 0.12).life(0.25, 0.25).speed(0, 0).size(2.4, 2.4).color(0xbfeaff)
+               .gravity(0, 0).sizeOver({{0, 0.4}, {1, 1.1}}).fade({{0, 0.9}, {1, 0}}).additive().glow(1.3));
+    add(e, Make(id, "Ice shards").burst(10, 0.12).circle(0.4).life(0.45, 0.7).speed(3.5, 7).aim(90, 180)
+               .size(0.25, 0.45).turn(0, 360).spin(-600, 600).color(0xa8e4ff).gravity(0, -12).drag(0.6)
+               .sizeOver({{0, 1}, {0.8, 1}, {1, 0}}).solid().look("glass").sound("pop", false, 0.12, 0.7, 2.0));
+    add(e, Make(id, "Ice chips").burst(14, 0.12).circle(0.4).life(0.3, 0.5).speed(2, 5).aim(90, 180).size(0.08, 0.14)
+               .turn(0, 360).color(0xffffff).gravity(0, -8).drag(1).sizeOver({{0, 1}, {1, 0}}).solid().look("shard"));
+    add(e, Make(id, "Frost mist").burst(5, 0.12).circle(0.5).life(0.6, 0.9).speed(0.4, 1.0).aim(90, 180).size(1.0, 1.5)
+               .turn(0, 360).color(0xdff6ff, 0.5).drag(2).gravity(0, 0.3).sizeOver({{0, 0.6}, {1, 1.3}})
+               .fade({{0, 0.7}, {1, 0}}).look("smoke"));
+    add(e, Make(id, "Snowflakes").burst(4, 0.15).circle(0.6).life(0.5, 0.7).speed(0.3, 0.8).aim(90, 180).size(0.25, 0.4)
+               .turn(0, 60).spin(-90, 90).color(0xffffff).gravity(0, -0.5).sizeOver({{0, 0}, {0.2, 1}, {1, 0}}).solid()
+               .look("snowflake").additive().glow(1.2));
+    return e;
+}
+
+Effect chainSnap(const IdSource& id) {
+    Effect e = begin(id, "Chain Snap", 1.0);
+    add(e, Make(id, "Snap flash").burst(1).life(0.14, 0.14).speed(0, 0).size(1.8, 1.8).color(0xfff6d8)
+               .gravity(0, 0).sizeOver({{0, 0.4}, {1, 1.1}}).fade({{0, 1}, {1, 0}}).look("starflash").additive().glow(1.6)
+               .sound("hit", false, 0.0, 0.8));
+    add(e, Make(id, "Links").burst(6).line(-0.9, 0.9, 0.9, -0.9).life(0.6, 0.9).speed(3, 6).aim(90, 75).size(0.65, 0.85)
+               .turn(0, 360).spin(-500, 500).color(0xd6dce6).gravity(0, -12).drag(0.4)
+               .sizeOver({{0, 1}, {0.85, 1}, {1, 0}}).solid().look("chainlink"));
+    add(e, Make(id, "Metal sparks").burst(18).circle(0.2).life(0.2, 0.4).speed(4, 8).aim(90, 180).size(0.06, 0.1)
+               .color(0xffe08a).drag(2).gravity(0, -6).tint({{0, 1.4, 1.4, 1.4, 1}, {1, 1, 0.7, 0.4, 1}})
+               .fade({{0, 1}, {1, 0}}).look("spark").additive().glow(1.8).streak(0.04));
+    add(e, Make(id, "Dust").burst(4).circle(0.3).life(0.5, 0.7).speed(0.4, 1).aim(90, 180).size(0.7, 1.0)
+               .turn(0, 360).color(0xf2efe8, 0.5).drag(2).gravity(0, 0.3).sizeOver({{0, 0.6}, {1, 1.3}})
+               .fade({{0, 0.7}, {1, 0}}).look("puffball"));
+    return e;
+}
+
+Effect crateBreak(const IdSource& id) {
+    Effect e = begin(id, "Crate Break", 1.1);
+    add(e, Make(id, "Impact").burst(1).life(0.15, 0.15).speed(0, 0).size(2.0, 2.0).color(0xfff0d0)
+               .gravity(0, 0).fade({{0, 0.9}, {1, 0}}).look("impact").additive().glow(1.4).sound("hit", false, 0.0, 0.9));
+    add(e, Make(id, "Planks").burst(5).rect(0.8, 0.8).life(0.6, 0.9).speed(3.5, 6.5).aim(90, 70).size(0.55, 0.8)
+               .turn(0, 360).spin(-400, 400).color(0xb8783e).gravity(0, -13).drag(0.3)
+               .sizeOver({{0, 1}, {0.85, 1}, {1, 0}}).solid().look("brick"));
+    add(e, Make(id, "Splinters").burst(14).circle(0.4).life(0.4, 0.7).speed(3, 7).aim(90, 180).size(0.22, 0.4)
+               .turn(0, 360).spin(-700, 700).color(0xd99a5b).gravity(0, -11).drag(0.6)
+               .sizeOver({{0, 1}, {0.8, 1}, {1, 0}}).solid().look("splinter"));
+    add(e, Make(id, "Dust").burst(6, 0.04).circle(0.5).life(0.6, 0.9).speed(0.8, 1.8).aim(90, 180).size(1.0, 1.5)
+               .turn(0, 360).color(0xfff0dc, 0.55).drag(2).gravity(0, 0.4).sizeOver({{0, 0.5}, {1, 1.3}})
+               .fade({{0, 0.8}, {1, 0}}).look("puffball"));
+    return e;
+}
+
+Effect chocolateSplat(const IdSource& id) {
+    Effect e = begin(id, "Chocolate Splat", 1.0);
+    add(e, Make(id, "Splat").burst(1).life(0.6, 0.6).speed(0, 0).size(2.4, 2.4).turn(0, 360).color(0x6b3a1e)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {0.12, 1.0, true}, {1, 1.05}}).fade({{0, 1}, {0.6, 1}, {1, 0}})
+               .look("splat").sound("splat", false, 0.0, 0.8));
+    add(e, Make(id, "Blobs").burst(10).circle(0.3).life(0.4, 0.7).speed(3, 6).aim(90, 180).size(0.2, 0.38)
+               .turn(0, 360).color(0x7a4424).gravity(0, -10).drag(0.6).sizeOver({{0, 1}, {0.8, 1}, {1, 0}}).solid()
+               .look("droplet").streak(0.02));
+    add(e, Make(id, "Crumbs").burst(8).circle(0.3).life(0.4, 0.6).speed(2, 5).aim(90, 180).size(0.12, 0.2)
+               .turn(0, 360).spin(-400, 400).color(0x4e2914).gravity(0, -10).sizeOver({{0, 1}, {1, 0}}).solid().look("pebble"));
+    add(e, Make(id, "Shine").burst(3).circle(0.5).life(0.25, 0.35).speed(0, 0).size(0.4, 0.6).turn(0, 45)
+               .color(0xffe2c4).gravity(0, 0).sizeOver({{0, 0}, {0.4, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.2));
+    return e;
+}
+
+Effect honeyBurst(const IdSource& id) {
+    Effect e = begin(id, "Honey Burst", 1.2);
+    add(e, Make(id, "Splash").burst(1).life(0.5, 0.5).speed(0, 0).size(2.2, 2.2).turn(0, 0).color(0xf2a51a)
+               .gravity(0, 0).sizeOver({{0, 0.3}, {0.15, 1.0, true}, {1, 1.05}}).fade({{0, 1}, {0.6, 1}, {1, 0}})
+               .look("splash").sound("splat", false, 0.0, 0.7));
+    add(e, Make(id, "Drops").burst(12).circle(0.3).life(0.6, 1.0).speed(2.5, 5).aim(90, 120).size(0.22, 0.36)
+               .color(0xffb72e).gravity(0, -9).drag(0.8).sizeOver({{0, 1}, {0.85, 1}, {1, 0}}).solid().look("drop")
+               .glow(1.15).streak(0.03));
+    add(e, Make(id, "Drips").burst(5, 0.25).rect(1.4, 0.2).at(0, -0.4).life(0.7, 1.0).speed(0.2, 0.6).aim(270, 10)
+               .size(0.18, 0.28).color(0xe8930f).gravity(0, -3).sizeOver({{0, 0.5}, {0.3, 1}, {1, 0.9}}).solid().look("droplet"));
+    add(e, Make(id, "Gloss").burst(3).circle(0.5).life(0.3, 0.4).speed(0, 0).size(0.4, 0.6).turn(0, 45)
+               .color(0xfff4c8).gravity(0, 0).sizeOver({{0, 0}, {0.4, 1}, {1, 0}}).solid().look("twinkle").additive().glow(1.3));
+    return e;
+}
+
 struct Entry {
     PresetInfo info;
     Effect (*build)(const IdSource&);
@@ -3157,6 +3453,28 @@ const std::vector<Entry>& table() {
         {describe("sweet-celebration", "Sweet Celebration", "Match-3", "Candy thrown up across the screen for a level win.", 0, 3.4f, 8, 0.9), sweetCelebration},
         {describe("collect-sparkle", "Collect Sparkle", "Match-3", "A piece arriving at its goal.", 0, 0, 4.4f, 0.12), collectSparkle},
         {describe("hint-glow", "Hint Glow", "Match-3", "A soft pulse with twinkles, to point at a move.", 0, 0, 4.4f, 0.6), hintGlow},
+        {describe("gem-clear-red", "Red Gem Clear", "Gem Clears", "A red gem breaking into shards and facets.", 0, 0, 5, 0.12), gemClearRed},
+        {describe("gem-clear-blue", "Blue Gem Clear", "Gem Clears", "A blue gem breaking into shards and facets.", 0, 0, 5, 0.12), gemClearBlue},
+        {describe("gem-clear-green", "Green Gem Clear", "Gem Clears", "A green gem breaking into shards and facets.", 0, 0, 5, 0.12), gemClearGreen},
+        {describe("gem-clear-yellow", "Yellow Gem Clear", "Gem Clears", "A yellow gem breaking into shards and facets.", 0, 0, 5, 0.12), gemClearYellow},
+        {describe("gem-clear-purple", "Purple Gem Clear", "Gem Clears", "A purple gem breaking into shards and facets.", 0, 0, 5, 0.12), gemClearPurple},
+        {describe("gem-clear-orange", "Orange Gem Clear", "Gem Clears", "An orange gem breaking into shards and facets.", 0, 0, 5, 0.12), gemClearOrange},
+        {describe("cross-blast", "Cross Blast", "Match-3 Specials", "Two striped pieces: beams along the row and the column at once.", 0, 0, 12, 0.15), crossBlast},
+        {describe("area-blast", "Area Blast", "Match-3 Specials", "A wrapped piece clearing the 3 x 3 around it.", 0, 0, 8, 0.12), areaBlast},
+        {describe("colour-bomb", "Colour Bomb", "Match-3 Specials", "A swirling orb zapping lightning to every piece of one colour.", 0, 0, 8.5f, 0.5), colourBomb},
+        {describe("special-made", "Special Piece Made", "Match-3 Specials", "Sparkles drawn in, a swirl and a ping as a special piece forms.", 0, 0, 5, 0.42), specialMade},
+        {describe("swap-shine", "Swap Shine", "Match-3 Specials", "A quick glint across two pieces as they swap.", 0, 0, 3.5f, 0.1), swapShine},
+        {describe("no-match", "No Match", "Match-3 Specials", "Small grey puffs as a swap that makes no match bumps back.", 0, 0, 3.5f, 0.2), noMatch},
+        {describe("collect-to-goal", "Collect to Goal", "Match-3 Specials", "A piece flying along a curve to the goal counter, with a pop there.", 2.0f, 1.9f, 6.5f, 0.45), collectToGoal},
+        {describe("board-twinkle", "Board Twinkle", "Match-3 Specials", "A slow sparkle over the board while the player thinks.", 0, 0, 11, 2.0), boardTwinkle},
+        {describe("combo-good", "Combo Good", "Combos", "A first combo: rays, a flash and stars.", 0, 0, 7, 0.25), comboGood},
+        {describe("combo-great", "Combo Great", "Combos", "A bigger combo, with a ring and more stars.", 0, 0, 9, 0.25), comboGreat},
+        {describe("combo-amazing", "Combo Amazing", "Combos", "The biggest combo: golden rays, stars and confetti.", 0, 0, 12, 0.3), comboAmazing},
+        {describe("ice-crack", "Ice Crack", "Blockers", "An ice blocker cracking into shards, chips and frost.", 0, 0, 5.5f, 0.2), iceCrack},
+        {describe("chain-snap", "Chain Snap", "Blockers", "A chain blocker snapping: links fly, sparks and dust.", 0, 0, 6, 0.2), chainSnap},
+        {describe("crate-break", "Crate Break", "Blockers", "A wooden crate breaking into planks and splinters.", 0, 0, 6.5f, 0.2), crateBreak},
+        {describe("chocolate-splat", "Chocolate Splat", "Blockers", "A chocolate blocker splatting into blobs and crumbs.", 0, 0, 5, 0.15), chocolateSplat},
+        {describe("honey-burst", "Honey Burst", "Blockers", "A honey blocker bursting into glossy drops that drip.", 0, 0, 5, 0.2), honeyBurst},
 
         {describe("starburst-flare", "Starburst Flare", "Light and energy", "A white-hot star of thin rays in a blue halo.", 0, 0, 5.6f, 0.1), starburstFlare},
         {describe("reward-rays", "Reward Rays", "Light and energy", "Slowly turning golden rays to put behind a reward.", 0, 0, 7, 1.5), rewardRays},

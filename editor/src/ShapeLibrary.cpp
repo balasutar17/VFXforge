@@ -1373,6 +1373,21 @@ ShapeSample brick(float x, float y, float px) {
     return s;
 }
 
+ShapeSample chainLink(float x, float y, float px) {
+    // One link of a chain, stood on its end: a thick oval loop of metal, lit
+    // from the top left, with a bright streak down its near side.
+    const P q = turned(x, y, -20.0f);
+    const auto d = [](float u, float v) { return std::fabs(sdRound(u, v, 0.46f, 0.86f, 0.44f)) - 0.13f; };
+    ShapeSample s = flat([&d](float u, float v) { const P r = turned(u, v, -20.0f); return d(r.x, r.y); },
+                         x, y, px, 0.35f, 0.45f, 0.1f);
+    const float inner = sdRound(q.x, q.y, 0.46f, 0.86f, 0.44f);
+    const float rim = edge(std::fabs(inner) - 0.035f, px) * s.cover;
+    const float streak = gloss(q.x, q.y, -0.42f, 0.1f, 0.05f, 0.4f, px, 0.0f) * s.cover;
+    s.tone = (s.tone + 0.35f * rim + 0.4f * streak) * s.cover;
+    s.shine = 0.75f * streak;
+    return s;
+}
+
 // ============================================================== symbols
 
 ShapeSample arrow(float x, float y, float px) {
@@ -2716,6 +2731,7 @@ const std::vector<Entry>& entries() {
         {{"vstreaks", "Light shaft", "Sci-fi"}, vStreaks},
         {{"ovalhalo", "Oval halo", "Sci-fi"}, ovalHalo},
         {{"hexnet", "Net sphere", "Sci-fi"}, hexNet},
+        {{"chainlink", "Chain link", "Hits and debris"}, chainLink},
     };
     return list;
 }

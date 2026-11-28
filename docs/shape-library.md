@@ -14,7 +14,7 @@ and a picker that lets you find one by name.
 | **Water and nature** (15) | Bubble, Drop, Splat, Droplet, Splash, Ripple, Wave, Leaf, Petal, Flower, Clover, Snowflake, Feather, Pebble, Rain streak |
 | **Candy and rewards** (21) | Heart, Orb, Candy, Swirl, Bean, Coin, Gem, Emerald, Crystal, Crown, Trophy, Key, Gift, Ribbon, Confetti, Balloon, Donut, Bonbon, Medal, Music note, Cherry |
 | **Magic** (19) | Shockwave, Shard ring, Vortex, Sigil, Pentacle, Triad, Spiral, Hex shield, Eye, Moon, Wing, Skull, Octagram, Portal ring, Crosshair, Yin and yang, three Runes |
-| **Hits and debris** (12) | Crescent, Shard, Slash, Claw marks, Crack, Impact lines, Rock, Splinter, Glass shard, Gear, Bone, Brick |
+| **Hits and debris** (13) | Crescent, Shard, Slash, Claw marks, Crack, Impact lines, Rock, Splinter, Glass shard, Gear, Bone, Brick, Chain link |
 | **Symbols** (12) | Arrow, Chevron, Tick, Exclamation, Question, Lightning, Shield, Sword, Paw, Sleep, Infinity, Lock |
 
 ## Choosing a shape
